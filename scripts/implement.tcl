@@ -16,6 +16,6 @@ place_design
 phys_opt_design
 route_design
 
-write_bitstream $ROOT/bitstreams/ipbus_only.bit
+write_bitstream -force $ROOT/bitstreams/ipbus_only.bit
 
 start_gui
