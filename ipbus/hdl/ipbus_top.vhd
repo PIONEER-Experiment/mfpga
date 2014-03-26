@@ -111,7 +111,7 @@ begin
 		);
 		
 	mac_addr <= X"020ddba11583"; -- Careful here, arbitrary addresses do not always work
-	ip_addr <= X"c0a80083"; -- 192.168.0.131
+	ip_addr <= X"c0a82032"; -- 192.168.32.50
 
 -- ipbus slaves live in the entity below, and can expose top-level ports
 -- The ipbus fabric is instantiated within.
@@ -123,7 +123,8 @@ begin
 		ipb_out => ipb_master_in,
 		rst_out => sys_rst,
 		pkt_rx => pkt_rx,
-		pkt_tx => pkt_tx
+		pkt_tx => pkt_tx,
+		debug => debug(3 downto 2)
 	);
 
 end rtl;

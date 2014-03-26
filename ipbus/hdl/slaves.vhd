@@ -18,7 +18,8 @@ entity slaves is
 		eth_err_ctrl: out std_logic_vector(35 downto 0);
 		eth_err_stat: in std_logic_vector(47 downto 0) := X"000000000000";
 		pkt_rx: in std_logic := '0';
-		pkt_tx: in std_logic := '0'
+		pkt_tx: in std_logic := '0';
+		debug: out std_logic_vector (1 downto 0)
 	);
 
 end slaves;
@@ -55,6 +56,8 @@ begin
 		);
 		
 		rst_out <= ctrl_reg(0);
+		debug(0) <= ctrl_reg(2);
+		debug(1) <= ctrl_reg(3);
 
 -- Slave 1: register
 
