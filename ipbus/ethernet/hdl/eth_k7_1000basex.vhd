@@ -108,6 +108,7 @@ END COMPONENT;
 	signal clk125: std_logic;
 	signal mac_rst, phy_done, mmcm_locked, locked_int, sig_det: std_logic;
 	signal status: std_logic_vector(15 downto 0);
+	signal phy_config: std_logic_vector(4 downto 0) := (others => '0');
 
 begin
 
@@ -145,6 +146,10 @@ begin
 
 	sig_det <= not sig_detn;
 
+	-- make sure phy is isolated when it first starts
+	phy_config(3) <= not phy_done;
+	-- phy_config(1) <= '1'; -- loopback
+
 	phy: gig_ethernet_pcs_pma_0
 		port map(
 			gtrefclk_p => gt_clkp,
@@ -169,7 +174,7 @@ begin
 			gmii_rx_dv => gmii_rx_dv,
 			gmii_rx_er => gmii_rx_er,
 			gmii_isolate => open,
-			configuration_vector => "00010",
+			configuration_vector => phy_config,
 			status_vector => status,
 			reset => rsti,
 			signal_detect => sig_det
