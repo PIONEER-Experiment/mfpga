@@ -14,7 +14,7 @@ entity ipbus_top is port(
 	gt_rxp, gt_rxn: in std_logic;
 	sfp_los: in std_logic;
 	rst_out: out std_logic;
-	debug: out std_logic_vector(3 downto 0);
+	debug: out std_logic_vector(5 downto 0);
 	
 	-- clocks
 	clk_200: in std_logic;
@@ -27,7 +27,8 @@ end ipbus_top;
 architecture rtl of ipbus_top is
 
 	signal clk_125_int: std_logic;
-	signal eth_locked: std_logic;
+	signal eth_locked, eth_link: std_logic;
+	signal eth_rx_err: std_logic_vector(2 downto 0);
 	signal rst_125, rst_ipb, rst_eth: std_logic;
 	signal mac_tx_data, mac_rx_data: std_logic_vector(7 downto 0);
 	signal mac_tx_valid, mac_tx_last, mac_tx_error, mac_tx_ready, mac_rx_valid, mac_rx_last, mac_rx_error: std_logic;
@@ -41,15 +42,13 @@ begin
 
 	-- propagate reset to the rest of the design
 	rst_out <= sys_rst;
+
+	-- debug ports
 	debug(0) <= sys_rst;
 	debug(1) <= eth_locked;
+	debug(2) <= eth_link;
+	debug(5 downto 3) <= eth_rx_err;
 
---	DCM clock generation for internal bus, ethernet
--- Need clock generation here
--- generate:
-	-- clk200
-	-- ipb_clk
-	-- and the logic to propagate resets from the ipb_clk domain to the other domains
 	rst_125 <= sys_rst;
 	rst_ipb <= sys_rst;
 	rst_eth <= sys_rst;
@@ -80,7 +79,9 @@ begin
 			rx_data => mac_rx_data,
 			rx_valid => mac_rx_valid,
 			rx_last => mac_rx_last,
-			rx_error => mac_rx_error
+			rx_error => mac_rx_error,
+			link_status => eth_link,
+			eth_rx_err => eth_rx_err
 		);
 	
 -- ipbus control logic
@@ -111,7 +112,7 @@ begin
 		);
 		
 	mac_addr <= X"020ddba11583"; -- Careful here, arbitrary addresses do not always work
-	ip_addr <= X"c0a82032"; -- 192.168.32.50
+	ip_addr <= X"c0a820b7"; -- 192.168.32.50
 
 -- ipbus slaves live in the entity below, and can expose top-level ports
 -- The ipbus fabric is instantiated within.
@@ -124,7 +125,7 @@ begin
 		rst_out => sys_rst,
 		pkt_rx => pkt_rx,
 		pkt_tx => pkt_tx,
-		debug => debug(3 downto 2)
+		debug => open
 	);
 
 end rtl;

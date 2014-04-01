@@ -22,7 +22,7 @@ entity eth_k7_1000basex is
 		gt_clkp, gt_clkn: in std_logic;
 		gt_txp, gt_txn: out std_logic;
 		gt_rxp, gt_rxn: in std_logic;
-		sig_detn: in std_logic := '1';
+		sig_detn: in std_logic := '0';
 		clk200_bufg_in: in std_logic;
 		clk125_out: out std_logic;
 		rsti: in std_logic;
@@ -37,7 +37,9 @@ entity eth_k7_1000basex is
 		rx_last: out std_logic;
 		rx_error: out std_logic;
 		hostbus_in: in emac_hostbus_in := ('0', "00", "0000000000", X"00000000", '0', '0', '0');
-		hostbus_out: out emac_hostbus_out
+		hostbus_out: out emac_hostbus_out;
+		link_status: out std_logic;
+		eth_rx_err: out std_logic_vector(2 downto 0) -- various ethernet error bits
 	);
 
 end eth_k7_1000basex;
@@ -159,10 +161,14 @@ begin
 
 	clk125_out <= clk125;
 
-	locked_int <= mmcm_locked and phy_done;
-
+--	locked_int <= mmcm_locked and phy_done;
+    locked_int <= mmcm_locked;
+    
 	locked <= locked_int;
 	mac_rst <= (not locked_int) or rsti;
+
+	link_status <= status(0);
+	eth_rx_err <= status(6 downto 4); 
 
 	mac: soft_emac
 		port map(

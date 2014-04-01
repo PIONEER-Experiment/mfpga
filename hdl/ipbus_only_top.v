@@ -20,7 +20,7 @@ module ipbus_only_top(
     ) clk (
         .CLKIN1(clkin),
         .CLKOUT1(clk200_ub),
-        .LOCKED(debug[4]),
+        .LOCKED(debug[15]),
         .RST(rst_from_ipb),
         .CLKFBOUT(clkfb),
         .CLKFBIN(clkfb)
@@ -30,6 +30,8 @@ module ipbus_only_top(
         .O(clk200),
         .I(clk200_ub)
     );
+
+    assign debug[14] = clk125;
 
     // IPBus module
     ipbus_top ipb(
@@ -41,6 +43,6 @@ module ipbus_only_top(
         .clk_200(clk200),
         .clk_125(clk125), // output, already on bufg
         .ipb_clk(clk125),
-        .debug(debug[3:0])
+        .debug(debug[14:8])
     );
 endmodule
