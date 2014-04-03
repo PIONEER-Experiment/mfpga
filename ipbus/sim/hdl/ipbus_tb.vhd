@@ -75,6 +75,13 @@ begin
 
 
   clk <= not clk after 10 ns;
+
+  axi_r: process
+  begin
+    while true loop
+      axi_read(clk, axi_str_tx, axi_str_tx_tready, axi_rdata);
+    end loop;
+  end process;
   
   -----------------------------------------------------------------------
   -- Stage 1: CPU Simulator 
@@ -136,9 +143,11 @@ begin
       assert (wdata_buf = rdata_buf)
         report "Data read back does not equal data written" severity failure;
     
-      report "### Checking Channel Link ###"  & CR & LF;
+      report "### Checking AXI Write ###"  & CR & LF;
       ipbus_write(clk, oob_in, oob_out, BASE_ADD_CHAN, wdata);
-      axi_read(clk, axi_str_tx, axi_str_tx_tready, axi_rdata);
+      assert (axi_rdata(0) = wdata)
+        report "Data read back does not equal data written" severity failure;
+
       -- ipbus_block_read(clk, oob_in, oob_out, BASE_ADD_CHAN, rdata_buf, false);
       
       report "### Checking Read-Modify-Write ###"  & CR & LF;
