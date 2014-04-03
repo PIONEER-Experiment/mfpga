@@ -54,8 +54,7 @@ begin  -- architecture ipbus_axi_stream
             in_ready <= '1';
           end if;
           
-          if write_success='1' and do_write='0' then
-            -- finished writing, no new write
+          if write_success='1' then
             out_valid <= '0';
           end if;
 

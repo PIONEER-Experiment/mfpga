@@ -78,9 +78,7 @@ begin
 
   axi_r: process
   begin
-    while true loop
-      axi_read(clk, axi_str_tx, axi_str_tx_tready, axi_rdata);
-    end loop;
+    axi_read(clk, axi_str_tx, axi_str_tx_tready, axi_rdata);
   end process;
   
   -----------------------------------------------------------------------
