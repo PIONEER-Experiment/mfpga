@@ -24,6 +24,7 @@ entity eth_k7_1000basex is
 		gt_rxp, gt_rxn: in std_logic;
 		sig_detn: in std_logic := '0';
 		clk200_bufg_in: in std_logic;
+		gtrefclk_out: out std_logic;
 		clk125_out: out std_logic;
 		rsti: in std_logic;
 		locked: out std_logic;
@@ -39,7 +40,7 @@ entity eth_k7_1000basex is
 		hostbus_in: in emac_hostbus_in := ('0', "00", "0000000000", X"00000000", '0', '0', '0');
 		hostbus_out: out emac_hostbus_out;
 		link_status: out std_logic;
-		eth_rx_err: out std_logic_vector(2 downto 0) -- various ethernet error bits
+		debug: out std_logic_vector(2 downto 0) -- various ethernet error bits
 	);
 
 end eth_k7_1000basex;
@@ -168,7 +169,7 @@ begin
 	mac_rst <= (not locked_int) or rsti;
 
 	link_status <= status(0);
-	eth_rx_err <= status(6 downto 4); 
+	-- eth_rx_err <= status(6 downto 4); 
 
 	mac: soft_emac
 		port map(
@@ -199,13 +200,15 @@ begin
 
 	-- make sure phy is isolated when it first starts
 	phy_config(3) <= not phy_done;
+	debug(0) <= phy_done;
+	debug(2) <= mac_rst;
 	-- phy_config(1) <= '1'; -- loopback
 
 	phy: gig_ethernet_pcs_pma_0
 		port map(
 			gtrefclk_p => gt_clkp,
 			gtrefclk_n => gt_clkn,
-			gtrefclk_out => open,
+			gtrefclk_out => gtrefclk_out,
 			txp => gt_txp,
 			txn => gt_txn,
 			rxp => gt_rxp,
@@ -216,7 +219,7 @@ begin
 			rxuserclk_out => open,
 			rxuserclk2_out => open,
 			resetdone => phy_done,
-			pma_reset_out => open,
+			pma_reset_out => debug(1),
 			mmcm_locked_out => mmcm_locked,
 			gmii_txd => gmii_txd,
 			gmii_tx_en => gmii_tx_en,

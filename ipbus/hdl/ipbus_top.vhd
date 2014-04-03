@@ -8,6 +8,9 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use work.ipbus.ALL;
 
+library unisim;
+use unisim.VComponents.all;
+
 entity ipbus_top is port(
 	gt_clkp, gt_clkn: in std_logic;
 	gt_txp, gt_txn: out std_logic;
@@ -28,7 +31,7 @@ architecture rtl of ipbus_top is
 
 	signal clk_125_int: std_logic;
 	signal eth_locked, eth_link: std_logic;
-	signal eth_rx_err: std_logic_vector(2 downto 0);
+	signal eth_debug: std_logic_vector(2 downto 0);
 	signal rst_125, rst_ipb, rst_eth: std_logic;
 	signal mac_tx_data, mac_rx_data: std_logic_vector(7 downto 0);
 	signal mac_tx_valid, mac_tx_last, mac_tx_error, mac_tx_ready, mac_rx_valid, mac_rx_last, mac_rx_error: std_logic;
@@ -37,17 +40,25 @@ architecture rtl of ipbus_top is
 	signal mac_addr: std_logic_vector(47 downto 0);
 	signal ip_addr: std_logic_vector(31 downto 0);
 	signal pkt_rx, pkt_tx, pkt_rx_led, pkt_tx_led, sys_rst: std_logic;	
+	signal gtrefclk_out: std_logic;
+	signal gtrefclk_buf: std_logic;
 
 begin
 
 	-- propagate reset to the rest of the design
 	rst_out <= sys_rst;
 
+	buf: BUFG
+		port map(
+			I => gtrefclk_out,
+			O => gtrefclk_buf
+		);
+
 	-- debug ports
-	debug(0) <= sys_rst;
+	debug(0) <= gtrefclk_buf;
 	debug(1) <= eth_locked;
 	debug(2) <= eth_link;
-	debug(5 downto 3) <= eth_rx_err;
+	debug(5 downto 3) <= eth_debug;
 
 	rst_125 <= sys_rst;
 	rst_ipb <= sys_rst;
@@ -68,6 +79,7 @@ begin
 			gt_rxn => gt_rxn,
 			sig_detn => sfp_los,
 			clk200_bufg_in => clk_200,
+			gtrefclk_out => gtrefclk_out,
 			clk125_out => clk_125_int,
 			rsti => rst_eth,
 			locked => eth_locked,
@@ -81,7 +93,7 @@ begin
 			rx_last => mac_rx_last,
 			rx_error => mac_rx_error,
 			link_status => eth_link,
-			eth_rx_err => eth_rx_err
+			debug => eth_debug
 		);
 	
 -- ipbus control logic

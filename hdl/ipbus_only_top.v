@@ -43,6 +43,6 @@ module ipbus_only_top(
         .clk_200(clk200),
         .clk_125(clk125), // output, already on bufg
         .ipb_clk(clk125),
-        .debug(debug[14:8])
+        .debug(debug[13:8])
     );
 endmodule
