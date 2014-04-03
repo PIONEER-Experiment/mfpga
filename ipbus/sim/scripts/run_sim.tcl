@@ -9,3 +9,4 @@ set_property top ipbus_tb [get_filesets sim_1]
 set_property runtime 5us [get_filesets sim_1]
 
 launch_xsim -mode behavioral
+start_gui
