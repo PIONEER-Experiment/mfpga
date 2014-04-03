@@ -11,6 +11,12 @@ package axi_simulation is
 						signal axi_in_tready: out std_logic;
 						data: out type_ipbus_buffer
 					  );
+
+	procedure axi_write( signal clk: in std_logic;
+						 signal axi_out: out axi_stream;
+						 signal axi_out_tready: in std_logic;
+						 data: in type_ipbus_buffer
+					   );
 end package;
 
 package body axi_simulation is
@@ -39,5 +45,31 @@ package body axi_simulation is
 		end loop;
 		axi_in_tready <= '0';
     end procedure;
+
+	procedure axi_write( signal clk: in std_logic;
+						 signal axi_out: out axi_stream;
+						 signal axi_out_tready: in std_logic;
+						 data: in type_ipbus_buffer
+					   ) is
+
+		variable i: natural := 0;
+
+	begin
+		wait until rising_edge(clk);
+		while (i < data'length) loop
+			axi_out.tvalid <= '1';
+			axi_out.tdata <= data(i);
+			if (i = (data'length-1)) then
+				axi_out.tlast <= '1';
+			end if;
+			wait for 1ns;
+			if axi_out_tready = '1' then
+				i := i + 1;
+			end if;
+			wait until rising_edge(clk);
+		end loop;
+		axi_out.tvalid <= '0';
+		axi_out.tlast <= '0';
+    end procedure;    
 
 end axi_simulation;

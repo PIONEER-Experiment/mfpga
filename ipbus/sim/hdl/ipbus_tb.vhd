@@ -70,6 +70,7 @@ architecture behave of ipbus_tb is
   signal axi_str_tx_tready: std_logic := '0';
 
   shared variable axi_rdata: type_ipbus_buffer(4 downto 0) := (others => x"00000000");
+  shared variable axi_wdata: type_ipbus_buffer(4 downto 0) := (x"55555555", x"44444444", x"33333333", x"22222222", x"11111111");
 
 begin
 
@@ -79,6 +80,11 @@ begin
   axi_r: process
   begin
     axi_read(clk, axi_str_tx, axi_str_tx_tready, axi_rdata);
+  end process;
+
+  axi_w: process
+  begin
+    axi_write(clk, axi_str_rx, axi_str_rx_tready, axi_wdata);
   end process;
   
   -----------------------------------------------------------------------
@@ -146,7 +152,10 @@ begin
       assert (axi_rdata(0) = wdata)
         report "Data read back does not equal data written" severity failure;
 
-      -- ipbus_block_read(clk, oob_in, oob_out, BASE_ADD_CHAN, rdata_buf, false);
+      report "### Checking AXI Read ###"  & CR & LF;
+      ipbus_block_read(clk, oob_in, oob_out, BASE_ADD_CHAN, rdata_buf, false);
+      assert (rdata_buf = axi_wdata)
+        report "Data read back does not equal data written" severity failure;
       
       report "### Checking Read-Modify-Write ###"  & CR & LF;
       -- First just make sure register value set to a know value
