@@ -21,6 +21,7 @@ library work;
 use work.ipbus.all;
 use work.ipbus_trans_decl.all;
 use work.ipbus_simulation.all;
+use work.axi.all;
 
 entity ipbus_tb is
 end ipbus_tb;
@@ -30,7 +31,7 @@ architecture behave of ipbus_tb is
   -- The number of Out-Of-Band interfaces to the ipbus master (i.e. not from the Ethernet MAC)   
   constant N_OOB: natural := 1;
   -- The number of ipbus slaves used in this example. 
-  constant NSLV: positive := 4;
+  constant NSLV: positive := 5;
 
   -- Base addreses of ipbus slaves.  THis is defined in package "ipbus_addr_decode"
   constant BASE_ADD_CTRL_REG: std_logic_vector(31 downto 0) := x"00000000";
@@ -64,9 +65,10 @@ architecture behave of ipbus_tb is
   -- AXI4-Stream interface
   signal axi_str_rx: axi_stream;
   signal axi_str_rx_tready: std_logic;
-  signal axi_str_tx: axi_stream;s
+  signal axi_str_tx: axi_stream;
   signal axi_str_tx_tready: std_logic;
-    );
+
+  shared variable axi_rdata: type_ipbus_buffer(4 downto 0) := (others => x"00000000");
 
 begin
 
@@ -134,9 +136,8 @@ begin
         report "Data read back does not equal data written" severity failure;
     
       report "### Checking Channel Link ###"  & CR & LF;
-      wdata_buf := (x"55555555", x"44444444", x"33333333", x"22222222", x"11111111");
-      ipbus_block_write(clk, oob_in, oob_out, BASE_ADD_CHAN, wdata_buf, false);
-      ipbus_block_read(clk, oob_in, oob_out, BASE_ADD_CHAN, rdata_buf, false);
+      ipbus_write(clk, oob_in, oob_out, BASE_ADD_CHAN, wdata);
+      -- ipbus_block_read(clk, oob_in, oob_out, BASE_ADD_CHAN, rdata_buf, false);
       
       report "### Checking Read-Modify-Write ###"  & CR & LF;
       -- First just make sure register value set to a know value
@@ -302,14 +303,14 @@ begin
 
   slave4: entity work.ipbus_axi_stream
   port map(
-    clk => ipb_clk,
-    reset => ipb_rst,
+    clk => clk,
+    reset => rst,
     ipbus_in => ipbw(4),
     ipbus_out => ipbr(4),
     axi_str_in => axi_str_rx,
     axi_str_in_tready => axi_str_rx_tready,
     axi_str_out => axi_str_tx,
-    axi_str_out_tread => axi_str_tx_tready,
+    axi_str_out_tready => axi_str_tx_tready
   );
 
 

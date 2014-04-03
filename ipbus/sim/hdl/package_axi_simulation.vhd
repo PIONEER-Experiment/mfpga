@@ -1,16 +1,15 @@
-libary ieee;
+library ieee;
 use ieee.std_logic_1164.all;
 
+use work.ipbus.all; -- for type_ipbus_buffer
 use work.axi.all;
 
 package axi_simulation is
 
-	type type_axi_buffer is array(natural range <>) of std_logic_vector(31 downto 0);
-
 	procedure axi_read( signal clk: in std_logic;
 						signal axi_in: axi_stream;
 						signal axi_in_tready: out std_logic := 0;
-						data: out type_axi_buffer
+						data: out type_ipbus_buffer
 					  );
 end package;
 
@@ -19,7 +18,7 @@ package body axi_simulation is
 	procedure axi_read( signal clk: in std_logic;
 						signal axi_in: axi_stream;
 						signal axi_in_tready: out std_logic := 0;
-						data: out type_axi_buffer
+						data: out type_ipbus_buffer
 					  ) is
 
 		variable reading: boolean := false;
@@ -39,6 +38,6 @@ package body axi_simulation is
 			end if;
 		end loop;
 		axi_in_tready <= '0';
-
+    end procedure;
 
 end axi_simulation;

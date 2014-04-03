@@ -1,16 +1,10 @@
 library ieee;
-use ieee.std_logic_1164.all;
-use work.ipbus.all;
+use ieee.std_logic_1164.all; 
+use ieee.numeric_std.all;
 
-type axi_stream is record               -- Master-contolled lines in AXI4-Stream protocol
-                     tvalid : std_logic;
-                     tdata  : std_logic_vector(31 downto 0);
-                     tstrb  : std_logic_vector(3 downto 0);
-                     tkeep  : std_logic_vector(3 downto 0);
-                     tlast  : std_logic;
-                     tid    : std_logic_vector(3 downto 0);  -- Source ID
-                     tdest  : std_logic_vector(3 downto 0);  -- Destination ID
-                   end record axi_stream;
+library work;
+use work.ipbus.all;
+use work.axi.all;
 
 
 entity ipbus_axi_stream is
@@ -23,56 +17,61 @@ entity ipbus_axi_stream is
     axi_str_in : in axi_stream;
     axi_str_in_tready: out std_logic;
     axi_str_out: out axi_stream;
-    ax_str_out_tready: in std_logic;
-  )
+    axi_str_out_tready: in std_logic
+  );
 
-end entity ipbus_axi_stream;
+end entity;
 
-architecture ipbus_axi_stream of ipbus_axi_stream is
+architecture rtl of ipbus_axi_stream is
 
   signal write_success: std_logic := '0';
+  signal read_success: std_logic := '0';
   signal do_write: std_logic;
   signal do_read: std_logic;
+  signal out_valid: std_logic;
+  signal in_ready: std_logic;
 
 begin  -- architecture ipbus_axi_stream
 
-  do_write <= ipbus_in.ipb_strobe='1' and ipbus_in.ipb_write='1';
-  do_read <= ipbus_in.ipb_strobe='1' and ipbus_in.ipb_write='0';
+  do_write <= ipbus_in.ipb_strobe and ipbus_in.ipb_write;
+  do_read <= ipbus_in.ipb_strobe and not ipbus_in.ipb_write;
 
-  axi_str_out.tlast <= axi_str_out.tvalid;
+  axi_str_out.tlast <= out_valid;
+  axi_str_out.tvalid <= out_valid;
+  axi_str_in_tready <= in_ready;
 
   process(clk)
     begin
       if rising_edge(clk) then
         if reset='1' then
-          axi_str_out.tvalid <= '0';
-          axi_str_in_tready <= '0';
+          out_valid <= '0';
+          in_ready <= '0';
         else
           if do_write='1' then
             axi_str_out.tdata <= ipbus_in.ipb_wdata;
-            axi_str_out.tvalid <= '1';
+            out_valid <= '1';
           elsif do_read='1' then
-            axi_str_in_tready <= '1';
+            in_ready <= '1';
           end if;
           
           if write_success='1' and do_write='0' then
             -- finished writing, no new write
-            axi_str_out.tvalid <= '0';
+            out_valid <= '0';
           end if;
 
           if read_success='1' and do_read='0' then
             -- finished reading, no new read
-            axi_str_in_tready <= '0';
+            in_ready <= '0';
           end if;
         end if; -- reset
-        
+      end if; -- rising_edge(clk)
     end process;
 
-    write_success <= axi_str_out.tvalid and axi_str_out_tready;
-    read_success <= axi_str_in.tvalid and axi_str_in_tready;
+  write_success <= out_valid and axi_str_out_tready;
+  read_success <= axi_str_in.tvalid and in_ready;
 
-    ipbus_out.ipb_rdata <= axi_str_in.tdata;
+  ipbus_out.ipb_rdata <= axi_str_in.tdata;
 
-    ipbus_out.ipb_ack <= write_success or read_success;
+  ipbus_out.ipb_ack <= write_success or read_success;
 
-end architecture ipbus_axi_stream;
+end architecture;
