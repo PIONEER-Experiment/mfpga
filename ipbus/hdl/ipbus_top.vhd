@@ -18,6 +18,11 @@ entity ipbus_top is port(
 	sfp_los: in std_logic;
 	rst_out: out std_logic;
 	debug: out std_logic_vector(5 downto 0);
+        
+    axi_str_in : in axi_stream;
+    axi_str_in_tready: out std_logic;
+    axi_str_out: out axi_stream;
+    ax_str_out_tready: in std_logic;
 	
 	-- clocks
 	clk_200: in std_logic;

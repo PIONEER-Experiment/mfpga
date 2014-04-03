@@ -38,6 +38,7 @@ architecture behave of ipbus_tb is
   constant BASE_ADD_RAM: std_logic_vector(31 downto 0) := x"00001000";
   constant BASE_ADD_PEEP_PTR: std_logic_vector(31 downto 0) := x"00002000";
   constant BASE_ADD_PEEP: std_logic_vector(31 downto 0) := x"00002001";
+  constant BASE_ADD_CHAN: std_logic_vector(31 downto 0) := x"00003000";
 
  
   signal clk, rst: std_logic := '1'; 
@@ -59,6 +60,13 @@ architecture behave of ipbus_tb is
 
   -- A register...
 	signal ctrl: std_logic_vector(31 downto 0);
+
+  -- AXI4-Stream interface
+  signal axi_str_rx: axi_stream;
+  signal axi_str_rx_tready: std_logic;
+  signal axi_str_tx: axi_stream;s
+  signal axi_str_tx_tready: std_logic;
+    );
 
 begin
 
@@ -124,6 +132,11 @@ begin
       ipbus_block_read(clk, oob_in, oob_out, BASE_ADD_PEEP, rdata_buf, false);
       assert (wdata_buf = rdata_buf)
         report "Data read back does not equal data written" severity failure;
+    
+      report "### Checking Channel Link ###"  & CR & LF;
+      wdata_buf := (x"55555555", x"44444444", x"33333333", x"22222222", x"11111111");
+      ipbus_block_write(clk, oob_in, oob_out, BASE_ADD_CHAN, wdata_buf, false);
+      ipbus_block_read(clk, oob_in, oob_out, BASE_ADD_CHAN, rdata_buf, false);
       
       report "### Checking Read-Modify-Write ###"  & CR & LF;
       -- First just make sure register value set to a know value
@@ -286,6 +299,18 @@ begin
 			ipbus_in => ipbw(3),
 			ipbus_out => ipbr(3)
 		);
+
+  slave4: entity work.ipbus_axi_stream
+  port map(
+    clk => ipb_clk,
+    reset => ipb_rst,
+    ipbus_in => ipbw(4),
+    ipbus_out => ipbr(4),
+    axi_str_in => axi_str_rx,
+    axi_str_in_tready => axi_str_rx_tready,
+    axi_str_out => axi_str_tx,
+    axi_str_out_tread => axi_str_tx_tready,
+  );
 
 
 end behave;
