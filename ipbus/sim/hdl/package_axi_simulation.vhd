@@ -1,14 +1,14 @@
 library ieee;
 use ieee.std_logic_1164.all;
 
-use work.ipbus.all; -- for type_ipbus_buffer
+use work.ipbus_simulation.all; -- for type_ipbus_buffer
 use work.axi.all;
 
 package axi_simulation is
 
 	procedure axi_read( signal clk: in std_logic;
 						signal axi_in: axi_stream;
-						signal axi_in_tready: out std_logic := 0;
+						signal axi_in_tready: out std_logic;
 						data: out type_ipbus_buffer
 					  );
 end package;
@@ -17,7 +17,7 @@ package body axi_simulation is
 	
 	procedure axi_read( signal clk: in std_logic;
 						signal axi_in: axi_stream;
-						signal axi_in_tready: out std_logic := 0;
+						signal axi_in_tready: out std_logic;
 						data: out type_ipbus_buffer
 					  ) is
 

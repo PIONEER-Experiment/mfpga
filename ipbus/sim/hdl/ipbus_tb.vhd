@@ -22,6 +22,7 @@ use work.ipbus.all;
 use work.ipbus_trans_decl.all;
 use work.ipbus_simulation.all;
 use work.axi.all;
+use work.axi_simulation.all;
 
 entity ipbus_tb is
 end ipbus_tb;
@@ -64,9 +65,9 @@ architecture behave of ipbus_tb is
 
   -- AXI4-Stream interface
   signal axi_str_rx: axi_stream;
-  signal axi_str_rx_tready: std_logic;
+  signal axi_str_rx_tready: std_logic := '0';
   signal axi_str_tx: axi_stream;
-  signal axi_str_tx_tready: std_logic;
+  signal axi_str_tx_tready: std_logic := '0';
 
   shared variable axi_rdata: type_ipbus_buffer(4 downto 0) := (others => x"00000000");
 
@@ -137,6 +138,7 @@ begin
     
       report "### Checking Channel Link ###"  & CR & LF;
       ipbus_write(clk, oob_in, oob_out, BASE_ADD_CHAN, wdata);
+      axi_read(clk, axi_str_tx, axi_str_tx_tready, axi_rdata);
       -- ipbus_block_read(clk, oob_in, oob_out, BASE_ADD_CHAN, rdata_buf, false);
       
       report "### Checking Read-Modify-Write ###"  & CR & LF;
