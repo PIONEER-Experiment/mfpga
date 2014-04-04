@@ -8,7 +8,10 @@ use work.axi.all;
 
 
 entity ipbus_axi_stream is
-  
+  generic(
+    id: natural;
+    dest: natural
+  );
   port (
     clk       : in  std_logic;          -- ipbus clock
     reset     : in  std_logic;          -- ipbus reset
@@ -30,7 +33,6 @@ architecture rtl of ipbus_axi_stream is
   signal do_read: std_logic;
   signal ack: std_logic;
 
-  -- one clock behind write_success
   signal write_success_follow: std_logic;
 
 begin  -- architecture ipbus_axi_stream
@@ -41,12 +43,16 @@ begin  -- architecture ipbus_axi_stream
   write_success <= do_write and axi_str_out_tready;
   read_success <= axi_str_in.tvalid and do_read;
 
+  -- write_success_follow is one clock behind write_success
   follow: process(clk)
   begin
     if rising_edge(clk) then
       write_success_follow <= write_success;
     end if;
   end process;
+
+  axi_str_out.tid <= std_logic_vector(to_unsigned(id, 4));
+  axi_str_out.tdest <= std_logic_vector(to_unsigned(dest, 4));
 
   -- tlast is high when do_write goes low after a write_success
   axi_str_out.tlast <= write_success_follow and not do_write;

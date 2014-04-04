@@ -320,6 +320,10 @@ begin
 		);
 
   slave4: entity work.ipbus_axi_stream
+  generic map(
+    id => 1,
+    dest => 4
+  )
   port map(
     clk => clk,
     reset => rst,
