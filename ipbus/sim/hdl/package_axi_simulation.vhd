@@ -36,8 +36,10 @@ package body axi_simulation is
 			wait until rising_edge(clk);
 			axi_in_tready <= '1';
 			if axi_in.tvalid = '1' then
-				data(i) := axi_in.tdata;
-				i := i + 1;
+				if axi_in.tkeep /= "0000" then
+					data(i) := axi_in.tdata;
+					i := i + 1;
+				end if;
 				if axi_in.tlast = '1' then
 					reading := false;
 				end if;
@@ -55,6 +57,8 @@ package body axi_simulation is
 		variable i: natural := 0;
 
 	begin
+		axi_out.tkeep <= "1111";
+		axi_out.tlast <= '0';
 		wait until rising_edge(clk);
 		while (i < data'length) loop
 			axi_out.tvalid <= '1';

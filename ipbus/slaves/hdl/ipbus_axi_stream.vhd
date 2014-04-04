@@ -28,22 +28,51 @@ architecture rtl of ipbus_axi_stream is
   signal read_success: std_logic := '0';
   signal do_write: std_logic;
   signal do_read: std_logic;
+  signal ack: std_logic;
+
+  -- one clock behind write_success
+  signal write_success_follow: std_logic;
 
 begin  -- architecture ipbus_axi_stream
 
   do_write <= ipbus_in.ipb_strobe and ipbus_in.ipb_write;
   do_read <= ipbus_in.ipb_strobe and not ipbus_in.ipb_write;
 
-  axi_str_out.tlast <= do_write;
-  axi_str_out.tvalid <= do_write;
-  axi_str_in_tready <= do_read;
-
   write_success <= do_write and axi_str_out_tready;
   read_success <= axi_str_in.tvalid and do_read;
+
+  follow: process(clk)
+  begin
+    if rising_edge(clk) then
+      write_success_follow <= write_success;
+    end if;
+  end process;
+
+  -- tlast is high when do_write goes low after a write_success
+  axi_str_out.tlast <= write_success_follow and not do_write;
+  -- tvalid is high when do_write is high, plus one clock after to send the tlast
+  axi_str_out.tvalid <= do_write or write_success_follow;
+
+  -- make sure tkeep is only high when do_write is, so that the final tlast data is ignored
+  gen_tkeep_out: for i in 0 to 3 generate
+    axi_str_out.tkeep(i) <= do_write;
+  end generate;
+
+  axi_str_in_tready <= do_read;
+
+  -- zero out bytes there tkeep is low
+  -- note: tkeep is per-byte, hence the inner loop
+  gen_tkeep_in: for i in 0 to 3 generate
+    gen_tkeep_in_inner: for j in 0 to 7 generate
+      ipbus_out.ipb_rdata(8*i + j) <= axi_str_in.tdata(8*i + j) and axi_str_in.tkeep(i);
+    end generate;
+  end generate;
 
   ipbus_out.ipb_rdata <= axi_str_in.tdata;
   axi_str_out.tdata <= ipbus_in.ipb_wdata;
 
-  ipbus_out.ipb_ack <= write_success or read_success;
+  ack <= write_success or read_success;
+  ipbus_out.ipb_ack <= ack;
+
 
 end architecture;
