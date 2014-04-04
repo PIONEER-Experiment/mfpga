@@ -4,6 +4,8 @@ create_project -force ipbus_sim $ROOT/ipbus/project/
 
 source $ROOT/ipbus/read_hdl.tcl
 
+source read_ip.tcl
+
 read_vhdl [list $ROOT/ipbus/sim/hdl/ipbus_tb.vhd\
 				$ROOT/ipbus/sim/hdl/package_ipbus_simulation.vhd\
 				$ROOT/ipbus/sim/hdl/package_axi_simulation.vhd]

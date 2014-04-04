@@ -29,6 +29,30 @@ end ipbus_tb;
 
 architecture behave of ipbus_tb is
 
+  COMPONENT axis_data_fifo_ipbus_sim
+    PORT (
+      s_axis_aresetn : IN STD_LOGIC;
+      s_axis_aclk : IN STD_LOGIC;
+      s_axis_tvalid : IN STD_LOGIC;
+      s_axis_tready : OUT STD_LOGIC;
+      s_axis_tdata : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+      s_axis_tkeep : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
+      s_axis_tlast : IN STD_LOGIC;
+      s_axis_tid : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
+      s_axis_tdest : IN STD_LOGIC_VECTOR(3 DOWNTO 0);
+      m_axis_tvalid : OUT STD_LOGIC;
+      m_axis_tready : IN STD_LOGIC;
+      m_axis_tdata : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+      m_axis_tkeep : OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
+      m_axis_tlast : OUT STD_LOGIC;
+      m_axis_tid : OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
+      m_axis_tdest : OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
+      axis_data_count : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+      axis_wr_data_count : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+      axis_rd_data_count : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
+    );
+  END COMPONENT;
+
   -- The number of Out-Of-Band interfaces to the ipbus master (i.e. not from the Ethernet MAC)   
   constant N_OOB: natural := 1;
   -- The number of ipbus slaves used in this example. 
@@ -43,7 +67,8 @@ architecture behave of ipbus_tb is
   constant BASE_ADD_CHAN: std_logic_vector(31 downto 0) := x"00003000";
 
  
-  signal clk, rst: std_logic := '1'; 
+  signal clk, rst: std_logic := '1';
+  signal rstn: std_logic;
 
   -- The ipbus interface to the ipbus master.
   -- The record type "ipb_wbus" contains elements ipb_addr, ipb_wdata, ipb_strobe, ipb_write
@@ -64,28 +89,20 @@ architecture behave of ipbus_tb is
 	signal ctrl: std_logic_vector(31 downto 0);
 
   -- AXI4-Stream interface
-  signal axi_str_rx: axi_stream;
-  signal axi_str_rx_tready: std_logic := '0';
-  signal axi_str_tx: axi_stream;
-  signal axi_str_tx_tready: std_logic := '0';
+  signal axi_stream_to_ipbus: axi_stream;
+  signal axi_stream_to_ipbus_tready: std_logic := '0';
+  signal axi_stream_from_ipbus: axi_stream;
+  signal axi_stream_from_ipbus_tready: std_logic := '0';
 
   shared variable axi_rdata: type_ipbus_buffer(4 downto 0) := (others => x"00000000");
   shared variable axi_wdata: type_ipbus_buffer(4 downto 0) := (x"55555555", x"44444444", x"33333333", x"22222222", x"11111111");
 
 begin
 
+  rstn <= not rst;
+
 
   clk <= not clk after 10 ns;
-
-  axi_r: process
-  begin
-    axi_read(clk, axi_str_tx, axi_str_tx_tready, axi_rdata);
-  end process;
-
-  axi_w: process
-  begin
-    axi_write(clk, axi_str_rx, axi_str_rx_tready, axi_wdata);
-  end process;
   
   -----------------------------------------------------------------------
   -- Stage 1: CPU Simulator 
@@ -147,14 +164,11 @@ begin
       assert (wdata_buf = rdata_buf)
         report "Data read back does not equal data written" severity failure;
     
-      report "### Checking AXI Write ###"  & CR & LF;
-      ipbus_write(clk, oob_in, oob_out, BASE_ADD_CHAN, wdata);
-      assert (axi_rdata(0) = wdata)
-        report "Data read back does not equal data written" severity failure;
-
-      report "### Checking AXI Read ###"  & CR & LF;
+      report "### Checking AXI BlockWrite / BlockRead ###"  & CR & LF;
+      wdata_buf := (x"55555555", x"44444444", x"33333333", x"22222222", x"11111111");
+      ipbus_block_write(clk, oob_in, oob_out, BASE_ADD_CHAN, wdata_buf, false);
       ipbus_block_read(clk, oob_in, oob_out, BASE_ADD_CHAN, rdata_buf, false);
-      assert (rdata_buf = axi_wdata)
+      assert (wdata_buf = rdata_buf)
         report "Data read back does not equal data written" severity failure;
       
       report "### Checking Read-Modify-Write ###"  & CR & LF;
@@ -329,11 +343,34 @@ begin
     reset => rst,
     ipbus_in => ipbw(4),
     ipbus_out => ipbr(4),
-    axi_str_in => axi_str_rx,
-    axi_str_in_tready => axi_str_rx_tready,
-    axi_str_out => axi_str_tx,
-    axi_str_out_tready => axi_str_tx_tready
+    axi_str_in => axi_stream_to_ipbus,
+    axi_str_in_tready => axi_stream_to_ipbus_tready,
+    axi_str_out => axi_stream_from_ipbus,
+    axi_str_out_tready => axi_stream_from_ipbus_tready
   );
 
+
+  axis_fifo : axis_data_fifo_ipbus_sim
+    PORT MAP (
+      s_axis_aresetn => rstn,
+      s_axis_aclk => clk,
+      s_axis_tvalid => axi_stream_from_ipbus.tvalid,
+      s_axis_tready => axi_stream_from_ipbus_tready,
+      s_axis_tdata => axi_stream_from_ipbus.tdata,
+      s_axis_tkeep => axi_stream_from_ipbus.tkeep,
+      s_axis_tlast => axi_stream_from_ipbus.tlast,
+      s_axis_tid => axi_stream_from_ipbus.tid,
+      s_axis_tdest => axi_stream_from_ipbus.tdest,
+      m_axis_tvalid => axi_stream_to_ipbus.tvalid,
+      m_axis_tready => axi_stream_to_ipbus_tready,
+      m_axis_tdata => axi_stream_to_ipbus.tdata,
+      m_axis_tkeep => axi_stream_to_ipbus.tkeep,
+      m_axis_tlast => axi_stream_to_ipbus.tlast,
+      m_axis_tid => axi_stream_to_ipbus.tid,
+      m_axis_tdest => axi_stream_to_ipbus.tdest,
+      axis_data_count => open,
+      axis_wr_data_count => open,
+      axis_rd_data_count => open
+    );
 
 end behave;
