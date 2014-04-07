@@ -7,6 +7,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use work.ipbus.ALL;
+use work.axi.all;
 
 entity slaves is
 	port(
@@ -19,14 +20,19 @@ entity slaves is
 		eth_err_stat: in std_logic_vector(47 downto 0) := X"000000000000";
 		pkt_rx: in std_logic := '0';
 		pkt_tx: in std_logic := '0';
-		debug: out std_logic_vector (1 downto 0)
+		debug: out std_logic_vector (1 downto 0);
+
+	    axi_stream_in: in axi_stream;
+	    axi_stream_in_tready: out std_logic;
+	    axi_stream_out: out axi_stream;
+	    axi_stream_out_tready: in std_logic
 	);
 
 end slaves;
 
 architecture rtl of slaves is
 
-	constant NSLV: positive := 6;
+	constant NSLV: positive := 7;
 	signal ipbw: ipb_wbus_array(NSLV-1 downto 0);
 	signal ipbr, ipbr_d: ipb_rbus_array(NSLV-1 downto 0);
 	signal ctrl_reg: std_logic_vector(31 downto 0);
@@ -123,5 +129,22 @@ begin
 			ipbus_in => ipbw(5),
 			ipbus_out => ipbr(5)
 		);
+
+-- slave 6: AXI4-stream interface to Aurora IP
+	  slave6: entity work.ipbus_axi_stream
+	  generic map(
+	    id => 1,
+	    dest => 1
+	  )
+	  port map(
+	    clk => ipb_clk,
+	    reset => ipb_rst,
+	    ipbus_in => ipbw(6),
+	    ipbus_out => ipbr(6),
+	    axi_str_in => axi_stream_in,
+	    axi_str_in_tready => axi_stream_in_tready,
+	    axi_str_out => axi_stream_out,
+	    axi_str_out_tready => axi_stream_out_tready
+	  );
 
 end rtl;

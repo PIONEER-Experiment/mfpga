@@ -7,6 +7,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use work.ipbus.ALL;
+use work.axi.all;
 
 library unisim;
 use unisim.VComponents.all;
@@ -19,10 +20,23 @@ entity ipbus_top is port(
 	rst_out: out std_logic;
 	debug: out std_logic_vector(5 downto 0);
         
-    axi_str_in : in axi_stream;
-    axi_str_in_tready: out std_logic;
-    axi_str_out: out axi_stream;
-    ax_str_out_tready: in std_logic;
+    axi_stream_in_tvalid : in std_logic;
+    axi_stream_in_tdata : in std_logic_vector(31 downto 0);
+    axi_stream_in_tstrb  : in std_logic_vector(3 downto 0);
+    axi_stream_in_tkeep  : in std_logic_vector(3 downto 0);
+    axi_stream_in_tlast  : in std_logic;
+    axi_stream_in_tid    : in std_logic_vector(3 downto 0);
+    axi_stream_in_tdest  : in std_logic_vector(3 downto 0);
+    axi_stream_in_tready : out std_logic;
+
+    axi_stream_out_tvalid : out std_logic;
+    axi_stream_out_tdata : out std_logic_vector(31 downto 0);
+    axi_stream_out_tstrb  : out std_logic_vector(3 downto 0);
+    axi_stream_out_tkeep  : out std_logic_vector(3 downto 0);
+    axi_stream_out_tlast  : out std_logic;
+    axi_stream_out_tid    : out std_logic_vector(3 downto 0);
+    axi_stream_out_tdest  : out std_logic_vector(3 downto 0);
+    axi_stream_out_tready : in std_logic;
 	
 	-- clocks
 	clk_200: in std_logic;
@@ -47,6 +61,9 @@ architecture rtl of ipbus_top is
 	signal pkt_rx, pkt_tx, pkt_rx_led, pkt_tx_led, sys_rst: std_logic;	
 	signal gtrefclk_out: std_logic;
 	signal gtrefclk_buf: std_logic;
+
+    signal axi_stream_in: axi_stream;
+    signal axi_stream_out: axi_stream;
 
 begin
 
@@ -142,8 +159,28 @@ begin
 		rst_out => sys_rst,
 		pkt_rx => pkt_rx,
 		pkt_tx => pkt_tx,
-		debug => open
+		debug => open,
+	    axi_stream_in => axi_stream_in,
+	    axi_stream_in_tready => axi_stream_in_tready,
+	    axi_stream_out => axi_stream_out,
+	    axi_stream_out_tready => axi_stream_out_tready
 	);
 
+	-- break out axi signals
+	axi_stream_in.tvalid  <= axi_stream_in_tvalid;
+    axi_stream_in.tdata <=  axi_stream_in_tdata ;
+    axi_stream_in.tstrb  <= axi_stream_in_tstrb ;
+    axi_stream_in.tkeep  <= axi_stream_in_tkeep ;
+    axi_stream_in.tlast  <= axi_stream_in_tlast ;
+    axi_stream_in.tid  <= axi_stream_in_tid   ;
+    axi_stream_in.tdest <=  axi_stream_in_tdest ;
+
+    axi_stream_out_tvalid <= axi_stream_out.tvalid;
+    axi_stream_out_tdata <= axi_stream_out.tdata;
+    axi_stream_out_tstrb  <= axi_stream_out.tstrb;
+    axi_stream_out_tkeep  <= axi_stream_out.tkeep;
+    axi_stream_out_tlast  <= axi_stream_out.tlast;
+    axi_stream_out_tid    <= axi_stream_out.tid;
+    axi_stream_out_tdest  <= axi_stream_out.tdest;
 end rtl;
 
