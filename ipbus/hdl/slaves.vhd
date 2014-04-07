@@ -131,20 +131,20 @@ begin
 		);
 
 -- slave 6: AXI4-stream interface to Aurora IP
-	  slave6: entity work.ipbus_axi_stream
-	  generic map(
-	    id => 1,
-	    dest => 1
-	  )
-	  port map(
-	    clk => ipb_clk,
-	    reset => ipb_rst,
-	    ipbus_in => ipbw(6),
-	    ipbus_out => ipbr(6),
-	    axi_str_in => axi_stream_in,
-	    axi_str_in_tready => axi_stream_in_tready,
-	    axi_str_out => axi_stream_out,
-	    axi_str_out_tready => axi_stream_out_tready
-	  );
+	  -- slave6: entity work.ipbus_axi_stream
+	  -- generic map(
+	  --   id => 1,
+	  --   dest => 1
+	  -- )
+	  -- port map(
+	  --   clk => ipb_clk,
+	  --   reset => ipb_rst,
+	  --   ipbus_in => ipbw(6),
+	  --   ipbus_out => ipbr(6),
+	  --   axi_str_in => axi_stream_in,
+	  --   axi_str_in_tready => axi_stream_in_tready,
+	  --   axi_str_out => axi_stream_out,
+	  --   axi_str_out_tready => axi_stream_out_tready
+	  -- );
 
 end rtl;

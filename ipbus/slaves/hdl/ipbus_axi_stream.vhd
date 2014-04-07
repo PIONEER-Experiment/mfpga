@@ -64,6 +64,8 @@ begin  -- architecture ipbus_axi_stream
     axi_str_out.tkeep(i) <= do_write;
   end generate;
 
+  axi_str_out.tstrb <= (others => '0');
+
   axi_str_in_tready <= do_read;
 
   -- zero out bytes there tkeep is low
@@ -79,6 +81,7 @@ begin  -- architecture ipbus_axi_stream
 
   ack <= write_success or read_success;
   ipbus_out.ipb_ack <= ack;
+  ipbus_out.ipb_err <= '0';
 
 
 end architecture;
