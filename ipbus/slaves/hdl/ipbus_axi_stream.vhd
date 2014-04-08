@@ -1,6 +1,7 @@
 library ieee;
 use ieee.std_logic_1164.all; 
 use ieee.numeric_std.all;
+use ieee.std_logic_misc.all;
 
 library work;
 use work.ipbus.all;
@@ -41,7 +42,7 @@ begin  -- architecture ipbus_axi_stream
   do_read <= ipbus_in.ipb_strobe and not ipbus_in.ipb_write;
 
   write_success <= do_write and axi_str_out_tready;
-  read_success <= axi_str_in.tvalid and do_read;
+  read_success <= axi_str_in.tvalid and do_read and OR_REDUCE(axi_str_in.tkeep);
 
   -- write_success_follow is one clock behind write_success
   follow: process(clk)
