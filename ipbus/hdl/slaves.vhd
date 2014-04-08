@@ -16,8 +16,6 @@ entity slaves is
 		ipb_in: in ipb_wbus;
 		ipb_out: out ipb_rbus;
 		rst_out: out std_logic;
-		eth_err_ctrl: out std_logic_vector(35 downto 0);
-		eth_err_stat: in std_logic_vector(47 downto 0) := X"000000000000";
 		pkt_rx: in std_logic := '0';
 		pkt_tx: in std_logic := '0';
 		debug: out std_logic_vector (1 downto 0);
@@ -32,11 +30,10 @@ end slaves;
 
 architecture rtl of slaves is
 
-	constant NSLV: positive := 7;
+	constant NSLV: positive := 6;
 	signal ipbw: ipb_wbus_array(NSLV-1 downto 0);
 	signal ipbr, ipbr_d: ipb_rbus_array(NSLV-1 downto 0);
 	signal ctrl_reg: std_logic_vector(31 downto 0);
-	signal inj_ctrl, inj_stat: std_logic_vector(63 downto 0);
 
 begin
 
@@ -76,75 +73,56 @@ begin
 			ipbus_out => ipbr(1),
 			q => open
 		);
-			
--- Slave 2: ethernet error injection
 
-	slave3: entity work.ipbus_ctrlreg
-		generic map(
-			ctrl_addr_width => 1,
-			stat_addr_width => 1
-		)
-		port map(
-			clk => ipb_clk,
-			reset => ipb_rst,
-			ipbus_in => ipbw(2),
-			ipbus_out => ipbr(2),
-			d => inj_stat,
-			q => inj_ctrl
-		);
-		
-	eth_err_ctrl <= inj_ctrl(49 downto 32) & inj_ctrl(17 downto 0);
-	inj_stat <= X"00" & eth_err_stat(47 downto 24) & X"00" & eth_err_stat(23 downto 0);
-	
--- Slave 3: packet counters
-
-	slave5: entity work.ipbus_pkt_ctr
-		port map(
-			clk => ipb_clk,
-			reset => ipb_rst,
-			ipbus_in => ipbw(3),
-			ipbus_out => ipbr(3),
-			pkt_rx => pkt_rx,
-			pkt_tx => pkt_tx
-		);
-
--- Slave 4: 1kword RAM
+-- Slave 2: 1kword RAM
 
 	slave2: entity work.ipbus_ram
 		generic map(addr_width => 10)
 		port map(
 			clk => ipb_clk,
 			reset => ipb_rst,
-			ipbus_in => ipbw(4),
-			ipbus_out => ipbr(4)
+			ipbus_in => ipbw(2),
+			ipbus_out => ipbr(2)
 		);
-	
--- Slave 5: peephole RAM
 
-	slave4: entity work.ipbus_peephole_ram
+-- Slave 3: peephole RAM
+
+	slave3: entity work.ipbus_peephole_ram
 		generic map(addr_width => 10)
 		port map(
 			clk => ipb_clk,
 			reset => ipb_rst,
-			ipbus_in => ipbw(5),
-			ipbus_out => ipbr(5)
+			ipbus_in => ipbw(3),
+			ipbus_out => ipbr(3)
 		);
 
--- slave 6: AXI4-stream interface to Aurora IP
-	  -- slave6: entity work.ipbus_axi_stream
-	  -- generic map(
-	  --   id => 1,
-	  --   dest => 1
-	  -- )
-	  -- port map(
-	  --   clk => ipb_clk,
-	  --   reset => ipb_rst,
-	  --   ipbus_in => ipbw(6),
-	  --   ipbus_out => ipbr(6),
-	  --   axi_str_in => axi_stream_in,
-	  --   axi_str_in_tready => axi_stream_in_tready,
-	  --   axi_str_out => axi_stream_out,
-	  --   axi_str_out_tready => axi_stream_out_tready
-	  -- );
+-- Slave 4: packet counters
+
+	slave4: entity work.ipbus_pkt_ctr
+		port map(
+			clk => ipb_clk,
+			reset => ipb_rst,
+			ipbus_in => ipbw(4),
+			ipbus_out => ipbr(4),
+			pkt_rx => pkt_rx,
+			pkt_tx => pkt_tx
+		);
+
+-- slave 5: AXI4-stream interface to Aurora IP
+	  slave5: entity work.ipbus_axi_stream
+	  generic map(
+	    id => 0,
+	    dest => 0
+	  )
+	  port map(
+	    clk => ipb_clk,
+	    reset => ipb_rst,
+	    ipbus_in => ipbw(5),
+	    ipbus_out => ipbr(5),
+	    axi_str_in => axi_stream_in,
+	    axi_str_in_tready => axi_stream_in_tready,
+	    axi_str_out => axi_stream_out,
+	    axi_str_out_tready => axi_stream_out_tready
+	  );
 
 end rtl;

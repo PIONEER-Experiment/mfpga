@@ -76,7 +76,6 @@ begin  -- architecture ipbus_axi_stream
     end generate;
   end generate;
 
-  ipbus_out.ipb_rdata <= axi_str_in.tdata;
   axi_str_out.tdata <= ipbus_in.ipb_wdata;
 
   ack <= write_success or read_success;
