@@ -33,6 +33,7 @@ architecture rtl of slaves is
 	signal ipbw: ipb_wbus_array(NSLV-1 downto 0);
 	signal ipbr, ipbr_d: ipb_rbus_array(NSLV-1 downto 0);
 	signal ctrl_reg: std_logic_vector(31 downto 0);
+	signal stat_reg: std_logic_vector(31 downto 0);
 
 begin
 
@@ -45,19 +46,20 @@ begin
       ipb_from_slaves => ipbr
     );
 
--- Slave 0: id / rst reg
+-- Slave 0: status register
 
-	slave0: entity work.ipbus_ctrlreg
+	slave0: entity work.ipbus_status_reg
+		generic map(addr_width => 0)
 		port map(
 			clk => ipb_clk,
 			reset => ipb_rst,
 			ipbus_in => ipbw(0),
 			ipbus_out => ipbr(0),
-			d => X"abcdfedc",
-			q => ctrl_reg
+			d => stat_reg
 		);
+
+		stat_reg <= X"DEADBEEF";
 		
-		rst_out <= ctrl_reg(0);
 
 -- Slave 1: register
 
@@ -68,8 +70,10 @@ begin
 			reset => ipb_rst,
 			ipbus_in => ipbw(1),
 			ipbus_out => ipbr(1),
-			q => open
+			q => ctrl_reg
 		);
+
+		rst_out <= ctrl_reg(0);
 
 -- Slave 2: 1kword RAM
 
