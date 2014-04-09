@@ -18,7 +18,7 @@ entity ipbus_top is port(
 	gt_rxp, gt_rxn: in std_logic;
 	sfp_los: in std_logic;
 	rst_out: out std_logic;
-	debug: out std_logic_vector(5 downto 0);
+	eth_link_status: out std_logic;
         
     axi_stream_in_tvalid : in std_logic;
     axi_stream_in_tdata : in std_logic_vector(31 downto 0);
@@ -49,8 +49,6 @@ end ipbus_top;
 architecture rtl of ipbus_top is
 
 	signal clk_125_int: std_logic;
-	signal eth_locked, eth_link: std_logic;
-	signal eth_debug: std_logic_vector(2 downto 0);
 	signal rst_125, rst_ipb, rst_eth: std_logic;
 	signal mac_tx_data, mac_rx_data: std_logic_vector(7 downto 0);
 	signal mac_tx_valid, mac_tx_last, mac_tx_error, mac_tx_ready, mac_rx_valid, mac_rx_last, mac_rx_error: std_logic;
@@ -59,8 +57,6 @@ architecture rtl of ipbus_top is
 	signal mac_addr: std_logic_vector(47 downto 0);
 	signal ip_addr: std_logic_vector(31 downto 0);
 	signal pkt_rx, pkt_tx, pkt_rx_led, pkt_tx_led, sys_rst: std_logic;	
-	signal gtrefclk_out: std_logic;
-	signal gtrefclk_buf: std_logic;
 
     signal axi_stream_in: axi_stream;
     signal axi_stream_out: axi_stream;
@@ -69,18 +65,6 @@ begin
 
 	-- propagate reset to the rest of the design
 	rst_out <= sys_rst;
-
-	buf: BUFG
-		port map(
-			I => gtrefclk_out,
-			O => gtrefclk_buf
-		);
-
-	-- debug ports
-	debug(0) <= gtrefclk_buf;
-	debug(1) <= eth_locked;
-	debug(2) <= eth_link;
-	debug(5 downto 3) <= eth_debug;
 
 	rst_125 <= sys_rst;
 	rst_ipb <= sys_rst;
@@ -101,10 +85,10 @@ begin
 			gt_rxn => gt_rxn,
 			sig_detn => sfp_los,
 			clk200_bufg_in => clk_200,
-			gtrefclk_out => gtrefclk_out,
+			gtrefclk_out => open,
 			clk125_out => clk_125_int,
 			rsti => rst_eth,
-			locked => eth_locked,
+			locked => open,
 			tx_data => mac_tx_data,
 			tx_valid => mac_tx_valid,
 			tx_last => mac_tx_last,
@@ -114,8 +98,7 @@ begin
 			rx_valid => mac_rx_valid,
 			rx_last => mac_rx_last,
 			rx_error => mac_rx_error,
-			link_status => eth_link,
-			debug => eth_debug
+			link_status => eth_link_status
 		);
 	
 -- ipbus control logic
@@ -146,7 +129,7 @@ begin
 		);
 		
 	mac_addr <= X"020ddba11583"; -- Careful here, arbitrary addresses do not always work
-	ip_addr <= X"c0a81a32"; -- 192.168.32.50
+	ip_addr <= X"c0a81a32"; -- 192.168.26.50
 
 -- ipbus slaves live in the entity below, and can expose top-level ports
 -- The ipbus fabric is instantiated within.
@@ -159,7 +142,6 @@ begin
 		rst_out => sys_rst,
 		pkt_rx => pkt_rx,
 		pkt_tx => pkt_tx,
-		debug => open,
 	    axi_stream_in => axi_stream_in,
 	    axi_stream_in_tready => axi_stream_in_tready,
 	    axi_stream_out => axi_stream_out,

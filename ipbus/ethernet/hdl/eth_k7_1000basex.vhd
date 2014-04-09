@@ -39,8 +39,7 @@ entity eth_k7_1000basex is
 		rx_error: out std_logic;
 		hostbus_in: in emac_hostbus_in := ('0', "00", "0000000000", X"00000000", '0', '0', '0');
 		hostbus_out: out emac_hostbus_out;
-		link_status: out std_logic;
-		debug: out std_logic_vector(2 downto 0) -- various ethernet error bits
+		link_status: out std_logic
 	);
 
 end eth_k7_1000basex;
@@ -200,8 +199,6 @@ begin
 
 	-- make sure phy is isolated when it first starts
 	phy_config(3) <= not phy_done;
-	debug(0) <= phy_done;
-	debug(2) <= mac_rst;
 	-- phy_config(1) <= '1'; -- loopback
 
 	phy: gig_ethernet_pcs_pma_0
@@ -219,7 +216,7 @@ begin
 			rxuserclk_out => open,
 			rxuserclk2_out => open,
 			resetdone => phy_done,
-			pma_reset_out => debug(1),
+			pma_reset_out => open,
 			mmcm_locked_out => mmcm_locked,
 			gmii_txd => gmii_txd,
 			gmii_tx_en => gmii_tx_en,

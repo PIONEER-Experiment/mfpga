@@ -18,7 +18,6 @@ entity slaves is
 		rst_out: out std_logic;
 		pkt_rx: in std_logic := '0';
 		pkt_tx: in std_logic := '0';
-		debug: out std_logic_vector (1 downto 0);
 
 	    axi_stream_in: in axi_stream;
 	    axi_stream_in_tready: out std_logic;
@@ -59,8 +58,6 @@ begin
 		);
 		
 		rst_out <= ctrl_reg(0);
-		debug(0) <= ctrl_reg(2);
-		debug(1) <= ctrl_reg(3);
 
 -- Slave 1: register
 

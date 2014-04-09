@@ -4,9 +4,11 @@ module ipbus_only_top(
 	output wire gige_tx, gige_tx_N,
 	input wire gige_rx, gige_rx_N,
     input wire clkin,
-    output wire[15:0] debug
+    output wire[15:0] debug,
+    output wire led0, led1
 );
     reg sfp_los = 0;
+    wire eth_link_status;
     wire rst_from_ipb;
     wire clk200_ub, clk200;
     wire clk125;
@@ -25,6 +27,10 @@ module ipbus_only_top(
     wire[3:0] axi_stream_from_ipbus_tkeep;
     wire[3:0] axi_stream_from_ipbus_tid;
     wire[3:0] axi_stream_from_ipbus_tdest;
+
+    assign led0 = eth_link_status; // green
+    assign led1 = ~eth_link_status; // red
+    assign debug[8] = eth_link_status;
 
 
     MMCME2_BASE #(
@@ -53,11 +59,11 @@ module ipbus_only_top(
         .gt_txp(gige_tx), .gt_txn(gige_tx_N),
         .gt_rxp(gige_rx), .gt_rxn(gige_rx_N),
         .sfp_los(sfp_los),
+        .eth_link_status(eth_link_status),
         .rst_out(rst_from_ipb),
         .clk_200(clk200),
         .clk_125(clk125), // output, already on bufg
         .ipb_clk(clk125),
-        .debug(debug[13:8]),
 
         .axi_stream_in_tvalid(axi_stream_to_ipbus_tvalid),
         .axi_stream_in_tdata(axi_stream_to_ipbus_tdata),
