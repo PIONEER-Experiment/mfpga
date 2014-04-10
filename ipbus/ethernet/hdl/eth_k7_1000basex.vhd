@@ -39,7 +39,8 @@ entity eth_k7_1000basex is
 		rx_error: out std_logic;
 		hostbus_in: in emac_hostbus_in := ('0', "00", "0000000000", X"00000000", '0', '0', '0');
 		hostbus_out: out emac_hostbus_out;
-		link_status: out std_logic
+		link_status: out std_logic;
+		phy_status_vector: out std_logic_vector(15 downto 0)
 	);
 
 end eth_k7_1000basex;
@@ -169,6 +170,8 @@ begin
 
 	link_status <= status(0);
 	-- eth_rx_err <= status(6 downto 4); 
+
+	phy_status_vector <= status;
 
 	mac: soft_emac
 		port map(

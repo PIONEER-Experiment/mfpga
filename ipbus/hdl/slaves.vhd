@@ -16,8 +16,15 @@ entity slaves is
 		ipb_in: in ipb_wbus;
 		ipb_out: out ipb_rbus;
 		rst_out: out std_logic;
+
+		-- counters
 		pkt_rx: in std_logic := '0';
 		pkt_tx: in std_logic := '0';
+		eth_phy_rudi_invalid: in std_logic := '0';
+		eth_phy_rxdisperr: in std_logic := '0';
+		eth_phy_rxnotintable: in std_logic := '0';
+
+		-- status registers
 
 	    axi_stream_in: in axi_stream;
 	    axi_stream_in_tready: out std_logic;
@@ -34,6 +41,7 @@ architecture rtl of slaves is
 	signal ipbr, ipbr_d: ipb_rbus_array(NSLV-1 downto 0);
 	signal ctrl_reg: std_logic_vector(31 downto 0);
 	signal stat_reg: std_logic_vector(31 downto 0);
+	signal count: std_logic_vector(7 downto 0);
 
 begin
 
@@ -99,15 +107,24 @@ begin
 
 -- Slave 4: packet counters
 
-	slave4: entity work.ipbus_pkt_ctr
+	slave4: entity work.ipbus_counters
+		generic map(addr_width => 3)
 		port map(
 			clk => ipb_clk,
 			reset => ipb_rst,
 			ipbus_in => ipbw(4),
 			ipbus_out => ipbr(4),
-			pkt_rx => pkt_rx,
-			pkt_tx => pkt_tx
+			count => count
 		);
+
+	count(0) <= pkt_tx;
+	count(1) <= pkt_rx;
+	count(2) <= eth_phy_rudi_invalid;
+	count(3) <= eth_phy_rxdisperr;
+	count(4) <= eth_phy_rxnotintable;
+	count_gen: for i in 7 downto 5 generate
+		count(i) <= '0';
+	end generate;
 
 -- slave 5: AXI4-stream interface to Aurora IP
 	  slave5: entity work.ipbus_axi_stream

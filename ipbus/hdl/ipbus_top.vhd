@@ -57,7 +57,7 @@ architecture rtl of ipbus_top is
 	signal mac_addr: std_logic_vector(47 downto 0);
 	signal ip_addr: std_logic_vector(31 downto 0);
 	signal pkt_rx, pkt_tx, pkt_rx_led, pkt_tx_led, sys_rst: std_logic;	
-
+	signal eth_phy_status_vector: std_logic_vector(15 downto 0);
     signal axi_stream_in: axi_stream;
     signal axi_stream_out: axi_stream;
 
@@ -98,7 +98,8 @@ begin
 			rx_valid => mac_rx_valid,
 			rx_last => mac_rx_last,
 			rx_error => mac_rx_error,
-			link_status => eth_link_status
+			link_status => eth_link_status,
+			phy_status_vector => eth_phy_status_vector
 		);
 	
 -- ipbus control logic
@@ -142,6 +143,9 @@ begin
 		rst_out => sys_rst,
 		pkt_rx => pkt_rx,
 		pkt_tx => pkt_tx,
+		eth_phy_rudi_invalid => eth_phy_status_vector(4),
+		eth_phy_rxdisperr => eth_phy_status_vector(5),
+		eth_phy_rxnotintable => eth_phy_status_vector(6),
 	    axi_stream_in => axi_stream_in,
 	    axi_stream_in_tready => axi_stream_in_tready,
 	    axi_stream_out => axi_stream_out,
