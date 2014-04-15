@@ -26,7 +26,8 @@ entity eth_k7_1000basex is
 		clk200_bufg_in: in std_logic;
 		gtrefclk_out: out std_logic;
 		clk125_out: out std_logic;
-		rsti: in std_logic;
+		phy_rst: in std_logic;
+		mac_rst: in std_logic;
 		locked: out std_logic;
 		tx_data: in std_logic_vector(7 downto 0);
 		tx_valid: in std_logic;
@@ -154,7 +155,7 @@ architecture rtl of eth_k7_1000basex is
 	signal gmii_txd, gmii_rxd: std_logic_vector(7 downto 0);
 	signal gmii_tx_en, gmii_tx_er, gmii_rx_dv, gmii_rx_er: std_logic;
 	signal clk125: std_logic;
-	signal mac_rst, phy_done, mmcm_locked, locked_int, sig_det: std_logic;
+	signal mac_rst_int, phy_done, mmcm_locked, locked_int, sig_det: std_logic;
 	signal status: std_logic_vector(15 downto 0);
 	signal phy_config: std_logic_vector(4 downto 0) := (others => '0');
 
@@ -166,7 +167,7 @@ begin
     locked_int <= mmcm_locked;
     
 	locked <= locked_int;
-	mac_rst <= (not locked_int) or rsti;
+	mac_rst_int <= (not locked_int) or mac_rst;
 
 	link_status <= status(0);
 	-- eth_rx_err <= status(6 downto 4); 
@@ -175,7 +176,7 @@ begin
 
 	mac: soft_emac
 		port map(
-			reset => mac_rst,
+			reset => mac_rst_int,
 			rxgmiimiiclk => clk125,
 			emacclientrxd => rx_data,
 			emacclientrxdvld => rx_valid,
@@ -230,7 +231,7 @@ begin
 			gmii_isolate => open,
 			configuration_vector => phy_config,
 			status_vector => status,
-			reset => rsti,
+			reset => phy_rst,
 			signal_detect => sig_det,
 			-- WFD1 has some pins accidentally swapped, so we need to reverse the polarity
 			gt0_txpolarity_in => '1', 

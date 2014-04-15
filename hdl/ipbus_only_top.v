@@ -13,6 +13,9 @@ module ipbus_only_top(
     wire clk200_ub, clk200;
     wire clk125;
     wire clkfb;
+    wire clk_ipbus_ub,clk_ipbus;
+
+    wire mmcm_lock;
 
     wire axi_stream_to_ipbus_tvalid, axi_stream_to_ipbus_tlast, axi_stream_to_ipbus_tready;
     wire[31:0] axi_stream_to_ipbus_tdata;
@@ -31,17 +34,20 @@ module ipbus_only_top(
     assign led0 = eth_link_status; // green
     assign led1 = ~eth_link_status; // red
     assign debug[8] = eth_link_status;
+    assign debug[15] = mmcm_lock;
 
 
     MMCME2_BASE #(
         .CLKFBOUT_MULT_F(20.0),
         .CLKIN1_PERIOD(20), // in ns, so 20 -> 50 MHz
         .CLKOUT1_DIVIDE(5),
+        .CLKOUT2_DIVIDE(16)
     ) clk (
         .CLKIN1(clkin),
         .CLKOUT1(clk200_ub),
-        .LOCKED(debug[15]),
-        .RST(rst_from_ipb),
+        .CLKOUT2(clk_ipbus_ub),
+        .LOCKED(mmcm_lock),
+        .RST(0),
         .CLKFBOUT(clkfb),
         .CLKFBIN(clkfb)
     );
@@ -49,6 +55,11 @@ module ipbus_only_top(
     BUFG clk200_bufg(
         .O(clk200),
         .I(clk200_ub)
+    );
+
+    BUFG clk_ipbus_bufg(
+        .O(clk_ipbus),
+        .I(clk_ipbus_ub)
     );
 
     assign debug[14] = clk125;
@@ -63,7 +74,7 @@ module ipbus_only_top(
         .rst_out(rst_from_ipb),
         .clk_200(clk200),
         .clk_125(clk125), // output, already on bufg
-        .ipb_clk(clk125),
+        .ipb_clk(clk_ipbus),
 
         .axi_stream_in_tvalid(axi_stream_to_ipbus_tvalid),
         .axi_stream_in_tdata(axi_stream_to_ipbus_tdata),
@@ -81,7 +92,9 @@ module ipbus_only_top(
         .axi_stream_out_tlast(axi_stream_from_ipbus_tlast),
         .axi_stream_out_tid(axi_stream_from_ipbus_tid),
         .axi_stream_out_tdest(axi_stream_from_ipbus_tdest),
-        .axi_stream_out_tready(axi_stream_from_ipbus_tready)
+        .axi_stream_out_tready(axi_stream_from_ipbus_tready),
+
+        .debug(debug[12:9])
     );
 
     wire rst_n;
