@@ -10,12 +10,12 @@ module ipbus_only_top(
     reg sfp_los = 0;
     wire eth_link_status;
     wire rst_from_ipb;
-    wire clk200_ub, clk200;
+    wire clk200;
     wire clk125;
     wire clkfb;
-    wire clk_ipbus_ub,clk_ipbus;
+    wire clk_ipbus;
 
-    wire mmcm_lock;
+    wire pll_lock;
 
     wire axi_stream_to_ipbus_tvalid, axi_stream_to_ipbus_tlast, axi_stream_to_ipbus_tready;
     wire[31:0] axi_stream_to_ipbus_tdata;
@@ -34,32 +34,27 @@ module ipbus_only_top(
     assign led0 = eth_link_status; // green
     assign led1 = ~eth_link_status; // red
     assign debug[8] = eth_link_status;
-    assign debug[15] = mmcm_lock;
+    assign debug[15] = pll_lock;
 
 
-    MMCME2_BASE #(
-        .CLKFBOUT_MULT_F(20.0),
+    PLLE2_BASE #(
+        .CLKFBOUT_MULT(20.0),
         .CLKIN1_PERIOD(20), // in ns, so 20 -> 50 MHz
-        .CLKOUT1_DIVIDE(5),
-        .CLKOUT2_DIVIDE(16)
+        .CLKOUT0_DIVIDE(5),
+        .CLKOUT1_DIVIDE(8)
     ) clk (
         .CLKIN1(clkin),
-        .CLKOUT1(clk200_ub),
-        .CLKOUT2(clk_ipbus_ub),
-        .LOCKED(mmcm_lock),
+        .CLKOUT0(clk200),
+        .CLKOUT1(clk_ipbus),
+        .CLKOUT2(),
+        .CLKOUT3(),
+        .CLKOUT4(),
+        .CLKOUT5(),
+        .LOCKED(pll_lock),
         .RST(0),
+        .PWRDWN(0),
         .CLKFBOUT(clkfb),
         .CLKFBIN(clkfb)
-    );
-
-    BUFG clk200_bufg(
-        .O(clk200),
-        .I(clk200_ub)
-    );
-
-    BUFG clk_ipbus_bufg(
-        .O(clk_ipbus),
-        .I(clk_ipbus_ub)
     );
 
     assign debug[14] = clk125;
