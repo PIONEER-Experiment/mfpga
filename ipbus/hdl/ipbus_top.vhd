@@ -84,7 +84,7 @@ begin
 			rst_200 => rst_200
 			);
 
-	rst_out <= rst_125;
+	rst_out <= rst_ipb;
 
 	clk_125 <= clk_125_int;
 	

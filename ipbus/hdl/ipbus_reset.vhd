@@ -20,32 +20,37 @@ end ipbus_reset;
 
 architecture rtl of ipbus_reset is
 
-signal rst_sr: std_logic_vector(3 downto 0);
+signal sync_rst_ipb: std_logic_vector(1 downto 0);
+signal sync_rst_125: std_logic_vector(1 downto 0);
+signal sync_rst_200: std_logic_vector(1 downto 0);
+
 
 begin
-	rst_ipb <= rst_in;
 
 	ipb: process(clk_ipb)
 	begin
 		if rising_edge(clk_ipb) then
-			rst_sr(3) <= rst_in;
-			rst_sr(2) <= rst_sr(3);
-			rst_sr(1) <= rst_sr(2);
-			rst_sr(0) <= rst_sr(1);
+			sync_rst_ipb(1) <= rst_in;
+			sync_rst_ipb(0) <= sync_rst_ipb(1);
+			rst_ipb <= sync_rst_ipb(0);
 		end if;
 	end process;
 
-	c125: process(clk_125)
+	p125: process(clk_125)
 	begin
 		if rising_edge(clk_125) then
-			rst_125 <= rst_sr(0);
+			sync_rst_125(1) <= rst_in;
+			sync_rst_125(0) <= sync_rst_125(1);
+			rst_125 <= sync_rst_125(0);
 		end if;
 	end process;
 
-	c200: process(clk_200)
+	p200: process(clk_200)
 	begin
 		if rising_edge(clk_200) then
-			rst_200 <= rst_sr(0);
+			sync_rst_200(1) <= rst_in;
+			sync_rst_200(0) <= sync_rst_200(1);
+			rst_200 <= sync_rst_200(0);
 		end if;
 	end process;
 end rtl;
