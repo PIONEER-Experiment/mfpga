@@ -5,6 +5,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 entity ipbus_reset is 
 	port(
@@ -20,9 +21,11 @@ end ipbus_reset;
 
 architecture rtl of ipbus_reset is
 
-signal sync_rst_ipb: std_logic_vector(1 downto 0);
+signal rst_delayed: std_logic := '0';
 signal sync_rst_125: std_logic_vector(1 downto 0);
 signal sync_rst_200: std_logic_vector(1 downto 0);
+
+signal rst_dly_ctr: unsigned(7 downto 0) := X"00";
 
 
 begin
@@ -30,16 +33,25 @@ begin
 	ipb: process(clk_ipb)
 	begin
 		if rising_edge(clk_ipb) then
-			sync_rst_ipb(1) <= rst_in;
-			sync_rst_ipb(0) <= sync_rst_ipb(1);
-			rst_ipb <= sync_rst_ipb(0);
+			if rst_delayed = '1' then
+				rst_delayed <= '0';
+			end if;
+			if rst_in = '1' then
+				if rst_dly_ctr = X"FF" then
+					rst_dly_ctr <= X"00";
+					rst_delayed <= '1';
+				else
+					rst_dly_ctr <= rst_dly_ctr + 1;
+				end if;
+			end if;
+			rst_ipb <= rst_delayed;
 		end if;
 	end process;
 
 	p125: process(clk_125)
 	begin
 		if rising_edge(clk_125) then
-			sync_rst_125(1) <= rst_in;
+			sync_rst_125(1) <= rst_delayed;
 			sync_rst_125(0) <= sync_rst_125(1);
 			rst_125 <= sync_rst_125(0);
 		end if;
@@ -48,7 +60,7 @@ begin
 	p200: process(clk_200)
 	begin
 		if rising_edge(clk_200) then
-			sync_rst_200(1) <= rst_in;
+			sync_rst_200(1) <= rst_delayed;
 			sync_rst_200(0) <= sync_rst_200(1);
 			rst_200 <= sync_rst_200(0);
 		end if;

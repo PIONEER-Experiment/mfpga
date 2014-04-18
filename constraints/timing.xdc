@@ -16,7 +16,7 @@ set_clock_groups -name async_clk50_gige_clk -asynchronous\
 
 set_property ASYNC_REG TRUE [get_cells ipb/rst/sync_*]
 # set_false_path -from [get_cells ipb/rst/rst_ipb_reg] -to [get_cells ipb/rst/sync_*]
-set_false_path -from [get_cells ipb/slaves/slave1/reg_reg[0][0]] -to [get_cells ipb/rst/sync_*]
+set_false_path -from [get_cells ipb/rst/rst_delayed_reg] -to [get_cells ipb/rst/sync_*]
 
  # set_false_path -from [get_cells ipb/slaves/slave0/reg_reg[0][0] ] -to [all_registers]
 

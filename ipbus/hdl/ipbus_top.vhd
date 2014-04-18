@@ -103,7 +103,7 @@ begin
 			clk200_bufg_in => clk_200,
 			gtrefclk_out => open,
 			clk125_out => clk_125_int,
-			phy_rst => rst_200,
+			phy_rst => '0',
 			mac_rst => rst_125,
 			locked => eth_locked,
 			tx_data => mac_tx_data,
