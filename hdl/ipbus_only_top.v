@@ -98,7 +98,7 @@ module ipbus_only_top(
     // AXI4-Stream loopback with FIFO buffer
     axis_data_fifo_ipbus_loopback axi_looopback (
       .s_axis_aresetn(rst_n),          // input wire s_axis_aresetn
-      .s_axis_aclk(clk125),                // input wire s_axis_aclk
+      .s_axis_aclk(clk_ipbus),                // input wire s_axis_aclk
       .s_axis_tvalid(axi_stream_from_ipbus_tvalid),            // input wire s_axis_tvalid
       .s_axis_tready(axi_stream_from_ipbus_tready),            // output wire s_axis_tready
       .s_axis_tdata(axi_stream_from_ipbus_tdata),              // input wire [31 : 0] s_axis_tdata
