@@ -21,3 +21,5 @@ set_false_path -from [get_cells ipb/rst/rst_delayed_reg] -to [get_cells ipb/rst/
  # set_false_path -from [get_cells ipb/slaves/slave0/reg_reg[0][0] ] -to [all_registers]
 
 # set_false_path -from [get_pins ipb/rst/rst_sr_reg[0]__0/C] -to [get_pins ipb/rst/rst_200_reg/D]
+
+create_clock -period 4.000 -name DAQ_usrclk [get_pins */daq/i_UsrClk/o]

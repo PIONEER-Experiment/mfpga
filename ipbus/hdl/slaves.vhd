@@ -23,20 +23,29 @@ entity slaves is
 		eth_phy_rudi_invalid: in std_logic := '0';
 		eth_phy_rxdisperr: in std_logic := '0';
 		eth_phy_rxnotintable: in std_logic := '0';
+		amc13_almost_full: in std_logic := '0';
 
 		-- status registers
 
 	    axi_stream_in: in axi_stream;
 	    axi_stream_in_tready: out std_logic;
 	    axi_stream_out: out axi_stream;
-	    axi_stream_out_tready: in std_logic
+	    axi_stream_out_tready: in std_logic;
+
+	    --DAQ Link
+	    daq_valid : out std_logic;
+	    daq_header : out std_logic;
+	    daq_trailer : out std_logic;
+	    daq_data : out std_logic_vector(63 downto 0);
+	    daq_ready : in std_logic;
+	    daq_almost_full : in std_logic
 	);
 
 end slaves;
 
 architecture rtl of slaves is
 
-	constant NSLV: positive := 6;
+	constant NSLV: positive := 7;
 	signal ipbw: ipb_wbus_array(NSLV-1 downto 0);
 	signal ipbr, ipbr_d: ipb_rbus_array(NSLV-1 downto 0);
 	signal ctrl_reg: std_logic_vector(31 downto 0);
@@ -122,7 +131,8 @@ begin
 	count(2) <= eth_phy_rudi_invalid;
 	count(3) <= eth_phy_rxdisperr;
 	count(4) <= eth_phy_rxnotintable;
-	count_gen: for i in 7 downto 5 generate
+	count(5) <= daq_almost_full;
+	count_gen: for i in 7 downto 6 generate
 		count(i) <= '0';
 	end generate;
 
@@ -141,6 +151,19 @@ begin
 	    axi_str_in_tready => axi_stream_in_tready,
 	    axi_str_out => axi_stream_out,
 	    axi_str_out_tready => axi_stream_out_tready
+	  );
+
+    slave6: entity work.ipbus_amc13_daq_link
+	  port map(
+	    clk => ipb_clk,
+	    reset => ipb_rst,
+	    ipbus_in => ipbw(6),
+	    ipbus_out => ipbr(6),
+	    daq_valid => daq_valid,
+	    daq_header => daq_header,
+	    daq_trailer => daq_trailer,
+	    daq_data => daq_data,
+	    daq_ready => daq_ready
 	  );
 
 end rtl;

@@ -32,9 +32,11 @@ package body ipbus_addr_decode is
 		elsif std_match(addr, "-----------------010------------") then
 			sel := 3; -- peep_ram / base 00002000 / mask 00000001
 		elsif std_match(addr, "-----------------011------------") then
-			sel := 4; -- pkt_ctr / base 00003000 / mask 00000111
+			sel := 4; -- pkt_ctr / base 00003000 / mask 00000001
 		elsif std_match(addr, "-----------------100-----------0") then
 			sel := 5; -- channel / base 00004000 / mask 00000000
+		elsif std_match(addr, "-----------------101------------") then
+			sel := 6; -- daq_link / base 00005000 / mask 00000003
 		else
 			sel := 99;
 		end if;

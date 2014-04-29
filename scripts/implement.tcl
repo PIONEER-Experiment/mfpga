@@ -18,7 +18,7 @@ place_design
 phys_opt_design
 route_design
 
-write_bitstream -force $ROOT/bitstreams/ipbus_only.bit
+# write_bitstream -force $ROOT/bitstreams/ipbus_only.bit
 # write_debug_probes -force $ROOT/bitstreams/debug.ltx
 
 start_gui

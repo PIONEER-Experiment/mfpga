@@ -3,6 +3,8 @@ module ipbus_only_top(
 	input wire gtx_clk0, gtx_clk0_N,
 	output wire gige_tx, gige_tx_N,
 	input wire gige_rx, gige_rx_N,
+    input wire daq_rx, daq_rx_N,
+    output wire daq_tx, daq_tx_N,
     input wire clkin,
     output wire[15:0] debug,
     output wire led0, led1
@@ -11,9 +13,9 @@ module ipbus_only_top(
     wire eth_link_status;
     wire rst_from_ipb;
     wire clk200;
-    wire clk125;
     wire clkfb;
-    wire clk_ipbus;
+    wire clk125;
+    wire gtrefclk0;
 
     wire pll_lock;
 
@@ -45,7 +47,7 @@ module ipbus_only_top(
     ) clk (
         .CLKIN1(clkin),
         .CLKOUT0(clk200),
-        .CLKOUT1(clk_ipbus),
+        .CLKOUT1(clk125),
         .CLKOUT2(),
         .CLKOUT3(),
         .CLKOUT4(),
@@ -57,7 +59,9 @@ module ipbus_only_top(
         .CLKFBIN(clkfb)
     );
 
-    assign debug[14] = clk125;
+    wire daq_valid, daq_header, daq_trailer;
+    wire[63:0] daq_data;
+    wire daq_ready, daq_almost_full;
 
     // IPBus module
     ipbus_top ipb(
@@ -68,8 +72,9 @@ module ipbus_only_top(
         .eth_link_status(eth_link_status),
         .rst_out(rst_from_ipb),
         .clk_200(clk200),
-        .clk_125(clk125), // output, already on bufg
-        .ipb_clk(clk_ipbus),
+        .clk_125(),
+        .ipb_clk(clk125),
+        .gtrefclk_out(gtrefclk0),
 
         .axi_stream_in_tvalid(axi_stream_to_ipbus_tvalid),
         .axi_stream_in_tdata(axi_stream_to_ipbus_tdata),
@@ -89,7 +94,35 @@ module ipbus_only_top(
         .axi_stream_out_tdest(axi_stream_from_ipbus_tdest),
         .axi_stream_out_tready(axi_stream_from_ipbus_tready),
 
+        .daq_valid(daq_valid),
+        .daq_header(daq_header),
+        .daq_trailer(daq_trailer),
+        .daq_data(daq_data),
+        .daq_ready(daq_ready),
+        .daq_almost_full(daq_almost_full),
+
         .debug(debug[12:9])
+    );
+
+    // DAQ Link to AMC13
+    DAQ_Link_7S #(
+        .F_REFCLK(125),
+        .SYSCLK_IN_period(125),
+        .USE_TRIGGER_PORT(1'b0)
+    ) daq(
+        .GTX_REFCLK(gtrefclk0),
+        .GTX_RXP(daq_rx),
+        .GTX_RXN(daq_rx_N),
+        .GTX_TXP(daq_tx),
+        .GTX_TXN(daq_tx_N),
+        .SYSCLK_IN(clk125),
+
+        .EventData_valid(daq_valid),
+        .EventData_header(daq_header),
+        .EventData_trailer(daq_trailer),
+        .EventData(daq_data),
+        .AlmostFull(daq_almost_full),
+        .Ready(daq_ready)
     );
 
     wire rst_n;
@@ -98,7 +131,7 @@ module ipbus_only_top(
     // AXI4-Stream loopback with FIFO buffer
     axis_data_fifo_ipbus_loopback axi_looopback (
       .s_axis_aresetn(rst_n),          // input wire s_axis_aresetn
-      .s_axis_aclk(clk_ipbus),                // input wire s_axis_aclk
+      .s_axis_aclk(clk125),                // input wire s_axis_aclk
       .s_axis_tvalid(axi_stream_from_ipbus_tvalid),            // input wire s_axis_tvalid
       .s_axis_tready(axi_stream_from_ipbus_tready),            // output wire s_axis_tready
       .s_axis_tdata(axi_stream_from_ipbus_tdata),              // input wire [31 : 0] s_axis_tdata
