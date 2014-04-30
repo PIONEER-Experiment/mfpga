@@ -15,6 +15,7 @@ module ipbus_only_top(
     wire clk200;
     wire clkfb;
     wire clk125;
+    wire clk40;
     wire gtrefclk0;
 
     wire pll_lock;
@@ -43,12 +44,13 @@ module ipbus_only_top(
         .CLKFBOUT_MULT(20.0),
         .CLKIN1_PERIOD(20), // in ns, so 20 -> 50 MHz
         .CLKOUT0_DIVIDE(5),
-        .CLKOUT1_DIVIDE(8)
+        .CLKOUT1_DIVIDE(8),
+        .CLKOUT2_DIVIDE(25),
     ) clk (
         .CLKIN1(clkin),
         .CLKOUT0(clk200),
         .CLKOUT1(clk125),
-        .CLKOUT2(),
+        .CLKOUT2(clk40),
         .CLKOUT3(),
         .CLKOUT4(),
         .CLKOUT5(),
@@ -107,15 +109,23 @@ module ipbus_only_top(
     // DAQ Link to AMC13
     DAQ_Link_7S #(
         .F_REFCLK(125),
-        .SYSCLK_IN_period(125),
+        .SYSCLK_IN_period(8),
         .USE_TRIGGER_PORT(1'b0)
     ) daq(
+        .reset(rst_from_ipb),
+        
         .GTX_REFCLK(gtrefclk0),
         .GTX_RXP(daq_rx),
         .GTX_RXN(daq_rx_N),
         .GTX_TXP(daq_tx),
         .GTX_TXN(daq_tx_N),
         .SYSCLK_IN(clk125),
+
+        .TTCclk(clk40),
+        .BcntRes(1'b0),
+        .trig(8'd0),
+        .TTSclk(0),
+        .TTS(4'd0),
 
         .EventData_valid(daq_valid),
         .EventData_header(daq_header),
