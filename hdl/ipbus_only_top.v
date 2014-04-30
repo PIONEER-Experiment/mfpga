@@ -127,6 +127,7 @@ module ipbus_only_top(
         .TTSclk(0),
         .TTS(4'd0),
 
+        .EventDataClk(clk125),
         .EventData_valid(daq_valid),
         .EventData_header(daq_header),
         .EventData_trailer(daq_trailer),
