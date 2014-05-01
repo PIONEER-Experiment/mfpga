@@ -62,7 +62,7 @@ entity DAQ_Link_7S is
 -- do not forget to specify its period in the generic port
            SYSCLK_IN : in  STD_LOGIC;
 -- Data port
-					 EventDataClk : in  STD_LOGIC;
+		   EventDataClk : in  STD_LOGIC;
            EventData_valid : in  STD_LOGIC; -- used as data write enable
            EventData_header : in  STD_LOGIC; -- first data word
            EventData_trailer : in  STD_LOGIC; -- last data word

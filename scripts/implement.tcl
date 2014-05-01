@@ -6,7 +6,7 @@ source read_ip.tcl
 read_xdc $ROOT/constraints/timing.xdc
 read_xdc $ROOT/constraints/ipbus_only_place.xdc
 
-synth_design -top ipbus_only_top -name ipbus_only -part xc7k160tfbg676-2
+synth_design -top wfd_top -name wfd -part xc7k160tfbg676-2
 refresh_design
 
 # read_xdc $ROOT/constraints/debug.xdc

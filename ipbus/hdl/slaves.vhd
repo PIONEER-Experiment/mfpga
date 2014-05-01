@@ -38,7 +38,9 @@ entity slaves is
 	    daq_trailer : out std_logic;
 	    daq_data : out std_logic_vector(63 downto 0);
 	    daq_ready : in std_logic;
-	    daq_almost_full : in std_logic
+	    daq_almost_full : in std_logic;
+
+	    trigger_out : out std_logic
 	);
 
 end slaves;
@@ -50,7 +52,9 @@ architecture rtl of slaves is
 	signal ipbr, ipbr_d: ipb_rbus_array(NSLV-1 downto 0);
 	signal ctrl_reg: std_logic_vector(31 downto 0);
 	signal stat_reg: std_logic_vector(31 downto 0);
+	signal wo_reg: std_logic_vector(31 downto 0);
 	signal count: std_logic_vector(7 downto 0);
+	signal trigger: std_logic;
 
 begin
 
@@ -103,16 +107,20 @@ begin
 			ipbus_out => ipbr(2)
 		);
 
--- Slave 3: peephole RAM
+-- Slave 3: Write-only register
 
-	slave3: entity work.ipbus_peephole_ram
-		generic map(addr_width => 10)
+	slave3: entity work.ipbus_write_only_reg
+		generic map(addr_width => 0)
 		port map(
 			clk => ipb_clk,
 			reset => ipb_rst,
 			ipbus_in => ipbw(3),
-			ipbus_out => ipbr(3)
+			ipbus_out => ipbr(3),
+			q => wo_reg
 		);
+
+	trigger <= wo_reg(0);
+	trigger_out <= trigger;
 
 -- Slave 4: packet counters
 
@@ -132,9 +140,8 @@ begin
 	count(3) <= eth_phy_rxdisperr;
 	count(4) <= eth_phy_rxnotintable;
 	count(5) <= daq_almost_full;
-	count_gen: for i in 7 downto 6 generate
-		count(i) <= '0';
-	end generate;
+	count(6) <= trigger;
+	count(7) <= '0';
 
 -- slave 5: AXI4-stream interface to Aurora IP
 	  slave5: entity work.ipbus_axi_stream

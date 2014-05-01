@@ -45,6 +45,9 @@ entity ipbus_top is port(
     daq_data : out std_logic_vector(63 downto 0);
     daq_ready : in std_logic;
     daq_almost_full : in std_logic;
+
+    --trigger
+    trigger_out : out std_logic;
 	
 	-- clocks
 	clk_200: in std_logic;
@@ -181,7 +184,8 @@ begin
 	    daq_trailer => daq_trailer,
 	    daq_data => daq_data,
 	    daq_ready => daq_ready,
-	    daq_almost_full => daq_almost_full
+	    daq_almost_full => daq_almost_full,
+	    trigger_out => trigger_out
 	);
 
 	-- break out axi signals

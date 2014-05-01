@@ -1,5 +1,5 @@
 
-module ipbus_only_top(
+module wfd_top(
 	input wire gtx_clk0, gtx_clk0_N,
 	output wire gige_tx, gige_tx_N,
 	input wire gige_rx, gige_rx_N,
@@ -7,6 +7,7 @@ module ipbus_only_top(
     output wire daq_tx, daq_tx_N,
     input wire clkin,
     output wire[15:0] debug,
+    output wire[4:0] acq_trigs,
     output wire led0, led1
 );
     reg sfp_los = 0;
@@ -15,7 +16,6 @@ module ipbus_only_top(
     wire clk200;
     wire clkfb;
     wire clk125;
-    wire clk40;
     wire gtrefclk0;
 
     wire pll_lock;
@@ -36,7 +36,6 @@ module ipbus_only_top(
 
     assign led0 = eth_link_status; // green
     assign led1 = ~eth_link_status; // red
-    assign debug[8] = eth_link_status;
     assign debug[15] = pll_lock;
 
 
@@ -45,12 +44,10 @@ module ipbus_only_top(
         .CLKIN1_PERIOD(20), // in ns, so 20 -> 50 MHz
         .CLKOUT0_DIVIDE(5),
         .CLKOUT1_DIVIDE(8),
-        .CLKOUT2_DIVIDE(25),
     ) clk (
         .CLKIN1(clkin),
         .CLKOUT0(clk200),
         .CLKOUT1(clk125),
-        .CLKOUT2(clk40),
         .CLKOUT3(),
         .CLKOUT4(),
         .CLKOUT5(),
@@ -64,6 +61,11 @@ module ipbus_only_top(
     wire daq_valid, daq_header, daq_trailer;
     wire[63:0] daq_data;
     wire daq_ready, daq_almost_full;
+
+    wire trigger_from_ipbus;
+    wire[4:0] chan_triggers;
+    assign acq_trigs = chan_triggers;
+    assign debug[12:8] = chan_triggers;
 
     // IPBus module
     ipbus_top ipb(
@@ -103,7 +105,9 @@ module ipbus_only_top(
         .daq_ready(daq_ready),
         .daq_almost_full(daq_almost_full),
 
-        .debug(debug[12:9])
+        .trigger_out(trigger_from_ipbus),
+
+        .debug()
     );
 
     // DAQ Link to AMC13
@@ -114,17 +118,17 @@ module ipbus_only_top(
     ) daq(
         .reset(rst_from_ipb),
         
-        .GTX_REFCLK(gtrefclk0),
+        .GTX_REFCLK(clk125),
         .GTX_RXP(daq_rx),
         .GTX_RXN(daq_rx_N),
         .GTX_TXP(daq_tx),
         .GTX_TXN(daq_tx_N),
-        .SYSCLK_IN(clk125),
+        .SYSCLK_IN(gtrefclk0),
 
-        .TTCclk(clk40),
+        .TTCclk(1'b0),
         .BcntRes(1'b0),
         .trig(8'd0),
-        .TTSclk(0),
+        .TTSclk(1'b0),
         .TTS(4'd0),
 
         .EventDataClk(clk125),
@@ -135,6 +139,11 @@ module ipbus_only_top(
         .AlmostFull(daq_almost_full),
         .Ready(daq_ready)
     );
+
+    channel_triggers ct (
+        .trigger_in(trigger_from_ipbus),
+        .chan_trigger_out(chan_triggers)
+        );
 
     wire rst_n;
     assign rst_n = ~rst_from_ipb;
