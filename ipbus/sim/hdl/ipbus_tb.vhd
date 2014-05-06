@@ -23,6 +23,7 @@ use work.ipbus_trans_decl.all;
 use work.ipbus_simulation.all;
 use work.axi.all;
 use work.axi_simulation.all;
+use work.amc13_simulation.all;
 
 entity ipbus_tb is
 end ipbus_tb;
@@ -56,15 +57,17 @@ architecture behave of ipbus_tb is
   -- The number of Out-Of-Band interfaces to the ipbus master (i.e. not from the Ethernet MAC)   
   constant N_OOB: natural := 1;
   -- The number of ipbus slaves used in this example. 
-  constant NSLV: positive := 5;
+  constant NSLV: positive := 7;
 
   -- Base addreses of ipbus slaves.  THis is defined in package "ipbus_addr_decode"
-  constant BASE_ADD_CTRL_REG: std_logic_vector(31 downto 0) := x"00000000";
+  constant BASE_ADD_CTRL_REG: std_logic_vector(31 downto 0) := x"00000001";
   constant BASE_ADD_REG: std_logic_vector(31 downto 0) := x"00000002";
   constant BASE_ADD_RAM: std_logic_vector(31 downto 0) := x"00001000";
-  constant BASE_ADD_PEEP_PTR: std_logic_vector(31 downto 0) := x"00002000";
-  constant BASE_ADD_PEEP: std_logic_vector(31 downto 0) := x"00002001";
-  constant BASE_ADD_CHAN: std_logic_vector(31 downto 0) := x"00003000";
+  constant BASE_ADD_WO_REG: std_logic_vector(31 downto 0) := x"00002000";
+  constant BASE_ADD_CTR: std_logic_vector(31 downto 0) := x"00003000";
+  constant BASE_ADD_CHAN: std_logic_vector(31 downto 0) := x"00004000";
+  constant BASE_ADD_AMC13: std_logic_vector(31 downto 0) := x"00005000";
+
 
  
   signal clk, rst: std_logic := '1';
@@ -97,13 +100,21 @@ architecture behave of ipbus_tb is
   shared variable axi_rdata: type_ipbus_buffer(4 downto 0) := (others => x"00000000");
   shared variable axi_wdata: type_ipbus_buffer(4 downto 0) := (x"55555555", x"44444444", x"33333333", x"22222222", x"11111111");
 
+  shared variable amc13_trailer_rx: std_logic_vector(63 downto 0) := (others => '0');
+  shared variable amc13_header_rx: std_logic_vector(63 downto 0) := (others => '0');
+  shared variable amc13_data_rx: type_amc13_data(4 downto 0) := (others => (others => '0'));
+
+
+  -- AMC13 DAQ Link --
+  signal daq_valid, daq_header, daq_trailer, daq_ready : std_logic;
+  signal daq_data : std_logic_vector(63 downto 0);
 begin
 
   rstn <= not rst;
 
 
   clk <= not clk after 10 ns;
-  
+
   -----------------------------------------------------------------------
   -- Stage 1: CPU Simulator 
   --
@@ -116,11 +127,22 @@ begin
   -- ipbus_block_write & ipbus_block_read
   -- ipbus_read_modify_write
   ----------------------------------------------------------------------- 
+
+  amc13: process
+  begin
+    amc13_read(clk, daq_valid, daq_header, daq_trailer,
+               daq_data, daq_ready, amc13_header_rx, amc13_data_rx, amc13_trailer_rx);
+  end process;
    
   cpu: process
     
     variable rdata, wdata: std_logic_vector(31 downto 0) := x"00000000";
     variable rdata_buf, wdata_buf: type_ipbus_buffer(4 downto 0) := (others => x"00000000");
+    variable amc13_data : type_ipbus_buffer(9 downto 0) := (others => x"00000000");
+    variable header_data : type_ipbus_buffer(1 downto 0) := (others => x"00000000");
+    variable trailer_data : type_ipbus_buffer(1 downto 0) := (others => x"00000000");
+    variable i : integer := 0;
+
     variable mask: std_logic_vector(31 downto 0) := x"00000000";
   
   begin
@@ -154,15 +176,6 @@ begin
       ipbus_block_read(clk, oob_in, oob_out, BASE_ADD_RAM, rdata_buf, true);
       assert (wdata_buf = rdata_buf)
         report "Data read back does not equal data written" severity failure;
-	  
-	  report "### Checking Non-Incrementing BlockWrite / BlockRead ###"  & CR & LF;
-      wdata_buf := (x"55555555", x"44444444", x"33333333", x"22222222", x"11111111");
-      ipbus_block_write(clk, oob_in, oob_out, BASE_ADD_PEEP, wdata_buf, false);
-	  -- move the pointer back to 0
-	  ipbus_write(clk, oob_in, oob_out, BASE_ADD_PEEP_PTR, x"00000000");
-      ipbus_block_read(clk, oob_in, oob_out, BASE_ADD_PEEP, rdata_buf, false);
-      assert (wdata_buf = rdata_buf)
-        report "Data read back does not equal data written" severity failure;
     
       report "### Checking AXI BlockWrite / BlockRead ###"  & CR & LF;
       wdata_buf := (x"55555555", x"44444444", x"33333333", x"22222222", x"11111111");
@@ -170,7 +183,35 @@ begin
       ipbus_block_read(clk, oob_in, oob_out, BASE_ADD_CHAN, rdata_buf, false);
       assert (wdata_buf = rdata_buf)
         report "Data read back does not equal data written" severity failure;
+
+      report "### Checking AMC13 Link ###"  & CR & LF;
+      header_data := (x"FFFFFFFF", x"EEEEEEEE");
+      trailer_data := (x"DDDDDDDD", x"CCCCCCCC");
+      amc13_data := (x"55555555", x"44444444", x"33333333", x"22222222", x"11111111",
+                    x"55555555", x"44444444", x"33333333", x"22222222", x"11111111");
+      ipbus_block_write(clk, oob_in, oob_out, BASE_ADD_AMC13, header_data, false);
+      ipbus_block_write(clk, oob_in, oob_out, BASE_ADD_AMC13 or x"00000001", amc13_data, false);
+      ipbus_block_write(clk, oob_in, oob_out, BASE_ADD_AMC13 or x"00000002", trailer_data, false);
+      assert (header_data(0) = amc13_header_rx(31 downto 0))
+        report "Header data read back does not equal data written" severity failure;
+      assert (header_data(1) = amc13_header_rx(63 downto 32))
+        report "Header data read back does not equal data written" severity failure;
+
+      i := 0;
+      while i < 5 loop
+        assert (amc13_data(2*i) = amc13_data_rx(i)(31 downto 0))
+          report "Data read back does not equal data written" severity failure;
+        assert (amc13_data(2*i+1) = amc13_data_rx(i)(63 downto 32))
+          report "Data read back does not equal data written" severity failure;
+        i := i + 1;
+      end loop;
       
+      assert (trailer_data(0) = amc13_trailer_rx(31 downto 0))
+        report "Trailer data read back does not equal data written" severity failure;
+      assert (trailer_data(1) = amc13_trailer_rx(63 downto 32))
+        report "Trailer data read back does not equal data written" severity failure;
+
+
       report "### Checking Read-Modify-Write ###"  & CR & LF;
       -- First just make sure register value set to a know value
       wdata := x"DEADBEEF";
@@ -323,15 +364,6 @@ begin
 			ipbus_in => ipbw(2),
 			ipbus_out => ipbr(2)
 		);
-	
-	slave3: entity work.ipbus_peephole_ram
-		generic map(addr_width => 3)
-		port map(
-			clk => clk,
-			reset => rst,
-			ipbus_in => ipbw(3),
-			ipbus_out => ipbr(3)
-		);
 
   slave4: entity work.ipbus_axi_stream
   generic map(
@@ -341,8 +373,8 @@ begin
   port map(
     clk => clk,
     reset => rst,
-    ipbus_in => ipbw(4),
-    ipbus_out => ipbr(4),
+    ipbus_in => ipbw(5),
+    ipbus_out => ipbr(5),
     axi_str_in => axi_stream_to_ipbus,
     axi_str_in_tready => axi_stream_to_ipbus_tready,
     axi_str_out => axi_stream_from_ipbus,
@@ -372,5 +404,18 @@ begin
       axis_wr_data_count => open,
       axis_rd_data_count => open
     );
+
+slave5: entity work.ipbus_amc13_daq_link
+  port map(
+    clk => clk,
+    reset => rst,
+    ipbus_in => ipbw(6),
+    ipbus_out => ipbr(6),
+    daq_valid => daq_valid,
+    daq_header => daq_header,
+    daq_trailer => daq_trailer,
+    daq_data => daq_data,
+    daq_ready => daq_ready
+  );
 
 end behave;

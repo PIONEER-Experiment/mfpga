@@ -1,13 +1,17 @@
 
 module channel_triggers(
+    input wire ipb_clk,
 	input wire trigger_in,
-	output wire[4:0] chan_trigger_out
+	output reg[4:0] chan_trigger_out
 	);
 
-assign chan_trigger_out[0] = trigger_in;
-assign chan_trigger_out[1] = trigger_in;
-assign chan_trigger_out[2] = trigger_in;
-assign chan_trigger_out[3] = trigger_in;
-assign chan_trigger_out[4] = trigger_in;
+always @(posedge ipb_clk)
+begin
+    chan_trigger_out[0] <= trigger_in;
+    chan_trigger_out[1] <= trigger_in;
+    chan_trigger_out[2] <= trigger_in;
+    chan_trigger_out[3] <= trigger_in;
+    chan_trigger_out[4] <= trigger_in;
+end
 
 endmodule

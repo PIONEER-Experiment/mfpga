@@ -17,6 +17,7 @@ create_clock -period 4.000 -name DAQ_usrclk [get_pins daq/i_DAQLINK_7S_init/GT0_
 # virtual clock to constrain trigger outputs
 create_clock -period 1.250 -name chan_clk
 set_output_delay -clock chan_clk 0.0 [get_ports acq_trigs[*]]
+set_output_delay -clock chan_clk 0.0 [get_ports debug[*]]
 
 # Separate asynchronous clock domains
 set_clock_groups -name async_clk50_gige_clk -asynchronous\

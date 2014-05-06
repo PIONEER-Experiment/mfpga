@@ -29,6 +29,9 @@ package ipbus_simulation is
   -- You'll need this type if you want to pass a block of data into procedures 
   -- ipbus_block_write or ipbus_block_read.
   type type_ipbus_buffer is array(natural range <>) of std_logic_vector(31 downto 0);
+  type type_amc13_data is array(natural range <>) of std_logic_vector(63 downto 0);
+  
+
 
   procedure ipbus_read(signal clk: in std_logic; 
                         signal cntrl_to_transactor: out ipbus_trans_in; 

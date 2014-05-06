@@ -117,7 +117,7 @@ module wfd_top(
         .USE_TRIGGER_PORT(1'b0)
     ) daq(
         .reset(rst_from_ipb),
-        
+
         .GTX_REFCLK(clk125),
         .GTX_RXP(daq_rx),
         .GTX_RXN(daq_rx_N),
@@ -141,6 +141,7 @@ module wfd_top(
     );
 
     channel_triggers ct (
+        .ipb_clk(clk125),
         .trigger_in(trigger_from_ipbus),
         .chan_trigger_out(chan_triggers)
         );
