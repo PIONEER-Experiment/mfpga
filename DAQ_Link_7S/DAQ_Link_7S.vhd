@@ -62,7 +62,7 @@ entity DAQ_Link_7S is
 -- do not forget to specify its period in the generic port
            SYSCLK_IN : in  STD_LOGIC;
 -- Data port
-		   EventDataClk : in  STD_LOGIC;
+					 EventDataClk : in  STD_LOGIC;
            EventData_valid : in  STD_LOGIC; -- used as data write enable
            EventData_header : in  STD_LOGIC; -- first data word
            EventData_trailer : in  STD_LOGIC; -- last data word
@@ -238,7 +238,7 @@ function GTXRESET_SPEEDUP(is_sim : boolean) return string is
 	end function;
 constant N : integer := 8;
 constant Acknowledge : std_logic_vector(7 downto 0) := x"12";
-constant version : std_logic_vector(7 downto 0) := x"02";
+constant version : std_logic_vector(7 downto 0) := x"03";
 constant data : std_logic_vector(7 downto 0) := x"34";
 constant InitRqst : std_logic_vector(7 downto 0) := x"56";
 constant Counter : std_logic_vector(7 downto 0) := x"78";
@@ -373,7 +373,7 @@ signal RxCRC : std_logic_vector(15 downto 0) := (others => '0');
 --signal AMCinfoRAM : ram_1024X16;
 signal AMCinfo_WrEn : std_logic := '0';
 signal AMCinfo_wa : std_logic_vector(9 downto 0) := (others => '0');
---signal AMCinfo_ra : std_logic_vector(9 downto 0) := (others => '0');
+signal AMCinfo_sel : std_logic_vector(2 downto 0) := (others => '0');
 signal AMCinfo_Di : std_logic_vector(15 downto 0) := (others => '0');
 signal AMCinfo_Do : std_logic_vector(15 downto 0) := (others => '0');
 --signal AMCinfo : std_logic_vector(15 downto 0) := (others => '0');
@@ -526,7 +526,7 @@ begin
 		end if;
 		if(DataFIFO_RdEn = '1')then
 			if(DataFIFO_do(65) = '1')then
-				EventWC <= x"00001";
+				EventWC <= x"00002";
 			else
 				EventWC <= EventWC + 1;
 			end if;
@@ -602,8 +602,6 @@ begin
 		reset_SyncRegs <= reset_SyncRegs(2 downto 0) & '0';
 	end if;
 end process;
--- following is used to reset CDR when sync get lost
---w <= 8 when simulation = true else 16;
 process(UsrClk)
 begin
 	if(UsrClk'event and UsrClk = '1')then
@@ -615,21 +613,6 @@ begin
 		RXCHARISCOMMA_q <= RXCHARISCOMMA;
 		RXCHARISK_q <= RXCHARISK;
 		RXDATA_q <= RXDATA;
---		RXLOSSOFSYNC_q <= RXLOSSOFSYNC;
---		RXENMCOMMAALIGN <= rst_wait;
---		RXENPCOMMAALIGN <= rst_wait;
---		if(wait_cntr(w) = '1')then
---			rst_wait <= '0';
---		elsif(RXLOSSOFSYNC_q(1) = '1')then
---			rst_wait <= '1';
---		end if;
---		rst_cdr <= not rst_wait and RXLOSSOFSYNC_q(1);
---		RXCDRRESET <= rst_cdr;
---		if(wait_cntr(w) = '1' or rst_wait = '0')then
---			wait_cntr <= (others => '0');
---		else
---			wait_cntr <= wait_cntr + 1;
---		end if;
 	end if;
 end process;
 process(EventDataClk,reset,InitLink)
@@ -951,7 +934,9 @@ begin
 			when SendEOF => TxFIFO_Dip <= eof_word;
 			when others => TxFIFO_Dip <= (others => '0');
 		end case;
-		if(packet_wc(4) = '0')then
+		if(InitLink = '1')then
+			cntrs <= (others => '0');
+		elsif(packet_wc(4) = '0')then
 			case packet_wc(3 downto 0) is
 				when x"0" => cntrs <= cntr0;
 				when x"1" => cntrs <= cntr1;
@@ -978,7 +963,6 @@ begin
 				when x"3" => cntrs <= "000000" & L1Ainfo_wa;
 				when x"4" => cntrs <= "000000" & info_ra;
 				when x"5" => cntrs <= "000000" & AMCinfo_wa;
---				when x"6" => cntrs <= "000000" & info_ra;
 				when x"7" => cntrs <= "0000000" & EventCnt & ReSendQue_a & AlmostFull_i & dataFIFO_Empty;
 				when others => cntrs <= (others => '0');
 			end case;
@@ -1151,7 +1135,6 @@ begin
 		else
 			check_packet <= '0';
 		end if;
---		accept <= (check_packet and SEQ_OK and CRC_OK and frame_OK and not bad_K and not ACKNUM_full and TypeData) or InitLink;
 		accept <= check_packet and SEQ_OK and CRC_OK and frame_OK and not bad_K and not ACKNUM_full and (TypeInit or TypeData);
 -- acknowledge even received packet is not the expected one
 		we_ACKNUM <= check_packet and CRC_OK and frame_OK and not bad_K and not ACKNUM_full and (TypeInit or TypeData);
@@ -1291,26 +1274,28 @@ process(UsrClk)
 begin
 	if(UsrClk'event and UsrClk = '1')then
 		if(Init_EventCRC = '1')then
-			AMC_header <= '1';
-		elsif(FillDataBuf = '1' and AMCinfo_wa(1) = '1' and UsrClkDiv(1) = '1')then
-			AMC_header <= '0';
+			AMCinfo_sel <= "010";
+		elsif(FillDataBuf = '1')then
+			case AMCinfo_sel is
+				when "010" => AMCinfo_sel <= "100";
+				when "100" => AMCinfo_sel <= "101";
+				when "101" => AMCinfo_sel <= "110";
+				when "110" => AMCinfo_sel <= "011";
+				when "011" => AMCinfo_sel <= "111";
+				when others => AMCinfo_sel <= "000";
+			end case;
 		end if;
-		AMCinfo_WrEn <= AMC_header and FillDataBuf and (UsrClkDiv(1) or not UsrClkDiv(0));
-		case AMCinfo_wa(1 downto 0) is
+		AMCinfo_WrEn <= FillDataBuf and AMCinfo_sel(2);
+		case AMCinfo_sel(1 downto 0) is
 			when "00" => AMCinfo_Di <= DataBuf_Din(15 downto 4) & x"0";-- BX
 			when "01" => AMCinfo_Di <= DataBuf_Din(15 downto 0);--evn(15 downto 0)
 			when "10" => AMCinfo_Di <= x"00" & DataBuf_Din(7 downto 0);--evn(23 downto 16)
 			when others => AMCinfo_Di <= DataBuf_Din(15 downto 0);--OrN(15 downto 0)
 		end case;
-		if(AMC_header = '0')then
-			AMCinfo_wa(1 downto 0) <= (others => '0');
-		elsif(AMCinfo_WrEn = '1')then
-			AMCinfo_wa(1 downto 0) <= AMCinfo_wa(1 downto 0) + 1;
-		end if;
 		if(InitLink = '1')then
-			AMCinfo_wa(9 downto 2) <= (others => '0');
-		elsif(AMCinfo_wa(1 downto 0) = "11" and AMCinfo_WrEn = '1')then
-			AMCinfo_wa(9 downto 2) <= AMCinfo_wa(9 downto 2) + 1;
+			AMCinfo_wa <= (others => '0');
+		elsif(AMCinfo_WrEn = '1')then
+			AMCinfo_wa <= AMCinfo_wa + 1;
 		end if;
 	end if;
 end process;
@@ -1377,7 +1362,6 @@ i_L1Ainfo : BRAM_SDP_MACRO
       WRCLK => UsrClk,   -- 1-bit input write clock
       WREN => L1Ainfo_WrEn      -- 1-bit input write port enable
    );
---AMCinfo_ra <= L1Ainfo_ra;
 i_TTS_TRIG_if: TTS_TRIG_if generic map(USE_TRIGGER_PORT => USE_TRIGGER_PORT) PORT MAP(
 		reset => reset,
 		UsrClk => UsrClk,
@@ -1585,72 +1569,6 @@ i_DAQLINK_7S_init : DAQLINK_7S_init
         GT0_QPLLRESET_IN                =>      '0'
 
     );
---    generic map
---    (
---        -- Simulation attributes
---        GTX_SIM_GTXRESET_SPEEDUP    => GTXRESET_SPEEDUP(simulation),
---        
---        -- Share RX PLL parameter
---        GTX_TX_CLK_SOURCE           => "RXPLL",
---        -- Save power parameter
---        GTX_POWER_SAVE              => "0000110100",
---				F_REFCLK										=> F_REFCLK
---    )
---    port map
---    (
---        ------------------------ Loopback and Powerdown Ports ----------------------
---        LOOPBACK_IN                     =>      LOOPBACK,
---        ----------------------- Receive Ports - 8b10b Decoder ----------------------
---        RXCHARISCOMMA_OUT               =>      RXCHARISCOMMA,
---        RXCHARISK_OUT                   =>      RXCHARISK,
---        RXDISPERR_OUT                   =>      open,
---        RXNOTINTABLE_OUT                =>      open,
---        ------------------- Receive Ports - Clock Correction Ports -----------------
---        RXCLKCORCNT_OUT                 =>      open,
---        --------------- Receive Ports - Comma Detection and Alignment --------------
---        RXENMCOMMAALIGN_IN              =>      RXENMCOMMAALIGN,
---        RXENPCOMMAALIGN_IN              =>      RXENPCOMMAALIGN,
---        ------------------- Receive Ports - RX Data Path interface -----------------
---        RXDATA_OUT                      =>      RXDATA,
---        RXUSRCLK2_IN                    =>      UsrClk,
---        ------- Receive Ports - RX Driver,OOB signalling,Coupling and Eq.,CDR ------
---        RXCDRRESET_IN                   =>      RXCDRRESET,
---        RXEQMIX_IN                      =>      RXEQMIX,
---        RXN_IN                          =>      GTX_RXN,
---        RXP_IN                          =>      GTX_RXP,
---        --------------- Receive Ports - RX Loss-of-sync State Machine --------------
---        RXLOSSOFSYNC_OUT                =>      RXLOSSOFSYNC,
---        ------------------------ Receive Ports - RX PLL Ports ----------------------
---        GTXRXRESET_IN                   =>      reset,
---        MGTREFCLKRX_IN                  =>      mgtrefclkrx,
---        PLLRXRESET_IN                   =>      '0',
---        RXPLLLKDET_OUT                  =>      RXPLLLKDET,
---        RXRESETDONE_OUT                 =>      RXRESETDONE,
---        ----------------- Receive Ports - RX Polarity Control Ports ----------------
---        RXPOLARITY_IN                   =>      '0',
---        ---------------- Transmit Ports - 8b10b Encoder Control Ports --------------
---        TXCHARISK_IN                    =>      TXCHARISK,
---        ------------------ Transmit Ports - TX Data Path interface -----------------
---        TXDATA_IN                       =>      TXDATA,
---        TXOUTCLK_OUT                    =>      TXOUTCLK,
---        TXUSRCLK2_IN                    =>      UsrClk,
---        ---------------- Transmit Ports - TX Driver and OOB signaling --------------
---        TXDIFFCTRL_IN                   =>      TXDIFFCTRL,
---        TXN_OUT                         =>      GTX_TXN,
---        TXP_OUT                         =>      GTX_TXP,
---        TXPOSTEMPHASIS_IN               =>      TXPOSTEMPHASIS,
---        --------------- Transmit Ports - TX Driver and OOB signalling --------------
---        TXPREEMPHASIS_IN                =>      TXPREEMPHASIS,
---        ----------------------- Transmit Ports - TX PLL Ports ----------------------
---        GTXTXRESET_IN                   =>      reset,
---        MGTREFCLKTX_IN                  =>      mgtrefclkrx,
---        PLLTXRESET_IN                   =>      '0',
---        TXPLLLKDET_OUT                  =>      open,
---        TXRESETDONE_OUT                 =>      TXRESETDONE,
---        -------------------- Transmit Ports - TX Polarity Control ------------------
---        TXPOLARITY_IN                   =>      '0'
---
---    );
 i_UsrClk : BUFG
    port map (
       O => UsrClk,     -- Clock buffer output

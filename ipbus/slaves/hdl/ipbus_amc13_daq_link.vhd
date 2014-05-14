@@ -18,7 +18,8 @@ entity ipbus_amc13_daq_link is
     daq_header : out std_logic := '0';
     daq_trailer : out std_logic := '0';
     daq_data : out std_logic_vector(63 downto 0);
-    daq_ready : in std_logic
+    daq_ready : in std_logic;
+    debug: out std_logic_vector(7 downto 0)
   );
 
 end entity;
@@ -99,6 +100,14 @@ begin  -- architecture ipbus_amc13_daq_link
 
   ipbus_out.ipb_ack <= ack;
   ipbus_out.ipb_err <= '0';
+
+  debug(0) <= daq_header_int;
+  debug(1) <= do_write;
+  debug(2) <= write_header;
+  debug(3) <= ack;
+  debug(4) <= state;
+  debug(5) <= daq_ready;
+  debug(6) <= clk;
 
 
 end architecture;

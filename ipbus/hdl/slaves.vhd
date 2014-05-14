@@ -17,6 +17,8 @@ entity slaves is
 		ipb_out: out ipb_rbus;
 		rst_out: out std_logic;
 
+		debug: out std_logic_vector(7 downto 0);
+
 		-- counters
 		pkt_rx: in std_logic := '0';
 		pkt_tx: in std_logic := '0';
@@ -170,7 +172,8 @@ begin
 	    daq_header => daq_header,
 	    daq_trailer => daq_trailer,
 	    daq_data => daq_data,
-	    daq_ready => daq_ready
+	    daq_ready => daq_ready,
+	    debug => debug
 	  );
 
 end rtl;

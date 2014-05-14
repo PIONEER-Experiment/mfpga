@@ -1,7 +1,13 @@
 # select the net that need to be observed
-set_property MARK_DEBUG "true" [get_nets ipb/eth/phy/status_vector[*]]
-set_property MARK_DEBUG "true" [get_nets rst_from_ipb]
-set_property MARK_DEBUG "true" [get_nets ipb/slaves/slave1/Q[0]]
+set_property MARK_DEBUG "true" [get_nets ipb/slave6/state]
+set_property MARK_DEBUG "true" [get_nets ipb/slave6/ack0]
+set_property MARK_DEBUG "true" [get_nets ipb/slaves/slave6/daq_header]
+set_property MARK_DEBUG "true" [get_nets ipb/slaves/slave6/daq_trailer]
+set_property MARK_DEBUG "true" [get_nets ipb/slaves/slave6/daq_valid]
+set_property MARK_DEBUG "true" [get_nets ipb/slaves/slave6/ipbus_in\[ipb_strobe\]]
+set_property MARK_DEBUG "true" [get_nets ipb/slaves/slave6/ipbus_in\[ipb_write\]]
+set_property MARK_DEBUG "true" [get_nets ipb/slaves/slave6/ipbus_in\[ipb_addr\][*]]
+set_property MARK_DEBUG "true" [get_nets daq_data[*]]
 
 #create one or more ILAs and connect signals
 #This one is for signals driven from the 125 MHz
@@ -18,21 +24,45 @@ set_property C_TRIGOUT_EN false [get_debug_cores u_ila_0]
 
 # connect the clock
 set_property port_width 1 [get_debug_ports u_ila_0/clk]
-connect_debug_port u_ila_0/clk [get_nets ipb/eth/phy/U0/gtrefclk_out]
+connect_debug_port u_ila_0/clk [get_nets clk125]
 
 # the first probe is automatically created
 # for busses, put the LSB first and the MSB last
 #start with a counter to gather samples at a fraction of the clock rate
-set_property port_width 16 [get_debug_ports u_ila_0/probe0]
-connect_debug_port u_ila_0/probe0 [get_nets [list ipb/eth/phy/status_vector[0] ipb/eth/phy/status_vector[1] ipb/eth/phy/status_vector[2] ipb/eth/phy/status_vector[3] ipb/eth/phy/status_vector[4] ipb/eth/phy/status_vector[5] ipb/eth/phy/status_vector[6] ipb/eth/phy/status_vector[7] ipb/eth/phy/status_vector[8] ipb/eth/phy/status_vector[9] ipb/eth/phy/status_vector[10] ipb/eth/phy/status_vector[11] ipb/eth/phy/status_vector[12] ipb/eth/phy/status_vector[13] ipb/eth/phy/status_vector[14] ipb/eth/phy/status_vector[15]]]
+set_property port_width 64 [get_debug_ports u_ila_0/probe0]
+connect_debug_port u_ila_0/probe0 [get_nets [list ipb/slaves/slave6/daq_data[*]]]
 
 create_debug_port u_ila_0 probe
 set_property port_width 1 [get_debug_ports u_ila_0/probe1]
-connect_debug_port u_ila_0/probe1 [get_nets rst_from_ipb]
+connect_debug_port u_ila_0/probe1 [get_nets ipb/slaves/slave6/state]
 
 create_debug_port u_ila_0 probe
 set_property port_width 1 [get_debug_ports u_ila_0/probe2]
-connect_debug_port u_ila_0/probe2 [get_nets ipb/slaves/slave1/Q[0]]
+connect_debug_port u_ila_0/probe2 [get_nets ipb/slaves/slave6/ack0]
+
+create_debug_port u_ila_0 probe
+set_property port_width 2 [get_debug_ports u_ila_0/probe3]
+connect_debug_port u_ila_0/probe3 [get_nets ipb/slaves/slave6/ipbus_in\[ipb_addr\][*]]
+
+create_debug_port u_ila_0 probe
+set_property port_width 1 [get_debug_ports u_ila_0/probe4]
+connect_debug_port u_ila_0/probe4 [get_nets ipb/slaves/slave6/ipbus_in\[ipb_strobe\]]
+
+create_debug_port u_ila_0 probe
+set_property port_width 1 [get_debug_ports u_ila_0/probe5]
+connect_debug_port u_ila_0/probe5 [get_nets ipb/slaves/slave6/ipbus_in\[ipb_write\]]
+
+create_debug_port u_ila_0 probe
+set_property port_width 1 [get_debug_ports u_ila_0/probe6]
+connect_debug_port u_ila_0/probe6 [get_nets ipb/slaves/slave6/daq_header]
+
+create_debug_port u_ila_0 probe
+set_property port_width 1 [get_debug_ports u_ila_0/probe7]
+connect_debug_port u_ila_0/probe7 [get_nets ipb/slaves/slave6/daq_trailer]
+
+create_debug_port u_ila_0 probe
+set_property port_width 1 [get_debug_ports u_ila_0/probe8]
+connect_debug_port u_ila_0/probe8 [get_nets ipb/slaves/slave6/daq_valid]
 
 set_property C_USER_SCAN_CHAIN 1 [get_debug_cores dbg_hub]
 

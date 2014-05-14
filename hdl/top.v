@@ -36,8 +36,6 @@ module wfd_top(
 
     assign led0 = eth_link_status; // green
     assign led1 = ~eth_link_status; // red
-    assign debug[15] = pll_lock;
-
 
     PLLE2_BASE #(
         .CLKFBOUT_MULT(20.0),
@@ -65,7 +63,6 @@ module wfd_top(
     wire trigger_from_ipbus;
     wire[4:0] chan_triggers;
     assign acq_trigs = chan_triggers;
-    assign debug[12:8] = chan_triggers;
 
     // IPBus module
     ipbus_top ipb(
@@ -107,7 +104,7 @@ module wfd_top(
 
         .trigger_out(trigger_from_ipbus),
 
-        .debug()
+        .debug(debug[15:8])
     );
 
     // DAQ Link to AMC13
@@ -139,6 +136,7 @@ module wfd_top(
         .AlmostFull(daq_almost_full),
         .Ready(daq_ready)
     );
+
 
     channel_triggers ct (
         .ipb_clk(clk125),
