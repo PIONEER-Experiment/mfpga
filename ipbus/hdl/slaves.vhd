@@ -42,14 +42,25 @@ entity slaves is
 	    daq_ready : in std_logic;
 	    daq_almost_full : in std_logic;
 
-	    trigger_out : out std_logic
+	    trigger_out : out std_logic;
+
+	    -- "user_ipb" interface
+        user_ipb_clk         : out std_logic;                       -- programming clock
+        user_ipb_strobe     : out std_logic;                       -- this ipb space is selected for an I/O operation 
+        user_ipb_addr   : out std_logic_vector(31 downto 0);   -- slave address, memory or register
+        user_ipb_write       : out std_logic;		                -- this is a write operation
+        user_ipb_wdata : out std_logic_vector(31 downto 0);	-- data to write for write operations
+        user_ipb_rdata : in std_logic_vector(31 downto 0);	-- data returned for read operations
+        user_ipb_ack           : in std_logic;			            -- 'write' data has been stored, 'read' data is ready
+        user_ipb_err           : in std_logic			            -- '1' if error, '0' if OK?
+
 	);
 
 end slaves;
 
 architecture rtl of slaves is
 
-	constant NSLV: positive := 7;
+	constant NSLV: positive := 8;
 	signal ipbw: ipb_wbus_array(NSLV-1 downto 0);
 	signal ipbr, ipbr_d: ipb_rbus_array(NSLV-1 downto 0);
 	signal ctrl_reg: std_logic_vector(31 downto 0);
@@ -175,5 +186,25 @@ begin
 	    daq_ready => daq_ready,
 	    debug => debug
 	  );
+
+
+	  -- Slave 7: 24 Mbyte user space
+	slave7: entity work.ipbus_user
+		generic map(addr_width => 24)
+		port map(
+			clk => ipb_clk,
+			reset => ipb_rst,
+			ipbus_in => ipbw(7),
+            ipbus_out => ipbr(7),
+			-- "user_ipb" interface
+            user_ipb_clk => user_ipb_clk,           -- programming clock
+            user_ipb_strobe => user_ipb_strobe,     -- this ipb space is selected for an I/O operation 
+            user_ipb_addr => user_ipb_addr,         -- slave address, memory or register
+            user_ipb_write => user_ipb_write,       -- this is a write operation
+            user_ipb_wdata => user_ipb_wdata,       -- data to write for write operations
+            user_ipb_rdata => user_ipb_rdata,       -- data returned for read operations
+            user_ipb_ack => user_ipb_ack,           -- 'write' data has been stored, 'read' data is ready
+            user_ipb_err => user_ipb_err            -- '1' if error, '0' if OK?
+		);
 
 end rtl;

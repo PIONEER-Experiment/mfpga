@@ -19,6 +19,16 @@ entity ipbus_top is port(
 	sfp_los: in std_logic;
 	rst_out: out std_logic;
 	eth_link_status: out std_logic;
+
+	-- "user_ipb" interface
+    user_ipb_clk           : out std_logic;                       -- programming clock
+    user_ipb_strobe     : out std_logic;                       -- this ipb space is selected for an I/O operation 
+    user_ipb_addr   : out std_logic_vector(31 downto 0);   -- slave address, memory or register
+    user_ipb_write       : out std_logic;		                -- this is a write operation
+    user_ipb_wdata : out std_logic_vector(31 downto 0);	-- data to write for write operations
+    user_ipb_rdata : in std_logic_vector(31 downto 0);	-- data returned for read operations
+    user_ipb_ack          : in std_logic;			            -- 'write' data has been stored, 'read' data is ready
+    user_ipb_err           : in std_logic;			            -- '1' if error, '0' if OK?	
         
     axi_stream_in_tvalid : in std_logic;
     axi_stream_in_tdata : in std_logic_vector(31 downto 0);
@@ -170,6 +180,15 @@ begin
 		eth_phy_rudi_invalid => eth_phy_status_vector(4),
 		eth_phy_rxdisperr => eth_phy_status_vector(5),
 		eth_phy_rxnotintable => eth_phy_status_vector(6),
+		-- "user_ipb" interface
+        user_ipb_clk => user_ipb_clk,           -- programming clock
+        user_ipb_strobe => user_ipb_strobe,     -- this ipb space is selected for an I/O operation 
+        user_ipb_addr => user_ipb_addr,         -- slave address, memory or register
+        user_ipb_write => user_ipb_write,       -- this is a write operation
+        user_ipb_wdata => user_ipb_wdata,       -- data to write for write operations
+        user_ipb_rdata => user_ipb_rdata,       -- data returned for read operations
+        user_ipb_ack => user_ipb_ack,           -- 'write' data has been stored, 'read' data is ready
+        user_ipb_err => user_ipb_err,           -- '1' if error, '0' if OK?
 	    axi_stream_in => axi_stream_in,
 	    axi_stream_in_tready => axi_stream_in_tready,
 	    axi_stream_out => axi_stream_out,
