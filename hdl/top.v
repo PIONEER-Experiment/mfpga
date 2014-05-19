@@ -245,7 +245,8 @@ module wfd_top(
         .c0_m_axi_rx_tready(axi_stream_from_c0_tready),            // input wire m_axis_tready
         // serial I/O pins
         .c0_rxp(c0_rx), .c0_rxn(c0_rx_N),                   // receive from channel 0 FPGA
-        .c0_txp(c0_tx), .c0_txn(c0_tx_N)                   // transmit to channel 0 FPGA
+        .c0_txp(c0_tx), .c0_txn(c0_tx_N),                   // transmit to channel 0 FPGA
+        .debug()
 
         // // channel 1 connections
         // // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
@@ -266,26 +267,4 @@ module wfd_top(
         // .c1_txp(c1_tx), .c1_txn(c1_tx_N)                   // transmit to channel 0 FPGA
     );
 
-    // AXI4-Stream loopback with FIFO buffer
-    // axis_data_fifo_ipbus_loopback axi_looopback (
-    //   .s_axis_aresetn(rst_n),          // input wire s_axis_aresetn
-    //   .s_axis_aclk(clk125),                // input wire s_axis_aclk
-    //   .s_axis_tvalid(axi_stream_from_ipbus_tvalid),            // input wire s_axis_tvalid
-    //   .s_axis_tready(axi_stream_from_ipbus_tready),            // output wire s_axis_tready
-    //   .s_axis_tdata(axi_stream_from_ipbus_tdata),              // input wire [31 : 0] s_axis_tdata
-    //   .s_axis_tkeep(axi_stream_from_ipbus_tkeep),              // input wire [3 : 0] s_axis_tkeep
-    //   .s_axis_tlast(axi_stream_from_ipbus_tlast),              // input wire s_axis_tlast
-    //   .s_axis_tid(axi_stream_from_ipbus_tid),                  // input wire [3 : 0] s_axis_tid
-    //   .s_axis_tdest(axi_stream_from_ipbus_tdest),              // input wire [3 : 0] s_axis_tdest
-    //   .m_axis_tvalid(axi_stream_to_ipbus_tvalid),            // output wire m_axis_tvalid
-    //   .m_axis_tready(axi_stream_to_ipbus_tready),            // input wire m_axis_tready
-    //   .m_axis_tdata(axi_stream_to_ipbus_tdata),              // output wire [31 : 0] m_axis_tdata
-    //   .m_axis_tkeep(axi_stream_to_ipbus_tkeep),              // output wire [3 : 0] m_axis_tkeep
-    //   .m_axis_tlast(axi_stream_to_ipbus_tlast),              // output wire m_axis_tlast
-    //   .m_axis_tid(axi_stream_to_ipbus_tid),                  // output wire [3 : 0] m_axis_tid
-    //   .m_axis_tdest(axi_stream_to_ipbus_tdest),              // output wire [3 : 0] m_axis_tdest
-    //   .axis_data_count(axis_data_count),        // output wire [31 : 0] axis_data_count
-    //   .axis_wr_data_count(axis_wr_data_count),  // output wire [31 : 0] axis_wr_data_count
-    //   .axis_rd_data_count(axis_rd_data_count)  // output wire [31 : 0] axis_rd_data_count
-    // );
 endmodule

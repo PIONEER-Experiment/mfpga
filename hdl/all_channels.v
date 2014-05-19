@@ -37,7 +37,7 @@ module all_channels(
   input c0_m_axi_rx_tready,            // input wire m_axis_tready
   // serial I/O pins
   input c0_rxp, c0_rxn,                   // receive from channel 0 FPGA
-  output c0_txp, c0_txn                   // transmit to channel 0 FPGA
+  output c0_txp, c0_txn,                   // transmit to channel 0 FPGA
 
   // channel 1 connections
   // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
@@ -56,6 +56,9 @@ module all_channels(
   // // serial I/O pins
   // input c1_rxp, c1_rxn,                   // receive from channel 0 FPGA
   // output c1_txp, c1_txn                   // transmit to channel 0 FPGA
+
+  // debug ports
+  output [3:0] debug
  );
 
   // busses of data being read back by IPbus
@@ -127,6 +130,7 @@ module all_channels(
     .gt_qpllrefclk_quad2(1'b0),     // input
     .gt0_qpllreset()                               // output
   );
+
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////
   // Chan 1
@@ -208,10 +212,11 @@ module all_channels(
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////
   // connect a state machine to handle wait states and drive 'ipb_ack'
+  wire [14:0] state_peek;
   IPB_IO_interface IPB_IO_interface(
     // inputs
     .clk(ipb_clk),     	       // IPbus clock
-    .res(reset),         	   // Global reset
+    .res(ipb_reset),         	   // Global reset
     .ipb_strobe(ipb_strobe),   // IPbus strobe
     .ipb_write(ipb_write),     // IPbus write
     .io_rd_ack(io_rd_ack_reg), // verilog ack
@@ -219,8 +224,16 @@ module all_channels(
     .io_sync(io_sync),         // An operation is in progress
     .io_rd_en(io_rd_en),       // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),       // one cycle long write enable
-    .ipb_ack(ipb_ack)          // one cycle long ack back to IPbus
+    .ipb_ack(ipb_ack),          // one cycle long ack back to IPbus
+    .state_peek(state_peek)
   );
+  assign debug[0] = state_peek[7]; // READ_START
+  assign debug[1] = state_peek[8]; // READ_WAIT
+  assign debug[2] = state_peek[0]; // IDLE
+  assign debug[3] = state_peek[1]; // READ_ACK
+
+
+
 
 
 endmodule

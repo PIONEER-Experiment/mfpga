@@ -10,30 +10,33 @@ module IPB_IO_interface (
   input wire io_rd_ack,     // verilog ack
   input wire ipb_strobe,    // IPbus strobe
   input wire ipb_write,     // IPbus write
-  input wire res            // Global reset
+  input wire res,            // Global reset
+  output wire[14:0] state_peek
 );
-  
+
   // state bits
-  parameter 
-  IDLE         = 0, 
-  READ_ACK     = 1, 
-  READ_DLY1    = 2, 
-  READ_DLY2    = 3, 
-  READ_HOLD1   = 4, 
-  READ_HOLD2   = 5, 
-  READ_HOLD3   = 6, 
-  READ_START   = 7, 
-  READ_WAIT    = 8, 
-  WRITE_ACK    = 9, 
-  WRITE_ENABLE = 10, 
-  WRITE_HOLD1  = 11, 
-  WRITE_HOLD2  = 12, 
-  WRITE_HOLD3  = 13, 
-  WRITE_START  = 14; 
-  
+  parameter
+  IDLE         = 0,
+  READ_ACK     = 1,
+  READ_DLY1    = 2,
+  READ_DLY2    = 3,
+  READ_HOLD1   = 4,
+  READ_HOLD2   = 5,
+  READ_HOLD3   = 6,
+  READ_START   = 7,
+  READ_WAIT    = 8,
+  WRITE_ACK    = 9,
+  WRITE_ENABLE = 10,
+  WRITE_HOLD1  = 11,
+  WRITE_HOLD2  = 12,
+  WRITE_HOLD3  = 13,
+  WRITE_START  = 14;
+
   reg [14:0] state;
   reg [14:0] nextstate;
-  
+
+  assign state_peek = state;
+
   // comb always block
   always @* begin
     nextstate = 15'b000000000000000;
@@ -44,8 +47,8 @@ module IPB_IO_interface (
     case (1'b1) // synopsys parallel_case full_case
       state[IDLE]        : begin // Wait for data from a new crossing
         io_sync = 0;
-        // Warning P3: State IDLE has multiple exit transitions, and transition trans10 has no defined priority 
-        // Warning P3: State IDLE has multiple exit transitions, and transition trans11 has no defined priority 
+        // Warning P3: State IDLE has multiple exit transitions, and transition trans10 has no defined priority
+        // Warning P3: State IDLE has multiple exit transitions, and transition trans11 has no defined priority
         if (ipb_strobe & !ipb_write) begin
           nextstate[READ_START] = 1'b1;
         end
@@ -142,7 +145,7 @@ module IPB_IO_interface (
       end
     endcase
   end
-  
+
   // sequential always block
   always @(posedge clk) begin
     if (res)
@@ -150,7 +153,7 @@ module IPB_IO_interface (
     else
       state <= nextstate;
   end
-  
+
   // This code allows you to see state names in simulation
   `ifndef SYNTHESIS
   reg [95:0] statename;
