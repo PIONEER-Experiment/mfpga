@@ -1,13 +1,14 @@
 # select the net that need to be observed
-set_property MARK_DEBUG "true" [get_nets ipb/slave6/state]
-set_property MARK_DEBUG "true" [get_nets ipb/slave6/ack0]
-set_property MARK_DEBUG "true" [get_nets ipb/slaves/slave6/daq_header]
-set_property MARK_DEBUG "true" [get_nets ipb/slaves/slave6/daq_trailer]
-set_property MARK_DEBUG "true" [get_nets ipb/slaves/slave6/daq_valid]
-set_property MARK_DEBUG "true" [get_nets ipb/slaves/slave6/ipbus_in\[ipb_strobe\]]
-set_property MARK_DEBUG "true" [get_nets ipb/slaves/slave6/ipbus_in\[ipb_write\]]
-set_property MARK_DEBUG "true" [get_nets ipb/slaves/slave6/ipbus_in\[ipb_addr\][*]]
-set_property MARK_DEBUG "true" [get_nets daq_data[*]]
+set_property MARK_DEBUG "true" [get_nets channels/chan0/aurora/m_axi_rx_tvalid]
+set_property MARK_DEBUG "true" [get_nets channels/chan0/aurora/m_axi_rx_tlast]
+set_property MARK_DEBUG "true" [get_nets channels/chan0/aurora/m_axi_rx_tdata[*]]
+
+set_property MARK_DEBUG "true" [get_nets channels/chan0/aurora/s_axi_tx_tvalid]
+set_property MARK_DEBUG "true" [get_nets channels/chan0/aurora/s_axi_tx_tready]
+set_property MARK_DEBUG "true" [get_nets channels/chan0/aurora/s_axi_tx_tlast]
+set_property MARK_DEBUG "true" [get_nets channels/chan0/aurora/s_axi_tx_tdata[*]]
+
+
 
 #create one or more ILAs and connect signals
 #This one is for signals driven from the 125 MHz
@@ -24,45 +25,37 @@ set_property C_TRIGOUT_EN false [get_debug_cores u_ila_0]
 
 # connect the clock
 set_property port_width 1 [get_debug_ports u_ila_0/clk]
-connect_debug_port u_ila_0/clk [get_nets clk125]
+connect_debug_port u_ila_0/clk [get_pins channels/chan0/aurora/user_clk]
 
 # the first probe is automatically created
 # for busses, put the LSB first and the MSB last
 #start with a counter to gather samples at a fraction of the clock rate
-set_property port_width 64 [get_debug_ports u_ila_0/probe0]
-connect_debug_port u_ila_0/probe0 [get_nets [list ipb/slaves/slave6/daq_data[*]]]
+set_property port_width 16 [get_debug_ports u_ila_0/probe0]
+connect_debug_port u_ila_0/probe0 [get_nets channels/chan0/aurora/m_axi_rx_tdata[*]]
 
 create_debug_port u_ila_0 probe
 set_property port_width 1 [get_debug_ports u_ila_0/probe1]
-connect_debug_port u_ila_0/probe1 [get_nets ipb/slaves/slave6/state]
+connect_debug_port u_ila_0/probe1 [get_nets channels/chan0/aurora/m_axi_rx_tvalid]
 
 create_debug_port u_ila_0 probe
 set_property port_width 1 [get_debug_ports u_ila_0/probe2]
-connect_debug_port u_ila_0/probe2 [get_nets ipb/slaves/slave6/ack0]
+connect_debug_port u_ila_0/probe2 [get_nets channels/chan0/aurora/m_axi_rx_tlast]
 
 create_debug_port u_ila_0 probe
-set_property port_width 2 [get_debug_ports u_ila_0/probe3]
-connect_debug_port u_ila_0/probe3 [get_nets ipb/slaves/slave6/ipbus_in\[ipb_addr\][*]]
+set_property port_width 16 [get_debug_ports u_ila_0/probe3]
+connect_debug_port u_ila_0/probe3 [get_nets channels/chan0/aurora/s_axi_tx_tdata[*]]
 
 create_debug_port u_ila_0 probe
 set_property port_width 1 [get_debug_ports u_ila_0/probe4]
-connect_debug_port u_ila_0/probe4 [get_nets ipb/slaves/slave6/ipbus_in\[ipb_strobe\]]
+connect_debug_port u_ila_0/probe4 [get_nets channels/chan0/aurora/s_axi_tx_tvalid]
 
 create_debug_port u_ila_0 probe
 set_property port_width 1 [get_debug_ports u_ila_0/probe5]
-connect_debug_port u_ila_0/probe5 [get_nets ipb/slaves/slave6/ipbus_in\[ipb_write\]]
+connect_debug_port u_ila_0/probe5 [get_nets channels/chan0/aurora/s_axi_tx_tready]
 
 create_debug_port u_ila_0 probe
 set_property port_width 1 [get_debug_ports u_ila_0/probe6]
-connect_debug_port u_ila_0/probe6 [get_nets ipb/slaves/slave6/daq_header]
-
-create_debug_port u_ila_0 probe
-set_property port_width 1 [get_debug_ports u_ila_0/probe7]
-connect_debug_port u_ila_0/probe7 [get_nets ipb/slaves/slave6/daq_trailer]
-
-create_debug_port u_ila_0 probe
-set_property port_width 1 [get_debug_ports u_ila_0/probe8]
-connect_debug_port u_ila_0/probe8 [get_nets ipb/slaves/slave6/daq_valid]
+connect_debug_port u_ila_0/probe6 [get_nets channels/chan0/aurora/s_axi_tx_tlast]
 
 set_property C_USER_SCAN_CHAIN 1 [get_debug_cores dbg_hub]
 

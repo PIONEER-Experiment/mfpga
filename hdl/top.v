@@ -157,6 +157,11 @@ module wfd_top(
         .Ready(daq_ready)
     );
 
+    assign debug[8] = daq_header;
+    assign debug[9] = daq_valid;
+    assign debug[10] = daq_trailer;
+    assign debug[11] = daq_ready;
+
 
     channel_triggers ct (
         .ipb_clk(clk125),
@@ -206,9 +211,6 @@ module wfd_top(
       .m_axis_tlast(axi_stream_to_c0_tlast)    // output wire m_axis_tlast
     );
 
-    assign debug[8] = user_ipb_strobe;
-    assign debug[9] = user_ipb_write;
-    assign debug[10] = user_ipb_ack;
 
     // Serial links to channel FPGAs
     all_channels channels(

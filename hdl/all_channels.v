@@ -119,6 +119,7 @@ module all_channels(
     // serial I/O pins
     .rxp(c0_rxp), .rxn(c0_rxn),                    // receive from channel 0 FPGA
     .txp(c0_txp), .txn(c0_txn),                    // transmit to channel 0 FPGA
+    .debug(debug),
     // QPLL Ports
     // Channel 0 is in MGT bank 115, while the QPLL that is initialized in this block is in
     // MGT bank 116. The ethernet module should be initializing the QPLL in MGT band 115.
@@ -227,10 +228,6 @@ module all_channels(
     .ipb_ack(ipb_ack),          // one cycle long ack back to IPbus
     .state_peek(state_peek)
   );
-  assign debug[0] = state_peek[7]; // READ_START
-  assign debug[1] = state_peek[8]; // READ_WAIT
-  assign debug[2] = state_peek[0]; // IDLE
-  assign debug[3] = state_peek[1]; // READ_ACK
 
 
 

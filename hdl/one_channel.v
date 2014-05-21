@@ -39,6 +39,7 @@ module one_channel(
   // serial I/O pins
   input rxp, rxn,                     // receive from channel 0 FPGA
   output txp, txn,                    // transmit to channel 0 FPGA
+  output [3:0] debug,
   // QPLL Ports
   input gt0_qplllock,                 // input
   input gt0_qpllrefclklost,           // input
@@ -52,6 +53,7 @@ module one_channel(
   wire aurora_user_clk;                      // used to connect to the parallel side of the Aurora
   wire [15:0] local_axis_tx_tdata, local_axis_rx_tdata;
   wire [1:0] local_axis_tx_tkeep, local_axis_rx_tkeep;
+  wire local_axis_rx_tready;
   wire drdy_out_unused;
   wire [15:0] drpdo_out_unused;
 
@@ -69,6 +71,13 @@ module one_channel(
   // local connections
   wire [2:0] loopback_set;
 
+  assign local_axis_resetn = ~sys_reset_out;
+
+  assign debug[0] = local_axis_tx_tvalid;
+  assign debug[1] = local_axis_tx_tready;
+  assign debug[2] = local_axis_rx_tvalid;
+  assign debug[3] = local_axis_rx_tready;
+
   // Connect the transmit FIFO that buffer data destined for the channel FPGA and crosses clock domains
   chan_link_axis_data_fifo tx_fifo (
     .s_axis_aresetn(s_axis_aresetn),          // input wire s_axis_aresetn
@@ -78,7 +87,7 @@ module one_channel(
     .s_axis_tdata(s_axis_tx_tdata),            // input wire [15 : 0] s_axis_tdata
     .s_axis_tkeep(s_axis_tx_tkeep),            // input wire [1 : 0] s_axis_tkeep
     .s_axis_tlast(s_axis_tx_tlast),            // input wire s_axis_tlast
-    .m_axis_aresetn(sys_reset_out),          // input wire m_axis_aresetn
+    .m_axis_aresetn(local_axis_resetn),          // input wire m_axis_aresetn
     .m_axis_aclk(aurora_user_clk),                // input wire m_axis_aclk
     .m_axis_tvalid(local_axis_tx_tvalid),          // output wire m_axis_tvalid
     .m_axis_tdata(local_axis_tx_tdata),            // output wire [15 : 0] m_axis_tdata
@@ -89,10 +98,10 @@ module one_channel(
 
   // Connect the receive FIFO that buffer data arriving from the channel FPGA and crosses clock domains
   chan_link_axis_data_fifo rx_fifo (
-    .s_axis_aresetn(sys_reset_out),          // input wire s_axis_aresetn
+    .s_axis_aresetn(local_axis_resetn),          // input wire s_axis_aresetn
     .s_axis_aclk(aurora_user_clk),                // input wire s_axis_aclk
     .s_axis_tvalid(local_axis_rx_tvalid),          // input wire s_axis_tvalid
-    .s_axis_tready(),          // output wire s_axis_tready
+    .s_axis_tready(local_axis_rx_tready),          // output wire s_axis_tready IGNORED BY AURORA!!!
     .s_axis_tdata(local_axis_rx_tdata),            // input wire [15 : 0] s_axis_tdata
     .s_axis_tkeep(local_axis_rx_tkeep),            // input wire [1 : 0] s_axis_tkeep
     .s_axis_tlast(local_axis_rx_tlast),            // input wire s_axis_tlast
