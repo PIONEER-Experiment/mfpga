@@ -36,7 +36,15 @@ architecture rtl of ipbus_axi_stream is
 
   signal write_success_follow: std_logic;
 
+  attribute mark_debug : string;
+  attribute keep : string;
+  attribute mark_debug of do_read : signal is "true";
+  attribute mark_debug of read_success : signal is "true";
+  attribute mark_debug of ack : signal is "true";
+
 begin  -- architecture ipbus_axi_stream
+
+
 
   do_write <= ipbus_in.ipb_strobe and ipbus_in.ipb_write;
   do_read <= ipbus_in.ipb_strobe and not ipbus_in.ipb_write;

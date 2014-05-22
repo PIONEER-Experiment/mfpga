@@ -24,14 +24,14 @@ module all_channels(
   // channel 0 connections
   // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
   // TX interface to slave side of transmit FIFO
-  input [0:15] c0_s_axi_tx_tdata,        // note index order
-  input [0:1] c0_s_axi_tx_tkeep,         // note index order
+  input [0:31] c0_s_axi_tx_tdata,        // note index order
+  input [0:3] c0_s_axi_tx_tkeep,         // note index order
   input c0_s_axi_tx_tvalid,
   input c0_s_axi_tx_tlast,
   output c0_s_axi_tx_tready,
   // RX Interface to master side of receive FIFO
-  output [0:15] c0_m_axi_rx_tdata,       // note index order
-  output [0:1] c0_m_axi_rx_tkeep,        // note index order
+  output [0:31] c0_m_axi_rx_tdata,       // note index order
+  output [0:3] c0_m_axi_rx_tkeep,        // note index order
   output c0_m_axi_rx_tvalid,
   output c0_m_axi_rx_tlast,
   input c0_m_axi_rx_tready,            // input wire m_axis_tready
@@ -105,15 +105,15 @@ module all_channels(
     .s_axis_aclk(axis_clk),                        // input wire s_axis_aclk
     .s_axis_tx_tvalid(c0_s_axi_tx_tvalid),            // input wire s_axis_tvalid
     .s_axis_tx_tready(c0_s_axi_tx_tready),            // output wire s_axis_tready
-    .s_axis_tx_tdata(c0_s_axi_tx_tdata),              // input wire [15 : 0] s_axis_tdata
-    .s_axis_tx_tkeep(c0_s_axi_tx_tkeep),              // input wire [1 : 0] s_axis_tkeep
+    .s_axis_tx_tdata(c0_s_axi_tx_tdata),              // input wire [31 : 0] s_axis_tdata
+    .s_axis_tx_tkeep(c0_s_axi_tx_tkeep),              // input wire [3 : 0] s_axis_tkeep
     .s_axis_tx_tlast(c0_s_axi_tx_tlast),              // input wire s_axis_tlast
     // the master side of the receive FIFO
     .m_axis_aresetn(axis_clk_resetN),              // input wire m_axis_aresetn
     .m_axis_aclk(axis_clk),                        // input wire m_axis_aclk
     .m_axis_rx_tvalid(c0_m_axi_rx_tvalid),            // output wire m_axis_tvalid
-    .m_axis_rx_tdata(c0_m_axi_rx_tdata),              // output wire [15 : 0] m_axis_tdata
-    .m_axis_rx_tkeep(c0_m_axi_rx_tkeep),              // output wire [1 : 0] m_axis_tkeep
+    .m_axis_rx_tdata(c0_m_axi_rx_tdata),              // output wire [31 : 0] m_axis_tdata
+    .m_axis_rx_tkeep(c0_m_axi_rx_tkeep),              // output wire [3 : 0] m_axis_tkeep
     .m_axis_rx_tlast(c0_m_axi_rx_tlast),              // output wire m_axis_tlast
     .m_axis_rx_tready(c0_m_axi_rx_tready),            // input wire m_axis_tready
     // serial I/O pins

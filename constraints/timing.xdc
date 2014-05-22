@@ -11,6 +11,8 @@ create_clock -name gige_clk -period 8.000 [get_ports gtx_clk0]
 set_property ASYNC_REG TRUE [get_cells ipb/rst/sync_*]
 # set_false_path -from [get_cells ipb/rst/rst_ipb_reg] -to [get_cells ipb/rst/sync_*]
 set_false_path -from [get_cells ipb/rst/rst_delayed_reg] -to [get_cells ipb/rst/sync_*]
+set_property ASYNC_REG TRUE [get_cells r/rst_clk50_sync[*]]
+set_false_path -from [get_cells r/ipb_rst_stretch_reg[*]] -to [get_cells r/rst_clk50_sync_reg*]
 
 create_clock -period 4.000 -name DAQ_usrclk [get_pins daq/i_DAQLINK_7S_init/GT0_TXOUTCLK_OUT]
 
@@ -27,7 +29,7 @@ set_clock_groups -name async_clk50_gige_clk -asynchronous\
  -group [get_clocks -include_generated_clocks DAQ_usrclk]\
  -group [get_clocks -include_generated_clocks chan_clk]
 
-create_clock -name chan0_tx_out_clk -period 4.0 [get_pins channels/chan0/aurora/inst/tx_out_clk]
+create_clock -name chan0_tx_out_clk -period 8.0 [get_pins channels/chan0/aurora/inst/tx_out_clk]
 
-set_max_delay -from [get_clocks clk50] -to [get_clocks chan0_tx_out_clk] -datapath_only 4.0	 
+set_max_delay -from [get_clocks clk50] -to [get_clocks chan0_tx_out_clk] -datapath_only 8.0	 
 set_false_path -from [get_clocks chan0_tx_out_clk] -to [get_clocks clk125]

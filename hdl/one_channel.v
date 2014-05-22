@@ -23,16 +23,16 @@ module one_channel(
   // TX interface to slave side of transmit FIFO
   input s_axis_aresetn,                // input wire s_axis_aresetn
   input s_axis_aclk,                   // input wire s_axis_aclk
-  input [0:15] s_axis_tx_tdata,         // note index order
-  input [0:1] s_axis_tx_tkeep,          // note index order
+  input [0:31] s_axis_tx_tdata,         // note index order
+  input [0:3] s_axis_tx_tkeep,          // note index order
   input s_axis_tx_tvalid,
   input s_axis_tx_tlast,
   output s_axis_tx_tready,
   // RX Interface to master side of receive FIFO
   input m_axis_aresetn,               // input wire m_axis_aresetn
   input m_axis_aclk,                  // input wire m_axis_aclk
-  output [0:15] m_axis_rx_tdata,       // note index order
-  output [0:1] m_axis_rx_tkeep,        // note index order
+  output [0:31] m_axis_rx_tdata,       // note index order
+  output [0:3] m_axis_rx_tkeep,        // note index order
   output m_axis_rx_tvalid,
   output m_axis_rx_tlast,
   input m_axis_rx_tready,            // input wire m_axis_tready
@@ -51,8 +51,8 @@ module one_channel(
 
   wire local_axis_resetn;                 // a local reset synched to the Aurora 'user_clk'
   wire aurora_user_clk;                      // used to connect to the parallel side of the Aurora
-  wire [15:0] local_axis_tx_tdata, local_axis_rx_tdata;
-  wire [1:0] local_axis_tx_tkeep, local_axis_rx_tkeep;
+  wire [31:0] local_axis_tx_tdata, local_axis_rx_tdata;
+  wire [3:0] local_axis_tx_tkeep, local_axis_rx_tkeep;
   wire local_axis_rx_tready;
   wire drdy_out_unused;
   wire [15:0] drpdo_out_unused;
@@ -84,14 +84,14 @@ module one_channel(
     .s_axis_aclk(s_axis_aclk),                // input wire s_axis_aclk
     .s_axis_tvalid(s_axis_tx_tvalid),          // input wire s_axis_tvalid
     .s_axis_tready(s_axis_tx_tready),          // output wire s_axis_tready
-    .s_axis_tdata(s_axis_tx_tdata),            // input wire [15 : 0] s_axis_tdata
-    .s_axis_tkeep(s_axis_tx_tkeep),            // input wire [1 : 0] s_axis_tkeep
+    .s_axis_tdata(s_axis_tx_tdata),            // input wire [31 : 0] s_axis_tdata
+    .s_axis_tkeep(s_axis_tx_tkeep),            // input wire [3 : 0] s_axis_tkeep
     .s_axis_tlast(s_axis_tx_tlast),            // input wire s_axis_tlast
     .m_axis_aresetn(local_axis_resetn),          // input wire m_axis_aresetn
     .m_axis_aclk(aurora_user_clk),                // input wire m_axis_aclk
     .m_axis_tvalid(local_axis_tx_tvalid),          // output wire m_axis_tvalid
-    .m_axis_tdata(local_axis_tx_tdata),            // output wire [15 : 0] m_axis_tdata
-    .m_axis_tkeep(local_axis_tx_tkeep),            // output wire [1 : 0] m_axis_tkeep
+    .m_axis_tdata(local_axis_tx_tdata),            // output wire [31 : 0] m_axis_tdata
+    .m_axis_tkeep(local_axis_tx_tkeep),            // output wire [3 : 0] m_axis_tkeep
     .m_axis_tready(local_axis_tx_tready),            // input wire m_axis_tready
     .m_axis_tlast(local_axis_tx_tlast)             // output wire m_axis_tlast
   );
@@ -102,14 +102,14 @@ module one_channel(
     .s_axis_aclk(aurora_user_clk),                // input wire s_axis_aclk
     .s_axis_tvalid(local_axis_rx_tvalid),          // input wire s_axis_tvalid
     .s_axis_tready(local_axis_rx_tready),          // output wire s_axis_tready IGNORED BY AURORA!!!
-    .s_axis_tdata(local_axis_rx_tdata),            // input wire [15 : 0] s_axis_tdata
-    .s_axis_tkeep(local_axis_rx_tkeep),            // input wire [1 : 0] s_axis_tkeep
+    .s_axis_tdata(local_axis_rx_tdata),            // input wire [31 : 0] s_axis_tdata
+    .s_axis_tkeep(local_axis_rx_tkeep),            // input wire [3 : 0] s_axis_tkeep
     .s_axis_tlast(local_axis_rx_tlast),            // input wire s_axis_tlast
     .m_axis_aresetn(m_axis_aresetn),          // input wire m_axis_aresetn
     .m_axis_aclk(m_axis_aclk),                // input wire m_axis_aclk
     .m_axis_tvalid(m_axis_rx_tvalid),          // output wire m_axis_tvalid
-    .m_axis_tdata(m_axis_rx_tdata),            // output wire [15 : 0] m_axis_tdata
-    .m_axis_tkeep(m_axis_rx_tkeep),            // output wire [1 : 0] m_axis_tkeep
+    .m_axis_tdata(m_axis_rx_tdata),            // output wire [31 : 0] m_axis_tdata
+    .m_axis_tkeep(m_axis_rx_tkeep),            // output wire [3 : 0] m_axis_tkeep
     .m_axis_tready(m_axis_rx_tready),            // input wire m_axis_tready
     .m_axis_tlast(m_axis_rx_tlast)             // output wire m_axis_tlast
   );
@@ -117,14 +117,14 @@ module one_channel(
   // Connect a channel instance of aurora_8b10b_0.xci
   aurora_8b10b_0 aurora (
     // AXI TX Interface from transmit FIFO
-    .s_axi_tx_tdata(local_axis_tx_tdata),   // input [0:15], from TX FIFO
-    .s_axi_tx_tkeep(local_axis_tx_tkeep),   // input [0:1], from TX FIFO
+    .s_axi_tx_tdata(local_axis_tx_tdata),   // input [0:31], from TX FIFO
+    .s_axi_tx_tkeep(local_axis_tx_tkeep),   // input [0:3], from TX FIFO
     .s_axi_tx_tvalid(local_axis_tx_tvalid), // input, from TX FIFO
     .s_axi_tx_tlast(local_axis_tx_tlast),   // input, from TX FIFO
     .s_axi_tx_tready(local_axis_tx_tready), // output, to TX FIFO
     // AXI RX Interface to receive FIFO
-    .m_axi_rx_tdata(local_axis_rx_tdata),   // output [0:15], to RX FIFO
-    .m_axi_rx_tkeep(local_axis_rx_tkeep),   // output [0:1], to RX FIFO
+    .m_axi_rx_tdata(local_axis_rx_tdata),   // output [0:31], to RX FIFO
+    .m_axi_rx_tkeep(local_axis_rx_tkeep),   // output [0:3], to RX FIFO
     .m_axi_rx_tvalid(local_axis_rx_tvalid), // output, to RX FIFO
     .m_axi_rx_tlast(local_axis_rx_tlast),   // output, to RX FIFO
     // GT Serial I/O

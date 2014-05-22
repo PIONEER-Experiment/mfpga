@@ -1,12 +1,12 @@
 # select the net that need to be observed
-set_property MARK_DEBUG "true" [get_nets channels/chan0/aurora/m_axi_rx_tvalid]
-set_property MARK_DEBUG "true" [get_nets channels/chan0/aurora/m_axi_rx_tlast]
-set_property MARK_DEBUG "true" [get_nets channels/chan0/aurora/m_axi_rx_tdata[*]]
+set_property MARK_DEBUG "true" [get_nets ipb/slaves/slave5/write_success]
+set_property MARK_DEBUG "true" [get_nets ipb/slaves/slave5/write_success_follow]
+set_property MARK_DEBUG "true" [get_nets axi_stream_to_ipbus_tvalid]
+set_property MARK_DEBUG "true" [get_nets axi_stream_to_ipbus_tready]
+set_property MARK_DEBUG "true" [get_nets axi_stream_to_ipbus_tlast]
 
-set_property MARK_DEBUG "true" [get_nets channels/chan0/aurora/s_axi_tx_tvalid]
-set_property MARK_DEBUG "true" [get_nets channels/chan0/aurora/s_axi_tx_tready]
-set_property MARK_DEBUG "true" [get_nets channels/chan0/aurora/s_axi_tx_tlast]
-set_property MARK_DEBUG "true" [get_nets channels/chan0/aurora/s_axi_tx_tdata[*]]
+
+
 
 
 
@@ -25,7 +25,7 @@ set_property C_TRIGOUT_EN false [get_debug_cores u_ila_0]
 
 # connect the clock
 set_property port_width 1 [get_debug_ports u_ila_0/clk]
-connect_debug_port u_ila_0/clk [get_pins channels/chan0/aurora/user_clk]
+connect_debug_port u_ila_0/clk [get_nets clk125]
 
 # the first probe is automatically created
 # for busses, put the LSB first and the MSB last
