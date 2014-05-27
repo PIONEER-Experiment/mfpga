@@ -36,12 +36,6 @@ architecture rtl of ipbus_axi_stream is
 
   signal write_success_follow: std_logic;
 
-  attribute mark_debug : string;
-  attribute keep : string;
-  attribute mark_debug of do_read : signal is "true";
-  attribute mark_debug of read_success : signal is "true";
-  attribute mark_debug of ack : signal is "true";
-
 begin  -- architecture ipbus_axi_stream
 
 
@@ -50,7 +44,7 @@ begin  -- architecture ipbus_axi_stream
   do_read <= ipbus_in.ipb_strobe and not ipbus_in.ipb_write;
 
   write_success <= do_write and axi_str_out_tready;
-  read_success <= axi_str_in.tvalid and do_read and OR_REDUCE(axi_str_in.tkeep);
+  read_success <= axi_str_in.tvalid and do_read and (OR_REDUCE(axi_str_in.tkeep) or not axi_str_in.tlast);
 
   -- write_success_follow is one clock behind write_success
   follow: process(clk)
@@ -81,7 +75,7 @@ begin  -- architecture ipbus_axi_stream
   -- note: tkeep is per-byte, hence the inner loop
   gen_tkeep_in: for i in 0 to 3 generate
     gen_tkeep_in_inner: for j in 0 to 7 generate
-      ipbus_out.ipb_rdata(8*i + j) <= axi_str_in.tdata(8*i + j) and axi_str_in.tkeep(i);
+      ipbus_out.ipb_rdata(8*i + j) <= axi_str_in.tdata(8*i + j) and (axi_str_in.tkeep(i) or not axi_str_in.tlast);
     end generate;
   end generate;
 
