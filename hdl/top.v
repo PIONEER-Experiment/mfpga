@@ -25,17 +25,17 @@ module wfd_top(
 
     wire pll_lock;
 
-    (* mark_debug = "true" *) wire axi_stream_to_ipbus_tvalid, axi_stream_to_ipbus_tlast, axi_stream_to_ipbus_tready;
-    (* mark_debug = "true" *) wire[0:31] axi_stream_to_ipbus_tdata;
+    wire axi_stream_to_ipbus_tvalid, axi_stream_to_ipbus_tlast, axi_stream_to_ipbus_tready;
+    wire[0:31] axi_stream_to_ipbus_tdata;
     wire[0:3] axi_stream_to_ipbus_tstrb;
-    (* mark_debug = "true" *) wire[0:3] axi_stream_to_ipbus_tkeep;
+    wire[0:3] axi_stream_to_ipbus_tkeep;
     wire[0:3] axi_stream_to_ipbus_tid;
     wire[0:3] axi_stream_to_ipbus_tdest;
 
-    (* mark_debug = "true" *) wire axi_stream_from_ipbus_tvalid, axi_stream_from_ipbus_tlast, axi_stream_from_ipbus_tready;
-    (* mark_debug = "true" *) wire[0:31] axi_stream_from_ipbus_tdata;
+    wire axi_stream_from_ipbus_tvalid, axi_stream_from_ipbus_tlast, axi_stream_from_ipbus_tready;
+    wire[0:31] axi_stream_from_ipbus_tdata;
     wire[0:3] axi_stream_from_ipbus_tstrb;
-    (* mark_debug = "true" *) wire[0:3] axi_stream_from_ipbus_tkeep;
+    wire[0:3] axi_stream_from_ipbus_tkeep;
     wire[0:3] axi_stream_from_ipbus_tid;
     wire[0:3] axi_stream_from_ipbus_tdest;
 
@@ -63,9 +63,9 @@ module wfd_top(
         .CLKFBIN(clkfb)
     );
 
-    wire daq_valid, daq_header, daq_trailer;
-    wire[63:0] daq_data;
-    wire daq_ready, daq_almost_full;
+    (* mark_debug = "true" *) wire daq_valid, daq_header, daq_trailer;
+    (* mark_debug = "true" *) wire[63:0] daq_data;
+    (* mark_debug = "true" *) wire daq_ready, daq_almost_full;
 
     wire trigger_from_ipbus;
     wire[4:0] chan_triggers;
@@ -142,9 +142,9 @@ module wfd_top(
         .GTX_TXN(daq_tx_N),
         .SYSCLK_IN(gtrefclk0),
 
-        .TTCclk(1'b0),
-        .BcntRes(1'b0),
-        .trig(8'd0),
+        .TTCclk(clk125),
+        .BcntRes(rst_from_ipb),
+        .trig(trigger_from_ipbus),
         .TTSclk(1'b0),
         .TTS(4'd0),
 

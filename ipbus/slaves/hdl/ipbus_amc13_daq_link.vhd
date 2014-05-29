@@ -77,14 +77,14 @@ begin  -- architecture ipbus_amc13_daq_link
     if rising_edge(clk) then
       if state = word_1 then
         if do_write = '1' then
-          daq_data(31 downto 0) <= ipbus_in.ipb_wdata;
+          daq_data(63 downto 32) <= ipbus_in.ipb_wdata;
           state <= word_2;
         end if;
       else -- state = word_2
         if do_write = '1' then
-          daq_data(63 downto 32) <= ipbus_in.ipb_wdata;
+          daq_data(31 downto 0) <= ipbus_in.ipb_wdata;
           daq_header_int <= write_header;
-          daq_valid_int <= write_data;
+          daq_valid_int <= write_data or write_header or write_trailer;
           daq_trailer_int <= write_trailer;
         end if;
         if daq_ready = '1' and (daq_good_int = '1') then
