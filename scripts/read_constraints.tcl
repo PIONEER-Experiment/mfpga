@@ -1,2 +1,5 @@
-add_files -fileset constrs_1 $ROOT/constraints/timing.xdc $ROOT/constraints/ipbus_only_place.xdc
+# Add XDC constraints to the current project
+
+read_xdc $ROOT/constraints/timing.xdc
+read_xdc $ROOT/constraints/ios.xdc
 
