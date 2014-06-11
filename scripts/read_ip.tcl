@@ -1,22 +1,30 @@
+# Load necessary IP into the project
+# For each IP, check to see if the file already exists.
+# If it doesn't exist, create it
+
+# If you want to add a module here, you can get the appropriate create_ip and set_property lines
+# by creating and customizing the IP in the Vivado GUI, then checking the TCL console to see
+# the commands that Vivado has run to create it.
+
+
 # setup
 set_property target_simulator XSim [current_project]
 set_property part xc7k160tfbg676-2 [current_project]
 
-# load ips
-# if they don't already exist, create them
 
 # gigabit ethernet PHY
 if {[file exists $ROOT/ip/gig_ethernet_pcs_pma_0/gig_ethernet_pcs_pma_0.xci]} {
 	read_ip $ROOT/ip/gig_ethernet_pcs_pma_0/gig_ethernet_pcs_pma_0.xci
 } else {
+	# We want to use VHDL for this because it's part of the IPbus core
 	set_property target_language VHDL [current_project]
 	create_ip -name gig_ethernet_pcs_pma -vendor xilinx.com -library ip -module_name gig_ethernet_pcs_pma_0 -dir $ROOT/ip
 	set_property -dict [list CONFIG.SupportLevel {Include_Shared_Logic_in_Core} CONFIG.TransceiverControl {true} CONFIG.Management_Interface {false} CONFIG.Auto_Negotiation {false}] [get_ips gig_ethernet_pcs_pma_0]
 	generate_target all [get_files $ROOT/ip/gig_ethernet_pcs_pma_0/gig_ethernet_pcs_pma_0.xci]
 	synth_ip [get_ips gig_ethernet_pcs_pma_0]
+	# change back to Verilog
 	set_property target_language Verilog [current_project]
 }
-
 
 # disable IP constraints, since we want to do it ourselves
 set_property is_enabled false [get_files $ROOT/ip/gig_ethernet_pcs_pma_0/synth/gig_ethernet_pcs_pma_0_ooc.xdc]
@@ -41,22 +49,3 @@ if {[file exists $ROOT/ip/aurora_8b10b_0/aurora_8b10b_0.xci]} {
 	generate_target all [get_files $ROOT/ip/aurora_8b10b_0/aurora_8b10b_0.xci]
 	synth_ip [get_ips aurora_8b10b_0]
 }
-
-# # axis data width converter
-# if {[file exists $ROOT/ip/axis_dwidth_converter_m32_d16/axis_dwidth_converter_m32_d16.xci]} {
-# 	read_ip $ROOT/ip/axis_dwidth_converter_m32_d16/axis_dwidth_converter_m32_d16.xci
-# } else {
-# 	create_ip -name axis_dwidth_converter -vendor xilinx.com -library ip -module_name axis_dwidth_converter_m32_d16 -dir $ROOT/ip
-# 	set_property -dict [list CONFIG.S_TDATA_NUM_BYTES {2} CONFIG.M_TDATA_NUM_BYTES {4} CONFIG.HAS_TLAST {1} CONFIG.HAS_TKEEP {1}] [get_ips axis_dwidth_converter_m32_d16]
-# 	generate_target all [get_files $ROOT/ip/axis_dwidth_converter_m32_d16/axis_dwidth_converter_m32_d16.xci]
-# 	synth_ip [get_ips axis_dwidth_converter_m32_d16]
-# }
-
-# if {[file exists $ROOT/ip/axis_dwidth_converter_m16_d32/axis_dwidth_converter_m16_d32.xci]} {
-# 	read_ip $ROOT/ip/axis_dwidth_converter_m16_d32/axis_dwidth_converter_m16_d32.xci
-# } else {
-# 	create_ip -name axis_dwidth_converter -vendor xilinx.com -library ip -module_name axis_dwidth_converter_m16_d32 -dir $ROOT/ip
-# 	set_property -dict [list CONFIG.S_TDATA_NUM_BYTES {4} CONFIG.M_TDATA_NUM_BYTES {2} CONFIG.HAS_TLAST {1} CONFIG.HAS_TKEEP {1}] [get_ips axis_dwidth_converter_m16_d32]
-# 	generate_target all [get_files $ROOT/ip/axis_dwidth_converter_m16_d32/axis_dwidth_converter_m16_d32.xci]
-# 	synth_ip [get_ips axis_dwidth_converter_m16_d32]
-# }

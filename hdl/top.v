@@ -1,22 +1,24 @@
+// top-level module for g-2 WFD Master FPGA
+
 
 module wfd_top(
-	input wire gtx_clk0, gtx_clk0_N,
-	output wire gige_tx, gige_tx_N,
-	input wire gige_rx, gige_rx_N,
-    input wire daq_rx, daq_rx_N,
-    output wire daq_tx, daq_tx_N,
-    input wire c0_rx, c0_rx_N,
-    output wire c0_tx, c0_tx_N,
+	input wire gtx_clk0, gtx_clk0_N, // GTX Tranceiver refclk
+	output wire gige_tx, gige_tx_N, // Gigabit Ethernet TX
+	input wire gige_rx, gige_rx_N, // Gigabit Ethernet RX
+    input wire daq_rx, daq_rx_N, // AMC13 Link RX
+    output wire daq_tx, daq_tx_N, // AMC13 Link TX
+    input wire c0_rx, c0_rx_N, // Serial link to Channel 0 RX
+    output wire c0_tx, c0_tx_N, // Serial link to Channel 0 TX
     // input wire c1_rx, c1_rx_N,
     // output wire c1_tx, c1_tx_N,
-    input wire clkin,
-    output wire[15:0] debug,
-    output wire[4:0] acq_trigs,
-    output wire led0, led1
+    input wire clkin, // 50 MHz clock
+    output wire[15:0] debug, // debug header
+    output wire[4:0] acq_trigs, // triggers to channel FPGAs
+    output wire led0, led1 // front panel LEDs. led0 is green, led1 is red
 );
-    reg sfp_los = 0;
-    wire eth_link_status;
-    wire rst_from_ipb;
+    reg sfp_los = 0; // loss of signal for gigabit ethernet. Not used
+    wire eth_link_status; // link status of gigabit ethernet
+    wire rst_from_ipb; // reset from IPbus. Synchronous to IPbus clock
     wire clk200;
     wire clkfb;
     wire clk125;
@@ -25,6 +27,7 @@ module wfd_top(
 
     wire pll_lock;
 
+    // AXI4-Stream interface for communicating with serial link to channel FPGA
     wire axi_stream_to_ipbus_tvalid, axi_stream_to_ipbus_tlast, axi_stream_to_ipbus_tready;
     wire[0:31] axi_stream_to_ipbus_tdata;
     wire[0:3] axi_stream_to_ipbus_tstrb;
@@ -39,11 +42,17 @@ module wfd_top(
     wire[0:3] axi_stream_from_ipbus_tid;
     wire[0:3] axi_stream_from_ipbus_tdest;
 
+    // LED is green when GigE link is up, red otherwise
     assign led0 = eth_link_status; // green
     assign led1 = ~eth_link_status; // red
 
+    // Just to make the frequency explicit
     assign clk50 = clkin;
 
+
+    // Generate clocks from the 50 MHz input clock
+    // Most of the design is run from the 125 MHz clock (Don't confuse it with the 125 MHz GTREFCLK)
+    // clk200 acts as the independent clock required by the Gigabit ethernet IP
     PLLE2_BASE #(
         .CLKFBOUT_MULT(20.0),
         .CLKIN1_PERIOD(20), // in ns, so 20 -> 50 MHz
@@ -63,14 +72,17 @@ module wfd_top(
         .CLKFBIN(clkfb)
     );
 
+    // Communication with the AMC13 DAQ Link
     (* mark_debug = "true" *) wire daq_valid, daq_header, daq_trailer;
     (* mark_debug = "true" *) wire[63:0] daq_data;
     (* mark_debug = "true" *) wire daq_ready, daq_almost_full;
 
+    // Triggers
     wire trigger_from_ipbus;
     wire[4:0] chan_triggers;
     assign acq_trigs = chan_triggers;
 
+    // User IPbus interface. Used by Charlie's Aurora block
     wire [31:0] user_ipb_addr, user_ipb_wdata, user_ipb_rdata;
     wire user_ipb_clk, user_ipb_strobe, user_ipb_write, user_ipb_ack;
 
@@ -88,6 +100,7 @@ module wfd_top(
         .gtrefclk_out(gtrefclk0),
 
         // "user_ipb" interface
+        // Pass out the raw IPbus signals. They're handled in the Aurora block
         .user_ipb_clk(user_ipb_clk),            // programming clock
         .user_ipb_strobe(user_ipb_strobe),      // this ipb space is selected for an I/O operation
         .user_ipb_addr(user_ipb_addr[31:0]),    // slave address, memory or register
@@ -97,6 +110,7 @@ module wfd_top(
         .user_ipb_ack(user_ipb_ack),            // 'write' data has been stored, 'read' data is ready
         .user_ipb_err(1'b0),                    // '1' if error, '0' if OK? We never generate an error!
 
+        // Data interface to channel serial link
         .axi_stream_in_tvalid(axi_stream_to_ipbus_tvalid),
         .axi_stream_in_tdata(axi_stream_to_ipbus_tdata),
         .axi_stream_in_tstrb(axi_stream_to_ipbus_tstrb),
@@ -115,6 +129,7 @@ module wfd_top(
         .axi_stream_out_tdest(axi_stream_from_ipbus_tdest),
         .axi_stream_out_tready(axi_stream_from_ipbus_tready),
 
+        // Interface to AMC13 DAQ Link
         .daq_valid(daq_valid),
         .daq_header(daq_header),
         .daq_trailer(daq_trailer),
@@ -122,6 +137,7 @@ module wfd_top(
         .daq_ready(daq_ready),
         .daq_almost_full(daq_almost_full),
 
+        // Trigger via IPbus for now
         .trigger_out(trigger_from_ipbus),
 
         .debug(),
@@ -173,7 +189,7 @@ module wfd_top(
     // assign debug[10] = daq_trailer;
     // assign debug[11] = daq_ready;
 
-
+    // Fan out trigger from IPbus to all 5 channels
     channel_triggers ct (
         .ipb_clk(clk125),
         .trigger_in(trigger_from_ipbus),
@@ -183,6 +199,7 @@ module wfd_top(
     wire rst_n;
     assign rst_n = ~rst_from_ipb;
 
+    // Synchronize reset from IPbus clock domain to other domains
     wire clk50_reset;
     resets r (
         .ipb_rst_in(rst_from_ipb),
