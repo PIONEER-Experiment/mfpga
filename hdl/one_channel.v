@@ -45,8 +45,18 @@ module one_channel(
   input gt0_qpllrefclklost,           // input
   input gt_qpllclk_quad2,             // input
   input gt_qpllrefclk_quad2,          // input
-  output gt0_qpllreset                // output
+  output gt0_qpllreset,                // output
 
+  // counter output ports
+  output frame_err,                    // output, to IPbus I/O
+  output hard_err,                     // output, to IPbus I/O
+  output soft_err,                     // output, to IPbus I/O
+  output channel_up,                   // output, to IPbus I/O
+  output lane_up,                      // output, to IPbus I/O
+  output pll_not_locked,               // input, from channel clock module
+  output tx_resetdone_out,             // output, to IPbus I/O
+  output rx_resetdone_out,             // output, to IPbus I/O
+  output link_reset_out                // output, to IPbus I/O
  );
 
   wire local_axis_resetn;                 // a local reset synched to the Aurora 'user_clk'

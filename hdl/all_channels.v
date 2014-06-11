@@ -58,7 +58,18 @@ module all_channels(
   // output c1_txp, c1_txn                   // transmit to channel 0 FPGA
 
   // debug ports
-  output [3:0] debug
+  output [3:0] debug,
+
+  // counter output ports
+  output frame_err,                    // output, to IPbus I/O
+  output hard_err,                     // output, to IPbus I/O
+  output soft_err,                     // output, to IPbus I/O
+  output channel_up,                   // output, to IPbus I/O
+  output lane_up,                      // output, to IPbus I/O
+  output pll_not_locked,               // input, from channel clock module
+  output tx_resetdone_out,             // output, to IPbus I/O
+  output rx_resetdone_out,             // output, to IPbus I/O
+  output link_reset_out                // output, to IPbus I/O
  );
 
   // busses of data being read back by IPbus
@@ -129,7 +140,18 @@ module all_channels(
     .gt0_qpllrefclklost(1'b0),       // input
     .gt_qpllclk_quad2(1'b0),           // input
     .gt_qpllrefclk_quad2(1'b0),     // input
-    .gt0_qpllreset()                               // output
+    .gt0_qpllreset(),                               // output
+
+    // connect counter ouputs b/w all_channels and one_channel
+    .frame_err(frame_err),                            // output, to IPbus I/O
+    .hard_err(hard_err),                              // output, to IPbus I/O
+    .soft_err(soft_err),                              // output, to IPbus I/O
+    .channel_up(channel_up),                          // output, to IPbus I/O
+    .lane_up(lane_up),                                // output, to IPbus I/O
+    .pll_not_locked(pll_not_locked),                  // input, from channel clock module
+    .tx_resetdone_out(tx_resetdone_out),              // output, to IPbus I/O
+    .rx_resetdone_out(rx_resetdone_out),              // output, to IPbus I/O
+    .link_reset_out(link_reset_out)                  // output, to IPbus I/O
   );
 
 

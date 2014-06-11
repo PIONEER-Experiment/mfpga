@@ -21,4 +21,4 @@ route_design
 write_bitstream -force $ROOT/bitstreams/wfd_master.bit
 # write_debug_probes -force $ROOT/bitstreams/debug.ltx
 
-start_gui
+# start_gui

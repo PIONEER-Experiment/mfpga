@@ -52,8 +52,18 @@ entity slaves is
         user_ipb_wdata : out std_logic_vector(31 downto 0);	-- data to write for write operations
         user_ipb_rdata : in std_logic_vector(31 downto 0);	-- data returned for read operations
         user_ipb_ack           : in std_logic;			            -- 'write' data has been stored, 'read' data is ready
-        user_ipb_err           : in std_logic			            -- '1' if error, '0' if OK?
+        user_ipb_err           : in std_logic;			            -- '1' if error, '0' if OK?
 
+		-- counter input ports
+		frame_err: in std_logic  := '0';
+		hard_err: in std_logic  := '0';
+		soft_err: in std_logic  := '0';
+		channel_up: in std_logic  := '0';
+		lane_up: in std_logic  := '0';
+		pll_not_locked: in std_logic  := '0';
+		tx_resetdone_out: in std_logic  := '0';
+		rx_resetdone_out: in std_logic  := '0';
+		link_reset_out: in std_logic := '0'
 	);
 
 end slaves;
@@ -66,7 +76,7 @@ architecture rtl of slaves is
 	signal ctrl_reg: std_logic_vector(31 downto 0);
 	signal stat_reg: std_logic_vector(31 downto 0);
 	signal wo_reg: std_logic_vector(31 downto 0);
-	signal count: std_logic_vector(7 downto 0);
+	signal count: std_logic_vector(15 downto 0);
 	signal trigger: std_logic;
 
 begin
@@ -138,7 +148,7 @@ begin
 -- Slave 4: packet counters
 
 	slave4: entity work.ipbus_counters
-		generic map(addr_width => 3)
+		generic map(addr_width => 4)
 		port map(
 			clk => ipb_clk,
 			reset => ipb_rst,
@@ -154,7 +164,15 @@ begin
 	count(4) <= eth_phy_rxnotintable;
 	count(5) <= daq_almost_full;
 	count(6) <= trigger;
-	count(7) <= '0';
+	count(7) <= frame_err;
+	count(8) <= hard_err;
+	count(9) <= soft_err;
+	count(10) <= channel_up;
+	count(11) <= lane_up;
+	count(12) <= pll_not_locked;
+	count(13) <= tx_resetdone_out;
+	count(14) <= rx_resetdone_out;
+	count(15) <= link_reset_out;
 
 -- slave 5: AXI4-stream interface to Aurora IP
 	  slave5: entity work.ipbus_axi_stream

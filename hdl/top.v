@@ -124,7 +124,18 @@ module wfd_top(
 
         .trigger_out(trigger_from_ipbus),
 
-        .debug()
+        .debug(),
+
+        // counter ouputs
+        .frame_err(frame_err),              
+        .hard_err(hard_err),                
+        .soft_err(soft_err),                
+        .channel_up(channel_up),            
+        .lane_up(lane_up),                  
+        .pll_not_locked(pll_not_locked),    
+        .tx_resetdone_out(tx_resetdone_out),
+        .rx_resetdone_out(rx_resetdone_out),
+        .link_reset_out(link_reset_out)
     );
 
     // DAQ Link to AMC13
@@ -217,7 +228,7 @@ module wfd_top(
         // serial I/O pins
         .c0_rxp(c0_rx), .c0_rxn(c0_rx_N),                   // receive from channel 0 FPGA
         .c0_txp(c0_tx), .c0_txn(c0_tx_N),                   // transmit to channel 0 FPGA
-        .debug()
+        .debug(),
 
         // // channel 1 connections
         // // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
@@ -236,6 +247,17 @@ module wfd_top(
         // serial I/O pins
         // .c1_rxp(c1_rx), .c1_rxn(c1_rx_N),                   // receive from channel 0 FPGA
         // .c1_txp(c1_tx), .c1_txn(c1_tx_N)                   // transmit to channel 0 FPGA
+
+        // counter ouputs
+        .frame_err(frame_err),              
+        .hard_err(hard_err),                
+        .soft_err(soft_err),                
+        .channel_up(channel_up),            
+        .lane_up(lane_up),                  
+        .pll_not_locked(pll_not_locked),    
+        .tx_resetdone_out(tx_resetdone_out),
+        .rx_resetdone_out(rx_resetdone_out),
+        .link_reset_out(link_reset_out)    
     );
 
 endmodule
