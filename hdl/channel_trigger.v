@@ -1,3 +1,5 @@
+// Simple module to fan out a single trigger line to all five channels
+
 
 module channel_triggers(
     input wire ipb_clk,
