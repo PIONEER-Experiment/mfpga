@@ -31,7 +31,7 @@ entity ipbus_top is port(
     user_ipb_err           : in std_logic;			            -- '1' if error, '0' if OK?	
         
     axi_stream_in_tvalid : in std_logic;
-    axi_stream_in_tdata : in std_logic_vector(31 downto 0);
+    axi_stream_in_tdata  : in std_logic_vector(31 downto 0);
     axi_stream_in_tstrb  : in std_logic_vector(3 downto 0);
     axi_stream_in_tkeep  : in std_logic_vector(3 downto 0);
     axi_stream_in_tlast  : in std_logic;
@@ -40,7 +40,7 @@ entity ipbus_top is port(
     axi_stream_in_tready : out std_logic;
 
     axi_stream_out_tvalid : out std_logic;
-    axi_stream_out_tdata : out std_logic_vector(31 downto 0);
+    axi_stream_out_tdata  : out std_logic_vector(31 downto 0);
     axi_stream_out_tstrb  : out std_logic_vector(3 downto 0);
     axi_stream_out_tkeep  : out std_logic_vector(3 downto 0);
     axi_stream_out_tlast  : out std_logic;
@@ -204,12 +204,14 @@ begin
 	    axi_stream_in_tready => axi_stream_in_tready,
 	    axi_stream_out => axi_stream_out,
 	    axi_stream_out_tready => axi_stream_out_tready,
+	    
 	    daq_valid => daq_valid,
 	    daq_header => daq_header,
 	    daq_trailer => daq_trailer,
 	    daq_data => daq_data,
 	    daq_ready => daq_ready,
 	    daq_almost_full => daq_almost_full,
+	    
 	    trigger_out => trigger_out,
 
 		-- counter input ports

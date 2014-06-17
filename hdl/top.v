@@ -28,8 +28,8 @@ module wfd_top(
     wire pll_lock;
 
     // AXI4-Stream interface for communicating with serial link to channel FPGA
-    wire axi_stream_to_ipbus_tvalid, axi_stream_to_ipbus_tlast, axi_stream_to_ipbus_tready;
-    wire[0:31] axi_stream_to_ipbus_tdata;
+    (* mark_debug = "true" *) wire axi_stream_to_ipbus_tvalid, axi_stream_to_ipbus_tlast, axi_stream_to_ipbus_tready;
+    (* mark_debug = "true" *) wire[0:31] axi_stream_to_ipbus_tdata;
     wire[0:3] axi_stream_to_ipbus_tstrb;
     wire[0:3] axi_stream_to_ipbus_tkeep;
     wire[0:3] axi_stream_to_ipbus_tid;
@@ -111,14 +111,17 @@ module wfd_top(
         .user_ipb_err(1'b0),                    // '1' if error, '0' if OK? We never generate an error!
 
         // Data interface to channel serial link
+        /********************** Moved from IPBus to DataXferManager **********************/
+        /*
         .axi_stream_in_tvalid(axi_stream_to_ipbus_tvalid),
         .axi_stream_in_tdata(axi_stream_to_ipbus_tdata),
-        .axi_stream_in_tstrb(axi_stream_to_ipbus_tstrb),
+        .axi_stream_in_tstrb(axi_stream_to_ipbus_tstrb), // not connected to anything else
         .axi_stream_in_tkeep(axi_stream_to_ipbus_tkeep),
         .axi_stream_in_tlast(axi_stream_to_ipbus_tlast),
-        .axi_stream_in_tid(axi_stream_to_ipbus_tid),
-        .axi_stream_in_tdest(axi_stream_to_ipbus_tdest),
+        .axi_stream_in_tid(axi_stream_to_ipbus_tid), // not connected to anything else
+        .axi_stream_in_tdest(axi_stream_to_ipbus_tdest), // not connected to anything else
         .axi_stream_in_tready(axi_stream_to_ipbus_tready),
+        */
 
         .axi_stream_out_tvalid(axi_stream_from_ipbus_tvalid),
         .axi_stream_out_tdata(axi_stream_from_ipbus_tdata[0:31]),
@@ -130,12 +133,15 @@ module wfd_top(
         .axi_stream_out_tready(axi_stream_from_ipbus_tready),
 
         // Interface to AMC13 DAQ Link
+        /********************** Moved from IPBus to DataXferManager **********************/
+        /*
         .daq_valid(daq_valid),
         .daq_header(daq_header),
         .daq_trailer(daq_trailer),
         .daq_data(daq_data),
         .daq_ready(daq_ready),
-        .daq_almost_full(daq_almost_full),
+        .daq_almost_full(daq_almost_full), // currently ignored with dtm
+        */
 
         // Trigger via IPbus for now
         .trigger_out(trigger_from_ipbus),
@@ -275,6 +281,27 @@ module wfd_top(
         .tx_resetdone_out(tx_resetdone_out),
         .rx_resetdone_out(rx_resetdone_out),
         .link_reset_out(link_reset_out)    
+    );
+
+    // simpleDataTransfer module
+    simpleDataTransfer sdt(
+        // Interface to AMC13 DAQ Link
+        .daq_valid(daq_valid),                // output from dtm
+        .daq_header(daq_header),              // output from dtm
+        .daq_trailer(daq_trailer),            // output from dtm
+        .daq_data(daq_data),                  // output from dtm
+        .daq_ready(daq_ready),                // input to dtm
+        // .daq_almost_full(daq_almost_full), // currently ignored by dtm
+
+        // Interface to FIFO (connected to the Aurora serial link to the channel FPGA)
+        .fifo_ready(axi_stream_to_ipbus_tready),       // output from dtm
+        .fifo_data(axi_stream_to_ipbus_tdata),         // input to dtm
+        .fifo_last(axi_stream_to_ipbus_tlast),         // input to dtm
+        .fifo_valid(axi_stream_to_ipbus_tvalid),       // input to dtm
+
+        // Other connections required by dtm module
+        .clk(clk125),           // input to dtm
+        .rst(rst_from_ipb)      // input to dtm
     );
 
 endmodule
