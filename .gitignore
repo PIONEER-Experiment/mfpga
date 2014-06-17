@@ -6,3 +6,4 @@
 *.str
 _SYNCAPP
 project
+scripts/setup.tcl
