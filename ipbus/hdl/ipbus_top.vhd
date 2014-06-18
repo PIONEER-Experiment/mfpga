@@ -58,6 +58,9 @@ entity ipbus_top is port(
 
     --trigger
     trigger_out : out std_logic;
+
+    -- channel done to tm
+    chan_done_out : out std_logic_vector(4 downto 0);
 	
 	-- clocks
 	clk_200: in std_logic;
@@ -213,6 +216,8 @@ begin
 	    daq_almost_full => daq_almost_full,
 	    
 	    trigger_out => trigger_out,
+
+	    chan_done_out => chan_done_out,
 
 		-- counter input ports
 		frame_err => frame_err,

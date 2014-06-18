@@ -13,7 +13,7 @@ module wfd_top(
     // output wire c1_tx, c1_tx_N,
     input wire clkin, // 50 MHz clock
     output wire[15:0] debug, // debug header
-    output wire[4:0] acq_trigs, // triggers to channel FPGAs
+    (* mark_debug = "true" *) output wire[4:0] acq_trigs, // triggers to channel FPGAs
     output wire led0, led1 // front panel LEDs. led0 is green, led1 is red
 );
     reg sfp_los = 0; // loss of signal for gigabit ethernet. Not used
@@ -28,8 +28,8 @@ module wfd_top(
     wire pll_lock;
 
     // AXI4-Stream interface for communicating with serial link to channel FPGA
-    (* mark_debug = "true" *) wire axi_stream_to_ipbus_tvalid, axi_stream_to_ipbus_tlast, axi_stream_to_ipbus_tready;
-    (* mark_debug = "true" *) wire[0:31] axi_stream_to_ipbus_tdata;
+    wire axi_stream_to_ipbus_tvalid, axi_stream_to_ipbus_tlast, axi_stream_to_ipbus_tready;
+    wire[0:31] axi_stream_to_ipbus_tdata;
     wire[0:3] axi_stream_to_ipbus_tstrb;
     wire[0:3] axi_stream_to_ipbus_tkeep;
     wire[0:3] axi_stream_to_ipbus_tid;
@@ -73,14 +73,17 @@ module wfd_top(
     );
 
     // Communication with the AMC13 DAQ Link
-    (* mark_debug = "true" *) wire daq_valid, daq_header, daq_trailer;
-    (* mark_debug = "true" *) wire[63:0] daq_data;
-    (* mark_debug = "true" *) wire daq_ready, daq_almost_full;
+    wire daq_valid, daq_header, daq_trailer;
+    wire[63:0] daq_data;
+    wire daq_ready, daq_almost_full;
 
     // Triggers
-    wire trigger_from_ipbus;
+    (* mark_debug = "true" *) wire trigger_from_ipbus;
     wire[4:0] chan_triggers;
-    assign acq_trigs = chan_triggers;
+    // assign acq_trigs = chan_triggers;
+
+    // Channel done
+    (* mark_debug = "true" *) wire[4:0] chan_done;
 
     // User IPbus interface. Used by Charlie's Aurora block
     wire [31:0] user_ipb_addr, user_ipb_wdata, user_ipb_rdata;
@@ -146,6 +149,9 @@ module wfd_top(
         // Trigger via IPbus for now
         .trigger_out(trigger_from_ipbus),
 
+        // channel done to tm
+        .chan_done_out(chan_done),
+
         .debug(),
 
         // counter ouputs
@@ -195,13 +201,6 @@ module wfd_top(
     // assign debug[10] = daq_trailer;
     // assign debug[11] = daq_ready;
 
-    // Fan out trigger from IPbus to all 5 channels
-    channel_triggers ct (
-        .ipb_clk(clk125),
-        .trigger_in(trigger_from_ipbus),
-        .chan_trigger_out(chan_triggers)
-        );
-
     wire rst_n;
     assign rst_n = ~rst_from_ipb;
 
@@ -213,7 +212,6 @@ module wfd_top(
         .clk50(clk50),
         .rst_clk50(clk50_reset)
     );
-
 
     // Serial links to channel FPGAs
     all_channels channels(
@@ -302,6 +300,46 @@ module wfd_top(
         // Other connections required by dtm module
         .clk(clk125),           // input to dtm
         .rst(rst_from_ipb)      // input to dtm
+    );
+
+    // wires connecting the fifo to the tm
+    (* mark_debug = "true" *) wire tm_to_fifo_tvalid, tm_to_fifo_tready;
+    (* mark_debug = "true" *) wire[23:0] tm_to_fifo_tdata;
+    // wires connecting the fifo to the dtm
+    (* mark_debug = "true" *) wire fifo_to_dtm_tvalid, fifo_to_dtm_tready;
+    (* mark_debug = "true" *) wire[23:0] fifo_to_dtm_tdata;
+
+    // fifo expects a different (negative) reset signal
+    wire local_axis_resetn;
+    assign local_axis_resetn = ~rst_from_ipb;
+
+    // fill number FIFO
+    fill_num_axis_data_fifo fill_num_fifo (
+      .s_axis_aresetn(local_axis_resetn),            // input wire s_axis_aresetn
+      .s_axis_aclk(clk125),                          // input wire s_axis_aclk
+      .s_axis_tvalid(tm_to_fifo_tvalid),             // input wire s_axis_tvalid
+      .s_axis_tready(tm_to_fifo_tready),             // output wire s_axis_tready
+      .s_axis_tdata(tm_to_fifo_tdata),               // input wire [23 : 0] s_axis_tdata
+      .m_axis_tvalid(fifo_to_dtm_tvalid),            // output wire m_axis_tvalid
+      .m_axis_tready(fifo_to_dtm_tready),            // input wire m_axis_tready
+      .m_axis_tdata(fifo_to_dtm_tdata)               // output wire [23 : 0] m_axis_tdata
+    );
+
+    // triggerManager module
+    triggerManager tm(
+        // Interface to fill number FIFO
+        .fifo_valid(tm_to_fifo_tvalid),
+        .fifo_ready(tm_to_fifo_tready),
+        .fillNum(tm_to_fifo_tdata),
+
+        .trigger(trigger_from_ipbus),
+        .go(acq_trigs),
+        
+        .done(chan_done),
+
+        // Other connections required by tm module
+        .clk(clk125),
+        .reset(rst_from_ipb)
     );
 
 endmodule

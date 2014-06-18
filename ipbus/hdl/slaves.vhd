@@ -43,6 +43,7 @@ entity slaves is
 	    daq_almost_full : in std_logic;
 
 	    trigger_out : out std_logic;
+	    chan_done_out : out std_logic_vector(4 downto 0);
 
 	    -- "user_ipb" interface
         user_ipb_clk         : out std_logic;                       -- programming clock
@@ -119,6 +120,12 @@ begin
 
 		rst_out <= ctrl_reg(0);
 
+		chan_done_out(0) <= ctrl_reg(1);
+		chan_done_out(1) <= ctrl_reg(2);
+		chan_done_out(2) <= ctrl_reg(3);
+		chan_done_out(3) <= ctrl_reg(4);
+		chan_done_out(4) <= ctrl_reg(5);
+
 -- Slave 2: 1kword RAM
 
 	slave2: entity work.ipbus_ram
@@ -142,8 +149,8 @@ begin
 			q => wo_reg
 		);
 
-	trigger <= wo_reg(0);
-	trigger_out <= trigger;
+		trigger <= wo_reg(0);
+		trigger_out <= trigger;
 
 -- Slave 4: packet counters
 
@@ -157,22 +164,22 @@ begin
 			count => count
 		);
 
-	count(0) <= pkt_tx;
-	count(1) <= pkt_rx;
-	count(2) <= eth_phy_rudi_invalid;
-	count(3) <= eth_phy_rxdisperr;
-	count(4) <= eth_phy_rxnotintable;
-	count(5) <= daq_almost_full;
-	count(6) <= trigger;
-	count(7) <= frame_err;
-	count(8) <= hard_err;
-	count(9) <= soft_err;
-	count(10) <= channel_up;
-	count(11) <= lane_up;
-	count(12) <= pll_not_locked;
-	count(13) <= tx_resetdone_out;
-	count(14) <= rx_resetdone_out;
-	count(15) <= link_reset_out;
+		count(0) <= pkt_tx;
+		count(1) <= pkt_rx;
+		count(2) <= eth_phy_rudi_invalid;
+		count(3) <= eth_phy_rxdisperr;
+		count(4) <= eth_phy_rxnotintable;
+		count(5) <= daq_almost_full;
+		count(6) <= trigger;
+		count(7) <= frame_err;
+		count(8) <= hard_err;
+		count(9) <= soft_err;
+		count(10) <= channel_up;
+		count(11) <= lane_up;
+		count(12) <= pll_not_locked;
+		count(13) <= tx_resetdone_out;
+		count(14) <= rx_resetdone_out;
+		count(15) <= link_reset_out;
 
 -- slave 5: AXI4-stream interface to Aurora IP
 	  slave5: entity work.ipbus_axi_stream

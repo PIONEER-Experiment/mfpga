@@ -16,7 +16,7 @@ set_property part xc7k160tfbg676-2 [current_project]
 if {[file exists $ROOT/ip/gig_ethernet_pcs_pma_0/gig_ethernet_pcs_pma_0.xci]} {
 	read_ip $ROOT/ip/gig_ethernet_pcs_pma_0/gig_ethernet_pcs_pma_0.xci
 } else {
-	# We want to use VHDL for this because it's part of the IPbus core
+	# we want to use VHDL for this because it's part of the IPbus core
 	set_property target_language VHDL [current_project]
 	create_ip -name gig_ethernet_pcs_pma -vendor xilinx.com -library ip -module_name gig_ethernet_pcs_pma_0 -dir $ROOT/ip
 	set_property -dict [list CONFIG.SupportLevel {Include_Shared_Logic_in_Core} CONFIG.TransceiverControl {true} CONFIG.Management_Interface {false} CONFIG.Auto_Negotiation {false}] [get_ips gig_ethernet_pcs_pma_0]
@@ -40,7 +40,18 @@ if {[file exists $ROOT/ip/chan_link_axis_data_fifo/chan_link_axis_data_fifo.xci
 	synth_ip [get_ips chan_link_axis_data_fifo]
 }
 
-# aurora serial link to channel fpga
+# fill number FIFO
+if {[file exists $ROOT/ip/fill_num_axis_data_fifo/fill_num_axis_data_fifo.xci
+]} {
+	read_ip $ROOT/ip/fill_num_axis_data_fifo/fill_num_axis_data_fifo.xci
+} else {
+	create_ip -name axis_data_fifo -vendor xilinx.com -library ip -module_name fill_num_axis_data_fifo -dir $ROOT/ip
+	set_property -dict [list CONFIG.TDATA_NUM_BYTES {3} CONFIG.FIFO_DEPTH {512}] [get_ips fill_num_axis_data_fifo]
+	generate_target all [get_files $ROOT/ip/fill_num_axis_data_fifo/fill_num_axis_data_fifo.xci]
+	synth_ip [get_ips fill_num_axis_data_fifo]
+}
+
+# aurora serial link to channel FPGA
 if {[file exists $ROOT/ip/aurora_8b10b_0/aurora_8b10b_0.xci]} {
 	read_ip $ROOT/ip/aurora_8b10b_0/aurora_8b10b_0.xci
 } else {
