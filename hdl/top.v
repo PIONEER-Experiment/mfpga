@@ -16,39 +16,24 @@ module wfd_top(
     (* mark_debug = "true" *) output wire[4:0] acq_trigs, // triggers to channel FPGAs
     output wire led0, led1 // front panel LEDs. led0 is green, led1 is red
 );
-    reg sfp_los = 0; // loss of signal for gigabit ethernet. Not used
-    wire eth_link_status; // link status of gigabit ethernet
-    wire rst_from_ipb; // reset from IPbus. Synchronous to IPbus clock
+
+    // ========  debug signals ========
+    // assign debug[8] = clk125;
+    // assign debug[9] = rst_from_ipb;
+    // assign debug[10] = trigger_from_ipbus;
+    // assign debug[11] = fifo_to_dtm_tvalid;
+    // assign debug[12] = fifo_to_dtm_tready;
+
+
+    // ======== clock signals ========
+    wire clk50;
+    wire clk125;
     wire clk200;
     wire clkfb;
-    wire clk125;
-    wire clk50;
     wire gtrefclk0;
-
     wire pll_lock;
 
-    // AXI4-Stream interface for communicating with serial link to channel FPGA
-    wire axi_stream_to_ipbus_tvalid, axi_stream_to_ipbus_tlast, axi_stream_to_ipbus_tready;
-    wire[0:31] axi_stream_to_ipbus_tdata;
-    wire[0:3] axi_stream_to_ipbus_tstrb;
-    wire[0:3] axi_stream_to_ipbus_tkeep;
-    wire[0:3] axi_stream_to_ipbus_tid;
-    wire[0:3] axi_stream_to_ipbus_tdest;
-
-    wire axi_stream_from_ipbus_tvalid, axi_stream_from_ipbus_tlast, axi_stream_from_ipbus_tready;
-    wire[0:31] axi_stream_from_ipbus_tdata;
-    wire[0:3] axi_stream_from_ipbus_tstrb;
-    wire[0:3] axi_stream_from_ipbus_tkeep;
-    wire[0:3] axi_stream_from_ipbus_tid;
-    wire[0:3] axi_stream_from_ipbus_tdest;
-
-    // LED is green when GigE link is up, red otherwise
-    assign led0 = eth_link_status; // green
-    assign led1 = ~eth_link_status; // red
-
-    // Just to make the frequency explicit
-    assign clk50 = clkin;
-
+    assign clk50 = clkin; // Just to make the frequency explicit
 
     // Generate clocks from the 50 MHz input clock
     // Most of the design is run from the 125 MHz clock (Don't confuse it with the 125 MHz GTREFCLK)
@@ -72,22 +57,74 @@ module wfd_top(
         .CLKFBIN(clkfb)
     );
 
-    // Communication with the AMC13 DAQ Link
+
+    // ======== ethernet status signals ========
+    reg sfp_los = 0; // loss of signal for gigabit ethernet. Not used
+    wire eth_link_status; // link status of gigabit ethernet
+
+    // LED is green when GigE link is up, red otherwise
+    assign led0 = eth_link_status; // green
+    assign led1 = ~eth_link_status; // red
+
+
+    // ======== reset signals ========
+    wire rst_from_ipb; // reset from IPbus. Synchronous to IPbus clock
+    wire rst_n; // active low reset
+    assign rst_n = ~rst_from_ipb;
+
+    // Synchronize reset from IPbus clock domain to other domains
+    wire clk50_reset;
+    resets r (
+        .ipb_rst_in(rst_from_ipb),
+        .ipb_clk(clk125),
+        .clk50(clk50),
+        .rst_clk50(clk50_reset)
+    );
+
+
+    // ======== triggers and data transfer ========
+    (* mark_debug = "true" *) wire trigger_from_ipbus;
+
+    // done signals from channels
+    (* mark_debug = "true" *) wire[4:0] chan_done;
+
+    // wires connecting the full number fifo to the tm
+    (* mark_debug = "true" *) wire tm_to_fifo_tvalid, tm_to_fifo_tready;
+    (* mark_debug = "true" *) wire[23:0] tm_to_fifo_tdata;
+
+    // wires connecting the fill number fifo to the dtm
+    (* mark_debug = "true" *) wire fifo_to_dtm_tvalid, fifo_to_dtm_tready;
+    (* mark_debug = "true" *) wire[23:0] fifo_to_dtm_tdata;
+
+
+    // ======== wires for interface to channel serial link ========
+    // User IPbus interface. Used by Charlie's Aurora block
+    wire [31:0] user_ipb_addr, user_ipb_wdata, user_ipb_rdata;
+    wire user_ipb_clk, user_ipb_strobe, user_ipb_write, user_ipb_ack;
+
+    // AXI4-Stream interface for communicating with serial link to channel FPGA
+    wire axi_stream_to_ipbus_tvalid, axi_stream_to_ipbus_tlast, axi_stream_to_ipbus_tready;
+    wire[0:31] axi_stream_to_ipbus_tdata;
+    wire[0:3] axi_stream_to_ipbus_tstrb;
+    wire[0:3] axi_stream_to_ipbus_tkeep;
+    wire[0:3] axi_stream_to_ipbus_tid;
+    wire[0:3] axi_stream_to_ipbus_tdest;
+
+    wire axi_stream_from_ipbus_tvalid, axi_stream_from_ipbus_tlast, axi_stream_from_ipbus_tready;
+    wire[0:31] axi_stream_from_ipbus_tdata;
+    wire[0:3] axi_stream_from_ipbus_tstrb;
+    wire[0:3] axi_stream_from_ipbus_tkeep;
+    wire[0:3] axi_stream_from_ipbus_tid;
+    wire[0:3] axi_stream_from_ipbus_tdest;
+
+
+    // ======== Communication with the AMC13 DAQ Link ========
     wire daq_valid, daq_header, daq_trailer;
     wire[63:0] daq_data;
     wire daq_ready, daq_almost_full;
 
-    // Triggers
-    (* mark_debug = "true" *) wire trigger_from_ipbus;
-    wire[4:0] chan_triggers;
-    // assign acq_trigs = chan_triggers;
 
-    // Channel done
-    (* mark_debug = "true" *) wire[4:0] chan_done;
-
-    // User IPbus interface. Used by Charlie's Aurora block
-    wire [31:0] user_ipb_addr, user_ipb_wdata, user_ipb_rdata;
-    wire user_ipb_clk, user_ipb_strobe, user_ipb_write, user_ipb_ack;
+    // ======== module instantiations ========
 
     // IPBus module
     ipbus_top ipb(
@@ -166,52 +203,6 @@ module wfd_top(
         .link_reset_out(link_reset_out)
     );
 
-    // DAQ Link to AMC13
-    DAQ_Link_7S #(
-        .F_REFCLK(125),
-        .SYSCLK_IN_period(8),
-        .USE_TRIGGER_PORT(1'b0)
-    ) daq(
-        .reset(rst_from_ipb),
-
-        .GTX_REFCLK(clk125),
-        .GTX_RXP(daq_rx),
-        .GTX_RXN(daq_rx_N),
-        .GTX_TXP(daq_tx),
-        .GTX_TXN(daq_tx_N),
-        .SYSCLK_IN(gtrefclk0),
-
-        .TTCclk(clk125),
-        .BcntRes(rst_from_ipb),
-        .trig(trigger_from_ipbus),
-        .TTSclk(1'b0),
-        .TTS(4'd0),
-
-        .EventDataClk(clk125),
-        .EventData_valid(daq_valid),
-        .EventData_header(daq_header),
-        .EventData_trailer(daq_trailer),
-        .EventData(daq_data),
-        .AlmostFull(daq_almost_full),
-        .Ready(daq_ready)
-    );
-
-    // assign debug[8] = daq_header;
-    // assign debug[9] = daq_valid;
-    // assign debug[10] = daq_trailer;
-    // assign debug[11] = daq_ready;
-
-    wire rst_n;
-    assign rst_n = ~rst_from_ipb;
-
-    // Synchronize reset from IPbus clock domain to other domains
-    wire clk50_reset;
-    resets r (
-        .ipb_rst_in(rst_from_ipb),
-        .ipb_clk(clk125),
-        .clk50(clk50),
-        .rst_clk50(clk50_reset)
-    );
 
     // Serial links to channel FPGAs
     all_channels channels(
@@ -281,49 +272,6 @@ module wfd_top(
         .link_reset_out(link_reset_out)    
     );
 
-    // simpleDataTransfer module
-    simpleDataTransfer sdt(
-        // Interface to AMC13 DAQ Link
-        .daq_valid(daq_valid),                // output from dtm
-        .daq_header(daq_header),              // output from dtm
-        .daq_trailer(daq_trailer),            // output from dtm
-        .daq_data(daq_data),                  // output from dtm
-        .daq_ready(daq_ready),                // input to dtm
-        // .daq_almost_full(daq_almost_full), // currently ignored by dtm
-
-        // Interface to FIFO (connected to the Aurora serial link to the channel FPGA)
-        .fifo_ready(axi_stream_to_ipbus_tready),       // output from dtm
-        .fifo_data(axi_stream_to_ipbus_tdata),         // input to dtm
-        .fifo_last(axi_stream_to_ipbus_tlast),         // input to dtm
-        .fifo_valid(axi_stream_to_ipbus_tvalid),       // input to dtm
-
-        // Other connections required by dtm module
-        .clk(clk125),           // input to dtm
-        .rst(rst_from_ipb)      // input to dtm
-    );
-
-    // wires connecting the fifo to the tm
-    (* mark_debug = "true" *) wire tm_to_fifo_tvalid, tm_to_fifo_tready;
-    (* mark_debug = "true" *) wire[23:0] tm_to_fifo_tdata;
-    // wires connecting the fifo to the dtm
-    (* mark_debug = "true" *) wire fifo_to_dtm_tvalid, fifo_to_dtm_tready;
-    (* mark_debug = "true" *) wire[23:0] fifo_to_dtm_tdata;
-
-    // fifo expects a different (negative) reset signal
-    wire local_axis_resetn;
-    assign local_axis_resetn = ~rst_from_ipb;
-
-    // fill number FIFO
-    fill_num_axis_data_fifo fill_num_fifo (
-      .s_axis_aresetn(local_axis_resetn),            // input wire s_axis_aresetn
-      .s_axis_aclk(clk125),                          // input wire s_axis_aclk
-      .s_axis_tvalid(tm_to_fifo_tvalid),             // input wire s_axis_tvalid
-      .s_axis_tready(tm_to_fifo_tready),             // output wire s_axis_tready
-      .s_axis_tdata(tm_to_fifo_tdata),               // input wire [23 : 0] s_axis_tdata
-      .m_axis_tvalid(fifo_to_dtm_tvalid),            // output wire m_axis_tvalid
-      .m_axis_tready(fifo_to_dtm_tready),            // input wire m_axis_tready
-      .m_axis_tdata(fifo_to_dtm_tdata)               // output wire [23 : 0] m_axis_tdata
-    );
 
     // triggerManager module
     triggerManager tm(
@@ -341,5 +289,77 @@ module wfd_top(
         .clk(clk125),
         .reset(rst_from_ipb)
     );
+
+
+    // fill number FIFO
+    fill_num_axis_data_fifo fill_num_fifo (
+      .s_axis_aresetn(rst_n),                        // input wire s_axis_aresetn
+      .s_axis_aclk(clk125),                          // input wire s_axis_aclk
+      .s_axis_tvalid(tm_to_fifo_tvalid),             // input wire s_axis_tvalid
+      .s_axis_tready(tm_to_fifo_tready),             // output wire s_axis_tready
+      .s_axis_tdata(tm_to_fifo_tdata),               // input wire [23 : 0] s_axis_tdata
+      .m_axis_tvalid(fifo_to_dtm_tvalid),            // output wire m_axis_tvalid
+      .m_axis_tready(fifo_to_dtm_tready),            // input wire m_axis_tready
+      .m_axis_tdata(fifo_to_dtm_tdata)               // output wire [23 : 0] m_axis_tdata
+    );
+
+
+    // simpleDataTransfer module
+    simpleDataTransfer sdt(
+        // Interface to AMC13 DAQ Link
+        .daq_valid(daq_valid),                // output from dtm
+        .daq_header(daq_header),              // output from dtm
+        .daq_trailer(daq_trailer),            // output from dtm
+        .daq_data(daq_data),                  // output from dtm
+        .daq_ready(daq_ready),                // input to dtm
+        // .daq_almost_full(daq_almost_full), // currently ignored by dtm
+
+        // Interface to fill number FIFO
+        .tm_fifo_ready(fifo_to_dtm_tready),
+        .tm_fifo_valid(fifo_to_dtm_tvalid),
+        .tm_fifo_data(fifo_to_dtm_tdata),
+
+        // Interface to FIFO (connected to the Aurora serial link to the channel FPGA)
+        .chan_fifo_ready(axi_stream_to_ipbus_tready),       // output from dtm
+        .chan_fifo_data(axi_stream_to_ipbus_tdata),         // input to dtm
+        .chan_fifo_last(axi_stream_to_ipbus_tlast),         // input to dtm
+        .chan_fifo_valid(axi_stream_to_ipbus_tvalid),       // input to dtm
+
+        // Other connections required by dtm module
+        .clk(clk125),           // input to dtm
+        .rst(rst_from_ipb)      // input to dtm
+    );
+
+
+    // DAQ Link to AMC13
+    DAQ_Link_7S #(
+        .F_REFCLK(125),
+        .SYSCLK_IN_period(8),
+        .USE_TRIGGER_PORT(1'b0)
+    ) daq(
+        .reset(rst_from_ipb),
+
+        .GTX_REFCLK(clk125),
+        .GTX_RXP(daq_rx),
+        .GTX_RXN(daq_rx_N),
+        .GTX_TXP(daq_tx),
+        .GTX_TXN(daq_tx_N),
+        .SYSCLK_IN(gtrefclk0),
+
+        .TTCclk(clk125),
+        .BcntRes(rst_from_ipb),
+        .trig(trigger_from_ipbus),
+        .TTSclk(1'b0),
+        .TTS(4'd0),
+
+        .EventDataClk(clk125),
+        .EventData_valid(daq_valid),
+        .EventData_header(daq_header),
+        .EventData_trailer(daq_trailer),
+        .EventData(daq_data),
+        .AlmostFull(daq_almost_full),
+        .Ready(daq_ready)
+    );
+
 
 endmodule
