@@ -28,13 +28,16 @@ entity slaves is
 		amc13_almost_full: in std_logic := '0';
 
 		-- status registers
-
 	    axi_stream_in: in axi_stream;
 	    axi_stream_in_tready: out std_logic;
-	    axi_stream_out: out axi_stream;
-	    axi_stream_out_tready: in std_logic;
 
-	    --DAQ Link
+	    c0_axi_stream_out: out axi_stream;
+	    c0_axi_stream_out_tready: in std_logic;
+
+	    c1_axi_stream_out: out axi_stream;
+	    c1_axi_stream_out_tready: in std_logic;
+
+	    -- DAQ Link
 	    daq_valid : out std_logic;
 	    daq_header : out std_logic;
 	    daq_trailer : out std_logic;
@@ -181,7 +184,8 @@ begin
 		count(14) <= rx_resetdone_out;
 		count(15) <= link_reset_out;
 
--- slave 5: AXI4-stream interface to Aurora IP
+-- Slave 5: AXI4-stream interface to Aurora IP
+
 	  slave5: entity work.ipbus_axi_stream
 	  generic map(
 	    id => 0,
@@ -194,9 +198,11 @@ begin
 	    ipbus_out => ipbr(5),
 	    axi_str_in => axi_stream_in,
 	    axi_str_in_tready => axi_stream_in_tready,
-	    axi_str_out => axi_stream_out,
-	    axi_str_out_tready => axi_stream_out_tready
+	    axi_str_out => c0_axi_stream_out,
+	    axi_str_out_tready => c0_axi_stream_out_tready
 	  );
+
+-- Slave 6
 
     slave6: entity work.ipbus_amc13_daq_link
 	  port map(
@@ -212,8 +218,8 @@ begin
 	    debug => debug
 	  );
 
+-- Slave 7: 24 Mbyte user space
 
-	  -- Slave 7: 24 Mbyte user space
 	slave7: entity work.ipbus_user
 		generic map(addr_width => 24)
 		port map(

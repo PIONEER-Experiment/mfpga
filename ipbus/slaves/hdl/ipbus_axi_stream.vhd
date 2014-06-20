@@ -36,9 +36,7 @@ architecture rtl of ipbus_axi_stream is
 
   signal write_success_follow: std_logic;
 
-begin  -- architecture ipbus_axi_stream
-
-
+begin -- architecture ipbus_axi_stream
 
   do_write <= ipbus_in.ipb_strobe and ipbus_in.ipb_write;
   do_read <= ipbus_in.ipb_strobe and not ipbus_in.ipb_write;
@@ -84,6 +82,5 @@ begin  -- architecture ipbus_axi_stream
   ack <= write_success or read_success;
   ipbus_out.ipb_ack <= ack;
   ipbus_out.ipb_err <= '0';
-
 
 end architecture;

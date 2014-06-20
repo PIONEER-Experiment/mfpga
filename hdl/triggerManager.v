@@ -18,9 +18,9 @@ module triggerManager (
   FILL          = 6'b111110, // go[4:0]=11111 fifo_valid=0 
   STORE_FILLNUM = 6'b000001; // go[4:0]=00000 fifo_valid=1 
   
-  (* mark_debug = "true" *) reg [5:0] state;
-  (* mark_debug = "true" *) reg [5:0] nextstate;
-  (* mark_debug = "true" *) reg [23:0] next_fillNum;
+  reg [5:0] state;
+  reg [5:0] nextstate;
+  reg [23:0] next_fillNum;
   
   // comb always block
   always @* begin

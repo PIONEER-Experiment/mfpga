@@ -60,3 +60,25 @@ if {[file exists $ROOT/ip/aurora_8b10b_0/aurora_8b10b_0.xci]} {
 	generate_target all [get_files $ROOT/ip/aurora_8b10b_0/aurora_8b10b_0.xci]
 	synth_ip [get_ips aurora_8b10b_0]
 }
+
+# axis switch from channel FPGAs to DTM
+if {[file exists $ROOT/ip/axis_switch_rx/axis_switch_rx.xci
+]} {
+	read_ip $ROOT/ip/axis_switch_rx/axis_switch_rx.xci
+} else {
+	create_ip -name axis_switch -vendor xilinx.com -library ip -module_name axis_switch_rx -dir $ROOT/ip
+	set_property -dict [list CONFIG.HAS_TLAST {1} CONFIG.TDATA_NUM_BYTES {4} CONFIG.ARB_ALGORITHM {1}] [get_ips axis_switch_rx]
+	generate_target all [get_files $ROOT/ip/axis_switch_rx/axis_switch_rx.xci]
+	synth_ip [get_ips axis_switch_rx]
+}
+
+# axis switch from DTM to channel FPGAs
+if {[file exists $ROOT/ip/axis_switch_tx/axis_switch_tx.xci
+]} {
+	read_ip $ROOT/ip/axis_switch_tx/axis_switch_tx.xci
+} else {
+	create_ip -name axis_switch -vendor xilinx.com -library ip -module_name axis_switch_tx -dir $ROOT/ip
+	set_property -dict [list CONFIG.NUM_SI {1} CONFIG.TDATA_NUM_BYTES {4}] [get_ips axis_switch_tx]
+	generate_target all [get_files $ROOT/ip/axis_switch_tx/axis_switch_tx.xci]
+	synth_ip [get_ips axis_switch_tx]
+}

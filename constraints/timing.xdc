@@ -3,7 +3,7 @@ create_clock -period 20.000 -name clk50 -waveform {0.000 10.000} [get_ports {clk
 
 # the 'clkin' is on the N pin of a PN pair, so it needs the next constraint to allow it to place the clock
 # This should be removed in the 5-chanel design, since the pin mapping should be fixed
-set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets xlnx_opt__10]
+set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets clkin]
 
 # gtx clock for GigE
 create_clock -name gige_clk -period 8.000 [get_ports gtx_clk0]
