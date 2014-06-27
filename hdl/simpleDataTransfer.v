@@ -1,5 +1,5 @@
 
-// Created by fizzim.pl version 4.42 on 2014:06:19 at 10:38:20 (www.fizzim.com)
+// Created by fizzim.pl version 4.42 on 2014:06:27 at 10:46:42 (www.fizzim.com)
 
 module simpleDataTransfer (
   output wire chan_fifo_ready,
@@ -20,15 +20,16 @@ module simpleDataTransfer (
   
   // state bits
   parameter 
-  IDLE       = 7'b0010000, // extra=00 tm_fifo_ready=1 daq_valid=0 daq_trailer=0 daq_header=0 chan_fifo_ready=0 
-  DATA1      = 7'b0000001, // extra=00 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_fifo_ready=1 
-  DATA2      = 7'b0001000, // extra=00 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_fifo_ready=0 
-  HEADER1    = 7'b0001010, // extra=00 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=1 chan_fifo_ready=0 
-  HEADER2    = 7'b0101000, // extra=01 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_fifo_ready=0 
-  LAST_DATA1 = 7'b1001000, // extra=10 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_fifo_ready=0 
-  LAST_DATA2 = 7'b1101000, // extra=11 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_fifo_ready=0 
-  READY_DATA = 7'b0100001, // extra=01 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_fifo_ready=1 
-  TRAILER    = 7'b0001100; // extra=00 tm_fifo_ready=0 daq_valid=1 daq_trailer=1 daq_header=0 chan_fifo_ready=0 
+  IDLE        = 7'b0010000, // extra=00 tm_fifo_ready=1 daq_valid=0 daq_trailer=0 daq_header=0 chan_fifo_ready=0 
+  DATA1       = 7'b0000001, // extra=00 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_fifo_ready=1 
+  DATA2       = 7'b0001000, // extra=00 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_fifo_ready=0 
+  HAS_FILLNUM = 7'b0000000, // extra=00 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_fifo_ready=0 
+  HEADER1     = 7'b0001010, // extra=00 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=1 chan_fifo_ready=0 
+  HEADER2     = 7'b0101000, // extra=01 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_fifo_ready=0 
+  LAST_DATA1  = 7'b1001000, // extra=10 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_fifo_ready=0 
+  LAST_DATA2  = 7'b1101000, // extra=11 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_fifo_ready=0 
+  READY_DATA  = 7'b0100001, // extra=01 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_fifo_ready=1 
+  TRAILER     = 7'b0001100; // extra=00 tm_fifo_ready=0 daq_valid=1 daq_trailer=1 daq_header=0 chan_fifo_ready=0 
   
   reg [6:0] state;
   reg [6:0] nextstate;
@@ -42,14 +43,13 @@ module simpleDataTransfer (
     next_daq_data[63:0] = daq_data[63:0];
     next_fill_num[23:0] = fill_num[23:0];
     case (state)
-      IDLE      : begin
+      IDLE       : begin
         if (tm_fifo_valid) begin
-          nextstate = HEADER1;
+          nextstate = HAS_FILLNUM;
           next_fill_num[23:0] = tm_fifo_data[23:0];
-          next_daq_data[63:0] = {{8'h00,fill_num[23:0]},32'h00000008};
         end
       end
-      DATA1     : begin
+      DATA1      : begin
         if (chan_fifo_valid && chan_fifo_last) begin
           nextstate = LAST_DATA2;
           next_daq_data[63:0] = {daq_data[63:32],chan_fifo_data[31:0]};
@@ -59,37 +59,43 @@ module simpleDataTransfer (
           next_daq_data[63:0] = {daq_data[63:32],chan_fifo_data[31:0]};
         end
       end
-      DATA2     : begin
+      DATA2      : begin
         if (daq_ready) begin
           nextstate = READY_DATA;
           next_daq_data[63:0] = 0;
         end
       end
-      HEADER1   : begin
+      HAS_FILLNUM: begin
+        begin
+          nextstate = HEADER1;
+          next_daq_data[63:0] = {{8'h00,fill_num[23:0]},32'h00000008};
+        end
+      end
+      HEADER1    : begin
         if (daq_ready) begin
           nextstate = HEADER2;
           next_daq_data[63:0] = 64'h000000000000FFFF;
         end
       end
-      HEADER2   : begin
+      HEADER2    : begin
         if (daq_ready) begin
           nextstate = READY_DATA;
           next_daq_data[63:0] = 0;
         end
       end
-      LAST_DATA1: begin
+      LAST_DATA1 : begin
         if (daq_ready) begin
           nextstate = TRAILER;
           next_daq_data[63:0] = {32'h00000000,{fill_num[1:0],24'h000008}};
         end
       end
-      LAST_DATA2: begin
+      LAST_DATA2 : begin
         if (daq_ready) begin
           nextstate = TRAILER;
           next_daq_data[63:0] = {32'h00000000,{fill_num[1:0],24'h000008}};
         end
       end
-      READY_DATA: begin
+      READY_DATA : begin
         if (chan_fifo_valid && chan_fifo_last) begin
           nextstate = LAST_DATA1;
           next_daq_data[63:0] = {chan_fifo_data[31:0],32'h00000000};
@@ -99,7 +105,7 @@ module simpleDataTransfer (
           next_daq_data[63:0] = {chan_fifo_data[31:0],32'h00000000};
         end
       end
-      TRAILER   : begin
+      TRAILER    : begin
         if (daq_ready) begin
           nextstate = IDLE;
           next_daq_data[63:0] = 0;
@@ -131,29 +137,31 @@ module simpleDataTransfer (
   
   // This code allows you to see state names in simulation
   `ifndef SYNTHESIS
-  reg [79:0] statename;
+  reg [87:0] statename;
   always @* begin
     case (state)
-      IDLE      :
+      IDLE       :
         statename = "IDLE";
-      DATA1     :
+      DATA1      :
         statename = "DATA1";
-      DATA2     :
+      DATA2      :
         statename = "DATA2";
-      HEADER1   :
+      HAS_FILLNUM:
+        statename = "HAS_FILLNUM";
+      HEADER1    :
         statename = "HEADER1";
-      HEADER2   :
+      HEADER2    :
         statename = "HEADER2";
-      LAST_DATA1:
+      LAST_DATA1 :
         statename = "LAST_DATA1";
-      LAST_DATA2:
+      LAST_DATA2 :
         statename = "LAST_DATA2";
-      READY_DATA:
+      READY_DATA :
         statename = "READY_DATA";
-      TRAILER   :
+      TRAILER    :
         statename = "TRAILER";
-      default   :
-        statename = "XXXXXXXXXX";
+      default    :
+        statename = "XXXXXXXXXXX";
     endcase
   end
   `endif

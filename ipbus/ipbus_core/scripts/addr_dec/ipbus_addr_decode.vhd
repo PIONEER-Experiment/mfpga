@@ -33,8 +33,8 @@ package body ipbus_addr_decode is
 			sel := 3; -- write_only_reg / base 00002000 / mask 00000001
 		elsif std_match(addr, "-------0---------011------------") then
 			sel := 4; -- counters / base 00003000 / mask 0000000f
-		elsif std_match(addr, "-------0---------100-----------0") then
-			sel := 5; -- channel / base 00004000 / mask 00000000
+		elsif std_match(addr, "-------0---------100------------") then
+			sel := 5; -- channel / base 00004000 / mask 0000000f
 		elsif std_match(addr, "-------0---------101------------") then
 			sel := 6; -- daq_link / base 00005000 / mask 00000003
 		elsif std_match(addr, "-------1------------------------") then

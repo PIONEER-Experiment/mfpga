@@ -31,11 +31,8 @@ entity slaves is
 	    axi_stream_in: in axi_stream;
 	    axi_stream_in_tready: out std_logic;
 
-	    c0_axi_stream_out: out axi_stream;
-	    c0_axi_stream_out_tready: in std_logic;
-
-	    c1_axi_stream_out: out axi_stream;
-	    c1_axi_stream_out_tready: in std_logic;
+	    axi_stream_out: out axi_stream;
+	    axi_stream_out_tready: in std_logic;
 
 	    -- DAQ Link
 	    daq_valid : out std_logic;
@@ -189,7 +186,7 @@ begin
 	  slave5: entity work.ipbus_axi_stream
 	  generic map(
 	    id => 0,
-	    dest => 0
+	    addr_width => 4
 	  )
 	  port map(
 	    clk => ipb_clk,
@@ -198,8 +195,8 @@ begin
 	    ipbus_out => ipbr(5),
 	    axi_str_in => axi_stream_in,
 	    axi_str_in_tready => axi_stream_in_tready,
-	    axi_str_out => c0_axi_stream_out,
-	    axi_str_out_tready => c0_axi_stream_out_tready
+	    axi_str_out => axi_stream_out,
+	    axi_str_out_tready => axi_stream_out_tready
 	  );
 
 -- Slave 6

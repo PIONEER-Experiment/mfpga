@@ -11,13 +11,13 @@ use work.axi.all;
 entity ipbus_axi_stream is
   generic(
     id: natural;
-    dest: natural
+    addr_width: natural
   );
   port (
     clk       : in  std_logic;          -- ipbus clock
     reset     : in  std_logic;          -- ipbus reset
     ipbus_in  : in  ipb_wbus;           -- fabric bus in
-    ipbus_out : out ipb_rbus;          -- fabric bus out
+    ipbus_out : out ipb_rbus;           -- fabric bus out
     axi_str_in : in axi_stream;
     axi_str_in_tready: out std_logic;
     axi_str_out: out axi_stream;
@@ -36,6 +36,10 @@ architecture rtl of ipbus_axi_stream is
 
   signal write_success_follow: std_logic;
 
+  attribute mark_debug : string;
+  signal tdest: std_logic_vector(2 downto 0);
+  attribute mark_debug of tdest: signal is "true";
+
 begin -- architecture ipbus_axi_stream
 
   do_write <= ipbus_in.ipb_strobe and ipbus_in.ipb_write;
@@ -53,7 +57,12 @@ begin -- architecture ipbus_axi_stream
   end process;
 
   axi_str_out.tid <= std_logic_vector(to_unsigned(id, 4));
-  axi_str_out.tdest <= std_logic_vector(to_unsigned(dest, 4));
+
+  -- get tdest from ipbus address (not including lowest address bit, because that caused errors)
+  axi_str_out.tdest(3) <= '0'; -- tdest is 4 bits; set highest to zero, get other three from ipbus address
+  axi_str_out.tdest(2 downto 0) <= ipbus_in.ipb_addr(addr_width - 1 downto 1);
+  tdest <= ipbus_in.ipb_addr(addr_width - 1 downto 1);
+  -- axi_str_out.tdest <= std_logic_vector(to_unsigned(id, 4));
 
   -- tlast is high when do_write goes low after a write_success
   axi_str_out.tlast <= write_success_follow and not do_write;

@@ -7,6 +7,6 @@
 2	ram	     		0x1000		10
 3	write_only_reg	0x2000		1
 4	counters		0x3000		4
-5	channel			0x4000		0
+5	channel			0x4000		4
 6	daq_link		0x5000  	2
 7	ipbus_user		0x1000000	24

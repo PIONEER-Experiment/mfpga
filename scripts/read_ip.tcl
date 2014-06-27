@@ -78,7 +78,7 @@ if {[file exists $ROOT/ip/axis_switch_tx/axis_switch_tx.xci
 	read_ip $ROOT/ip/axis_switch_tx/axis_switch_tx.xci
 } else {
 	create_ip -name axis_switch -vendor xilinx.com -library ip -module_name axis_switch_tx -dir $ROOT/ip
-	set_property -dict [list CONFIG.NUM_SI {1} CONFIG.TDATA_NUM_BYTES {4}] [get_ips axis_switch_tx]
+	set_property -dict [list CONFIG.NUM_SI {1} CONFIG.HAS_TLAST {1} CONFIG.TDATA_NUM_BYTES {4}] [get_ips axis_switch_tx]
 	generate_target all [get_files $ROOT/ip/axis_switch_tx/axis_switch_tx.xci]
 	synth_ip [get_ips axis_switch_tx]
 }

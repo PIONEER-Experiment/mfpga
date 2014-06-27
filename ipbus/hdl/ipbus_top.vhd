@@ -39,25 +39,15 @@ entity ipbus_top is port(
     axi_stream_in_tdest  : in std_logic_vector(3 downto 0);
     axi_stream_in_tready : out std_logic;
 
-    -- channel 0 link
-    c0_axi_stream_out_tvalid : out std_logic;
-    c0_axi_stream_out_tdata  : out std_logic_vector(31 downto 0);
-    c0_axi_stream_out_tstrb  : out std_logic_vector(3 downto 0);
-    c0_axi_stream_out_tkeep  : out std_logic_vector(3 downto 0);
-    c0_axi_stream_out_tlast  : out std_logic;
-    c0_axi_stream_out_tid    : out std_logic_vector(3 downto 0);
-    c0_axi_stream_out_tdest  : out std_logic_vector(3 downto 0);
-    c0_axi_stream_out_tready : in std_logic;
-
-    -- channel 1 link
-	c1_axi_stream_out_tvalid : out std_logic;
-    c1_axi_stream_out_tdata  : out std_logic_vector(31 downto 0);
-    c1_axi_stream_out_tstrb  : out std_logic_vector(3 downto 0);
-    c1_axi_stream_out_tkeep  : out std_logic_vector(3 downto 0);
-    c1_axi_stream_out_tlast  : out std_logic;
-    c1_axi_stream_out_tid    : out std_logic_vector(3 downto 0);
-    c1_axi_stream_out_tdest  : out std_logic_vector(3 downto 0);
-    c1_axi_stream_out_tready : in std_logic;
+    -- channel link
+    axi_stream_out_tvalid : out std_logic;
+    axi_stream_out_tdata  : out std_logic_vector(31 downto 0);
+    axi_stream_out_tstrb  : out std_logic_vector(3 downto 0);
+    axi_stream_out_tkeep  : out std_logic_vector(3 downto 0);
+    axi_stream_out_tlast  : out std_logic;
+    axi_stream_out_tid    : out std_logic_vector(3 downto 0);
+    axi_stream_out_tdest  : out std_logic_vector(3 downto 0);
+    axi_stream_out_tready : in std_logic;
 
     -- DAQ Link
     daq_valid : out std_logic;
@@ -109,10 +99,8 @@ architecture rtl of ipbus_top is
 	signal eth_phy_status_vector: std_logic_vector(15 downto 0);
     signal axi_stream_in: axi_stream;
 
-    signal c0_axi_stream_out: axi_stream;
+    signal axi_stream_out: axi_stream;
     
-    signal c1_axi_stream_out: axi_stream;
-
     signal eth_locked: std_logic;
 
 begin
@@ -217,11 +205,8 @@ begin
 	    axi_stream_in => axi_stream_in,
 	    axi_stream_in_tready => axi_stream_in_tready,
 
-	    c0_axi_stream_out => c0_axi_stream_out,
-	    c0_axi_stream_out_tready => c0_axi_stream_out_tready,
-
-	    c1_axi_stream_out => c1_axi_stream_out,
-	    c1_axi_stream_out_tready => c1_axi_stream_out_tready,
+	    axi_stream_out => axi_stream_out,
+	    axi_stream_out_tready => axi_stream_out_tready,
 	    
 	    daq_valid => daq_valid,
 	    daq_header => daq_header,
@@ -257,20 +242,13 @@ begin
     axi_stream_in.tid    <= axi_stream_in_tid;
     axi_stream_in.tdest  <= axi_stream_in_tdest;
 
-    c0_axi_stream_out_tvalid <= c0_axi_stream_out.tvalid;
-    c0_axi_stream_out_tdata  <= c0_axi_stream_out.tdata;
-    c0_axi_stream_out_tstrb  <= c0_axi_stream_out.tstrb;
-    c0_axi_stream_out_tkeep  <= c0_axi_stream_out.tkeep;
-    c0_axi_stream_out_tlast  <= c0_axi_stream_out.tlast;
-    c0_axi_stream_out_tid    <= c0_axi_stream_out.tid;
-    c0_axi_stream_out_tdest  <= c0_axi_stream_out.tdest;
+    axi_stream_out_tvalid <= axi_stream_out.tvalid;
+    axi_stream_out_tdata  <= axi_stream_out.tdata;
+    axi_stream_out_tstrb  <= axi_stream_out.tstrb;
+    axi_stream_out_tkeep  <= axi_stream_out.tkeep;
+    axi_stream_out_tlast  <= axi_stream_out.tlast;
+    axi_stream_out_tid    <= axi_stream_out.tid;
+    axi_stream_out_tdest  <= axi_stream_out.tdest;
 
-    c1_axi_stream_out_tvalid <= c1_axi_stream_out.tvalid;
-    c1_axi_stream_out_tdata  <= c1_axi_stream_out.tdata;
-    c1_axi_stream_out_tstrb  <= c1_axi_stream_out.tstrb;
-    c1_axi_stream_out_tkeep  <= c1_axi_stream_out.tkeep;
-    c1_axi_stream_out_tlast  <= c1_axi_stream_out.tlast;
-    c1_axi_stream_out_tid    <= c1_axi_stream_out.tid;
-    c1_axi_stream_out_tdest  <= c1_axi_stream_out.tdest;
 
 end rtl;
