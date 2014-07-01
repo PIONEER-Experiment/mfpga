@@ -17,6 +17,7 @@ module wfd_top(
     output wire led0, led1           // front panel LEDs. led0 is green, led1 is red
 );
 
+
     // ========  debug signals ========
     // assign debug[8] = clk125;
     // assign debug[9] = rst_from_ipb;
@@ -112,12 +113,12 @@ module wfd_top(
     wire[0:3] c0_axi_stream_to_dtm_tid;
     wire[0:3] c0_axi_stream_to_dtm_tdest;
 
-    wire c0_axi_stream_from_ipbus_tvalid, c0_axi_stream_from_ipbus_tlast, c0_axi_stream_from_ipbus_tready;
-    wire[0:31] c0_axi_stream_from_ipbus_tdata;
-    wire[0:3] c0_axi_stream_from_ipbus_tstrb;
-    wire[0:3] c0_axi_stream_from_ipbus_tkeep;
-    wire[0:3] c0_axi_stream_from_ipbus_tid;
-    wire[0:3] c0_axi_stream_from_ipbus_tdest;
+    wire c0_axi_stream_to_channel_tvalid, c0_axi_stream_to_channel_tlast, c0_axi_stream_to_channel_tready;
+    wire[0:31] c0_axi_stream_to_channel_tdata;
+    wire[0:3] c0_axi_stream_to_channel_tstrb;
+    wire[0:3] c0_axi_stream_to_channel_tkeep;
+    wire[0:3] c0_axi_stream_to_channel_tid;
+    wire[0:3] c0_axi_stream_to_channel_tdest;
 
     // channel 1
     wire c1_axi_stream_to_dtm_tvalid, c1_axi_stream_to_dtm_tlast, c1_axi_stream_to_dtm_tready;
@@ -127,12 +128,12 @@ module wfd_top(
     wire[0:3] c1_axi_stream_to_dtm_tid;
     wire[0:3] c1_axi_stream_to_dtm_tdest;
 
-    wire c1_axi_stream_from_ipbus_tvalid, c1_axi_stream_from_ipbus_tlast, c1_axi_stream_from_ipbus_tready;
-    wire[0:31] c1_axi_stream_from_ipbus_tdata;
-    wire[0:3] c1_axi_stream_from_ipbus_tstrb;
-    wire[0:3] c1_axi_stream_from_ipbus_tkeep;
-    wire[0:3] c1_axi_stream_from_ipbus_tid;
-    wire[0:3] c1_axi_stream_from_ipbus_tdest;
+    wire c1_axi_stream_to_channel_tvalid, c1_axi_stream_to_channel_tlast, c1_axi_stream_to_channel_tready;
+    wire[0:31] c1_axi_stream_to_channel_tdata;
+    wire[0:3] c1_axi_stream_to_channel_tstrb;
+    wire[0:3] c1_axi_stream_to_channel_tkeep;
+    wire[0:3] c1_axi_stream_to_channel_tid;
+    wire[0:3] c1_axi_stream_to_channel_tdest;
 
 
     // packaging up channel connections for the axi rx switch input
@@ -143,8 +144,8 @@ module wfd_top(
     assign c_axi_stream_to_dtm_tvalid[1] = c1_axi_stream_to_dtm_tvalid;
     assign c_axi_stream_to_dtm_tlast[0] = c0_axi_stream_to_dtm_tlast;
     assign c_axi_stream_to_dtm_tlast[1] = c1_axi_stream_to_dtm_tlast;
-    assign c_axi_stream_to_dtm_tready[0] = c0_axi_stream_to_dtm_tready;
-    assign c_axi_stream_to_dtm_tready[1] = c1_axi_stream_to_dtm_tready;
+    assign c0_axi_stream_to_dtm_tready = c_axi_stream_to_dtm_tready[0];
+    assign c1_axi_stream_to_dtm_tready = c_axi_stream_to_dtm_tready[1];
     assign c_axi_stream_to_dtm_tdata[31:0] = c0_axi_stream_to_dtm_tdata;
     assign c_axi_stream_to_dtm_tdata[63:32] = c1_axi_stream_to_dtm_tdata;
 
@@ -157,28 +158,50 @@ module wfd_top(
     wire[0:3] axi_stream_to_dtm_tdest;
 
     // packaging up channel connections for the axi tx switch output
-    (* mark_debug = "true" *) wire[1:0] c_axi_stream_from_ipbus_tvalid, c_axi_stream_from_ipbus_tlast, c_axi_stream_from_ipbus_tready;
-    wire [7:0] c_axi_stream_from_ipbus_tdest;
-    (* mark_debug = "true" *) wire[63:0] c_axi_stream_from_ipbus_tdata;
+    (* mark_debug = "true" *) wire[1:0] c_axi_stream_to_channel_tvalid, c_axi_stream_to_channel_tlast, c_axi_stream_to_channel_tready;
+    wire [7:0] c_axi_stream_to_channel_tdest;
+    (* mark_debug = "true" *) wire[63:0] c_axi_stream_to_channel_tdata;
 
-    assign c_axi_stream_from_ipbus_tvalid[0] = c0_axi_stream_from_ipbus_tvalid;
-    assign c_axi_stream_from_ipbus_tvalid[1] = c1_axi_stream_from_ipbus_tvalid;
-    assign c_axi_stream_from_ipbus_tlast[0] = c0_axi_stream_from_ipbus_tlast;
-    assign c_axi_stream_from_ipbus_tlast[1] = c1_axi_stream_from_ipbus_tlast;
-    assign c_axi_stream_from_ipbus_tready[0] = c0_axi_stream_from_ipbus_tready;
-    assign c_axi_stream_from_ipbus_tready[1] = c1_axi_stream_from_ipbus_tready;
-    assign c_axi_stream_from_ipbus_tdata[31:0] = c0_axi_stream_from_ipbus_tdata;
-    assign c_axi_stream_from_ipbus_tdata[63:32] = c1_axi_stream_from_ipbus_tdata;
-    assign c_axi_stream_from_ipbus_tdest[3:0] = c0_axi_stream_from_ipbus_tdest;
-    assign c_axi_stream_from_ipbus_tdest[7:4] = c1_axi_stream_from_ipbus_tdest;
+    assign c0_axi_stream_to_channel_tvalid = c_axi_stream_to_channel_tvalid[0];
+    assign c1_axi_stream_to_channel_tvalid = c_axi_stream_to_channel_tvalid[1];
+    assign c0_axi_stream_to_channel_tlast = c_axi_stream_to_channel_tlast[0];
+    assign c1_axi_stream_to_channel_tlast = c_axi_stream_to_channel_tlast[1];
+    assign c_axi_stream_to_channel_tready[0] = c0_axi_stream_to_channel_tready;
+    assign c_axi_stream_to_channel_tready[1] = c1_axi_stream_to_channel_tready;
+    assign c0_axi_stream_to_channel_tdata = c_axi_stream_to_channel_tdata[31:0];
+    assign c1_axi_stream_to_channel_tdata = c_axi_stream_to_channel_tdata[63:32];
+    assign c0_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[3:0];
+    assign c1_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[7:4];
+
 
     // connection from ipbus to axi tx switch
-    (* mark_debug = "true" *) wire axi_stream_from_ipbus_tvalid, axi_stream_from_ipbus_tlast, axi_stream_from_ipbus_tready;
-    (* mark_debug = "true" *) wire[0:31] axi_stream_from_ipbus_tdata;
-    wire[0:3] axi_stream_from_ipbus_tstrb;
-    wire[0:3] axi_stream_from_ipbus_tkeep;
-    wire[0:3] axi_stream_from_ipbus_tid;
-    (* mark_debug = "true" *) wire[0:3] axi_stream_from_ipbus_tdest;
+    (* mark_debug = "true" *) wire axi_stream_to_channel_from_ipbus_tvalid, axi_stream_to_channel_from_ipbus_tlast, axi_stream_to_channel_from_ipbus_tready;
+    (* mark_debug = "true" *) wire[0:31] axi_stream_to_channel_from_ipbus_tdata;
+    wire[0:3] axi_stream_to_channel_from_ipbus_tstrb;
+    wire[0:3] axi_stream_to_channel_from_ipbus_tkeep;
+    wire[0:3] axi_stream_to_channel_from_ipbus_tid;
+    (* mark_debug = "true" *) wire[0:3] axi_stream_to_channel_from_ipbus_tdest;
+
+    // connection from dtm to axi tx switch
+    (* mark_debug = "true" *) wire axi_stream_to_channel_from_dtm_tvalid, axi_stream_to_channel_from_dtm_tlast, axi_stream_to_channel_from_dtm_tready;
+    (* mark_debug = "true" *) wire[0:31] axi_stream_to_channel_from_dtm_tdata;
+    (* mark_debug = "true" *) wire[0:3] axi_stream_to_channel_from_dtm_tdest;
+
+    // packaging up channel connections for the axi tx switch input
+    (* mark_debug = "true" *) wire[1:0] axi_stream_to_channel_tvalid, axi_stream_to_channel_tlast, axi_stream_to_channel_tready;
+    wire [7:0] axi_stream_to_channel_tdest;
+    (* mark_debug = "true" *) wire[63:0] axi_stream_to_channel_tdata;
+
+    assign axi_stream_to_channel_tvalid[0]    = axi_stream_to_channel_from_ipbus_tvalid;
+    assign axi_stream_to_channel_tvalid[1]    = axi_stream_to_channel_from_dtm_tvalid;
+    assign axi_stream_to_channel_tlast[0]     = axi_stream_to_channel_from_ipbus_tlast;
+    assign axi_stream_to_channel_tlast[1]     = axi_stream_to_channel_from_dtm_tlast;
+    assign axi_stream_to_channel_from_ipbus_tready = axi_stream_to_channel_tready[0];
+    assign axi_stream_to_channel_from_dtm_tready   = axi_stream_to_channel_tready[1];
+    assign axi_stream_to_channel_tdata[31:0]  = axi_stream_to_channel_from_ipbus_tdata;
+    assign axi_stream_to_channel_tdata[63:32] = axi_stream_to_channel_from_dtm_tdata;
+    assign axi_stream_to_channel_tdest[3:0]   = axi_stream_to_channel_from_ipbus_tdest;
+    assign axi_stream_to_channel_tdest[7:4]   = axi_stream_to_channel_from_dtm_tdest;
 
 
     // ======== Communication with the AMC13 DAQ Link ========
@@ -221,14 +244,14 @@ module wfd_top(
 
         // Data interface to channel serial link
         // connections from ipbus to channel TX switch
-        .axi_stream_out_tvalid(axi_stream_from_ipbus_tvalid),
-        .axi_stream_out_tdata(axi_stream_from_ipbus_tdata[0:31]),
-        .axi_stream_out_tstrb(axi_stream_from_ipbus_tstrb[0:3]),
-        .axi_stream_out_tkeep(axi_stream_from_ipbus_tkeep[0:3]),
-        .axi_stream_out_tlast(axi_stream_from_ipbus_tlast),
-        .axi_stream_out_tid(axi_stream_from_ipbus_tid),
-        .axi_stream_out_tdest(axi_stream_from_ipbus_tdest),
-        .axi_stream_out_tready(axi_stream_from_ipbus_tready),
+        .axi_stream_out_tvalid(axi_stream_to_channel_from_ipbus_tvalid),
+        .axi_stream_out_tdata(axi_stream_to_channel_from_ipbus_tdata[0:31]),
+        .axi_stream_out_tstrb(axi_stream_to_channel_from_ipbus_tstrb[0:3]),
+        .axi_stream_out_tkeep(axi_stream_to_channel_from_ipbus_tkeep[0:3]),
+        .axi_stream_out_tlast(axi_stream_to_channel_from_ipbus_tlast),
+        .axi_stream_out_tid(axi_stream_to_channel_from_ipbus_tid),
+        .axi_stream_out_tdest(axi_stream_to_channel_from_ipbus_tdest),
+        .axi_stream_out_tready(axi_stream_to_channel_from_ipbus_tready),
 
         // Trigger via IPbus for now
         .trigger_out(trigger_from_ipbus),
@@ -273,17 +296,17 @@ module wfd_top(
         // channel 0 connections
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
-        .c0_s_axi_tx_tdata(c_axi_stream_from_ipbus_tdata[31:0]),        // note index order
-        //.c0_s_axi_tx_tkeep(c_axi_stream_from_ipbus_tkeep[0:3]),         // note index order
-        .c0_s_axi_tx_tvalid(c_axi_stream_from_ipbus_tvalid[0]),
-        .c0_s_axi_tx_tlast(c_axi_stream_from_ipbus_tlast[0]),
-        .c0_s_axi_tx_tready(c_axi_stream_from_ipbus_tready[0]),
+        .c0_s_axi_tx_tdata(c0_axi_stream_to_channel_tdata),        // note index order
+        //.c0_s_axi_tx_tkeep(c0_axi_stream_to_channel_tkeep),         // note index order
+        .c0_s_axi_tx_tvalid(c0_axi_stream_to_channel_tvalid),
+        .c0_s_axi_tx_tlast(c0_axi_stream_to_channel_tlast),
+        .c0_s_axi_tx_tready(c0_axi_stream_to_channel_tready),
         // RX Interface to master side of receive FIFO
-        .c0_m_axi_rx_tdata(c_axi_stream_to_dtm_tdata[31:0]),       // note index order
-        //.c0_m_axi_rx_tkeep(c0_axi_stream_to_dtm_tkeep[0:3]),        // note index order
-        .c0_m_axi_rx_tvalid(c_axi_stream_to_dtm_tvalid[0]),
-        .c0_m_axi_rx_tlast(c_axi_stream_to_dtm_tlast[0]),
-        .c0_m_axi_rx_tready(c_axi_stream_to_dtm_tready[0]),            // input wire m_axis_tready
+        .c0_m_axi_rx_tdata(c0_axi_stream_to_dtm_tdata),       // note index order
+        //.c0_m_axi_rx_tkeep(c0_axi_stream_to_dtm_tkeep),        // note index order
+        .c0_m_axi_rx_tvalid(c0_axi_stream_to_dtm_tvalid),
+        .c0_m_axi_rx_tlast(c0_axi_stream_to_dtm_tlast),
+        .c0_m_axi_rx_tready(c0_axi_stream_to_dtm_tready),            // input wire m_axis_tready
         // serial I/O pins
         .c0_rxp(c0_rx), .c0_rxn(c0_rx_N),                   // receive from channel 0 FPGA
         .c0_txp(c0_tx), .c0_txn(c0_tx_N),                   // transmit to channel 0 FPGA
@@ -292,17 +315,17 @@ module wfd_top(
         // channel 1 connections
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
-        .c1_s_axi_tx_tdata(c_axi_stream_from_ipbus_tdata[63:32]),        // note index order
-        //.c1_s_axi_tx_tkeep(c_axi_stream_from_ipbus_tkeep[0:3]),         // note index order
-        .c1_s_axi_tx_tvalid(c_axi_stream_from_ipbus_tvalid[1]),
-        .c1_s_axi_tx_tlast(c_axi_stream_from_ipbus_tlast[1]),
-        .c1_s_axi_tx_tready(c_axi_stream_from_ipbus_tready[1]),
+        .c1_s_axi_tx_tdata(c1_axi_stream_to_channel_tdata),        // note index order
+        //.c1_s_axi_tx_tkeep(c1_axi_stream_to_channel_tkeep),         // note index order
+        .c1_s_axi_tx_tvalid(c1_axi_stream_to_channel_tvalid),
+        .c1_s_axi_tx_tlast(c1_axi_stream_to_channel_tlast),
+        .c1_s_axi_tx_tready(c1_axi_stream_to_channel_tready),
         // RX Interface to master side of receive FIFO
-        .c1_m_axi_rx_tdata(c_axi_stream_to_dtm_tdata[63:32]),       // note index order
-        //.c1_m_axi_rx_tkeep(c_axi_stream_to_dtm_tkeep[0:3]),        // note index order
-        .c1_m_axi_rx_tvalid(c_axi_stream_to_dtm_tvalid[1]),
-        .c1_m_axi_rx_tlast(c_axi_stream_to_dtm_tlast[1]),
-        .c1_m_axi_rx_tready(c_axi_stream_to_dtm_tready[1]),            // input wire m_axis_tready
+        .c1_m_axi_rx_tdata(c1_axi_stream_to_dtm_tdata),       // note index order
+        //.c1_m_axi_rx_tkeep(c1_axi_stream_to_dtm_tkeep),        // note index order
+        .c1_m_axi_rx_tvalid(c1_axi_stream_to_dtm_tvalid),
+        .c1_m_axi_rx_tlast(c1_axi_stream_to_dtm_tlast),
+        .c1_m_axi_rx_tready(c1_axi_stream_to_dtm_tready),            // input wire m_axis_tready
         // serial I/O pins
         .c1_rxp(c1_rx), .c1_rxn(c1_rx_N),                   // receive from channel 0 FPGA
         .c1_txp(c1_tx), .c1_txn(c1_tx_N),                   // transmit to channel 0 FPGA
@@ -350,6 +373,10 @@ module wfd_top(
       .m_axis_tdata(fifo_to_dtm_tdata)    // output wire [23 : 0] m_axis_tdata
     );
 
+    assign axi_stream_to_channel_from_dtm_tdest[0] = 0;
+    assign axi_stream_to_channel_from_dtm_tdest[1] = 0;
+    assign axi_stream_to_channel_from_dtm_tdest[2] = 0;
+    assign axi_stream_to_channel_from_dtm_tdest[3] = 0;
 
     // data transfer manager module
     simpleDataTransfer sdt(
@@ -366,11 +393,18 @@ module wfd_top(
         .tm_fifo_valid(fifo_to_dtm_tvalid),
         .tm_fifo_data(fifo_to_dtm_tdata),
 
-        // Interface to channel FIFO (through AXI4-Stream Switch)
-        .chan_fifo_ready(axi_stream_to_dtm_tready), // output from dtm
-        .chan_fifo_data(axi_stream_to_dtm_tdata),   // input to dtm
-        .chan_fifo_last(axi_stream_to_dtm_tlast),   // input to dtm
-        .chan_fifo_valid(axi_stream_to_dtm_tvalid), // input to dtm
+        // Interface to rx channel FIFO (through AXI4-Stream RX Switch)
+        .chan_rx_fifo_ready(axi_stream_to_dtm_tready), // output from dtm
+        .chan_rx_fifo_data(axi_stream_to_dtm_tdata),   // input to dtm
+        .chan_rx_fifo_last(axi_stream_to_dtm_tlast),   // input to dtm
+        .chan_rx_fifo_valid(axi_stream_to_dtm_tvalid), // input to dtm
+
+        // Interface to tx channel FIFO (through AXI4-Stream TX Switch)
+        .chan_tx_fifo_ready(axi_stream_to_channel_from_dtm_tready), // input to dtm
+        .chan_tx_fifo_data(axi_stream_to_channel_from_dtm_tdata),   // output from dtm
+        .chan_tx_fifo_last(axi_stream_to_channel_from_dtm_tlast),   // output from dtm
+        .chan_tx_fifo_valid(axi_stream_to_channel_from_dtm_tvalid), // output from dtm
+        //.chan_tx_fifo_dest(axi_stream_to_channel_from_dtm_tdest[0]),   // output from dtm
 
         // Other connections required by dtm module
         .clk(clk125),      // input to dtm
@@ -407,6 +441,7 @@ module wfd_top(
         .Ready(daq_ready)
     );
 
+
     wire s_req_suppress = 0; // active high skips next arbitration cycle
 
     // AXIS RX Switch
@@ -432,22 +467,22 @@ module wfd_top(
 
     // AXIS TX Switch
     axis_switch_tx tx_switch (
-        .aclk(clk125),                  // input wire aclk
+        .aclk(clk125),           // input wire aclk
         .aresetn(rst_n),         // input wire aresetn
 
-        // IPBus side
-        .s_axis_tvalid(axi_stream_from_ipbus_tvalid),  // input wire [0 : 0] s_axis_tvalid
-        .s_axis_tready(axi_stream_from_ipbus_tready),  // output wire [0 : 0] s_axis_tready
-        .s_axis_tdata(axi_stream_from_ipbus_tdata),    // input wire [31 : 0] s_axis_tdata
-        .s_axis_tdest(axi_stream_from_ipbus_tdest),    // input wire [0 : 0] s_axis_tdest
-        .s_axis_tlast(axi_stream_from_ipbus_tlast),
+        // IPBus + DTM side
+        .s_axis_tvalid(axi_stream_to_channel_tvalid),  // input wire [1 : 0] s_axis_tvalid
+        .s_axis_tready(axi_stream_to_channel_tready),  // output wire [1 : 0] s_axis_tready
+        .s_axis_tdata(axi_stream_to_channel_tdata),    // input wire [63 : 0] s_axis_tdata
+        .s_axis_tdest(axi_stream_to_channel_tdest),    // input wire [1 : 0] s_axis_tdest
+        .s_axis_tlast(axi_stream_to_channel_tlast),    // input wire [1 : 0] s_axis_tlast
 
         // channel FPGA side
-        .m_axis_tvalid(c_axi_stream_from_ipbus_tvalid),  // output wire [1 : 0] m_axis_tvalid
-        .m_axis_tready(c_axi_stream_from_ipbus_tready),   // input wire [1 : 0] m_axis_tready
-        .m_axis_tdata(c_axi_stream_from_ipbus_tdata),    // output wire [63 : 0] m_axis_tdata
-        .m_axis_tdest(c_axi_stream_from_ipbus_tdest),     // output wire [1 : 0] m_axis_tdest
-        .m_axis_tlast(c_axi_stream_from_ipbus_tlast)
+        .m_axis_tvalid(c_axi_stream_to_channel_tvalid),  // output wire [1 : 0] m_axis_tvalid
+        .m_axis_tready(c_axi_stream_to_channel_tready),  // input wire [1 : 0] m_axis_tready
+        .m_axis_tdata(c_axi_stream_to_channel_tdata),    // output wire [63 : 0] m_axis_tdata
+        .m_axis_tdest(c_axi_stream_to_channel_tdest),    // output wire [1 : 0] m_axis_tdest
+        .m_axis_tlast(c_axi_stream_to_channel_tlast)     // output wire [1 : 0] m_axis_tlast
     );
 
 

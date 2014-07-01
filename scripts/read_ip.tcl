@@ -67,7 +67,7 @@ if {[file exists $ROOT/ip/axis_switch_rx/axis_switch_rx.xci
 	read_ip $ROOT/ip/axis_switch_rx/axis_switch_rx.xci
 } else {
 	create_ip -name axis_switch -vendor xilinx.com -library ip -module_name axis_switch_rx -dir $ROOT/ip
-	set_property -dict [list CONFIG.HAS_TLAST {1} CONFIG.TDATA_NUM_BYTES {4} CONFIG.ARB_ALGORITHM {1}] [get_ips axis_switch_rx]
+	set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.HAS_TLAST {1} CONFIG.ARB_ON_MAX_XFERS {1024} CONFIG.ARB_ON_NUM_CYCLES {1} CONFIG.ARB_ALGORITHM {1}] [get_ips axis_switch_rx]
 	generate_target all [get_files $ROOT/ip/axis_switch_rx/axis_switch_rx.xci]
 	synth_ip [get_ips axis_switch_rx]
 }
@@ -78,7 +78,7 @@ if {[file exists $ROOT/ip/axis_switch_tx/axis_switch_tx.xci
 	read_ip $ROOT/ip/axis_switch_tx/axis_switch_tx.xci
 } else {
 	create_ip -name axis_switch -vendor xilinx.com -library ip -module_name axis_switch_tx -dir $ROOT/ip
-	set_property -dict [list CONFIG.NUM_SI {1} CONFIG.HAS_TLAST {1} CONFIG.TDATA_NUM_BYTES {4}] [get_ips axis_switch_tx]
+	set_property -dict [list CONFIG.NUM_MI {2} CONFIG.TDATA_NUM_BYTES {4} CONFIG.HAS_TLAST {1} CONFIG.ARB_ON_MAX_XFERS {1024} CONFIG.ARB_ON_NUM_CYCLES {1} CONFIG.ARB_ALGORITHM {1}] [get_ips axis_switch_tx]
 	generate_target all [get_files $ROOT/ip/axis_switch_tx/axis_switch_tx.xci]
 	synth_ip [get_ips axis_switch_tx]
 }
