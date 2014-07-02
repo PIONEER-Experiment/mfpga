@@ -91,51 +91,7 @@ module all_channels(
   assign chan4_io_reg_sel = (ipb_addr[23:20] == 4'b0100);	//ipb channel register space
   // reserve 4'b0101 thru 4'b1111
 
-  /*
-  // channel 0
-  wire c0_frame_err;
-  wire c0_hard_err;
-  wire c0_soft_err;
-  wire c0_channel_up;
-  wire c0_lane_up;
-  wire c0_pll_not_locked;
-  wire c0_tx_resetdone_out;
-  wire c0_rx_resetdone_out;
-  wire c0_link_reset_out;
-
-  // channel 1
-  wire c1_frame_err;
-  wire c1_hard_err;
-  wire c1_soft_err;
-  wire c1_channel_up;
-  wire c1_lane_up;
-  wire c1_pll_not_locked;
-  wire c1_tx_resetdone_out;
-  wire c1_rx_resetdone_out;
-  wire c1_link_reset_out;
-
-  // determine which counter wires to output from all_channels.v
-  assign frame_err = chan0_io_reg_sel ? c0_frame_err :
-                     chan1_io_reg_sel ? c1_frame_err : 0 ;
-  assign hard_err = chan0_io_reg_sel ? c0_hard_err :
-                    chan1_io_reg_sel ? c1_hard_err : 0 ;
-  assign soft_err = chan0_io_reg_sel ? c0_soft_err :
-                    chan1_io_reg_sel ? c1_soft_err : 0 ;
-  assign channel_up = chan0_io_reg_sel ? c0_channel_up :
-                      chan1_io_reg_sel ? c1_channel_up : 0 ;
-  assign lane_up = chan0_io_reg_sel ? c0_lane_up :
-                   chan1_io_reg_sel ? c1_lane_up : 0 ;
-  assign pll_not_locked = chan0_io_reg_sel ? c0_pll_not_locked :
-                          chan1_io_reg_sel ? c1_pll_not_locked : 0 ;
-  assign tx_resetdone_out = chan0_io_reg_sel ? c0_tx_resetdone_out :
-                            chan1_io_reg_sel ? c1_tx_resetdone_out : 0 ;
-  assign rx_resetdone_out = chan0_io_reg_sel ? c0_rx_resetdone_out :
-                            chan1_io_reg_sel ? c1_rx_resetdone_out : 0 ;
-  assign link_reset_out = chan0_io_reg_sel ? c0_link_reset_out :
-                          chan1_io_reg_sel ? c1_link_reset_out : 0 ;
-  */
-
-
+  
   ///////////////////////////////////////////////////////////////////////////////////////////////////
   // Chan 0
   wire ipb_c0_strobe, ipb_c0_ack, ipb_c0_err;
@@ -186,20 +142,18 @@ module all_channels(
     .gt0_qpllrefclklost(1'b0),       // input
     .gt_qpllclk_quad2(1'b0),           // input
     .gt_qpllrefclk_quad2(1'b0),     // input
-    .gt0_qpllreset()                               // output
+    .gt0_qpllreset(),                               // output
 
-    /*
     // connect counter ouputs b/w all_channels and one_channel
-    .frame_err(c0_frame_err),                            // output, to IPbus I/O
-    .hard_err(c0_hard_err),                              // output, to IPbus I/O
-    .soft_err(c0_soft_err),                              // output, to IPbus I/O
-    .channel_up(c0_channel_up),                          // output, to IPbus I/O
-    .lane_up(c0_lane_up),                                // output, to IPbus I/O
-    .pll_not_locked(c0_pll_not_locked),                  // input, from channel clock module
-    .tx_resetdone_out(c0_tx_resetdone_out),              // output, to IPbus I/O
-    .rx_resetdone_out(c0_rx_resetdone_out),              // output, to IPbus I/O
-    .link_reset_out(c0_link_reset_out)                   // output, to IPbus I/O
-    */
+    .frame_err(frame_err),                            // output, to IPbus I/O
+    .hard_err(hard_err),                              // output, to IPbus I/O
+    .soft_err(soft_err),                              // output, to IPbus I/O
+    .channel_up(channel_up),                          // output, to IPbus I/O
+    .lane_up(lane_up),                                // output, to IPbus I/O
+    .pll_not_locked(pll_not_locked),                  // input, from channel clock module
+    .tx_resetdone_out(tx_resetdone_out),              // output, to IPbus I/O
+    .rx_resetdone_out(rx_resetdone_out),              // output, to IPbus I/O
+    .link_reset_out(link_reset_out)                   // output, to IPbus I/O
   );
 
 
@@ -248,30 +202,8 @@ module all_channels(
     .gt0_qpllrefclklost(gt0_qpllrefclklost),       // input
     .gt_qpllclk_quad2(gt_qpllclk_quad2),           // input
     .gt_qpllrefclk_quad2(gt_qpllrefclk_quad2),     // input
-    .gt0_qpllreset(c1_gt0_qpllreset),               // output
+    .gt0_qpllreset(c1_gt0_qpllreset)               // output
 
-    /*
-    // connect counter ouputs b/w all_channels and one_channel
-    .frame_err(c1_frame_err),                            // output, to IPbus I/O
-    .hard_err(c1_hard_err),                              // output, to IPbus I/O
-    .soft_err(c1_soft_err),                              // output, to IPbus I/O
-    .channel_up(c1_channel_up),                          // output, to IPbus I/O
-    .lane_up(c1_lane_up),                                // output, to IPbus I/O
-    .pll_not_locked(c1_pll_not_locked),                  // input, from channel clock module
-    .tx_resetdone_out(c1_tx_resetdone_out),              // output, to IPbus I/O
-    .rx_resetdone_out(c1_rx_resetdone_out),              // output, to IPbus I/O
-    .link_reset_out(c1_link_reset_out)                   // output, to IPbus I/O
-    */
-
-    .frame_err(frame_err),                            // output, to IPbus I/O
-    .hard_err(hard_err),                              // output, to IPbus I/O
-    .soft_err(soft_err),                              // output, to IPbus I/O
-    .channel_up(channel_up),                          // output, to IPbus I/O
-    .lane_up(lane_up),                                // output, to IPbus I/O
-    .pll_not_locked(pll_not_locked),                  // input, from channel clock module
-    .tx_resetdone_out(tx_resetdone_out),              // output, to IPbus I/O
-    .rx_resetdone_out(rx_resetdone_out),              // output, to IPbus I/O
-    .link_reset_out(link_reset_out)                   // output, to IPbus I/O
   );
 
 

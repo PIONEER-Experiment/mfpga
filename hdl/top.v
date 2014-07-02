@@ -379,7 +379,7 @@ module wfd_top(
     assign axi_stream_to_channel_from_dtm_tdest[3] = 0;
 
     // data transfer manager module
-    simpleDataTransfer sdt(
+    dataTransferManager dtm(
         // Interface to AMC13 DAQ Link
         .daq_valid(daq_valid),                // output from dtm
         .daq_header(daq_header),              // output from dtm
