@@ -1,5 +1,5 @@
 
-// Created by fizzim.pl version 4.42 on 2014:06:17 at 14:33:38 (www.fizzim.com)
+// Created by fizzim.pl version $Revision: 4.44 on 2014:07:07 at 14:03:10 (www.fizzim.com)
 
 module triggerManager (
   output wire fifo_valid,
@@ -7,28 +7,29 @@ module triggerManager (
   output wire [4:0] go,
   input wire clk,
   input wire [4:0] done,
+  (* mark_debug = "true" *) input wire dtm_busy,
   input wire fifo_ready,
   input wire reset,
-  input wire trigger 
+  (* mark_debug = "true" *) input wire trigger 
 );
-  
+
   // state bits
   parameter 
   IDLE          = 6'b000000, // go[4:0]=00000 fifo_valid=0 
   FILL          = 6'b111110, // go[4:0]=11111 fifo_valid=0 
   STORE_FILLNUM = 6'b000001; // go[4:0]=00000 fifo_valid=1 
-  
-  reg [5:0] state;
-  reg [5:0] nextstate;
+
+  (* mark_debug = "true" *) reg [5:0] state;
+  (* mark_debug = "true" *) reg [5:0] nextstate;
   reg [23:0] next_fillNum;
-  
+
   // comb always block
   always @* begin
     nextstate = state; // default to hold value because implied_loopback is set
     next_fillNum[23:0] = fillNum[23:0];
     case (state)
       IDLE         : begin
-        if (trigger) begin
+        if (trigger && !dtm_busy) begin
           nextstate = FILL;
           next_fillNum[23:0] = fillNum[23:0]+1;
         end
@@ -45,11 +46,11 @@ module triggerManager (
       end
     endcase
   end
-  
+
   // Assign reg'd outputs to state bits
   assign fifo_valid = state[0];
   assign go[4:0] = state[5:1];
-  
+
   // sequential always block
   always @(posedge clk) begin
     if (reset) begin
@@ -61,7 +62,7 @@ module triggerManager (
       fillNum[23:0] <= next_fillNum[23:0];
       end
   end
-  
+
   // This code allows you to see state names in simulation
   `ifndef SYNTHESIS
   reg [103:0] statename;

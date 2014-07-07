@@ -98,6 +98,8 @@ module wfd_top(
     wire[23:0] fifo_to_dtm_tdata;
 
 
+    (* mark_debug = "true" *) wire dtm_busy;
+
     // ======== wires for interface to channel serial link ========
     // User IPbus interface. Used by Charlie's Aurora block
     wire [31:0] user_ipb_addr, user_ipb_wdata, user_ipb_rdata;
@@ -357,7 +359,8 @@ module wfd_top(
 
         // Other connections required by tm module
         .clk(clk125),
-        .reset(rst_from_ipb)
+        .reset(rst_from_ipb),
+        .dtm_busy(dtm_busy)
     );
 
 
@@ -407,8 +410,9 @@ module wfd_top(
         //.chan_tx_fifo_dest(axi_stream_to_channel_from_dtm_tdest[0]),   // output from dtm
 
         // Other connections required by dtm module
-        .clk(clk125),      // input to dtm
-        .rst(rst_from_ipb) // input to dtm
+        .clk(clk125),       // input to dtm
+        .rst(rst_from_ipb), // input to dtm
+        .busy(dtm_busy)     // output from dtm
     );
 
     // DAQ Link to AMC13
