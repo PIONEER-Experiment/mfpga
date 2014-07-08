@@ -90,11 +90,11 @@ module wfd_top(
     (* mark_debug = "true" *) wire[4:0] chan_done;
 
     // wires connecting the fill number fifo to the tm
-    (* mark_debug = "true" *) wire tm_to_fifo_tvalid, tm_to_fifo_tready;
+    wire tm_to_fifo_tvalid, tm_to_fifo_tready;
     wire[23:0] tm_to_fifo_tdata;
 
     // wires connecting the fill number fifo to the dtm
-    (* mark_debug = "true" *) wire fifo_to_dtm_tvalid, fifo_to_dtm_tready;
+    wire fifo_to_dtm_tvalid, fifo_to_dtm_tready;
     wire[23:0] fifo_to_dtm_tdata;
 
 
@@ -182,12 +182,12 @@ module wfd_top(
     wire[0:3] axi_stream_to_channel_from_ipbus_tstrb;
     wire[0:3] axi_stream_to_channel_from_ipbus_tkeep;
     wire[0:3] axi_stream_to_channel_from_ipbus_tid;
-    (* mark_debug = "true" *) wire[0:3] axi_stream_to_channel_from_ipbus_tdest;
+    wire[0:3] axi_stream_to_channel_from_ipbus_tdest;
 
     // connection from dtm to axi tx switch
     (* mark_debug = "true" *) wire axi_stream_to_channel_from_dtm_tvalid, axi_stream_to_channel_from_dtm_tlast, axi_stream_to_channel_from_dtm_tready;
     (* mark_debug = "true" *) wire[0:31] axi_stream_to_channel_from_dtm_tdata;
-    (* mark_debug = "true" *) wire[0:3] axi_stream_to_channel_from_dtm_tdest;
+    wire[0:3] axi_stream_to_channel_from_dtm_tdest;
 
     // packaging up channel connections for the axi tx switch input
     (* mark_debug = "true" *) wire[1:0] axi_stream_to_channel_tvalid, axi_stream_to_channel_tlast, axi_stream_to_channel_tready;
@@ -207,9 +207,9 @@ module wfd_top(
 
 
     // ======== Communication with the AMC13 DAQ Link ========
-    (* mark_debug = "true" *) wire daq_valid, daq_header, daq_trailer;
-    (* mark_debug = "true" *) wire[63:0] daq_data;
-    (* mark_debug = "true" *) wire daq_ready;
+    wire daq_valid, daq_header, daq_trailer;
+    wire[63:0] daq_data;
+    wire daq_ready;
     wire daq_almost_full;
 
 
@@ -376,11 +376,6 @@ module wfd_top(
       .m_axis_tdata(fifo_to_dtm_tdata)    // output wire [23 : 0] m_axis_tdata
     );
 
-    assign axi_stream_to_channel_from_dtm_tdest[0] = 0;
-    assign axi_stream_to_channel_from_dtm_tdest[1] = 0;
-    assign axi_stream_to_channel_from_dtm_tdest[2] = 0;
-    assign axi_stream_to_channel_from_dtm_tdest[3] = 0;
-
     // data transfer manager module
     dataTransferManager dtm(
         // Interface to AMC13 DAQ Link
@@ -397,22 +392,43 @@ module wfd_top(
         .tm_fifo_data(fifo_to_dtm_tdata),
 
         // Interface to rx channel FIFO (through AXI4-Stream RX Switch)
-        .chan_rx_fifo_ready(axi_stream_to_dtm_tready), // output from dtm
+        //.chan_rx_fifo_ready(axi_stream_to_dtm_tready), // output from dtm
         .chan_rx_fifo_data(axi_stream_to_dtm_tdata),   // input to dtm
         .chan_rx_fifo_last(axi_stream_to_dtm_tlast),   // input to dtm
         .chan_rx_fifo_valid(axi_stream_to_dtm_tvalid), // input to dtm
 
         // Interface to tx channel FIFO (through AXI4-Stream TX Switch)
         .chan_tx_fifo_ready(axi_stream_to_channel_from_dtm_tready), // input to dtm
-        .chan_tx_fifo_data(axi_stream_to_channel_from_dtm_tdata),   // output from dtm
-        .chan_tx_fifo_last(axi_stream_to_channel_from_dtm_tlast),   // output from dtm
-        .chan_tx_fifo_valid(axi_stream_to_channel_from_dtm_tvalid), // output from dtm
+        //.chan_tx_fifo_data(axi_stream_to_channel_from_dtm_tdata),   // output from dtm
+        //.chan_tx_fifo_last(axi_stream_to_channel_from_dtm_tlast),   // output from dtm
+        //.chan_tx_fifo_valid(axi_stream_to_channel_from_dtm_tvalid), // output from dtm
         //.chan_tx_fifo_dest(axi_stream_to_channel_from_dtm_tdest[0]),   // output from dtm
 
         // Other connections required by dtm module
         .clk(clk125),       // input to dtm
         .rst(rst_from_ipb), // input to dtm
         .busy(dtm_busy)     // output from dtm
+    );
+
+    // test module to check Charlie's channel code
+    test t(
+        // Interface to rx channel FIFO (through AXI4-Stream RX Switch)
+        .chan_rx_fifo_ready(axi_stream_to_dtm_tready),
+        .chan_rx_fifo_data(axi_stream_to_dtm_tdata),  
+        .chan_rx_fifo_last(axi_stream_to_dtm_tlast),  
+        .chan_rx_fifo_valid(axi_stream_to_dtm_tvalid),
+
+        // Interface to tx channel FIFO (through AXI4-Stream TX Switch)
+        .chan_tx_fifo_ready(axi_stream_to_channel_from_dtm_tready), 
+        .chan_tx_fifo_data(axi_stream_to_channel_from_dtm_tdata),   
+        .chan_tx_fifo_last(axi_stream_to_channel_from_dtm_tlast),   
+        .chan_tx_fifo_valid(axi_stream_to_channel_from_dtm_tvalid), 
+        .chan_tx_fifo_dest(axi_stream_to_channel_from_dtm_tdest[0]),
+
+        // Other connections required by dtm module
+        .clk(clk125),     
+        .rst(rst_from_ipb),
+        .trigger(trigger_from_ipbus)
     );
 
     // DAQ Link to AMC13
