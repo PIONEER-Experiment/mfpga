@@ -98,7 +98,7 @@ module wfd_top(
     wire[23:0] fifo_to_dtm_tdata;
 
 
-    (* mark_debug = "true" *) wire dtm_busy;
+    (* mark_debug = "true" *) wire cm_busy;
 
     // ======== wires for interface to channel serial link ========
     // User IPbus interface. Used by Charlie's Aurora block
@@ -231,9 +231,9 @@ module wfd_top(
 
 
     // ======== Communication with the AMC13 DAQ Link ========
-    wire daq_valid, daq_header, daq_trailer;
-    wire[63:0] daq_data;
-    wire daq_ready;
+    (* mark_debug = "true" *) wire daq_valid, daq_header, daq_trailer;
+    (* mark_debug = "true" *) wire[63:0] daq_data;
+    (* mark_debug = "true" *) wire daq_ready;
     wire daq_almost_full;
 
 
@@ -387,7 +387,7 @@ module wfd_top(
         // Other connections required by tm module
         .clk(clk125),
         .reset(rst_from_ipb),
-        .dtm_busy(dtm_busy)
+        .cm_busy(cm_busy)
     );
 
 
@@ -403,6 +403,10 @@ module wfd_top(
       .m_axis_tdata(fifo_to_dtm_tdata)    // output wire [23 : 0] m_axis_tdata
     );
 
+
+    // disconnected the data transfer module
+    // all its functionality is now in the command manager
+    /*
     // data transfer manager module
     dataTransferManager dtm(
         // Interface to AMC13 DAQ Link
@@ -434,23 +438,13 @@ module wfd_top(
         // Other connections required by dtm module
         .clk(clk125),       // input to dtm
         .rst(rst_from_ipb), // input to dtm
-        .busy(dtm_busy)     // output from dtm
+        .busy(cm_busy)      // output from dtm
     );
+    */
 
 
     // command manager module
     commandManager cm(
-
-        .clk(clk125),
-        .rst(rst_from_ipb),
-
-        // interface to IPbus AXI output
-        .ipbus_cmd_data(axi_stream_to_cm_from_ipbus_tdata),
-        .ipbus_cmd_valid(axi_stream_to_cm_from_ipbus_tvalid),
-        .ipbus_cmd_ready(axi_stream_to_cm_from_ipbus_tready),
-        .ipbus_cmd_dest(axi_stream_to_cm_from_ipbus_tdest),
-        .ipbus_cmd_last(axi_stream_to_cm_from_ipbus_tlast),
-
         // interface to tx channel FIFO (through AXI4-Stream TX Switch)
         .chan_tx_fifo_data(axi_stream_to_channel_from_cm_tdata),
         .chan_tx_fifo_valid(axi_stream_to_channel_from_cm_tvalid),
@@ -464,11 +458,35 @@ module wfd_top(
         .chan_rx_fifo_ready(axi_stream_to_cm_from_channel_tready),
         .chan_rx_fifo_last(axi_stream_to_cm_from_channel_tlast),
 
+        // interface to IPbus AXI output
+        .ipbus_cmd_data(axi_stream_to_cm_from_ipbus_tdata),
+        .ipbus_cmd_valid(axi_stream_to_cm_from_ipbus_tvalid),
+        .ipbus_cmd_ready(axi_stream_to_cm_from_ipbus_tready),
+        .ipbus_cmd_dest(axi_stream_to_cm_from_ipbus_tdest),
+        .ipbus_cmd_last(axi_stream_to_cm_from_ipbus_tlast),
+
         // interface to IPbus AXI input
-        .ipbus_resp_data(axi_stream_to_ipbus_from_cm_tdata),
-        .ipbus_resp_valid(axi_stream_to_ipbus_from_cm_tvalid),
-        .ipbus_resp_ready(axi_stream_to_ipbus_from_cm_tready),
-        .ipbus_resp_last(axi_stream_to_ipbus_from_cm_tlast)
+        .ipbus_res_data(axi_stream_to_ipbus_from_cm_tdata),
+        .ipbus_res_valid(axi_stream_to_ipbus_from_cm_tvalid),
+        .ipbus_res_ready(axi_stream_to_ipbus_from_cm_tready),
+        .ipbus_res_last(axi_stream_to_ipbus_from_cm_tlast),
+
+        // interface to AMC13 DAQ Link
+        .daq_valid(daq_valid),
+        .daq_header(daq_header),
+        .daq_trailer(daq_trailer),
+        .daq_data(daq_data),
+        .daq_ready(daq_ready),
+
+        // interface to fill number FIFO
+        .tm_fifo_ready(fifo_to_dtm_tready),
+        .tm_fifo_valid(fifo_to_dtm_tvalid),
+        .tm_fifo_data(fifo_to_dtm_tdata),
+
+        // other connections
+        .clk(clk125),
+        .rst(rst_from_ipb),
+        .busy(cm_busy)
     );
 
 

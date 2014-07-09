@@ -7,7 +7,7 @@ module triggerManager (
   output wire [4:0] go,
   input wire clk,
   input wire [4:0] done,
-  (* mark_debug = "true" *) input wire dtm_busy,
+  (* mark_debug = "true" *) input wire cm_busy,
   input wire fifo_ready,
   input wire reset,
   (* mark_debug = "true" *) input wire trigger 
@@ -29,7 +29,7 @@ module triggerManager (
     next_fillNum[23:0] = fillNum[23:0];
     case (state)
       IDLE         : begin
-        if (trigger && !dtm_busy) begin
+        if (trigger && !cm_busy) begin
           nextstate = FILL;
           next_fillNum[23:0] = fillNum[23:0]+1;
         end
