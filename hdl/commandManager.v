@@ -1,11 +1,11 @@
 
-// Created by fizzim.pl version 4.42 on 2014:07:08 at 15:27:57 (www.fizzim.com)
+// Created by fizzim.pl version 4.42 on 2014:07:09 at 09:36:37 (www.fizzim.com)
 
 module commandManager (
   output wire chan_rx_fifo_ready,
   output reg [31:0] chan_tx_fifo_data,
   output reg [3:0] chan_tx_fifo_dest,
-  output wire chan_tx_fifo_last,
+  output reg chan_tx_fifo_last,
   output wire chan_tx_fifo_valid,
   output wire ipbus_cmd_ready,
   output reg [31:0] ipbus_resp_data,
@@ -26,124 +26,90 @@ module commandManager (
   
   // state bits
   parameter 
-  IDLE         = 8'b00001000, // extra=000 ipbus_resp_valid=0 ipbus_cmd_ready=1 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
-  READ_CC      = 8'b00101000, // extra=001 ipbus_resp_valid=0 ipbus_cmd_ready=1 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
-  READ_LAST    = 8'b01001000, // extra=010 ipbus_resp_valid=0 ipbus_cmd_ready=1 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
-  READ_REG_NUM = 8'b01101000, // extra=011 ipbus_resp_valid=0 ipbus_cmd_ready=1 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
-  READ_RESP    = 8'b00000001, // extra=000 ipbus_resp_valid=0 ipbus_cmd_ready=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=1 
-  READ_RSN     = 8'b00100001, // extra=001 ipbus_resp_valid=0 ipbus_cmd_ready=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=1 
-  READ_VALUE   = 8'b10001000, // extra=100 ipbus_resp_valid=0 ipbus_cmd_ready=1 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
-  SEND_CC      = 8'b00000100, // extra=000 ipbus_resp_valid=0 ipbus_cmd_ready=0 chan_tx_fifo_valid=1 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
-  SEND_CSN     = 8'b00100100, // extra=001 ipbus_resp_valid=0 ipbus_cmd_ready=0 chan_tx_fifo_valid=1 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
-  SEND_REG_NUM = 8'b01000100, // extra=010 ipbus_resp_valid=0 ipbus_cmd_ready=0 chan_tx_fifo_valid=1 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
-  SEND_RESP    = 8'b00010000, // extra=000 ipbus_resp_valid=1 ipbus_cmd_ready=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
-  SEND_VALUE   = 8'b00000110; // extra=000 ipbus_resp_valid=0 ipbus_cmd_ready=0 chan_tx_fifo_valid=1 chan_tx_fifo_last=1 chan_rx_fifo_ready=0 
+  IDLE       = 5'b00000, // extra=0 ipbus_resp_valid=0 ipbus_cmd_ready=0 chan_tx_fifo_valid=0 chan_rx_fifo_ready=0 
+  CHECK_LAST = 5'b10000, // extra=1 ipbus_resp_valid=0 ipbus_cmd_ready=0 chan_tx_fifo_valid=0 chan_rx_fifo_ready=0 
+  READ_CMD   = 5'b00100, // extra=0 ipbus_resp_valid=0 ipbus_cmd_ready=1 chan_tx_fifo_valid=0 chan_rx_fifo_ready=0 
+  READ_RESP  = 5'b00001, // extra=0 ipbus_resp_valid=0 ipbus_cmd_ready=0 chan_tx_fifo_valid=0 chan_rx_fifo_ready=1 
+  READ_RSN   = 5'b10001, // extra=1 ipbus_resp_valid=0 ipbus_cmd_ready=0 chan_tx_fifo_valid=0 chan_rx_fifo_ready=1 
+  SEND_CMD   = 5'b00010, // extra=0 ipbus_resp_valid=0 ipbus_cmd_ready=0 chan_tx_fifo_valid=1 chan_rx_fifo_ready=0 
+  SEND_CSN   = 5'b10010, // extra=1 ipbus_resp_valid=0 ipbus_cmd_ready=0 chan_tx_fifo_valid=1 chan_rx_fifo_ready=0 
+  SEND_RESP  = 5'b01000; // extra=0 ipbus_resp_valid=1 ipbus_cmd_ready=0 chan_tx_fifo_valid=0 chan_rx_fifo_ready=0 
   
-  reg [7:0] state;
-  reg [7:0] nextstate;
-  reg [31:0] cc;
+  reg [4:0] state;
+  reg [4:0] nextstate;
+  reg [31:0] buffer;
   reg [31:0] csn;
-  reg [31:0] reg_num;
-  reg [31:0] resp;
-  reg [31:0] value;
-  reg [31:0] next_cc;
+  reg [31:0] next_buffer;
   reg [3:0] next_chan_tx_fifo_dest;
+  reg next_chan_tx_fifo_last;
   reg [31:0] next_csn;
   reg next_ipbus_resp_last;
-  reg [31:0] next_reg_num;
-  reg [31:0] next_resp;
-  reg [31:0] next_value;
   
   // comb always block
   always @* begin
     nextstate = state; // default to hold value because implied_loopback is set
     chan_tx_fifo_data[31:0] = 0; // default
     ipbus_resp_data[31:0] = 0; // default
-    next_cc[31:0] = cc[31:0];
+    next_buffer[31:0] = buffer[31:0];
     next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0];
+    next_chan_tx_fifo_last = chan_tx_fifo_last;
     next_csn[31:0] = csn[31:0];
     next_ipbus_resp_last = ipbus_resp_last;
-    next_reg_num[31:0] = reg_num[31:0];
-    next_resp[31:0] = resp[31:0];
-    next_value[31:0] = value[31:0];
     case (state)
-      IDLE        : begin
+      IDLE      : begin
         if (ipbus_cmd_valid) begin
-          nextstate = READ_CC;
-          next_cc[31:0] = ipbus_cmd_data[31:0];
+          nextstate = SEND_CSN;
+          next_chan_tx_fifo_last = 0;
           next_chan_tx_fifo_dest[3:0] = ipbus_cmd_dest[3:0];
         end
       end
-      READ_CC     : begin
+      CHECK_LAST: begin
+        begin
+          nextstate = SEND_CMD;
+          next_chan_tx_fifo_last = ipbus_cmd_last;
+        end
+      end
+      READ_CMD  : begin
         if (ipbus_cmd_valid) begin
-          nextstate = READ_REG_NUM;
-          next_reg_num[31:0] = ipbus_cmd_data[31:0];
+          nextstate = CHECK_LAST;
+          next_buffer[31:0] = ipbus_cmd_data[31:0];
         end
       end
-      READ_LAST   : begin
-        if (!ipbus_cmd_valid) begin
-          nextstate = SEND_CSN;
-        end
-      end
-      READ_REG_NUM: begin
-        if (ipbus_cmd_valid) begin
-          nextstate = READ_VALUE;
-          next_value[31:0] = ipbus_cmd_data[31:0];
-        end
-      end
-      READ_RESP   : begin
+      READ_RESP : begin
         if (chan_rx_fifo_valid) begin
           nextstate = SEND_RESP;
-          next_resp[31:0] = chan_rx_fifo_data[31:0];
+          next_buffer[31:0] = chan_rx_fifo_data[31:0];
           next_ipbus_resp_last = chan_rx_fifo_last;
         end
       end
-      READ_RSN    : begin
+      READ_RSN  : begin
         if (chan_rx_fifo_valid) begin
           nextstate = READ_RESP;
         end
       end
-      READ_VALUE  : begin
-        if (ipbus_cmd_valid) begin
-          nextstate = READ_LAST;
+      SEND_CMD  : begin
+        chan_tx_fifo_data[31:0] = buffer[31:0];
+        if (chan_tx_fifo_ready && chan_tx_fifo_last) begin
+          nextstate = READ_RSN;
+        end
+        else if (chan_tx_fifo_ready) begin
+          nextstate = READ_CMD;
         end
       end
-      SEND_CC     : begin
-        chan_tx_fifo_data[31:0] = cc[31:0];
-        if (chan_tx_fifo_ready) begin
-          nextstate = SEND_REG_NUM;
-        end
-      end
-      SEND_CSN    : begin
+      SEND_CSN  : begin
         chan_tx_fifo_data[31:0] = csn[31:0];
         if (chan_tx_fifo_ready) begin
-          nextstate = SEND_CC;
+          nextstate = READ_CMD;
         end
       end
-      SEND_REG_NUM: begin
-        chan_tx_fifo_data[31:0] = reg_num[31:0];
-        if (chan_tx_fifo_ready) begin
-          nextstate = SEND_VALUE;
-        end
-      end
-      SEND_RESP   : begin
-        ipbus_resp_data[31:0] = resp[31:0];
+      SEND_RESP : begin
+        ipbus_resp_data[31:0] = buffer[31:0];
         if (ipbus_resp_ready && ipbus_resp_last) begin
           nextstate = IDLE;
-          next_cc[31:0] = 0;
-          next_reg_num[31:0] = 0;
-          next_chan_tx_fifo_dest[3:0] = 0;
           next_csn[31:0] = csn[31:0]+1;
-          next_value[31:0] = 0;
         end
         else if (ipbus_resp_ready) begin
           nextstate = READ_RESP;
-        end
-      end
-      SEND_VALUE  : begin
-        chan_tx_fifo_data[31:0] = value[31:0];
-        if (chan_tx_fifo_ready) begin
-          nextstate = READ_RSN;
         end
       end
     endcase
@@ -151,66 +117,53 @@ module commandManager (
   
   // Assign reg'd outputs to state bits
   assign chan_rx_fifo_ready = state[0];
-  assign chan_tx_fifo_last = state[1];
-  assign chan_tx_fifo_valid = state[2];
-  assign ipbus_cmd_ready = state[3];
-  assign ipbus_resp_valid = state[4];
+  assign chan_tx_fifo_valid = state[1];
+  assign ipbus_cmd_ready = state[2];
+  assign ipbus_resp_valid = state[3];
   
   // sequential always block
   always @(posedge clk) begin
     if (rst) begin
       state <= IDLE;
-      cc[31:0] <= 0;
+      buffer[31:0] <= 0;
       chan_tx_fifo_dest[3:0] <= 0;
+      chan_tx_fifo_last <= 0;
       csn[31:0] <= 0;
       ipbus_resp_last <= 0;
-      reg_num[31:0] <= 0;
-      resp[31:0] <= 0;
-      value[31:0] <= 0;
       end
     else begin
       state <= nextstate;
-      cc[31:0] <= next_cc[31:0];
+      buffer[31:0] <= next_buffer[31:0];
       chan_tx_fifo_dest[3:0] <= next_chan_tx_fifo_dest[3:0];
+      chan_tx_fifo_last <= next_chan_tx_fifo_last;
       csn[31:0] <= next_csn[31:0];
       ipbus_resp_last <= next_ipbus_resp_last;
-      reg_num[31:0] <= next_reg_num[31:0];
-      resp[31:0] <= next_resp[31:0];
-      value[31:0] <= next_value[31:0];
       end
   end
   
   // This code allows you to see state names in simulation
   `ifndef SYNTHESIS
-  reg [95:0] statename;
+  reg [79:0] statename;
   always @* begin
     case (state)
-      IDLE        :
+      IDLE      :
         statename = "IDLE";
-      READ_CC     :
-        statename = "READ_CC";
-      READ_LAST   :
-        statename = "READ_LAST";
-      READ_REG_NUM:
-        statename = "READ_REG_NUM";
-      READ_RESP   :
+      CHECK_LAST:
+        statename = "CHECK_LAST";
+      READ_CMD  :
+        statename = "READ_CMD";
+      READ_RESP :
         statename = "READ_RESP";
-      READ_RSN    :
+      READ_RSN  :
         statename = "READ_RSN";
-      READ_VALUE  :
-        statename = "READ_VALUE";
-      SEND_CC     :
-        statename = "SEND_CC";
-      SEND_CSN    :
+      SEND_CMD  :
+        statename = "SEND_CMD";
+      SEND_CSN  :
         statename = "SEND_CSN";
-      SEND_REG_NUM:
-        statename = "SEND_REG_NUM";
-      SEND_RESP   :
+      SEND_RESP :
         statename = "SEND_RESP";
-      SEND_VALUE  :
-        statename = "SEND_VALUE";
-      default     :
-        statename = "XXXXXXXXXXXX";
+      default   :
+        statename = "XXXXXXXXXX";
     endcase
   end
   `endif
