@@ -549,12 +549,12 @@ module wfd_top(
         .aclk(clk125),           // input wire aclk
         .aresetn(rst_n),         // input wire aresetn
 
-        // IPBus + DTM side
-        .s_axis_tvalid(axi_stream_to_channel_tvalid),  // input wire [1 : 0] s_axis_tvalid
-        .s_axis_tready(axi_stream_to_channel_tready),  // output wire [1 : 0] s_axis_tready
-        .s_axis_tdata(axi_stream_to_channel_tdata),    // input wire [63 : 0] s_axis_tdata
-        .s_axis_tdest(axi_stream_to_channel_tdest),    // input wire [1 : 0] s_axis_tdest
-        .s_axis_tlast(axi_stream_to_channel_tlast),    // input wire [1 : 0] s_axis_tlast
+        // CM side
+        .s_axis_tvalid(axi_stream_to_channel_from_cm_tvalid),  // input wire [0 : 0] s_axis_tvalid
+        .s_axis_tready(axi_stream_to_channel_from_cm_tready),  // output wire [0 : 0] s_axis_tready
+        .s_axis_tdata(axi_stream_to_channel_from_cm_tdata),    // input wire [31 : 0] s_axis_tdata
+        .s_axis_tdest(axi_stream_to_channel_from_cm_tdest),    // input wire [0 : 0] s_axis_tdest
+        .s_axis_tlast(axi_stream_to_channel_from_cm_tlast),    // input wire [0 : 0] s_axis_tlast
 
         // channel FPGA side
         .m_axis_tvalid(c_axi_stream_to_channel_tvalid),  // output wire [1 : 0] m_axis_tvalid

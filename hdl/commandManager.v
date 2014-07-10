@@ -1,8 +1,8 @@
 
-// Created by fizzim.pl version $Revision: 4.44 on 2014:07:09 at 17:41:52 (www.fizzim.com)
+// Created by fizzim.pl version 4.42 on 2014:07:10 at 18:38:54 (www.fizzim.com)
 
 module commandManager (
-  (* mark_debug = "true" *) output reg busy,
+  output reg busy,
   output reg chan_rx_fifo_ready,
   output reg [31:0] chan_tx_fifo_data,
   output reg [3:0] chan_tx_fifo_dest,
@@ -32,7 +32,7 @@ module commandManager (
   input wire [23:0] tm_fifo_data,
   input wire tm_fifo_valid 
 );
-
+  
   // state bits
   parameter 
   IDLE                      = 0, 
@@ -59,13 +59,13 @@ module commandManager (
   SEND_IPBUS_CMD            = 21, 
   SEND_IPBUS_CSN            = 22, 
   SEND_IPBUS_RES            = 23; 
-
-  (* mark_debug = "true" *) reg [23:0] state;
+  
+  reg [23:0] state;
   reg [23:0] nextstate;
   reg [31:0] buf_size_buf;
   reg chan_data_last;
   reg [31:0] chan_num_buf;
-  (* mark_debug = "true" *) reg [31:0] csn;
+  reg [31:0] csn;
   reg [31:0] ipbus_buf;
   reg [31:0] trig_num_buf;
   reg [31:0] next_buf_size_buf;
@@ -78,7 +78,7 @@ module commandManager (
   reg [31:0] next_ipbus_buf;
   reg next_ipbus_res_last;
   reg [31:0] next_trig_num_buf;
-
+  
   // comb always block
   always @* begin
     nextstate = 24'b000000000000000000000000;
@@ -254,8 +254,6 @@ module commandManager (
       end
       state[SEND_CHAN_CC]             : begin
         chan_tx_fifo_data[31:0] = 32'h8;
-        // Warning F17: Flag chan_tx_fifo_last is assigned on transitions, but is also assigned value "1" in state SEND_CHAN_CC 
-        next_chan_tx_fifo_last = 1;
         if (chan_tx_fifo_ready) begin
           nextstate[READ_CHAN_RSN] = 1'b1;
         end
@@ -267,19 +265,21 @@ module commandManager (
         chan_tx_fifo_data[31:0] = csn[31:0];
         if (chan_tx_fifo_ready) begin
           nextstate[SEND_CHAN_CC] = 1'b1;
+          next_chan_tx_fifo_last = 1;
         end
         else begin
           nextstate[SEND_CHAN_CSN] = 1'b1; // Added because implied_loopback is true
         end
       end
       state[SEND_CHAN_DATA]           : begin
-        if (daq_ready && chan_data_last && chan_num_buf[31:0]==32'h1) begin
+        if (daq_ready && chan_data_last && chan_num_buf[31:0]==32'h0) begin
           nextstate[SEND_AMC13_TRAILER] = 1'b1;
-          next_daq_data[63:0] = {32'h00000000,{{trig_num_buf[7:0],4h'0},buf_size_buf[19:0]*5+8}};
+          next_daq_data[63:0] = {32'h00000000,{{trig_num_buf[7:0],4'h0},buf_size_buf[19:0]*5+8}};
         end
         else if (daq_ready && chan_data_last) begin
           nextstate[SEND_CHAN_CSN] = 1'b1;
           next_daq_data[63:0] = 0;
+          next_chan_tx_fifo_last = 0;
           next_chan_tx_fifo_dest[3:0] = chan_num_buf[3:0]+1;
           next_csn[31:0] = csn[31:0]+1;
         end
@@ -336,7 +336,7 @@ module commandManager (
       end
     endcase
   end
-
+  
   // sequential always block
   always @(posedge clk) begin
     if (rst) begin
@@ -366,7 +366,7 @@ module commandManager (
       trig_num_buf[31:0] <= next_trig_num_buf[31:0];
       end
   end
-
+  
   // datapath sequential always block
   always @(posedge clk) begin
     if (rst) begin
@@ -393,9 +393,6 @@ module commandManager (
       case (1'b1) // synopsys parallel_case full_case
         nextstate[IDLE]                     : begin
           busy <= 0;
-        end
-        nextstate[CHECK_LAST]               : begin
-          ; // case must be complete for onehot
         end
         nextstate[GET_TRIG_NUM]             : begin
           tm_fifo_ready <= 1;
@@ -468,7 +465,7 @@ module commandManager (
       endcase
     end
   end
-
+  
   // This code allows you to see state names in simulation
   `ifndef SYNTHESIS
   reg [199:0] statename;
