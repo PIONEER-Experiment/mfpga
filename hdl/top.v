@@ -158,8 +158,8 @@ module wfd_top(
     (* mark_debug = "true" *) wire[0:31] axi_stream_to_cm_from_channel_tdata;
 
     // connection from axi rx switch to data transfer manager
-    (* mark_debug = "true" *) wire axi_stream_to_dtm_tvalid, axi_stream_to_dtm_tlast, axi_stream_to_dtm_tready;
-    (* mark_debug = "true" *) wire[0:31] axi_stream_to_dtm_tdata;
+    wire axi_stream_to_dtm_tvalid, axi_stream_to_dtm_tlast, axi_stream_to_dtm_tready;
+    wire[0:31] axi_stream_to_dtm_tdata;
     wire[0:3] axi_stream_to_dtm_tstrb;
     wire[0:3] axi_stream_to_dtm_tkeep;
     wire[0:3] axi_stream_to_dtm_tid;
