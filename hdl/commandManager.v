@@ -1,5 +1,5 @@
 
-// Created by fizzim.pl version $Revision: 4.44 on 2014:07:11 at 16:49:58 (www.fizzim.com)
+// Created by fizzim.pl version $Revision: 4.44 on 2014:07:13 at 16:42:08 (www.fizzim.com)
 
 module commandManager (
   output reg busy,
@@ -292,7 +292,7 @@ module commandManager (
         end
       end
       state[SEND_CHAN_DATA]           : begin
-        if (daq_ready && data_count[31:0] == buf_size_buf[31:0]) begin
+        if (daq_ready && data_count[31:0] == (buf_size_buf[31:0]+1)) begin
           nextstate[READ_CHECKSUM] = 1'b1;
         end
         else if (daq_ready) begin
