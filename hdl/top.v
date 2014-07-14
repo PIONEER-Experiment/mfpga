@@ -404,47 +404,67 @@ module wfd_top(
     );
 
 
-    // disconnected the data transfer module
-    // all its functionality is now in the command manager
-    /*
+    (* mark_debug = "true" *) wire[31:0] csn;
+    (* mark_debug = "true" *) wire run_rtm, run_dtm;
+    (* mark_debug = "true" *) wire rtm_done, dtm_done;
+
+    // command manager module
+    commandManager cm(
+        // rtm connections
+        .rtm_done(rtm_done),
+        .run_rtm(run_rtm),
+        .ipbus_cmd_valid(axi_stream_to_cm_from_ipbus_tvalid),
+
+        // dtm connections
+        .dtm_done(dtm_done),
+        .run_dtm(run_dtm),
+        .tm_fifo_valid(fifo_to_dtm_tvalid),
+
+        // other connections
+        .clk(clk125),
+        .rst(rst_from_ipb),
+        .csn(csn)
+    );
+
+
     // data transfer manager module
     dataTransferManager dtm(
-        // Interface to AMC13 DAQ Link
-        .daq_valid(daq_valid),                // output from dtm
-        .daq_header(daq_header),              // output from dtm
-        .daq_trailer(daq_trailer),            // output from dtm
-        .daq_data(daq_data),                  // output from dtm
-        .daq_ready(daq_ready),                // input to dtm
-        // .daq_almost_full(daq_almost_full), // currently ignored by dtm
+        // interface to AMC13 DAQ Link
+        .daq_valid(daq_valid),
+        .daq_header(daq_header),
+        .daq_trailer(daq_trailer),
+        .daq_data(daq_data),
+        .daq_ready(daq_ready),
 
-        // Interface to fill number FIFO
+        // interface to fill number FIFO
         .tm_fifo_ready(fifo_to_dtm_tready),
         .tm_fifo_valid(fifo_to_dtm_tvalid),
         .tm_fifo_data(fifo_to_dtm_tdata),
 
-        // Interface to rx channel FIFO (through AXI4-Stream RX Switch)
-        .chan_rx_fifo_ready(axi_stream_to_dtm_tready), // output from dtm
-        .chan_rx_fifo_data(axi_stream_to_dtm_tdata),   // input to dtm
-        .chan_rx_fifo_last(axi_stream_to_dtm_tlast),   // input to dtm
-        .chan_rx_fifo_valid(axi_stream_to_dtm_tvalid), // input to dtm
+        // interface to tx channel FIFO (through AXI4-Stream TX Switch)
+        .chan_tx_fifo_data(axi_stream_to_channel_from_cm_tdata),
+        .chan_tx_fifo_valid(axi_stream_to_channel_from_cm_tvalid),
+        .chan_tx_fifo_ready(axi_stream_to_channel_from_cm_tready),
+        .chan_tx_fifo_dest(axi_stream_to_channel_from_cm_tdest),
+        .chan_tx_fifo_last(axi_stream_to_channel_from_cm_tlast),
 
-        // Interface to tx channel FIFO (through AXI4-Stream TX Switch)
-        .chan_tx_fifo_ready(axi_stream_to_channel_from_dtm_tready), // input to dtm
-        .chan_tx_fifo_data(axi_stream_to_channel_from_dtm_tdata),   // output from dtm
-        .chan_tx_fifo_last(axi_stream_to_channel_from_dtm_tlast),   // output from dtm
-        .chan_tx_fifo_valid(axi_stream_to_channel_from_dtm_tvalid), // output from dtm
-        .chan_tx_fifo_dest(axi_stream_to_channel_from_dtm_tdest[0]),   // output from dtm
+        // interface to rx channel FIFO (through AXI4-Stream RX Switch)
+        .chan_rx_fifo_data(axi_stream_to_cm_from_channel_tdata),
+        .chan_rx_fifo_valid(axi_stream_to_cm_from_channel_tvalid),
+        .chan_rx_fifo_ready(axi_stream_to_cm_from_channel_tready),
+        .chan_rx_fifo_last(axi_stream_to_cm_from_channel_tlast),
 
-        // Other connections required by dtm module
-        .clk(clk125),       // input to dtm
-        .rst(rst_from_ipb), // input to dtm
-        .busy(cm_busy)      // output from dtm
+        // other connections
+        .clk(clk125),
+        .rst(rst_from_ipb),
+        .run_dtm(run_dtm),
+        .dtm_done(dtm_done),
+        .csn(csn)
     );
-    */
 
 
-    // command manager module
-    commandManager cm(
+    // register transfer manager module
+    registerTransferManager rtm(
         // interface to tx channel FIFO (through AXI4-Stream TX Switch)
         .chan_tx_fifo_data(axi_stream_to_channel_from_cm_tdata),
         .chan_tx_fifo_valid(axi_stream_to_channel_from_cm_tvalid),
@@ -471,22 +491,12 @@ module wfd_top(
         .ipbus_res_ready(axi_stream_to_ipbus_from_cm_tready),
         .ipbus_res_last(axi_stream_to_ipbus_from_cm_tlast),
 
-        // interface to AMC13 DAQ Link
-        .daq_valid(daq_valid),
-        .daq_header(daq_header),
-        .daq_trailer(daq_trailer),
-        .daq_data(daq_data),
-        .daq_ready(daq_ready),
-
-        // interface to fill number FIFO
-        .tm_fifo_ready(fifo_to_dtm_tready),
-        .tm_fifo_valid(fifo_to_dtm_tvalid),
-        .tm_fifo_data(fifo_to_dtm_tdata),
-
         // other connections
         .clk(clk125),
         .rst(rst_from_ipb),
-        .busy(cm_busy)
+        .run_rtm(run_rtm),
+        .rtm_done(rtm_done),
+        .csn(csn)
     );
 
 
