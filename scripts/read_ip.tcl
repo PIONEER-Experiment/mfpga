@@ -9,7 +9,7 @@
 
 # setup
 set_property target_simulator XSim [current_project]
-set_property part xc7k160tfbg676-2 [current_project]
+set_property part xc7k160tfbg676-1 [current_project]
 
 
 # gigabit ethernet PHY

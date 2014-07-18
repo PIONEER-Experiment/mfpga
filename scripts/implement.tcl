@@ -17,7 +17,7 @@ source read_constraints.tcl
 
 # Synthesize the design
 # This is where we specify the top module and the part name
-synth_design -top wfd_top -name wfd -part xc7k160tfbg676-2
+synth_design -top wfd_top -name wfd -part xc7k160tfbg676-1
 
 # I don't completely understand why this is necessary, but it is
 refresh_design

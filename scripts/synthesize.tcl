@@ -9,10 +9,10 @@ source read_ip.tcl
 source read_constraints.tcl
 
 # Run the synthesis
-synth_design -top wfd_top -name wfd -part xc7k160tfbg676-2
+synth_design -top wfd_top -name wfd -part xc7k160tfbg676-1
 
 # use this version to get elaborated design (simpler schematic view)
-#synth_design -top wfd_top -name wfd -part xc7k160tfbg676-2 -rtl
+#synth_design -top wfd_top -name wfd -part xc7k160tfbg676-1 -rtl
 
 refresh_design
 
