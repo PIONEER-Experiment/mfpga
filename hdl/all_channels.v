@@ -57,6 +57,60 @@ module all_channels(
   input c1_rxp, c1_rxn,                   // receive from channel 0 FPGA
   output c1_txp, c1_txn,                   // transmit to channel 0 FPGA
 
+    // channel 2 connections
+  // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
+  // TX interface to slave side of transmit FIFO
+  input [0:31] c2_s_axi_tx_tdata,        // note index order
+  input [0:3] c2_s_axi_tx_tkeep,         // note index order
+  input c2_s_axi_tx_tvalid,
+  input c2_s_axi_tx_tlast,
+  output c2_s_axi_tx_tready,
+  // RX Interface to master side of receive FIFO
+  output [0:31] c2_m_axi_rx_tdata,       // note index order
+  output [0:3] c2_m_axi_rx_tkeep,        // note index order
+  output c2_m_axi_rx_tvalid,
+  output c2_m_axi_rx_tlast,
+  input c2_m_axi_rx_tready,            // input wire m_axis_tready
+  // serial I/O pins
+  input c2_rxp, c2_rxn,                   // receive from channel 0 FPGA
+  output c2_txp, c2_txn,                   // transmit to channel 0 FPGA
+
+  // channel 3 connections
+  // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
+  // TX interface to slave side of transmit FIFO
+  input [0:31] c3_s_axi_tx_tdata,        // note index order
+  input [0:3] c3_s_axi_tx_tkeep,         // note index order
+  input c3_s_axi_tx_tvalid,
+  input c3_s_axi_tx_tlast,
+  output c3_s_axi_tx_tready,
+  // RX Interface to master side of receive FIFO
+  output [0:31] c3_m_axi_rx_tdata,       // note index order
+  output [0:3] c3_m_axi_rx_tkeep,        // note index order
+  output c3_m_axi_rx_tvalid,
+  output c3_m_axi_rx_tlast,
+  input c3_m_axi_rx_tready,            // input wire m_axis_tready
+  // serial I/O pins
+  input c3_rxp, c3_rxn,                   // receive from channel 0 FPGA
+  output c3_txp, c3_txn,                   // transmit to channel 0 FPGA
+
+  // channel 4 connections
+  // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
+  // TX interface to slave side of transmit FIFO
+  input [0:31] c4_s_axi_tx_tdata,        // note index order
+  input [0:3] c4_s_axi_tx_tkeep,         // note index order
+  input c4_s_axi_tx_tvalid,
+  input c4_s_axi_tx_tlast,
+  output c4_s_axi_tx_tready,
+  // RX Interface to master side of receive FIFO
+  output [0:31] c4_m_axi_rx_tdata,       // note index order
+  output [0:3] c4_m_axi_rx_tkeep,        // note index order
+  output c4_m_axi_rx_tvalid,
+  output c4_m_axi_rx_tlast,
+  input c4_m_axi_rx_tready,            // input wire m_axis_tready
+  // serial I/O pins
+  input c4_rxp, c4_rxn,                   // receive from channel 0 FPGA
+  output c4_txp, c4_txn,                   // transmit to channel 0 FPGA
+
   // debug ports
   output [3:0] debug,
 
@@ -206,6 +260,194 @@ module all_channels(
 
   );
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////////
+  // Chan 2
+  wire ipb_c2_strobe, ipb_c2_ack, ipb_c2_err;
+  wire [31:0] ipb_c2_rdata;
+  one_channel chan2 (
+    // clocks and reset
+    .clk50(clk50),                                 // Aurora 'init_clk' uses 50 MHz clock per PG046-20
+    .clk50_reset(clk50_reset),                     // active_hi synched to 'clk50'
+    .gt_refclk(gt_refclk),                         // 125 MHz oscillator, from IBUFDS_GTE2 at a higher level
+    // programming interface inputs
+    .io_clk(ipb_clk),                              // programming clock
+    .io_reset(ipb_reset),
+    .io_sel(chan2_io_reg_sel),                     // this module has been selected for an I/O operation
+    .io_sync(io_sync),                             // start the I/O operation
+    .io_addr(ipb_addr[19:0]),                      // slave address, memory or register, top 12 bits have been consumed
+    .io_rd_en(io_rd_en),                           // this is a read operation, enable readback logic
+    .io_wr_en(io_wr_en),                           // this is a write operation, enable target for one clock
+    .io_wr_data(ipb_wdata[31:0]),                  // data to write for write operations
+    // programming interface  outputs
+    .io_rd_data(chan2_io_rd_data[31:0]),           // data returned for read operations
+    .io_rd_ack(chan2_io_rd_ack),                   // 'write' data has been stored, 'read' data is ready
+    // the slave side of the transmit FIFO
+    .s_axis_aresetn(axis_clk_resetN),              // input wire s_axis_aresetn
+    .s_axis_aclk(axis_clk),                        // input wire s_axis_aclk
+    .s_axis_tx_tvalid(c2_s_axi_tx_tvalid),            // input wire s_axis_tvalid
+    .s_axis_tx_tready(c2_s_axi_tx_tready),            // output wire s_axis_tready
+    .s_axis_tx_tdata(c2_s_axi_tx_tdata),              // input wire [31 : 0] s_axis_tdata
+    .s_axis_tx_tkeep(c2_s_axi_tx_tkeep),              // input wire [3 : 0] s_axis_tkeep
+    .s_axis_tx_tlast(c2_s_axi_tx_tlast),              // input wire s_axis_tlast
+    // the master side of the receive FIFO
+    .m_axis_aresetn(axis_clk_resetN),              // input wire m_axis_aresetn
+    .m_axis_aclk(axis_clk),                        // input wire m_axis_aclk
+    .m_axis_rx_tvalid(c2_m_axi_rx_tvalid),            // output wire m_axis_tvalid
+    .m_axis_rx_tdata(c2_m_axi_rx_tdata),              // output wire [31 : 0] m_axis_tdata
+    .m_axis_rx_tkeep(c2_m_axi_rx_tkeep),              // output wire [3 : 0] m_axis_tkeep
+    .m_axis_rx_tlast(c2_m_axi_rx_tlast),              // output wire m_axis_tlast
+    .m_axis_rx_tready(c2_m_axi_rx_tready),            // input wire m_axis_tready
+    // serial I/O pins
+    .rxp(c2_rxp), .rxn(c2_rxn),                    // receive from channel 0 FPGA
+    .txp(c2_txp), .txn(c2_txn),                    // transmit to channel 0 FPGA
+    // QPLL Ports
+    // Channel 0 is in MGT bank 115, while the QPLL that is initialized in this block is in
+    // MGT bank 116. The ethernet module should be initializing the QPLL in MGT band 115.
+    // Try setting the following signals to default values, since they should not affect the
+    // optimization of MGT bank 115.
+    .gt0_qplllock(1'b1),                   // input
+    .gt0_qpllrefclklost(1'b0),       // input
+    .gt_qpllclk_quad2(1'b0),           // input
+    .gt_qpllrefclk_quad2(1'b0),     // input
+    .gt0_qpllreset(),                               // output
+
+    // connect counter ouputs b/w all_channels and one_channel
+    .frame_err(),                            // output, to IPbus I/O
+    .hard_err(),                              // output, to IPbus I/O
+    .soft_err(),                              // output, to IPbus I/O
+    .channel_up(),                          // output, to IPbus I/O
+    .lane_up(),                                // output, to IPbus I/O
+    .pll_not_locked(),                  // input, from channel clock module
+    .tx_resetdone_out(),              // output, to IPbus I/O
+    .rx_resetdone_out(),              // output, to IPbus I/O
+    .link_reset_out()                  // output, to IPbus I/O
+  );
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////
+  // Chan 3
+  wire ipb_c3_strobe, ipb_c3_ack, ipb_c3_err;
+  wire [31:0] ipb_c3_rdata;
+  one_channel chan3 (
+    // clocks and reset
+    .clk50(clk50),                                 // Aurora 'init_clk' uses 50 MHz clock per PG046-20
+    .clk50_reset(clk50_reset),                     // active_hi synched to 'clk50'
+    .gt_refclk(gt_refclk),                         // 125 MHz oscillator, from IBUFDS_GTE2 at a higher level
+    // programming interface inputs
+    .io_clk(ipb_clk),                              // programming clock
+    .io_reset(ipb_reset),
+    .io_sel(chan3_io_reg_sel),                     // this module has been selected for an I/O operation
+    .io_sync(io_sync),                             // start the I/O operation
+    .io_addr(ipb_addr[19:0]),                      // slave address, memory or register, top 12 bits have been consumed
+    .io_rd_en(io_rd_en),                           // this is a read operation, enable readback logic
+    .io_wr_en(io_wr_en),                           // this is a write operation, enable target for one clock
+    .io_wr_data(ipb_wdata[31:0]),                  // data to write for write operations
+    // programming interface  outputs
+    .io_rd_data(chan3_io_rd_data[31:0]),           // data returned for read operations
+    .io_rd_ack(chan3_io_rd_ack),                   // 'write' data has been stored, 'read' data is ready
+    // the slave side of the transmit FIFO
+    .s_axis_aresetn(axis_clk_resetN),              // input wire s_axis_aresetn
+    .s_axis_aclk(axis_clk),                        // input wire s_axis_aclk
+    .s_axis_tx_tvalid(c3_s_axi_tx_tvalid),            // input wire s_axis_tvalid
+    .s_axis_tx_tready(c3_s_axi_tx_tready),            // output wire s_axis_tready
+    .s_axis_tx_tdata(c3_s_axi_tx_tdata),              // input wire [31 : 0] s_axis_tdata
+    .s_axis_tx_tkeep(c3_s_axi_tx_tkeep),              // input wire [3 : 0] s_axis_tkeep
+    .s_axis_tx_tlast(c3_s_axi_tx_tlast),              // input wire s_axis_tlast
+    // the master side of the receive FIFO
+    .m_axis_aresetn(axis_clk_resetN),              // input wire m_axis_aresetn
+    .m_axis_aclk(axis_clk),                        // input wire m_axis_aclk
+    .m_axis_rx_tvalid(c3_m_axi_rx_tvalid),            // output wire m_axis_tvalid
+    .m_axis_rx_tdata(c3_m_axi_rx_tdata),              // output wire [31 : 0] m_axis_tdata
+    .m_axis_rx_tkeep(c3_m_axi_rx_tkeep),              // output wire [3 : 0] m_axis_tkeep
+    .m_axis_rx_tlast(c3_m_axi_rx_tlast),              // output wire m_axis_tlast
+    .m_axis_rx_tready(c3_m_axi_rx_tready),            // input wire m_axis_tready
+    // serial I/O pins
+    .rxp(c3_rxp), .rxn(c3_rxn),                    // receive from channel 0 FPGA
+    .txp(c3_txp), .txn(c3_txn),                    // transmit to channel 0 FPGA
+    // QPLL Ports
+    // Channel 0 is in MGT bank 115, while the QPLL that is initialized in this block is in
+    // MGT bank 116. The ethernet module should be initializing the QPLL in MGT band 115.
+    // Try setting the following signals to default values, since they should not affect the
+    // optimization of MGT bank 115.
+    .gt0_qplllock(1'b1),                   // input
+    .gt0_qpllrefclklost(1'b0),       // input
+    .gt_qpllclk_quad2(1'b0),           // input
+    .gt_qpllrefclk_quad2(1'b0),     // input
+    .gt0_qpllreset(),                               // output
+
+    // connect counter ouputs b/w all_channels and one_channel
+    .frame_err(),                            // output, to IPbus I/O
+    .hard_err(),                              // output, to IPbus I/O
+    .soft_err(),                              // output, to IPbus I/O
+    .channel_up(),                          // output, to IPbus I/O
+    .lane_up(),                                // output, to IPbus I/O
+    .pll_not_locked(),                  // input, from channel clock module
+    .tx_resetdone_out(),              // output, to IPbus I/O
+    .rx_resetdone_out(),              // output, to IPbus I/O
+    .link_reset_out()                  // output, to IPbus I/O
+  );
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////
+  // Chan 4
+  wire ipb_c4_strobe, ipb_c4_ack, ipb_c4_err;
+  wire [31:0] ipb_c4_rdata;
+  one_channel chan4 (
+    // clocks and reset
+    .clk50(clk50),                                 // Aurora 'init_clk' uses 50 MHz clock per PG046-20
+    .clk50_reset(clk50_reset),                     // active_hi synched to 'clk50'
+    .gt_refclk(gt_refclk),                         // 125 MHz oscillator, from IBUFDS_GTE2 at a higher level
+    // programming interface inputs
+    .io_clk(ipb_clk),                              // programming clock
+    .io_reset(ipb_reset),
+    .io_sel(chan4_io_reg_sel),                     // this module has been selected for an I/O operation
+    .io_sync(io_sync),                             // start the I/O operation
+    .io_addr(ipb_addr[19:0]),                      // slave address, memory or register, top 12 bits have been consumed
+    .io_rd_en(io_rd_en),                           // this is a read operation, enable readback logic
+    .io_wr_en(io_wr_en),                           // this is a write operation, enable target for one clock
+    .io_wr_data(ipb_wdata[31:0]),                  // data to write for write operations
+    // programming interface  outputs
+    .io_rd_data(chan4_io_rd_data[31:0]),           // data returned for read operations
+    .io_rd_ack(chan4_io_rd_ack),                   // 'write' data has been stored, 'read' data is ready
+    // the slave side of the transmit FIFO
+    .s_axis_aresetn(axis_clk_resetN),              // input wire s_axis_aresetn
+    .s_axis_aclk(axis_clk),                        // input wire s_axis_aclk
+    .s_axis_tx_tvalid(c4_s_axi_tx_tvalid),            // input wire s_axis_tvalid
+    .s_axis_tx_tready(c4_s_axi_tx_tready),            // output wire s_axis_tready
+    .s_axis_tx_tdata(c4_s_axi_tx_tdata),              // input wire [31 : 0] s_axis_tdata
+    .s_axis_tx_tkeep(c4_s_axi_tx_tkeep),              // input wire [3 : 0] s_axis_tkeep
+    .s_axis_tx_tlast(c4_s_axi_tx_tlast),              // input wire s_axis_tlast
+    // the master side of the receive FIFO
+    .m_axis_aresetn(axis_clk_resetN),              // input wire m_axis_aresetn
+    .m_axis_aclk(axis_clk),                        // input wire m_axis_aclk
+    .m_axis_rx_tvalid(c4_m_axi_rx_tvalid),            // output wire m_axis_tvalid
+    .m_axis_rx_tdata(c4_m_axi_rx_tdata),              // output wire [31 : 0] m_axis_tdata
+    .m_axis_rx_tkeep(c4_m_axi_rx_tkeep),              // output wire [3 : 0] m_axis_tkeep
+    .m_axis_rx_tlast(c4_m_axi_rx_tlast),              // output wire m_axis_tlast
+    .m_axis_rx_tready(c4_m_axi_rx_tready),            // input wire m_axis_tready
+    // serial I/O pins
+    .rxp(c4_rxp), .rxn(c4_rxn),                    // receive from channel 0 FPGA
+    .txp(c4_txp), .txn(c4_txn),                    // transmit to channel 0 FPGA
+    // QPLL Ports
+    // Channel 0 is in MGT bank 115, while the QPLL that is initialized in this block is in
+    // MGT bank 116. The ethernet module should be initializing the QPLL in MGT band 115.
+    // Try setting the following signals to default values, since they should not affect the
+    // optimization of MGT bank 115.
+    .gt0_qplllock(1'b1),                   // input
+    .gt0_qpllrefclklost(1'b0),       // input
+    .gt_qpllclk_quad2(1'b0),           // input
+    .gt_qpllrefclk_quad2(1'b0),     // input
+    .gt0_qpllreset(),                               // output
+
+    // connect counter ouputs b/w all_channels and one_channel
+    .frame_err(),                            // output, to IPbus I/O
+    .hard_err(),                              // output, to IPbus I/O
+    .soft_err(),                              // output, to IPbus I/O
+    .channel_up(),                          // output, to IPbus I/O
+    .lane_up(),                                // output, to IPbus I/O
+    .pll_not_locked(),                  // input, from channel clock module
+    .tx_resetdone_out(),              // output, to IPbus I/O
+    .rx_resetdone_out(),              // output, to IPbus I/O
+    .link_reset_out()                  // output, to IPbus I/O
+  );
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////
   // qpll stuff for channels 1-4. The qpll in the other MGT is set up by the Ethernet module
@@ -230,12 +472,15 @@ module all_channels(
   reg io_rd_ack_reg;
   always @(posedge ipb_clk) begin
     // 'io_rd_ack' comes from the selected channel
-    io_rd_ack_reg <= io_sync & io_rd_en & (chan0_io_rd_ack | chan1_io_rd_ack);
+    io_rd_ack_reg <= io_sync & io_rd_en & (chan0_io_rd_ack | chan1_io_rd_ack | chan2_io_rd_ack | chan3_io_rd_ack | chan4_io_rd_ack);
   end
   always @(posedge ipb_clk) begin
     // mux: connect the 'rd' data bus of the channel that is asserting 'ack'
     if (chan0_io_rd_ack)    io_rd_data_reg <= chan0_io_rd_data;
     if (chan1_io_rd_ack)    io_rd_data_reg <= chan1_io_rd_data;
+    if (chan2_io_rd_ack)    io_rd_data_reg <= chan2_io_rd_data;
+    if (chan3_io_rd_ack)    io_rd_data_reg <= chan3_io_rd_data;
+    if (chan0_io_rd_ack)    io_rd_data_reg <= chan4_io_rd_data;
   end
 
 

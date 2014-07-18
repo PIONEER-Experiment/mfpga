@@ -1,30 +1,64 @@
-// top-level module for g-2 WFD Master FPGA
+// top-level module for g-2 WFD5 Master FPGA
 
 
 module wfd_top(
-	input wire gtx_clk0, gtx_clk0_N, // GTX Tranceiver refclk
-	output wire gige_tx, gige_tx_N,  // Gigabit Ethernet TX
-	input wire gige_rx, gige_rx_N,   // Gigabit Ethernet RX
-    input wire daq_rx, daq_rx_N,     // AMC13 Link RX
-    output wire daq_tx, daq_tx_N,    // AMC13 Link TX
-    input wire c0_rx, c0_rx_N,       // Serial link to Channel 0 RX
-    output wire c0_tx, c0_tx_N,      // Serial link to Channel 0 TX
-    input wire c1_rx, c1_rx_N,       // Serial link to Channel 1 RX
-    output wire c1_tx, c1_tx_N,      // Serial link to Channel 1 TX
-    input wire clkin,                // 50 MHz clock
-    output wire[15:0] debug,         // debug header
-    output wire[4:0] acq_trigs,      // triggers to channel FPGAs
-    output wire led0, led1           // front panel LEDs. led0 is green, led1 is red
+    input wire  clkin,                // 50 MHz clock
+	input wire  gtx_clk0, gtx_clk0_N, // Bank 115 125 MHz GTX Transceiver refclk
+	input wire  gtx_clk1, gtx_clk1_N, // Bank 116 125 MHz GTX Transceiver refclk
+	output wire gige_tx,  gige_tx_N,  // Gigabit Ethernet TX
+	input wire  gige_rx,  gige_rx_N,  // Gigabit Ethernet RX
+    input wire  daq_rx,   daq_rx_N,   // AMC13 Link RX
+    output wire daq_tx,   daq_tx_N,   // AMC13 Link TX
+    input wire  c0_rx, c0_rx_N,       // Serial link to Channel 0 RX
+    output wire c0_tx, c0_tx_N,       // Serial link to Channel 0 TX
+    input wire  c1_rx, c1_rx_N,       // Serial link to Channel 1 RX
+    output wire c1_tx, c1_tx_N,       // Serial link to Channel 1 TX
+    input wire  c2_rx, c2_rx_N,       // Serial link to Channel 2 RX
+    output wire c2_tx, c2_tx_N,       // Serial link to Channel 2 TX
+    input wire  c3_rx, c3_rx_N,       // Serial link to Channel 3 RX
+    output wire c3_tx, c3_tx_N,       // Serial link to Channel 3 TX
+    input wire  c4_rx, c4_rx_N,       // Serial link to Channel 4 RX
+    output wire c4_tx, c4_tx_N,       // Serial link to Channel 4 TX
+    output wire[7:0] debug,           // debug header
+    output wire[4:0] acq_trigs,       // triggers to channel FPGAs
+    input [4:0] acq_dones,            // done signals from channel FPGAs
+    output wire led0, led1,           // front panel LEDs. led0 is green, led1 is red
+    inout bbus_scl,                   // I2C bus clock, connected to Atmel Chip and to Channel FPGAs
+    inout bbus_sda,                   // I2C bus data, connected to Atmel Chip and to Channel FPGAs
+	input wire ext_trig,              // front panel trigger
+	input [3:0] mmc_io,               // controls to/from the Atmel
+	input [3:0] c0_io,                // utility signals to channel 0
+	input [3:0] c1_io,                // utility signals to channel 1
+	input [3:0] c2_io,                // utility signals to channel 2
+	input [3:0] c3_io,                // utility signals to channel 3
+	input [3:0] c4_io,                // utility signals to channel 4
+    input [5:0] mezzb,                // MB[5..0] on schematic
+    input mmc_reset_m,                // reset line 
+	output adcclk_ld,                 //
+	output adcclk_goe,                //
+	output adcclk_sync,               //
+	output adcclk_los0,          //
+	output adcclk_los1,          //
+	output adcclk_dlen,               //
+	output adcclk_ddat,               //
+	output adcclk_dclk,               //
+	output daq_clk_sel,               //
+	output daq_clk_en,                //
+	// TTC connections
+	input ttc_clkp, ttc_clkn,         // TTC diff clock
+	input ttc_rxp, ttc_rxn,           // data from TTC
+	output ttc_txp, ttc_txn,          // data to TTC
+	// Power Supply connections
+	input [1:0] wfdps,                //
+	// Channel FPGA configuration connections
+    output c_progb,                   // to all channels FPGA Configuration
+    output c_clk,                     // to all channels FPGA Configuration
+    output c_din,                     // to all channels FPGA Configuration
+    output [4:0] initb,               // to each channel FPGA Configuration
+    input [4:0] prog_done,            // from each channel FPGA Configuration
+    input test                        // 
+	
 );
-
-
-    // ========  debug signals ========
-    // assign debug[8] = clk125;
-    // assign debug[9] = rst_from_ipb;
-    // assign debug[10] = trigger_from_ipbus;
-    // assign debug[11] = fifo_to_dtm_tvalid;
-    // assign debug[12] = fifo_to_dtm_tready;
-
 
     // ======== clock signals ========
     wire clk50;
@@ -35,6 +69,40 @@ module wfd_top(
     wire pll_lock;
 
     assign clk50 = clkin; // Just to make the frequency explicit
+
+	// dummy use of signals
+    assign debug[0] = acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4];
+    assign debug[1] = mmc_io[2] & mmc_io[3];
+
+    assign debug[2] = c0_io[0] & c0_io[1] & c0_io[2] & c0_io[3];
+    assign debug[3] = c1_io[0] & c1_io[1] & c1_io[2] & c1_io[3];
+    assign debug[4] = c2_io[0] & c2_io[2] & c2_io[2] & c2_io[3];
+    assign debug[5] = c3_io[0] & c3_io[2] & c3_io[2] & c3_io[3];
+    assign debug[6] = c4_io[0] & c4_io[2] & c4_io[2] & c4_io[3];
+
+    assign debug[7] = mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5];
+	assign bbus_scl = ext_trig ? mmc_io[0] : 1'bz;
+	assign bbus_sda = ext_trig ? mmc_io[1] : 1'bz;
+	assign adcclk_ld = 1'b0;                 //
+	assign adcclk_goe = 1'b0;                //
+	assign adcclk_sync = 1'b0;               //
+	assign adcclk_los0 = 1'b0;               //
+	assign adcclk_los1 = 1'b0;               //
+	assign adcclk_dlen = 1'b0;               //
+	assign adcclk_ddat = 1'b0;               //
+	assign adcclk_dclk = 1'b0;               //
+	assign daq_clk_sel = 1'b0;               //
+	assign daq_clk_en = 1'b0;                //
+
+    wire ttc_clk, ttc_rx;
+	IBUFDS ttc_clk_buf(.I(ttc_clkp), .IB(ttc_clkn), .O(ttc_clk));  
+	IBUFDS ttc_rx_buf(.I(ttc_rxp), .IB(ttc_rxn), .O(ttc_rx)); 
+	OBUFDS ttc_tx_buf(.I(ttc_rx), .O(ttc_txp), .OB(ttc_txn)); 
+
+    assign c_progb = wfdps[0] & wfdps[1] & mmc_reset_m;
+    assign c_clk = 1'b0;
+    assign c_din = test;
+    assign initb[4:0] = prog_done[4:0];
 
     // Generate clocks from the 50 MHz input clock
     // Most of the design is run from the 125 MHz clock (Don't confuse it with the 125 MHz GTREFCLK)
@@ -137,6 +205,27 @@ module wfd_top(
     wire[0:3] c1_axi_stream_to_channel_tid;
     wire[0:3] c1_axi_stream_to_channel_tdest;
 
+	// loopback for channels 2, 3, and 4
+	wire [0:31] c2_rx_to_c2_tx_axi_tdata;        // note index order
+    wire [0:3]  c2_tx_axi_tkeep, c2_rx_axi_tkeep;         // note index order
+    wire        c2_rx_to_c2_tx_axi_tvalid;
+    wire        c2_rx_to_c2_tx_axi_tlast;
+    wire        c2_rx_to_c2_tx_axi_tready;
+	assign c2_tx_axi_tkeep = 4'b1111;
+
+	wire [0:31] c3_rx_to_c3_tx_axi_tdata;        // note index order
+    wire [0:3]  c3_tx_axi_tkeep, c3_rx_axi_tkeep;         // note index order
+    wire        c3_rx_to_c3_tx_axi_tvalid;
+    wire        c3_rx_to_c3_tx_axi_tlast;
+    wire        c3_rx_to_c3_tx_axi_tready;
+	assign c3_tx_axi_tkeep = 4'b1111;
+
+	wire [0:31] c4_rx_to_c4_tx_axi_tdata;        // note index order
+    wire [0:3]  c4_tx_axi_tkeep, c4_rx_axi_tkeep;         // note index order
+    wire        c4_rx_to_c4_tx_axi_tvalid;
+    wire        c4_rx_to_c4_tx_axi_tlast;
+    wire        c4_rx_to_c4_tx_axi_tready;
+	assign c4_tx_axi_tkeep = 4'b1111;
 
     // packaging up channel connections for the axi rx switch input
     (* mark_debug = "true" *) wire[1:0] c_axi_stream_to_dtm_tvalid, c_axi_stream_to_dtm_tlast, c_axi_stream_to_dtm_tready;
@@ -302,7 +391,7 @@ module wfd_top(
         .link_reset_out(link_reset_out)
     );
 
-
+ 
     // Serial links to channel FPGAs
     all_channels channels(
         .clk50(clk50),
@@ -326,13 +415,13 @@ module wfd_top(
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
         .c0_s_axi_tx_tdata(c0_axi_stream_to_channel_tdata),        // note index order
-        //.c0_s_axi_tx_tkeep(c0_axi_stream_to_channel_tkeep),         // note index order
+        .c0_s_axi_tx_tkeep(c0_axi_stream_to_channel_tkeep),         // note index order
         .c0_s_axi_tx_tvalid(c0_axi_stream_to_channel_tvalid),
         .c0_s_axi_tx_tlast(c0_axi_stream_to_channel_tlast),
         .c0_s_axi_tx_tready(c0_axi_stream_to_channel_tready),
         // RX Interface to master side of receive FIFO
         .c0_m_axi_rx_tdata(c0_axi_stream_to_dtm_tdata),       // note index order
-        //.c0_m_axi_rx_tkeep(c0_axi_stream_to_dtm_tkeep),        // note index order
+        .c0_m_axi_rx_tkeep(c0_axi_stream_to_dtm_tkeep),        // note index order
         .c0_m_axi_rx_tvalid(c0_axi_stream_to_dtm_tvalid),
         .c0_m_axi_rx_tlast(c0_axi_stream_to_dtm_tlast),
         .c0_m_axi_rx_tready(c0_axi_stream_to_dtm_tready),            // input wire m_axis_tready
@@ -345,19 +434,72 @@ module wfd_top(
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
         .c1_s_axi_tx_tdata(c1_axi_stream_to_channel_tdata),        // note index order
-        //.c1_s_axi_tx_tkeep(c1_axi_stream_to_channel_tkeep),         // note index order
+        .c1_s_axi_tx_tkeep(c1_axi_stream_to_channel_tkeep),         // note index order
         .c1_s_axi_tx_tvalid(c1_axi_stream_to_channel_tvalid),
         .c1_s_axi_tx_tlast(c1_axi_stream_to_channel_tlast),
         .c1_s_axi_tx_tready(c1_axi_stream_to_channel_tready),
         // RX Interface to master side of receive FIFO
         .c1_m_axi_rx_tdata(c1_axi_stream_to_dtm_tdata),       // note index order
-        //.c1_m_axi_rx_tkeep(c1_axi_stream_to_dtm_tkeep),        // note index order
+        .c1_m_axi_rx_tkeep(c1_axi_stream_to_dtm_tkeep),        // note index order
         .c1_m_axi_rx_tvalid(c1_axi_stream_to_dtm_tvalid),
         .c1_m_axi_rx_tlast(c1_axi_stream_to_dtm_tlast),
         .c1_m_axi_rx_tready(c1_axi_stream_to_dtm_tready),            // input wire m_axis_tready
         // serial I/O pins
         .c1_rxp(c1_rx), .c1_rxn(c1_rx_N),                   // receive from channel 0 FPGA
         .c1_txp(c1_tx), .c1_txn(c1_tx_N),                   // transmit to channel 0 FPGA
+
+		// channel 2 connections
+		// loop receive out to transmit
+		.c2_s_axi_tx_tdata(c2_rx_to_c2_tx_axi_tdata[0:31]),        // note index order
+        .c2_s_axi_tx_tkeep(c2_tx_axi_tkeep[0:3]),         // note index order
+        .c2_s_axi_tx_tvalid(c2_rx_to_c2_tx_axi_tvalid),
+        .c2_s_axi_tx_tlast(c2_rx_to_c2_tx_axi_tlast),
+        .c2_s_axi_tx_tready(c2_rx_to_c2_tx_axi_tready),
+        // RX Interface to master side of receive FIFO
+        .c2_m_axi_rx_tdata(c2_rx_to_c2_tx_axi_tdata[0:31] ),       // note index order
+        .c2_m_axi_rx_tkeep(c2_rx_axi_tkeep[0:3]),        // note index order
+        .c2_m_axi_rx_tvalid(c2_rx_to_c2_tx_axi_tvalid),
+        .c2_m_axi_rx_tlast(c2_rx_to_c2_tx_axi_tlast),
+        .c2_m_axi_rx_tready(c2_rx_to_c2_tx_axi_tready),            // input wire m_axis_tready
+          // serial I/O pins
+        .c2_rxp(c2_rx), .c2_rxn(c2_rx_N),                   // receive from channel 0 FPGA
+        .c2_txp(c2_tx), .c2_txn(c2_tx_N),                   // transmit to channel 0 FPGA
+
+		// channel 3 connections
+        // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
+        // TX interface to slave side of transmit FIFO
+        .c3_s_axi_tx_tdata(c3_rx_to_c3_tx_axi_tdata[0:31]),        // note index order
+        .c3_s_axi_tx_tkeep(c3_tx_axi_tkeep[0:3]),         // note index order
+        .c3_s_axi_tx_tvalid(c3_rx_to_c3_tx_axi_tvalid),
+        .c3_s_axi_tx_tlast(c3_rx_to_c3_tx_axi_tlast),
+        .c3_s_axi_tx_tready(c3_rx_to_c3_tx_axi_tready),
+        // RX Interface to master side of receive FIFO
+        .c3_m_axi_rx_tdata(c3_rx_to_c3_tx_axi_tdata[0:31] ),       // note index order
+        .c3_m_axi_rx_tkeep(c3_rx_axi_tkeep[0:3]),        // note index order
+        .c3_m_axi_rx_tvalid(c3_rx_to_c3_tx_axi_tvalid),
+        .c3_m_axi_rx_tlast(c3_rx_to_c3_tx_axi_tlast),
+        .c3_m_axi_rx_tready(c3_rx_to_c3_tx_axi_tready),            // input wire m_axis_tready
+         // serial I/O pins
+        .c3_rxp(c3_rx), .c3_rxn(c3_rx_N),                   // receive from channel 0 FPGA
+        .c3_txp(c3_tx), .c3_txn(c3_tx_N),                   // transmit to channel 0 FPGA
+ 
+		// channel 4 connections
+        // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
+        // TX interface to slave side of transmit FIFO
+        .c4_s_axi_tx_tdata(c4_rx_to_c4_tx_axi_tdata[0:31]),        // note index order
+        .c4_s_axi_tx_tkeep(c4_tx_axi_tkeep[0:3]),         // note index order
+        .c4_s_axi_tx_tvalid(c4_rx_to_c4_tx_axi_tvalid),
+        .c4_s_axi_tx_tlast(c4_rx_to_c4_tx_axi_tlast),
+        .c4_s_axi_tx_tready(c4_rx_to_c4_tx_axi_tready),
+        // RX Interface to master side of receive FIFO
+        .c4_m_axi_rx_tdata(c4_rx_to_c4_tx_axi_tdata[0:31] ),       // note index order
+        .c4_m_axi_rx_tkeep(c4_rx_axi_tkeep[0:3]),        // note index order
+        .c4_m_axi_rx_tvalid(c4_rx_to_c4_tx_axi_tvalid),
+        .c4_m_axi_rx_tlast(c4_rx_to_c4_tx_axi_tlast),
+        .c4_m_axi_rx_tready(c4_rx_to_c4_tx_axi_tready),            // input wire m_axis_tready
+        // serial I/O pins
+        .c4_rxp(c4_rx), .c4_rxn(c4_rx_N),                   // receive from channel 0 FPGA
+        .c4_txp(c4_tx), .c4_txn(c4_tx_N),                   // transmit to channel 0 FPGA
 
         // counter ouputs
         .frame_err(frame_err),              
