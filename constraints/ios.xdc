@@ -230,8 +230,8 @@ set_property PACKAGE_PIN F14 [get_ports {debug[2]}]
 set_property PACKAGE_PIN F15 [get_ports {debug[1]}]
 set_property PACKAGE_PIN F17 [get_ports {debug[0]}]
 
-set_property PACKAGE_PIN U26 [get_ports led0]
-set_property PACKAGE_PIN V26 [get_ports led1]
+set_property PACKAGE_PIN V26 [get_ports led0]
+set_property PACKAGE_PIN U26 [get_ports led1]
 
 set_property PACKAGE_PIN G26 [get_ports {c4_io[3]}]
 set_property PACKAGE_PIN F25 [get_ports {c4_io[2]}]
