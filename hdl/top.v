@@ -12,7 +12,8 @@ module wfd_top(
     input wire c1_rx, c1_rx_N,       // Serial link to Channel 1 RX
     output wire c1_tx, c1_tx_N,      // Serial link to Channel 1 TX
     input wire clkin,                // 50 MHz clock
-    output wire[15:0] debug,         // debug header
+    output wire[14:0] debug,         // debug header
+    (* mark_debug = "true" *) input wire debug15,              // debug number 15
     output wire[4:0] acq_trigs,      // triggers to channel FPGAs
     output wire led0, led1           // front panel LEDs. led0 is green, led1 is red
 );
@@ -289,6 +290,7 @@ module wfd_top(
         .chan_done_out(chan_done),
 
         .debug(),
+        .debug15(debug15),
 
         // counter ouputs
         .frame_err(frame_err),              

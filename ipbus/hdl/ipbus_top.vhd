@@ -80,7 +80,8 @@ entity ipbus_top is port(
 	rx_resetdone_out : in std_logic;
 	link_reset_out : in std_logic;
 
-	debug: out std_logic_vector(7 downto 0)
+	debug: out std_logic_vector(7 downto 0);
+	debug15: in std_logic
 );
 
 end ipbus_top;
@@ -102,6 +103,12 @@ architecture rtl of ipbus_top is
     signal axi_stream_out: axi_stream;
     
     signal eth_locked: std_logic;
+
+
+    attribute mark_debug : string;
+    attribute mark_debug of mac_addr: signal is "true";
+    attribute mark_debug of ip_addr: signal is "true";
+
 
 begin
 
@@ -176,9 +183,34 @@ begin
 			pkt_rx_led => pkt_rx_led,
 			pkt_tx_led => pkt_tx_led
 		);
-		
-	mac_addr <= X"020ddba11583"; -- Careful here, arbitrary addresses do not always work
-	ip_addr <= X"c0a81a32"; -- 192.168.26.50
+	
+
+	-- available MAC addresses:
+	--      00:60:55:00:01:XX
+	--      00:60:55:00:02:XX
+
+	-- debug15 = 0 for WFD1 S/N 4
+	-- WFD1 S/N 4 is assigned:
+	--      00:60:55:00:01:00
+	--      192.168.1.130
+
+	-- debug15 = 1 for WFD1 S/N 2
+	-- WFD1 S/N 2 is assigned:
+	--      00:60:55:00:01:01
+	--      192.168.1.131
+
+
+	-- SLAC test beam mac/ip address initialization
+	mac_addr <= X"006055000101" when debug15='0' else
+	     		X"006055000100";
+	ip_addr <= X"c0a80182" when debug15='0' else
+			   X"c0a80183";
+
+
+	-- Nic's mac/ip address initialization
+	-- mac_addr <= X"020ddba11583"; -- Careful here, arbitrary addresses do not always work
+	-- ip_addr <= X"c0a81a32"; -- 192.168.26.50
+
 
 	-- ipbus slaves live in the entity below, and can expose top-level ports
 	-- The ipbus fabric is instantiated within.
