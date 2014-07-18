@@ -37,8 +37,8 @@ module wfd_top(
 	output adcclk_ld,                 //
 	output adcclk_goe,                //
 	output adcclk_sync,               //
-	output adcclk_los0,          //
-	output adcclk_los1,          //
+	output adcclk_los0,               //
+	output adcclk_los1,               //
 	output adcclk_dlen,               //
 	output adcclk_ddat,               //
 	output adcclk_dclk,               //
@@ -133,7 +133,7 @@ module wfd_top(
 
     // LED is green when GigE link is up, red otherwise
     assign led0 = eth_link_status; // green
-    assign led1 = ~eth_link_status; // red
+    // assign led1 = ~eth_link_status; // red (now flashes instead)
 
 
     // ======== reset signals ========
@@ -325,6 +325,10 @@ module wfd_top(
     (* mark_debug = "true" *) wire daq_ready;
     wire daq_almost_full;
 
+
+    ////////////////////////////////////////////////////////////////////////////
+    // flash the led
+    led_flasher led_flasher(.clk(clk50), .led(led1));
 
     // ======== module instantiations ========
 
