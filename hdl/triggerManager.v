@@ -1,78 +1,125 @@
 
-// Created by fizzim.pl version $Revision: 4.44 on 2014:07:07 at 14:03:10 (www.fizzim.com)
+// Created by fizzim.pl version $Revision: 4.44 on 2014:07:19 at 11:54:21 (www.fizzim.com)
 
 module triggerManager (
-  output wire fifo_valid,
-  output reg [23:0] fillNum,
-  output wire [4:0] go,
+  output reg fifo_valid,
+  output reg [4:0] go,
+  output reg [4:0] trig_arm,
+  output reg [23:0] trig_num,
   input wire clk,
+  input wire cm_busy,
   input wire [4:0] done,
-  (* mark_debug = "true" *) input wire cm_busy,
+  input wire fifo_filled,
   input wire fifo_ready,
   input wire reset,
-  (* mark_debug = "true" *) input wire trigger 
+  input wire trigger 
 );
 
   // state bits
   parameter 
-  IDLE          = 6'b000000, // go[4:0]=00000 fifo_valid=0 
-  FILL          = 6'b111110, // go[4:0]=11111 fifo_valid=0 
-  STORE_FILLNUM = 6'b000001; // go[4:0]=00000 fifo_valid=1 
+  IDLE          = 0, 
+  FILL          = 1, 
+  SET_TRIG_ARM  = 2, 
+  STORE_FILLNUM = 3; 
 
-  (* mark_debug = "true" *) reg [5:0] state;
-  (* mark_debug = "true" *) reg [5:0] nextstate;
-  reg [23:0] next_fillNum;
+  (* mark_debug = "true" *) reg [3:0] state;
+  reg [3:0] nextstate;
+  reg [23:0] next_trig_num;
 
   // comb always block
   always @* begin
-    nextstate = state; // default to hold value because implied_loopback is set
-    next_fillNum[23:0] = fillNum[23:0];
-    case (state)
-      IDLE         : begin
+    nextstate = 4'b0000;
+    next_trig_num[23:0] = trig_num[23:0];
+    case (1'b1) // synopsys parallel_case full_case
+      state[IDLE]         : begin
         if (trigger && !cm_busy) begin
-          nextstate = FILL;
-          next_fillNum[23:0] = fillNum[23:0]+1;
+          nextstate[FILL] = 1'b1;
+          next_trig_num[23:0] = trig_num[23:0]+1;
+        end
+        else begin
+          nextstate[IDLE] = 1'b1; // Added because implied_loopback is true
         end
       end
-      FILL         : begin
+      state[FILL]         : begin
         if (done[4:0]==5'b11111) begin
-          nextstate = STORE_FILLNUM;
+          nextstate[STORE_FILLNUM] = 1'b1;
+        end
+        else begin
+          nextstate[FILL] = 1'b1; // Added because implied_loopback is true
         end
       end
-      STORE_FILLNUM: begin
+      state[SET_TRIG_ARM] : begin
+        if (!fifo_filled && !cm_busy) begin
+          nextstate[IDLE] = 1'b1;
+        end
+        else begin
+          nextstate[SET_TRIG_ARM] = 1'b1; // Added because implied_loopback is true
+        end
+      end
+      state[STORE_FILLNUM]: begin
         if (fifo_ready) begin
-          nextstate = IDLE;
+          nextstate[SET_TRIG_ARM] = 1'b1;
+        end
+        else begin
+          nextstate[STORE_FILLNUM] = 1'b1; // Added because implied_loopback is true
         end
       end
     endcase
   end
 
-  // Assign reg'd outputs to state bits
-  assign fifo_valid = state[0];
-  assign go[4:0] = state[5:1];
-
   // sequential always block
   always @(posedge clk) begin
     if (reset) begin
-      state <= IDLE;
-      fillNum[23:0] <= 0;
+      state <= 4'b0001 << IDLE;
+      trig_num[23:0] <= 0;
       end
     else begin
       state <= nextstate;
-      fillNum[23:0] <= next_fillNum[23:0];
+      trig_num[23:0] <= next_trig_num[23:0];
       end
+  end
+
+  // datapath sequential always block
+  always @(posedge clk) begin
+    if (reset) begin
+      fifo_valid <= 0;
+      go[4:0] <= 5'b00000;
+      trig_arm[4:0] <= 5'b11111;
+    end
+    else begin
+      fifo_valid <= 0; // default
+      go[4:0] <= 5'b00000; // default
+      trig_arm[4:0] <= 5'b11111; // default
+      case (1'b1) // synopsys parallel_case full_case
+        nextstate[IDLE]         : begin
+          ; // case must be complete for onehot
+        end
+        nextstate[FILL]         : begin
+          go[4:0] <= 5'b11111;
+        end
+        nextstate[SET_TRIG_ARM] : begin
+          trig_arm[4:0] <= 5'b00000;
+        end
+        nextstate[STORE_FILLNUM]: begin
+          fifo_valid <= 1;
+          trig_arm[4:0] <= 5'b00000;
+        end
+      endcase
+    end
   end
 
   // This code allows you to see state names in simulation
   `ifndef SYNTHESIS
   reg [103:0] statename;
   always @* begin
-    case (state)
-      IDLE         :
+    case (1'b1)
+      state[IDLE]         :
         statename = "IDLE";
-      FILL         :
+      state[FILL]         :
         statename = "FILL";
-      STORE_FILLNUM:
+      state[SET_TRIG_ARM] :
+        statename = "SET_TRIG_ARM";
+      state[STORE_FILLNUM]:
         statename = "STORE_FILLNUM";
       default      :
         statename = "XXXXXXXXXXXXX";

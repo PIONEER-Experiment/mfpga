@@ -13,11 +13,11 @@ set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports daq_rx_N]
 set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports daq_tx]
 set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports daq_tx_N]
 
-set_property IOSTANDARD DIFF_HSTL_II_18  [get_ports gtx_clk0]
-set_property IOSTANDARD DIFF_HSTL_II_18  [get_ports gtx_clk0_N]
+set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gtx_clk0]
+set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gtx_clk0_N]
 
-set_property IOSTANDARD DIFF_HSTL_II_18  [get_ports gtx_clk1]
-set_property IOSTANDARD DIFF_HSTL_II_18  [get_ports gtx_clk1_N]
+set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gtx_clk1]
+set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gtx_clk1_N]
 
 set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c0_tx]
 set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c0_tx_N]
