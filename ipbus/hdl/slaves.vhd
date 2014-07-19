@@ -187,6 +187,8 @@ begin
 	  generic map(
 	    id => 0,
 	    addr_width => 4
+            -- addr bits (3 downto 1) used to select one of the five channels (via tdest)
+            -- addr bit 0 has unknown purpose; we get ipbus errors if we try to use an odd address
 	  )
 	  port map(
 	    clk => ipb_clk,

@@ -62,7 +62,7 @@ begin -- architecture ipbus_axi_stream
 
   -- get tdest from ipbus address (not including lowest address bit, because that caused errors)
   axi_str_out.tdest(3) <= '0'; -- tdest is 4 bits; set highest to zero, get other three from ipbus address
-  axi_str_out.tdest(2 downto 0) <= ipbus_in.ipb_addr(addr_width - 1 downto 1);
+  axi_str_out.tdest(2 downto 0) <= ipbus_in.ipb_addr(3 downto 1);
 
   -- tlast is high when do_write goes low after a write_success
   axi_str_out.tlast <= write_success_follow and not do_write;

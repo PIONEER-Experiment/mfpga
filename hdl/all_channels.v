@@ -5,126 +5,126 @@
 
 module all_channels(
   // clocks and reset
-  input clk50,                            // Aurora 'init_clk' uses 50 MHz clock per PG046-20
-  input clk50_reset,                      // active_hi synched to 'clk50'
-  input axis_clk,                         // clock for the interconnect side of the FIFOs
-  input axis_clk_resetN,                  // active-lo reset for the interconnect side of the FIFOs
-  input gt_refclk,                        // 125 MHz oscillator, from IBUFDS_GTE2 at a higher level
+  input clk50,             // Aurora 'init_clk' uses 50 MHz clock per PG046-20
+  input clk50_reset,       // active_hi synched to 'clk50'
+  input axis_clk,          // clock for the interconnect side of the FIFOs
+  input axis_clk_resetN,   // active-lo reset for the interconnect side of the FIFOs
+  input gt_refclk,         // 125 MHz oscillator, from IBUFDS_GTE2 at a higher level
   // IPbus inputs
-  input ipb_clk,                          // programming clock
+  input ipb_clk,           // programming clock
   input ipb_reset,
-  input ipb_strobe,                       // this ipb space is selected for an I/O operation
-  input [23:0] ipb_addr,                  // slave address, memory or register
-  input ipb_write,                        // this is a write operation
-  input [31:0] ipb_wdata,                 // data to write for write operations
+  input ipb_strobe,        // this ipb space is selected for an I/O operation
+  input [23:0] ipb_addr,   // slave address, memory or register
+  input ipb_write,         // this is a write operation
+  input [31:0] ipb_wdata,  // data to write for write operations
   // IPbus outputs
-  output [31:0] ipb_rdata,                // data returned for read operations
-  output ipb_ack,                         // 'write' data has been stored, 'read' data is ready
+  output [31:0] ipb_rdata, // data returned for read operations
+  output ipb_ack,          // 'write' data has been stored, 'read' data is ready
 
   // channel 0 connections
   // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
   // TX interface to slave side of transmit FIFO
-  input [0:31] c0_s_axi_tx_tdata,        // note index order
-  input [0:3] c0_s_axi_tx_tkeep,         // note index order
+  input [0:31] c0_s_axi_tx_tdata,  // note index order
+  input [0:3] c0_s_axi_tx_tkeep,   // note index order
   input c0_s_axi_tx_tvalid,
   input c0_s_axi_tx_tlast,
   output c0_s_axi_tx_tready,
   // RX Interface to master side of receive FIFO
-  output [0:31] c0_m_axi_rx_tdata,       // note index order
-  output [0:3] c0_m_axi_rx_tkeep,        // note index order
+  output [0:31] c0_m_axi_rx_tdata, // note index order
+  output [0:3] c0_m_axi_rx_tkeep,  // note index order
   output c0_m_axi_rx_tvalid,
   output c0_m_axi_rx_tlast,
-  input c0_m_axi_rx_tready,            // input wire m_axis_tready
+  input c0_m_axi_rx_tready,        // input wire m_axis_tready
   // serial I/O pins
-  input c0_rxp, c0_rxn,                   // receive from channel 0 FPGA
-  output c0_txp, c0_txn,                   // transmit to channel 0 FPGA
+  input c0_rxp, c0_rxn,            // receive from channel 0 FPGA
+  output c0_txp, c0_txn,           // transmit to channel 0 FPGA
 
   // channel 1 connections
   // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
   // TX interface to slave side of transmit FIFO
-  input [0:31] c1_s_axi_tx_tdata,        // note index order
-  input [0:3] c1_s_axi_tx_tkeep,         // note index order
+  input [0:31] c1_s_axi_tx_tdata,  // note index order
+  input [0:3] c1_s_axi_tx_tkeep,   // note index order
   input c1_s_axi_tx_tvalid,
   input c1_s_axi_tx_tlast,
   output c1_s_axi_tx_tready,
   // RX Interface to master side of receive FIFO
-  output [0:31] c1_m_axi_rx_tdata,       // note index order
-  output [0:3] c1_m_axi_rx_tkeep,        // note index order
+  output [0:31] c1_m_axi_rx_tdata, // note index order
+  output [0:3] c1_m_axi_rx_tkeep,  // note index order
   output c1_m_axi_rx_tvalid,
   output c1_m_axi_rx_tlast,
-  input c1_m_axi_rx_tready,            // input wire m_axis_tready
+  input c1_m_axi_rx_tready,        // input wire m_axis_tready
   // serial I/O pins
-  input c1_rxp, c1_rxn,                   // receive from channel 0 FPGA
-  output c1_txp, c1_txn,                   // transmit to channel 0 FPGA
+  input c1_rxp, c1_rxn,            // receive from channel 0 FPGA
+  output c1_txp, c1_txn,           // transmit to channel 0 FPGA
 
-    // channel 2 connections
+  // channel 2 connections
   // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
   // TX interface to slave side of transmit FIFO
-  input [0:31] c2_s_axi_tx_tdata,        // note index order
-  input [0:3] c2_s_axi_tx_tkeep,         // note index order
+  input [0:31] c2_s_axi_tx_tdata,  // note index order
+  input [0:3] c2_s_axi_tx_tkeep,   // note index order
   input c2_s_axi_tx_tvalid,
   input c2_s_axi_tx_tlast,
   output c2_s_axi_tx_tready,
   // RX Interface to master side of receive FIFO
-  output [0:31] c2_m_axi_rx_tdata,       // note index order
-  output [0:3] c2_m_axi_rx_tkeep,        // note index order
+  output [0:31] c2_m_axi_rx_tdata, // note index order
+  output [0:3] c2_m_axi_rx_tkeep,  // note index order
   output c2_m_axi_rx_tvalid,
   output c2_m_axi_rx_tlast,
-  input c2_m_axi_rx_tready,            // input wire m_axis_tready
+  input c2_m_axi_rx_tready,        // input wire m_axis_tready
   // serial I/O pins
-  input c2_rxp, c2_rxn,                   // receive from channel 0 FPGA
-  output c2_txp, c2_txn,                   // transmit to channel 0 FPGA
+  input c2_rxp, c2_rxn,            // receive from channel 0 FPGA
+  output c2_txp, c2_txn,           // transmit to channel 0 FPGA
 
   // channel 3 connections
   // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
   // TX interface to slave side of transmit FIFO
-  input [0:31] c3_s_axi_tx_tdata,        // note index order
-  input [0:3] c3_s_axi_tx_tkeep,         // note index order
+  input [0:31] c3_s_axi_tx_tdata,  // note index order
+  input [0:3] c3_s_axi_tx_tkeep,   // note index order
   input c3_s_axi_tx_tvalid,
   input c3_s_axi_tx_tlast,
   output c3_s_axi_tx_tready,
   // RX Interface to master side of receive FIFO
-  output [0:31] c3_m_axi_rx_tdata,       // note index order
-  output [0:3] c3_m_axi_rx_tkeep,        // note index order
+  output [0:31] c3_m_axi_rx_tdata, // note index order
+  output [0:3] c3_m_axi_rx_tkeep,  // note index order
   output c3_m_axi_rx_tvalid,
   output c3_m_axi_rx_tlast,
-  input c3_m_axi_rx_tready,            // input wire m_axis_tready
+  input c3_m_axi_rx_tready,        // input wire m_axis_tready
   // serial I/O pins
-  input c3_rxp, c3_rxn,                   // receive from channel 0 FPGA
-  output c3_txp, c3_txn,                   // transmit to channel 0 FPGA
+  input c3_rxp, c3_rxn,            // receive from channel 0 FPGA
+  output c3_txp, c3_txn,           // transmit to channel 0 FPGA
 
   // channel 4 connections
   // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
   // TX interface to slave side of transmit FIFO
-  input [0:31] c4_s_axi_tx_tdata,        // note index order
-  input [0:3] c4_s_axi_tx_tkeep,         // note index order
+  input [0:31] c4_s_axi_tx_tdata,  // note index order
+  input [0:3] c4_s_axi_tx_tkeep,   // note index order
   input c4_s_axi_tx_tvalid,
   input c4_s_axi_tx_tlast,
   output c4_s_axi_tx_tready,
   // RX Interface to master side of receive FIFO
-  output [0:31] c4_m_axi_rx_tdata,       // note index order
-  output [0:3] c4_m_axi_rx_tkeep,        // note index order
+  output [0:31] c4_m_axi_rx_tdata, // note index order
+  output [0:3] c4_m_axi_rx_tkeep,  // note index order
   output c4_m_axi_rx_tvalid,
   output c4_m_axi_rx_tlast,
-  input c4_m_axi_rx_tready,            // input wire m_axis_tready
+  input c4_m_axi_rx_tready,        // input wire m_axis_tready
   // serial I/O pins
-  input c4_rxp, c4_rxn,                   // receive from channel 0 FPGA
-  output c4_txp, c4_txn,                   // transmit to channel 0 FPGA
+  input c4_rxp, c4_rxn,            // receive from channel 0 FPGA
+  output c4_txp, c4_txn,           // transmit to channel 0 FPGA
 
   // debug ports
   output [3:0] debug,
 
   // counter output ports
-  output frame_err,                    // output, to IPbus I/O
-  output hard_err,                     // output, to IPbus I/O
-  output soft_err,                     // output, to IPbus I/O
-  output channel_up,                   // output, to IPbus I/O
-  output lane_up,                      // output, to IPbus I/O
-  output pll_not_locked,               // input, from channel clock module
-  output tx_resetdone_out,             // output, to IPbus I/O
-  output rx_resetdone_out,             // output, to IPbus I/O
-  output link_reset_out                // output, to IPbus I/O
- );
+  output frame_err,        // output, to IPbus I/O
+  output hard_err,         // output, to IPbus I/O
+  output soft_err,         // output, to IPbus I/O
+  output channel_up,       // output, to IPbus I/O
+  output lane_up,          // output, to IPbus I/O
+  output pll_not_locked,   // input, from channel clock module
+  output tx_resetdone_out, // output, to IPbus I/O
+  output rx_resetdone_out, // output, to IPbus I/O
+  output link_reset_out    // output, to IPbus I/O
+);
 
 
   // busses of data being read back by IPbus
