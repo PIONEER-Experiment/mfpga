@@ -54,7 +54,7 @@ module wfd_top(
     output c_progb,                   // to all channels FPGA Configuration
     output c_clk,                     // to all channels FPGA Configuration
     output c_din,                     // to all channels FPGA Configuration
-    output [4:0] initb,               // to each channel FPGA Configuration
+    input [4:0] initb,               // to each channel FPGA Configuration
     input [4:0] prog_done,            // from each channel FPGA Configuration
     input test                        // 
 	
@@ -74,8 +74,8 @@ module wfd_top(
     assign debug[0] = acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4];
     assign debug[1] = mmc_io[2] & mmc_io[3];
 
-    assign debug[2] = c0_io[0] & c0_io[1] & c0_io[2] & c0_io[3];
-    assign debug[3] = c1_io[0] & c1_io[1] & c1_io[2] & c1_io[3];
+    assign debug[2] = c0_io[0] & c0_io[1] & c0_io[2] & c0_io[3] & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
+    assign debug[3] = c1_io[0] & c1_io[1] & c1_io[2] & c1_io[3] & prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
     assign debug[4] = c2_io[0] & c2_io[2] & c2_io[2] & c2_io[3];
     assign debug[5] = c3_io[0] & c3_io[2] & c3_io[2] & c3_io[3];
     assign debug[6] = c4_io[0] & c4_io[2] & c4_io[2] & c4_io[3];
@@ -102,7 +102,7 @@ module wfd_top(
     assign c_progb = wfdps[0] & wfdps[1] & mmc_reset_m;
     assign c_clk = 1'b0;
     assign c_din = test;
-    assign initb[4:0] = prog_done[4:0];
+    //assign initb[4:0] = prog_done[4:0];
 
     // Generate clocks from the 50 MHz input clock
     // Most of the design is run from the 125 MHz clock (Don't confuse it with the 125 MHz GTREFCLK)
@@ -548,45 +548,6 @@ module wfd_top(
       .m_axis_tready(fifo_to_dtm_tready), // input wire m_axis_tready
       .m_axis_tdata(fifo_to_dtm_tdata)    // output wire [23 : 0] m_axis_tdata
     );
-
-
-    // disconnected the data transfer module
-    // all its functionality is now in the command manager
-    /*
-    // data transfer manager module
-    dataTransferManager dtm(
-        // Interface to AMC13 DAQ Link
-        .daq_valid(daq_valid),                // output from dtm
-        .daq_header(daq_header),              // output from dtm
-        .daq_trailer(daq_trailer),            // output from dtm
-        .daq_data(daq_data),                  // output from dtm
-        .daq_ready(daq_ready),                // input to dtm
-        // .daq_almost_full(daq_almost_full), // currently ignored by dtm
-
-        // Interface to fill number FIFO
-        .tm_fifo_ready(fifo_to_dtm_tready),
-        .tm_fifo_valid(fifo_to_dtm_tvalid),
-        .tm_fifo_data(fifo_to_dtm_tdata),
-
-        // Interface to rx channel FIFO (through AXI4-Stream RX Switch)
-        .chan_rx_fifo_ready(axi_stream_to_dtm_tready), // output from dtm
-        .chan_rx_fifo_data(axi_stream_to_dtm_tdata),   // input to dtm
-        .chan_rx_fifo_last(axi_stream_to_dtm_tlast),   // input to dtm
-        .chan_rx_fifo_valid(axi_stream_to_dtm_tvalid), // input to dtm
-
-        // Interface to tx channel FIFO (through AXI4-Stream TX Switch)
-        .chan_tx_fifo_ready(axi_stream_to_channel_from_dtm_tready), // input to dtm
-        .chan_tx_fifo_data(axi_stream_to_channel_from_dtm_tdata),   // output from dtm
-        .chan_tx_fifo_last(axi_stream_to_channel_from_dtm_tlast),   // output from dtm
-        .chan_tx_fifo_valid(axi_stream_to_channel_from_dtm_tvalid), // output from dtm
-        .chan_tx_fifo_dest(axi_stream_to_channel_from_dtm_tdest[0]),   // output from dtm
-
-        // Other connections required by dtm module
-        .clk(clk125),       // input to dtm
-        .rst(rst_from_ipb), // input to dtm
-        .busy(cm_busy)      // output from dtm
-    );
-    */
 
 
     // command manager module
