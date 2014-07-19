@@ -308,7 +308,3 @@ set_property PACKAGE_PIN AF22 [get_ports {initb[3]}]
 set_property PACKAGE_PIN AC26 [get_ports {initb[2]}]
 set_property PACKAGE_PIN C24 [get_ports {initb[1]}]
 set_property PACKAGE_PIN A9 [get_ports {initb[0]}]
-
-
-
-
