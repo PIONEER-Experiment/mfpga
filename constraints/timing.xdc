@@ -38,5 +38,5 @@ set_clock_groups -name async_clk50_gige_clk -asynchronous\
  -group [get_clocks -include_generated_clocks gige_clk]\
  -group [get_clocks -include_generated_clocks ipb/eth/phy/U0/pcs_pma_block_i/transceiver_inst/gtwizard_inst/*/gtwizard_i/gt0_GTWIZARD_i/gtxe2_i/TXOUTCLK]\
  -group [get_clocks -include_generated_clocks DAQ_usrclk]\
- -group [get_clocks -include_generated_clocks user_clk_chan0]
+ -group [get_clocks -include_generated_clocks user_clk_chan0]\
  -group [get_clocks -include_generated_clocks user_clk_chan1]

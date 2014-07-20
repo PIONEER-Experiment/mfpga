@@ -182,7 +182,6 @@ module wfd_top(
 
     (* mark_debug = "true" *) wire c0_axi_stream_to_channel_tvalid, c0_axi_stream_to_channel_tlast, c0_axi_stream_to_channel_tready;
     (* mark_debug = "true" *) wire[0:31] c0_axi_stream_to_channel_tdata;
-    (* mark_debug = "true" *) wire[0:2]  c0_axi_stream_to_channel_tdest;
 
     // channel 1
     wire c1_axi_stream_to_cm_tvalid, c1_axi_stream_to_cm_tlast, c1_axi_stream_to_cm_tready;
@@ -190,7 +189,7 @@ module wfd_top(
 
     wire c1_axi_stream_to_channel_tvalid, c1_axi_stream_to_channel_tlast, c1_axi_stream_to_channel_tready;
     wire[0:31] c1_axi_stream_to_channel_tdata;
-    wire[0:2]  c1_axi_stream_to_channel_tdest;
+    wire[0:3]  c1_axi_stream_to_channel_tdest;
 
     // channel 2
     wire c2_axi_stream_to_cm_tvalid, c2_axi_stream_to_cm_tlast, c2_axi_stream_to_cm_tready;
@@ -198,7 +197,7 @@ module wfd_top(
 
     wire c2_axi_stream_to_channel_tvalid, c2_axi_stream_to_channel_tlast, c2_axi_stream_to_channel_tready;
     wire[0:31] c2_axi_stream_to_channel_tdata;
-    wire[0:2]  c2_axi_stream_to_channel_tdest;
+    wire[0:3]  c2_axi_stream_to_channel_tdest;
 
     // channel 3
     wire c3_axi_stream_to_cm_tvalid, c3_axi_stream_to_cm_tlast, c3_axi_stream_to_cm_tready;
@@ -206,7 +205,7 @@ module wfd_top(
 
     wire c3_axi_stream_to_channel_tvalid, c3_axi_stream_to_channel_tlast, c3_axi_stream_to_channel_tready;
     wire[0:31] c3_axi_stream_to_channel_tdata;
-    wire[0:2]  c3_axi_stream_to_channel_tdest;
+    wire[0:3]  c3_axi_stream_to_channel_tdest;
 
     // channel 4
     wire c4_axi_stream_to_cm_tvalid, c4_axi_stream_to_cm_tlast, c4_axi_stream_to_cm_tready;
@@ -214,13 +213,13 @@ module wfd_top(
 
     wire c4_axi_stream_to_channel_tvalid, c4_axi_stream_to_channel_tlast, c4_axi_stream_to_channel_tready;
     wire[0:31] c4_axi_stream_to_channel_tdata;
-    wire[0:2]  c4_axi_stream_to_channel_tdest;
+    wire[0:3]  c4_axi_stream_to_channel_tdest;
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     // packaged up channel connections for the axis tx switch output
     wire[4:0]   c_axi_stream_to_channel_tvalid, c_axi_stream_to_channel_tlast, c_axi_stream_to_channel_tready;
-    wire[14:0]  c_axi_stream_to_channel_tdest;
+    wire[19:0]  c_axi_stream_to_channel_tdest;
     wire[159:0] c_axi_stream_to_channel_tdata;
 
     assign c0_axi_stream_to_channel_tvalid = c_axi_stream_to_channel_tvalid[0];
@@ -243,16 +242,16 @@ module wfd_top(
     assign c2_axi_stream_to_channel_tdata = c_axi_stream_to_channel_tdata[95:64];
     assign c3_axi_stream_to_channel_tdata = c_axi_stream_to_channel_tdata[127:96];
     assign c4_axi_stream_to_channel_tdata = c_axi_stream_to_channel_tdata[159:128];
-    assign c0_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[2:0];
-    assign c1_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[5:3];
-    assign c2_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[8:6];
-    assign c3_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[11:9];
-    assign c4_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[14:12];
+    assign c0_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[3:0];
+    assign c1_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[7:4];
+    assign c2_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[11:8];
+    assign c3_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[15:12];
+    assign c4_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[19:16];
 
     // connections from cm to axis tx switch
     wire axi_stream_to_channel_from_cm_tvalid, axi_stream_to_channel_from_cm_tlast, axi_stream_to_channel_from_cm_tready;
     wire[0:31] axi_stream_to_channel_from_cm_tdata;
-    wire[0:2]  axi_stream_to_channel_from_cm_tdest;
+    wire[0:3]  axi_stream_to_channel_from_cm_tdest;
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -295,6 +294,7 @@ module wfd_top(
     // connections from ipbus to cm
     wire axi_stream_to_cm_from_ipbus_tvalid, axi_stream_to_cm_from_ipbus_tlast, axi_stream_to_cm_from_ipbus_tready;
     wire[0:31] axi_stream_to_cm_from_ipbus_tdata;
+    wire[0:3] axi_stream_to_cm_from_ipbus_tdest;
 
 
     // ======== Communication with the AMC13 DAQ Link ========
@@ -344,6 +344,7 @@ module wfd_top(
         .axi_stream_out_tvalid(axi_stream_to_cm_from_ipbus_tvalid),
         .axi_stream_out_tdata(axi_stream_to_cm_from_ipbus_tdata[0:31]),
         .axi_stream_out_tlast(axi_stream_to_cm_from_ipbus_tlast),
+        .axi_stream_out_tdest(axi_stream_to_cm_from_ipbus_tdest),
         .axi_stream_out_tready(axi_stream_to_cm_from_ipbus_tready),
 
         // connections from cm to ipbus
@@ -563,7 +564,7 @@ module wfd_top(
         .tm_fifo_data(fifo_to_cm_tdata),
 
         // other connections
-        .num_channels(3'b001),   // number of channels to loop through (start counting at 1)
+        .num_channels(3'b010),   // number of channels to loop through (start counting at 1)
         .clk(clk125),
         .rst(rst_from_ipb),
         .busy(cm_busy)
@@ -610,14 +611,14 @@ module wfd_top(
         .s_axis_tvalid(axi_stream_to_channel_from_cm_tvalid), // input  wire [0 : 0]  s_axis_tvalid
         .s_axis_tready(axi_stream_to_channel_from_cm_tready), // output wire [0 : 0]  s_axis_tready
         .s_axis_tdata(axi_stream_to_channel_from_cm_tdata),   // input  wire [31 : 0] s_axis_tdata
-        .s_axis_tdest(axi_stream_to_channel_from_cm_tdest),   // input  wire [2 : 0]  s_axis_tdest
+        .s_axis_tdest(axi_stream_to_channel_from_cm_tdest),   // input  wire [3 : 0]  s_axis_tdest
         .s_axis_tlast(axi_stream_to_channel_from_cm_tlast),   // input  wire [0 : 0]  s_axis_tlast
 
         // channel FPGA side
         .m_axis_tvalid(c_axi_stream_to_channel_tvalid), // output wire [4 : 0]   m_axis_tvalid
         .m_axis_tready(c_axi_stream_to_channel_tready), // input  wire [4 : 0]   m_axis_tready
         .m_axis_tdata(c_axi_stream_to_channel_tdata),   // output wire [159 : 0] m_axis_tdata
-        .m_axis_tdest(c_axi_stream_to_channel_tdest),   // output wire [14 : 0]  m_axis_tdest
+        .m_axis_tdest(c_axi_stream_to_channel_tdest),   // output wire [19 : 0]  m_axis_tdest
         .m_axis_tlast(c_axi_stream_to_channel_tlast)    // output wire [4 : 0]   m_axis_tlast
     );
 
