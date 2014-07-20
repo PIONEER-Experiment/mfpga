@@ -7,9 +7,9 @@ module triggerManager (
   output reg [4:0] trig_arm,
   output reg [23:0] trig_num,
   input wire clk,
-  input wire cm_busy,
+  (* mark_debug = "true" *) input wire cm_busy,
   input wire [4:0] done,
-  input wire fifo_filled,
+  (* mark_debug = "true" *) input wire fifo_filled,
   input wire fifo_ready,
   input wire reset,
   input wire trigger 
@@ -23,7 +23,7 @@ module triggerManager (
   STORE_FILLNUM = 3; 
 
   (* mark_debug = "true" *) reg [3:0] state;
-  reg [3:0] nextstate;
+  (* mark_debug = "true" *) reg [3:0] nextstate;
   reg [23:0] next_trig_num;
 
   // comb always block

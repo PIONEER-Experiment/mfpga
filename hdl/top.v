@@ -564,7 +564,7 @@ module wfd_top(
         .tm_fifo_data(fifo_to_cm_tdata),
 
         // other connections
-        .num_channels(3'b010),   // number of channels to loop through (start counting at 1)
+        .num_channels(3'b101),   // number of channels to loop through (start counting at 1)
         .clk(clk125),
         .rst(rst_from_ipb),
         .busy(cm_busy)

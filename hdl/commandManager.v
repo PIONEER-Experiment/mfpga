@@ -1,5 +1,5 @@
 
-// Created by fizzim.pl version 4.42 on 2014:07:19 at 12:35:14 (www.fizzim.com)
+// Created by fizzim.pl version $Revision: 4.44 on 2014:07:20 at 12:48:23 (www.fizzim.com)
 
 module commandManager (
   output reg busy,
@@ -33,7 +33,7 @@ module commandManager (
   input wire [23:0] tm_fifo_data,
   input wire tm_fifo_valid 
 );
-  
+
   // state bits
   parameter 
   IDLE                      = 0, 
@@ -61,7 +61,7 @@ module commandManager (
   SEND_IPBUS_CMD            = 22, 
   SEND_IPBUS_CSN            = 23, 
   SEND_IPBUS_RES            = 24; 
-  
+
   (* mark_debug = "true" *) reg [24:0] state;
   reg [24:0] nextstate;
   (* mark_debug = "true" *) reg [31:0] buf_size_buf;
@@ -80,7 +80,7 @@ module commandManager (
   reg [31:0] next_ipbus_buf;
   reg next_ipbus_res_last;
   reg [31:0] next_trig_num_buf;
-  
+
   // comb always block
   always @* begin
     nextstate = 25'b0000000000000000000000000;
@@ -121,7 +121,6 @@ module commandManager (
           nextstate[SEND_CHAN_CSN] = 1'b1;
           next_chan_tx_fifo_last = 0;
           next_chan_tx_fifo_dest[3:0] = 0;
-          next_data_count[31:0] = 0;
         end
       end
       state[READ_CHAN_BUF_SIZE]       : begin
@@ -308,6 +307,7 @@ module commandManager (
       state[SEND_CHAN_HEADER]         : begin
         if (daq_ready) begin
           nextstate[READ_CHAN_DATA1] = 1'b1;
+          next_data_count[31:0] = 0;
         end
         else begin
           nextstate[SEND_CHAN_HEADER] = 1'b1; // Added because implied_loopback is true
@@ -350,7 +350,7 @@ module commandManager (
       end
     endcase
   end
-  
+
   // sequential always block
   always @(posedge clk) begin
     if (rst) begin
@@ -380,7 +380,7 @@ module commandManager (
       trig_num_buf[31:0] <= next_trig_num_buf[31:0];
       end
   end
-  
+
   // datapath sequential always block
   always @(posedge clk) begin
     if (rst) begin
@@ -407,6 +407,9 @@ module commandManager (
       case (1'b1) // synopsys parallel_case full_case
         nextstate[IDLE]                     : begin
           busy <= 0;
+        end
+        nextstate[CHECK_LAST]               : begin
+          ; // case must be complete for onehot
         end
         nextstate[GET_TRIG_NUM]             : begin
           tm_fifo_ready <= 1;
@@ -482,7 +485,7 @@ module commandManager (
       endcase
     end
   end
-  
+
   // This code allows you to see state names in simulation
   `ifndef SYNTHESIS
   reg [199:0] statename;
