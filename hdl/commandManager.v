@@ -1,5 +1,5 @@
 
-// Created by fizzim.pl version $Revision: 4.44 on 2014:07:20 at 12:48:23 (www.fizzim.com)
+// Created by fizzim.pl version $Revision: 4.44 on 2014:07:20 at 15:49:00 (www.fizzim.com)
 
 module commandManager (
   output reg busy,
@@ -16,6 +16,7 @@ module commandManager (
   output reg [31:0] ipbus_res_data,
   output reg ipbus_res_last,
   output reg ipbus_res_valid,
+  output reg read_fill_done,
   output reg tm_fifo_ready,
   input wire [31:0] chan_rx_fifo_data,
   input wire chan_rx_fifo_last,
@@ -392,6 +393,7 @@ module commandManager (
       daq_valid <= 0;
       ipbus_cmd_ready <= 0;
       ipbus_res_valid <= 0;
+      read_fill_done <= 0;
       tm_fifo_ready <= 0;
     end
     else begin
@@ -403,6 +405,7 @@ module commandManager (
       daq_valid <= 0; // default
       ipbus_cmd_ready <= 0; // default
       ipbus_res_valid <= 0; // default
+      read_fill_done <= 0; // default
       tm_fifo_ready <= 0; // default
       case (1'b1) // synopsys parallel_case full_case
         nextstate[IDLE]                     : begin
@@ -460,6 +463,7 @@ module commandManager (
         nextstate[SEND_AMC13_TRAILER]       : begin
           daq_trailer <= 1;
           daq_valid <= 1;
+          read_fill_done <= 1;
         end
         nextstate[SEND_CHAN_CC]             : begin
           chan_tx_fifo_valid <= 1;

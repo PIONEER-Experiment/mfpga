@@ -489,6 +489,7 @@ module wfd_top(
 
 
     // trigger manager module
+    (* mark_debug = "true" *) wire chan_readout_done; // needed for the trig_arm signal
     triggerManager tm(
         // interface to trig number FIFO
         .fifo_valid(tm_to_fifo_tvalid),
@@ -498,10 +499,10 @@ module wfd_top(
         .trigger(trigger_from_ipbus),
         .go(acq_trigs),
         .done(chan_done),
-        .fifo_filled(fifo_to_cm_tvalid), // input wire, to monitor when a fill is being read out
+        .chan_readout_done(chan_readout_done), // input wire, to monitor when a fill is being read out
         // trig_arm still needs to be connected to c0_io[3:0], etc.
         // need to first decide on index assignments for c0_io[3:0], etc.
-        .trig_arm(),                     // output wire [4 : 0], to start the circular memory buffer
+        .trig_arm(),                           // output wire [4 : 0], to start the circular memory buffer
 
         // other connections
         .clk(clk125),
@@ -564,7 +565,8 @@ module wfd_top(
         .tm_fifo_data(fifo_to_cm_tdata),
 
         // other connections
-        .num_channels(3'b101),   // number of channels to loop through (start counting at 1)
+        .read_fill_done(chan_readout_done),
+        .num_channels(3'b101),              // number of channels to loop through (starting at 1)
         .clk(clk125),
         .rst(rst_from_ipb),
         .busy(cm_busy)

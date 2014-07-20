@@ -1,15 +1,15 @@
 
-// Created by fizzim.pl version $Revision: 4.44 on 2014:07:19 at 11:54:21 (www.fizzim.com)
+// Created by fizzim.pl version $Revision: 4.44 on 2014:07:20 at 15:50:23 (www.fizzim.com)
 
 module triggerManager (
   output reg fifo_valid,
   output reg [4:0] go,
   output reg [4:0] trig_arm,
   output reg [23:0] trig_num,
+  input wire chan_readout_done,
   input wire clk,
-  (* mark_debug = "true" *) input wire cm_busy,
+  input wire cm_busy,
   input wire [4:0] done,
-  (* mark_debug = "true" *) input wire fifo_filled,
   input wire fifo_ready,
   input wire reset,
   input wire trigger 
@@ -49,7 +49,7 @@ module triggerManager (
         end
       end
       state[SET_TRIG_ARM] : begin
-        if (!fifo_filled && !cm_busy) begin
+        if (chan_readout_done) begin
           nextstate[IDLE] = 1'b1;
         end
         else begin
