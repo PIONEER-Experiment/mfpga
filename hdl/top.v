@@ -19,7 +19,14 @@ module wfd_top(
     output wire c3_tx, c3_tx_N,       // Serial link to Channel 3 TX
     input wire  c4_rx, c4_rx_N,       // Serial link to Channel 4 RX
     output wire c4_tx, c4_tx_N,       // Serial link to Channel 4 TX
-    output wire[7:0] debug,           // debug header
+    output wire debug0,               // debug header
+    output wire debug1,               // debug header
+    output wire debug2,               // debug header
+    input wire debug3,                // debug header (used for board id)
+    input wire debug4,                // debug header (used for board id)
+    input wire debug5,                // debug header (used for board id)
+    output wire debug6,               // debug header
+    output wire debug7,               // debug header
     output wire[4:0] acq_trigs,       // triggers to channel FPGAs
     input [4:0] acq_dones,            // done signals from channel FPGAs
     output wire led0, led1,           // front panel LEDs. led0 is green, led1 is red
@@ -71,16 +78,20 @@ module wfd_top(
     assign clk50 = clkin; // just to make the frequency explicit
 
 	// dummy use of signals
-    assign debug[0] = acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4];
-    assign debug[1] = mmc_io[2] & mmc_io[3];
+    assign debug0 = acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4];
+    assign debug1 = mmc_io[2] & mmc_io[3];
 
-    assign debug[2] = c0_io[0] & c0_io[1] & c0_io[2] & c0_io[3] & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
-    assign debug[3] = c1_io[0] & c1_io[1] & c1_io[2] & c1_io[3] & prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
-    assign debug[4] = c2_io[0] & c2_io[2] & c2_io[2] & c2_io[3];
-    assign debug[5] = c3_io[0] & c3_io[2] & c3_io[2] & c3_io[3];
-    assign debug[6] = c4_io[0] & c4_io[2] & c4_io[2] & c4_io[3];
+    assign debug2 = c0_io[0] & c0_io[1] & c0_io[2] & c0_io[3] & initb[4] & initb[3] & initb[2] & initb[1] & initb[0] & prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
+    assign debug6 = c1_io[0] & c1_io[1] & c1_io[2] & c1_io[3] & c2_io[0] & c2_io[2] & c2_io[2] & c2_io[3] & c3_io[0] & c3_io[2] & c3_io[2] & c3_io[3] & c4_io[0] & c4_io[2] & c4_io[2] & c4_io[3];
 
-    assign debug[7] = mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5];
+    assign debug7 = mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5];
+
+    // use three of the debug pins as inputs for unique board identification
+    wire [2:0] board_id;
+    assign board_id[2] = debug3;
+    assign board_id[1] = debug4;
+    assign board_id[0] = debug5;
+
 	assign bbus_scl = ext_trig ? mmc_io[0] : 1'bz;
 	assign bbus_sda = ext_trig ? mmc_io[1] : 1'bz;
 	assign adcclk_ld = 1'b0;
@@ -177,11 +188,11 @@ module wfd_top(
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     // AXI4-Stream interface for communicating with serial link to channel FPGA
     // channel 0
-    (* mark_debug = "true" *) wire c0_axi_stream_to_cm_tvalid, c0_axi_stream_to_cm_tlast, c0_axi_stream_to_cm_tready;
-    (* mark_debug = "true" *) wire[0:31] c0_axi_stream_to_cm_tdata;
+    wire c0_axi_stream_to_cm_tvalid, c0_axi_stream_to_cm_tlast, c0_axi_stream_to_cm_tready;
+    wire[0:31] c0_axi_stream_to_cm_tdata;
 
-    (* mark_debug = "true" *) wire c0_axi_stream_to_channel_tvalid, c0_axi_stream_to_channel_tlast, c0_axi_stream_to_channel_tready;
-    (* mark_debug = "true" *) wire[0:31] c0_axi_stream_to_channel_tdata;
+    wire c0_axi_stream_to_channel_tvalid, c0_axi_stream_to_channel_tlast, c0_axi_stream_to_channel_tready;
+    wire[0:31] c0_axi_stream_to_channel_tdata;
 
     // channel 1
     wire c1_axi_stream_to_cm_tvalid, c1_axi_stream_to_cm_tlast, c1_axi_stream_to_cm_tready;
@@ -367,7 +378,9 @@ module wfd_top(
         .pll_not_locked(pll_not_locked),    
         .tx_resetdone_out(tx_resetdone_out),
         .rx_resetdone_out(rx_resetdone_out),
-        .link_reset_out(link_reset_out)
+        .link_reset_out(link_reset_out),
+
+        .board_id(board_id)
     );
 
  

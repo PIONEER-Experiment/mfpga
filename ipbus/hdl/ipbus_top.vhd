@@ -80,7 +80,8 @@ entity ipbus_top is port(
 	rx_resetdone_out : in std_logic;
 	link_reset_out : in std_logic;
 
-	debug: out std_logic_vector(7 downto 0)
+	debug: out std_logic_vector(7 downto 0);
+	board_id : in std_logic_vector(2 downto 0)
 );
 
 end ipbus_top;
@@ -176,9 +177,59 @@ begin
 			pkt_rx_led => pkt_rx_led,
 			pkt_tx_led => pkt_tx_led
 		);
-		
-	mac_addr <= X"020ddba11583"; -- Careful here, arbitrary addresses do not always work
-	ip_addr <= X"c0a81a32"; -- 192.168.26.50
+	
+	-- use board_id to assign ip and mac addresses
+
+	-- WFD5 S/N 1 : board_id = 001
+	-- WFD5 S/N 2 : board_id = 000
+
+	-- available MAC addresses:
+	--      00:60:55:00:01:XX
+	--      00:60:55:00:02:XX
+
+	-- SLAC test beam address assignments
+	--      WFD1 S/N 4:   192.168.1.130      00:60:55:00:01:00
+	--      WFD1 S/N 2:   192.168.1.131      00:60:55:00:01:01
+    --      WFD5 S/N 1:   192.168.1.132      00:60:55:00:01:02
+    --      WFD5 S/N 2:   192.168.1.133      00:60:55:00:01:03
+    --      WFD5 S/N 3:   192.168.1.134      00:60:55:00:01:04
+    --      WFD5 S/N 4:   192.168.1.135      00:60:55:00:01:05
+    --      WFD5 S/N 5:   192.168.1.136      00:60:55:00:01:06
+
+    -- Cornell IP address assignments
+    --      WFD5 S/N 1:   192.168.26.32
+    --      WFD5 S/N 2:   192.168.26.33
+    --      WFD5 S/N 3:   192.168.26.34
+    --      WFD5 S/N 4:   192.168.26.35
+    --      WFD5 S/N 5:   192.168.26.36    
+
+	mac_addr <= X"006055000102" when board_id="001" else
+	            X"006055000103" when board_id="000" else
+	            X"006055000104" when board_id="010" else
+	            X"006055000105" when board_id="011" else
+	            X"006055000106" when board_id="100" else
+	            X"006055000107"; -- should never happen
+
+	-- SLAC IP addresses
+	-- ip_addr <= X"c0a80184" when board_id="001" else
+	--            X"c0a80185" when board_id="000" else
+	--            X"c0a80186" when board_id="010" else
+	--            X"c0a80187" when board_id="011" else
+	--            X"c0a80188" when board_id="100" else
+	--            X"c0a80189"; -- should never happen
+
+	-- Cornell IP addresses
+	ip_addr <= X"c0a81a20" when board_id="001" else
+	           X"c0a81a21" when board_id="000" else
+	           X"c0a81a22" when board_id="010" else
+	           X"c0a81a23" when board_id="011" else
+	           X"c0a81a24" when board_id="100" else
+	           X"c0a81a25"; -- should never happen
+
+	-- old hardcoded ip and mac addresses	
+	-- mac_addr <= X"020ddba11583"; -- Careful here, arbitrary addresses do not always work
+	-- ip_addr <= X"c0a81a32"; -- 192.168.26.50
+
 
 	-- ipbus slaves live in the entity below, and can expose top-level ports
 	-- The ipbus fabric is instantiated within.
