@@ -34,11 +34,11 @@ module wfd_top(
     inout bbus_sda,                   // I2C bus data, connected to Atmel Chip and to Channel FPGAs
 	input wire ext_trig,              // front panel trigger
 	input [3:0] mmc_io,               // controls to/from the Atmel
-	input [3:0] c0_io,                // utility signals to channel 0
-	input [3:0] c1_io,                // utility signals to channel 1
-	input [3:0] c2_io,                // utility signals to channel 2
-	input [3:0] c3_io,                // utility signals to channel 3
-	input [3:0] c4_io,                // utility signals to channel 4
+	output [3:0] c0_io,               // utility signals to channel 0
+	output [3:0] c1_io,               // utility signals to channel 1
+	output [3:0] c2_io,               // utility signals to channel 2
+	output [3:0] c3_io,               // utility signals to channel 3
+	output [3:0] c4_io,               // utility signals to channel 4
     input [5:0] mezzb,                // MB[5..0] on schematic
     input mmc_reset_m,                // reset line 
 	output adcclk_ld,                 //
@@ -64,7 +64,6 @@ module wfd_top(
     input [4:0] initb,                // to each channel FPGA Configuration
     input [4:0] prog_done,            // from each channel FPGA Configuration
     input test                        // 
-	
 );
 
     // ======== clock signals ========
@@ -80,11 +79,36 @@ module wfd_top(
 	// dummy use of signals
     assign debug0 = acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4];
     assign debug1 = mmc_io[2] & mmc_io[3];
-
-    assign debug2 = c0_io[0] & c0_io[1] & c0_io[2] & c0_io[3] & initb[4] & initb[3] & initb[2] & initb[1] & initb[0] & prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
-    assign debug6 = c1_io[0] & c1_io[1] & c1_io[2] & c1_io[3] & c2_io[0] & c2_io[2] & c2_io[2] & c2_io[3] & c3_io[0] & c3_io[2] & c3_io[2] & c3_io[3] & c4_io[0] & c4_io[2] & c4_io[2] & c4_io[3];
-
+    assign debug2 = initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
+    assign debug6 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
     assign debug7 = mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5];
+
+    assign c0_io[0] = 1'b0;
+    assign c0_io[1] = 1'b0;
+    assign c1_io[0] = 1'b0;
+    assign c1_io[1] = 1'b0;
+    assign c2_io[0] = 1'b0;
+    assign c2_io[1] = 1'b0;
+    assign c3_io[0] = 1'b0;
+    assign c3_io[1] = 1'b0;
+    assign c4_io[0] = 1'b0;
+    assign c4_io[1] = 1'b0;
+
+
+    // (active-high) reset signal to channels
+    assign c0_io[3] = rst_from_ipb;
+    assign c1_io[3] = rst_from_ipb;
+    assign c2_io[3] = rst_from_ipb;
+    assign c3_io[3] = rst_from_ipb;
+    assign c4_io[3] = rst_from_ipb;
+
+    // trigger arm signal for trigger manager
+    (* mark_debug = "true" *) wire [4:0] trig_arm;
+    assign c0_io[2] = trig_arm[0];
+    assign c1_io[2] = trig_arm[1];
+    assign c2_io[2] = trig_arm[2];
+    assign c3_io[2] = trig_arm[3];
+    assign c4_io[2] = trig_arm[4];
 
     // use three of the debug pins as inputs for unique board identification
     wire [2:0] board_id;
@@ -115,6 +139,7 @@ module wfd_top(
     assign c_din = test;
     //assign initb[4:0] = prog_done[4:0]; // initb changed from output to input
 
+
     // Generate clocks from the 50 MHz input clock
     // Most of the design is run from the 125 MHz clock (Don't confuse it with the 125 MHz GTREFCLK)
     // clk200 acts as the independent clock required by the Gigabit ethernet IP
@@ -135,6 +160,16 @@ module wfd_top(
         .PWRDWN(0),
         .CLKFBOUT(clkfb),
         .CLKFBIN(clkfb)
+    );
+
+
+    // sync_2stage module
+    // Put the external trigger into the 125 MHz clock domain
+    (* mark_debug = "true" *) wire ext_trig_sync;
+    sync_2stage trig_sync(
+        .clk(clk125),
+        .in(ext_trig),
+        .out(ext_trig_sync)
     );
 
 
@@ -509,13 +544,11 @@ module wfd_top(
         .fifo_ready(tm_to_fifo_tready),
         .trig_num(tm_to_fifo_tdata),
 
-        .trigger(trigger_from_ipbus),
+        .trigger(ext_trig_sync),
         .go(acq_trigs),
         .done(chan_done),
         .chan_readout_done(chan_readout_done), // input wire, to monitor when a fill is being read out
-        // trig_arm still needs to be connected to c0_io[3:0], etc.
-        // need to first decide on index assignments for c0_io[3:0], etc.
-        .trig_arm(),                           // output wire [4 : 0], to start the circular memory buffer
+        .trig_arm(trig_arm),                   // output wire [4 : 0], to start the circular memory buffer
 
         // other connections
         .clk(clk125),
@@ -603,7 +636,7 @@ module wfd_top(
 
         .TTCclk(clk125),
         .BcntRes(rst_from_ipb),
-        .trig(trigger_from_ipbus),
+        .trig(ext_trig_sync),
         .TTSclk(1'b0),
         .TTS(4'd0),
 

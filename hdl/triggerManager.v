@@ -1,5 +1,5 @@
 
-// Created by fizzim.pl version $Revision: 4.44 on 2014:07:20 at 15:50:23 (www.fizzim.com)
+// Created by fizzim.pl version $Revision: 4.44 on 2014:07:21 at 11:13:56 (www.fizzim.com)
 
 module triggerManager (
   output reg fifo_valid,
@@ -17,21 +17,22 @@ module triggerManager (
 
   // state bits
   parameter 
-  IDLE          = 0, 
-  FILL          = 1, 
-  SET_TRIG_ARM  = 2, 
-  STORE_FILLNUM = 3; 
+  IDLE             = 0, 
+  FILL             = 1, 
+  STORE_FILLNUM    = 2, 
+  TOGGLE_ARM       = 3, 
+  WAIT_FOR_READOUT = 4; 
 
-  (* mark_debug = "true" *) reg [3:0] state;
-  (* mark_debug = "true" *) reg [3:0] nextstate;
+  (* mark_debug = "true" *) reg [4:0] state;
+  (* mark_debug = "true" *) reg [4:0] nextstate;
   reg [23:0] next_trig_num;
 
   // comb always block
   always @* begin
-    nextstate = 4'b0000;
+    nextstate = 5'b00000;
     next_trig_num[23:0] = trig_num[23:0];
     case (1'b1) // synopsys parallel_case full_case
-      state[IDLE]         : begin
+      state[IDLE]            : begin
         if (trigger && !cm_busy) begin
           nextstate[FILL] = 1'b1;
           next_trig_num[23:0] = trig_num[23:0]+1;
@@ -40,7 +41,7 @@ module triggerManager (
           nextstate[IDLE] = 1'b1; // Added because implied_loopback is true
         end
       end
-      state[FILL]         : begin
+      state[FILL]            : begin
         if (done[4:0]==5'b11111) begin
           nextstate[STORE_FILLNUM] = 1'b1;
         end
@@ -48,20 +49,25 @@ module triggerManager (
           nextstate[FILL] = 1'b1; // Added because implied_loopback is true
         end
       end
-      state[SET_TRIG_ARM] : begin
-        if (chan_readout_done) begin
-          nextstate[IDLE] = 1'b1;
-        end
-        else begin
-          nextstate[SET_TRIG_ARM] = 1'b1; // Added because implied_loopback is true
-        end
-      end
-      state[STORE_FILLNUM]: begin
+      state[STORE_FILLNUM]   : begin
         if (fifo_ready) begin
-          nextstate[SET_TRIG_ARM] = 1'b1;
+          nextstate[WAIT_FOR_READOUT] = 1'b1;
         end
         else begin
           nextstate[STORE_FILLNUM] = 1'b1; // Added because implied_loopback is true
+        end
+      end
+      state[TOGGLE_ARM]      : begin
+        begin
+          nextstate[IDLE] = 1'b1;
+        end
+      end
+      state[WAIT_FOR_READOUT]: begin
+        if (chan_readout_done) begin
+          nextstate[TOGGLE_ARM] = 1'b1;
+        end
+        else begin
+          nextstate[WAIT_FOR_READOUT] = 1'b1; // Added because implied_loopback is true
         end
       end
     endcase
@@ -70,7 +76,7 @@ module triggerManager (
   // sequential always block
   always @(posedge clk) begin
     if (reset) begin
-      state <= 4'b0001 << IDLE;
+      state <= 5'b00001 << IDLE;
       trig_num[23:0] <= 0;
       end
     else begin
@@ -91,18 +97,20 @@ module triggerManager (
       go[4:0] <= 5'b00000; // default
       trig_arm[4:0] <= 5'b11111; // default
       case (1'b1) // synopsys parallel_case full_case
-        nextstate[IDLE]         : begin
+        nextstate[IDLE]            : begin
           ; // case must be complete for onehot
         end
-        nextstate[FILL]         : begin
+        nextstate[FILL]            : begin
           go[4:0] <= 5'b11111;
         end
-        nextstate[SET_TRIG_ARM] : begin
+        nextstate[STORE_FILLNUM]   : begin
+          fifo_valid <= 1;
+        end
+        nextstate[TOGGLE_ARM]      : begin
           trig_arm[4:0] <= 5'b00000;
         end
-        nextstate[STORE_FILLNUM]: begin
-          fifo_valid <= 1;
-          trig_arm[4:0] <= 5'b00000;
+        nextstate[WAIT_FOR_READOUT]: begin
+          trig_arm[4:0] <= 5'11111;
         end
       endcase
     end
@@ -110,19 +118,21 @@ module triggerManager (
 
   // This code allows you to see state names in simulation
   `ifndef SYNTHESIS
-  reg [103:0] statename;
+  reg [127:0] statename;
   always @* begin
     case (1'b1)
-      state[IDLE]         :
+      state[IDLE]            :
         statename = "IDLE";
-      state[FILL]         :
+      state[FILL]            :
         statename = "FILL";
-      state[SET_TRIG_ARM] :
-        statename = "SET_TRIG_ARM";
-      state[STORE_FILLNUM]:
+      state[STORE_FILLNUM]   :
         statename = "STORE_FILLNUM";
-      default      :
-        statename = "XXXXXXXXXXXXX";
+      state[TOGGLE_ARM]      :
+        statename = "TOGGLE_ARM";
+      state[WAIT_FOR_READOUT]:
+        statename = "WAIT_FOR_READOUT";
+      default         :
+        statename = "XXXXXXXXXXXXXXXX";
     endcase
   end
   `endif
