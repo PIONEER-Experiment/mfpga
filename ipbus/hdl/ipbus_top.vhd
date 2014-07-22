@@ -182,6 +182,7 @@ begin
 
 	-- WFD5 S/N 1 : board_id = 001
 	-- WFD5 S/N 2 : board_id = 000
+	-- WFD5 S/N 3 : board_id = 010
 
 	-- available MAC addresses:
 	--      00:60:55:00:01:XX

@@ -14,7 +14,8 @@ set_false_path -from [get_cells ipb/rst/rst_delayed_reg] -to [get_cells ipb/rst/
 #set_property ASYNC_REG TRUE [get_cells r/rst_clk50_sync[*]]
 #set_false_path -from [get_cells r/ipb_rst_stretch_reg[*]] -to [get_cells r/rst_clk50_sync_reg*]
 
-create_clock -period 4.000 -name DAQ_usrclk [get_pins daq/i_DAQLINK_7S_init/GT0_TXOUTCLK_OUT]
+#create_clock -period 4.000 -name DAQ_usrclk [get_pins daq/i_DAQLINK_7S_init/GT0_TXOUTCLK_OUT]
+create_clock -period 4.000 -name DAQ_usrclk [get_pins daq/i_UsrClk/O]
 
 # virtual clock to constrain trigger outputs
 # we want all of them to line up to within the 800 MHz clock used by the channel FPGAs

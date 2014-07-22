@@ -110,7 +110,7 @@ module triggerManager (
           trig_arm[4:0] <= 5'b00000;
         end
         nextstate[WAIT_FOR_READOUT]: begin
-          trig_arm[4:0] <= 5'11111;
+          trig_arm[4:0] <= 5'b11111;
         end
       endcase
     end

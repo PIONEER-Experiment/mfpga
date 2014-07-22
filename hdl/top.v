@@ -41,11 +41,11 @@ module wfd_top(
 	output [3:0] c4_io,               // utility signals to channel 4
     input [5:0] mezzb,                // MB[5..0] on schematic
     input mmc_reset_m,                // reset line 
-	output adcclk_ld,                 //
+	//output adcclk_ld,                 //
 	output adcclk_goe,                //
 	output adcclk_sync,               //
-	output adcclk_los0,               //
-	output adcclk_los1,               //
+	//output adcclk_los0,               //
+	//output adcclk_los1,               //
 	output adcclk_dlen,               //
 	output adcclk_ddat,               //
 	output adcclk_dclk,               //
@@ -118,16 +118,16 @@ module wfd_top(
 
 	assign bbus_scl = ext_trig ? mmc_io[0] : 1'bz;
 	assign bbus_sda = ext_trig ? mmc_io[1] : 1'bz;
-	assign adcclk_ld = 1'b0;
-	assign adcclk_goe = 1'b0;
-	assign adcclk_sync = 1'b0;
-	assign adcclk_los0 = 1'b0;
-	assign adcclk_los1 = 1'b0;
-	assign adcclk_dlen = 1'b0;
-	assign adcclk_ddat = 1'b0;
-	assign adcclk_dclk = 1'b0;
-	assign daq_clk_sel = 1'b0;
-	assign daq_clk_en = 1'b0;
+	// assign adcclk_ld = 1'b0;
+	// assign adcclk_goe = 1'b0;
+	// assign adcclk_sync = 1'b0;
+	// assign adcclk_los0 = 1'b0;
+	// assign adcclk_los1 = 1'b0;
+	// assign adcclk_dlen = 1'b0;
+	// assign adcclk_ddat = 1'b0;
+	// assign adcclk_dclk = 1'b0;
+	assign daq_clk_sel = 1'b1;
+	assign daq_clk_en = 1'b1;
 
     wire ttc_clk, ttc_rx;
 	IBUFDS ttc_clk_buf(.I(ttc_clkp), .IB(ttc_clkn), .O(ttc_clk));  
@@ -546,7 +546,7 @@ module wfd_top(
 
         .trigger(ext_trig_sync),
         .go(acq_trigs),
-        .done(chan_done),
+        .done(acq_dones),
         .chan_readout_done(chan_readout_done), // input wire, to monitor when a fill is being read out
         .trig_arm(trig_arm),                   // output wire [4 : 0], to start the circular memory buffer
 
@@ -689,6 +689,19 @@ module wfd_top(
         .m_axis_tready(axi_stream_to_cm_from_channel_tready), // input  wire [0 : 0]  m_axis_tready
         .m_axis_tlast(axi_stream_to_cm_from_channel_tlast),   // output wire [0 : 0]  m_axis_tlast
         .m_axis_tdata(axi_stream_to_cm_from_channel_tdata)    // output wire [31 : 0] m_axis_tdata
+    );
+
+
+    // clock synthesizer initialization
+    clk_synth_intf clk_synth1(
+        .clk(clk50),
+        .reset(rst_from_ipb),
+        .dclk(adcclk_dclk),
+        .ddat(adcclk_ddat),
+        .dlen(adcclk_dlen),
+        .goe(adcclk_goe),
+        .sync(adcclk_sync),
+        .debug() 
     );
 
 
