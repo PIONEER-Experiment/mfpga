@@ -126,7 +126,8 @@ module wfd_top(
 	// assign adcclk_dlen = 1'b0;
 	// assign adcclk_ddat = 1'b0;
 	// assign adcclk_dclk = 1'b0;
-	assign daq_clk_sel = 1'b1;
+	assign daq_clk_sel = 1'b0;    //daq_clk_sel = 1 selects the auxiliary clock from J4
+                                  //daq_clk_sel = 0 selects the distributed daq clock from FCLKA on the uTCA backplane
 	assign daq_clk_en = 1'b1;
 
     wire ttc_clk, ttc_rx;

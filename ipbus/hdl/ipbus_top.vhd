@@ -212,20 +212,20 @@ begin
 	            X"006055000107"; -- should never happen
 
 	-- SLAC IP addresses
-	-- ip_addr <= X"c0a80184" when board_id="001" else
-	--            X"c0a80185" when board_id="000" else
-	--            X"c0a80186" when board_id="010" else
-	--            X"c0a80187" when board_id="011" else
-	--            X"c0a80188" when board_id="100" else
-	--            X"c0a80189"; -- should never happen
+	ip_addr <= X"c0a80184" when board_id="001" else
+	           X"c0a80185" when board_id="000" else
+	           X"c0a80186" when board_id="010" else
+	           X"c0a80187" when board_id="011" else
+	           X"c0a80188" when board_id="100" else
+	           X"c0a80189"; -- should never happen
 
 	-- Cornell IP addresses
-	ip_addr <= X"c0a81a20" when board_id="001" else
-	           X"c0a81a21" when board_id="000" else
-	           X"c0a81a22" when board_id="010" else
-	           X"c0a81a23" when board_id="011" else
-	           X"c0a81a24" when board_id="100" else
-	           X"c0a81a25"; -- should never happen
+	-- ip_addr <= X"c0a81a20" when board_id="001" else
+	--            X"c0a81a21" when board_id="000" else
+	--            X"c0a81a22" when board_id="010" else
+	--            X"c0a81a23" when board_id="011" else
+	--            X"c0a81a24" when board_id="100" else
+	--            X"c0a81a25"; -- should never happen
 
 	-- old hardcoded ip and mac addresses	
 	-- mac_addr <= X"020ddba11583"; -- Careful here, arbitrary addresses do not always work
