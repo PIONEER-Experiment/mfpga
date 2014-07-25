@@ -212,7 +212,7 @@ begin
 	            X"006055000107"; -- should never happen
 
 	-- SLAC IP addresses
-	ip_addr <= X"c0a80184" when board_id="001" else
+	ip_addr <= X"c0a81a20" when board_id="001" else -- Cornell address (temp)
 	           X"c0a80185" when board_id="000" else
 	           X"c0a80186" when board_id="010" else
 	           X"c0a80187" when board_id="011" else
