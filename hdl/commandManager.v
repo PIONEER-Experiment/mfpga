@@ -66,10 +66,10 @@ module commandManager (
   (* mark_debug = "true" *) reg [24:0] state;
   reg [24:0] nextstate;
   (* mark_debug = "true" *) reg [31:0] buf_size_buf;
-  (* mark_debug = "true" *) reg [31:0] chan_num_buf;
-  (* mark_debug = "true" *) reg [31:0] csn;
+  reg [31:0] chan_num_buf;
+  reg [31:0] csn;
   (* mark_debug = "true" *) reg [31:0] data_count;
-  (* mark_debug = "true" *) reg [31:0] ipbus_buf;
+  reg [31:0] ipbus_buf;
   (* mark_debug = "true" *) reg [31:0] trig_num_buf;
   reg [31:0] next_buf_size_buf;
   reg [31:0] next_chan_num_buf;

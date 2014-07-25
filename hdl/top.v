@@ -78,9 +78,9 @@ module wfd_top(
 
 	// dummy use of signals
     assign debug0 = acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4];
-    assign debug1 = mmc_io[2] & mmc_io[3];
+    assign debug1 = mmc_io[2] & mmc_io[3] & ext_trig_sync;
     assign debug2 = initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
-    assign debug6 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
+    assign debug6 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m;;
     assign debug7 = mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5];
 
     assign c0_io[0] = 1'b0;
@@ -126,8 +126,7 @@ module wfd_top(
 	// assign adcclk_dlen = 1'b0;
 	// assign adcclk_ddat = 1'b0;
 	// assign adcclk_dclk = 1'b0;
-	assign daq_clk_sel = 1'b0;    //daq_clk_sel = 1 selects the auxiliary clock from J4
-                                  //daq_clk_sel = 0 selects the distributed daq clock from FCLKA on the uTCA backplane
+	assign daq_clk_sel = 1'b1;
 	assign daq_clk_en = 1'b1;
 
     wire ttc_clk, ttc_rx;
@@ -135,7 +134,7 @@ module wfd_top(
 	IBUFDS ttc_rx_buf(.I(ttc_rxp), .IB(ttc_rxn), .O(ttc_rx)); 
 	OBUFDS ttc_tx_buf(.I(ttc_rx), .O(ttc_txp), .OB(ttc_txn)); 
 
-    assign c_progb = wfdps[0] & wfdps[1] & mmc_reset_m;
+    assign c_progb = 1'b1;
     assign c_clk = 1'b0;
     assign c_din = test;
     //assign initb[4:0] = prog_done[4:0]; // initb changed from output to input
@@ -205,11 +204,11 @@ module wfd_top(
     (* mark_debug = "true" *) wire[4:0] chan_done;
 
     // wires connecting the trig number fifo to the tm
-    wire tm_to_fifo_tvalid, tm_to_fifo_tready;
+    (* mark_debug = "true" *) wire tm_to_fifo_tvalid, tm_to_fifo_tready;
     wire[23:0] tm_to_fifo_tdata;
 
     (* mark_debug = "true" *) wire fifo_to_cm_tvalid, fifo_to_cm_tready;
-    (* mark_debug = "true" *) wire[23:0] fifo_to_cm_tdata;
+    wire[23:0] fifo_to_cm_tdata;
 
     // wire connecting the tm and the cm
     (* mark_debug = "true" *) wire cm_busy;
@@ -545,7 +544,7 @@ module wfd_top(
         .fifo_ready(tm_to_fifo_tready),
         .trig_num(tm_to_fifo_tdata),
 
-        .trigger(ext_trig_sync),
+        .trigger(trigger_from_ipbus),//ext_trig_sync),
         .go(acq_trigs),
         .done(acq_dones),
         .chan_readout_done(chan_readout_done), // input wire, to monitor when a fill is being read out
