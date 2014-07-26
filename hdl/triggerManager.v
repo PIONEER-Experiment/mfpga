@@ -1,5 +1,5 @@
 
-// Created by fizzim.pl version $Revision: 4.44 on 2014:07:21 at 11:13:56 (www.fizzim.com)
+// Created by fizzim.pl version $Revision: 4.44 on 2014:07:25 at 19:15:11 (www.fizzim.com)
 
 module triggerManager (
   output reg fifo_valid,
@@ -20,16 +20,20 @@ module triggerManager (
   IDLE             = 0, 
   FILL             = 1, 
   STORE_FILLNUM    = 2, 
-  TOGGLE_ARM       = 3, 
-  WAIT_FOR_READOUT = 4; 
+  TOGGLE_ARM1      = 3, 
+  TOGGLE_ARM2      = 4, 
+  WAIT_FOR_READOUT = 5; 
 
-  (* mark_debug = "true" *) reg [4:0] state;
-  (* mark_debug = "true" *) reg [4:0] nextstate;
+  (* mark_debug = "true" *) reg [5:0] state;
+  reg [5:0] nextstate;
+  (* mark_debug = "true" *) reg [3:0] count;
+  reg [3:0] next_count;
   reg [23:0] next_trig_num;
 
   // comb always block
   always @* begin
-    nextstate = 5'b00000;
+    nextstate = 6'b000000;
+    next_count[3:0] = count[3:0];
     next_trig_num[23:0] = trig_num[23:0];
     case (1'b1) // synopsys parallel_case full_case
       state[IDLE]            : begin
@@ -57,14 +61,28 @@ module triggerManager (
           nextstate[STORE_FILLNUM] = 1'b1; // Added because implied_loopback is true
         end
       end
-      state[TOGGLE_ARM]      : begin
-        begin
+      state[TOGGLE_ARM1]     : begin
+        if (count[3:0]==4'b1010) begin
           nextstate[IDLE] = 1'b1;
+        end
+        else begin
+          nextstate[TOGGLE_ARM2] = 1'b1;
+          next_count[3:0] = count[3:0]+1;
+        end
+      end
+      state[TOGGLE_ARM2]     : begin
+        if (count[3:0]==4'b1010) begin
+          nextstate[IDLE] = 1'b1;
+        end
+        else begin
+          nextstate[TOGGLE_ARM1] = 1'b1;
+          next_count[3:0] = count[3:0]+1;
         end
       end
       state[WAIT_FOR_READOUT]: begin
         if (chan_readout_done) begin
-          nextstate[TOGGLE_ARM] = 1'b1;
+          nextstate[TOGGLE_ARM1] = 1'b1;
+          next_count[3:0] = count[3:0]+1;
         end
         else begin
           nextstate[WAIT_FOR_READOUT] = 1'b1; // Added because implied_loopback is true
@@ -76,11 +94,13 @@ module triggerManager (
   // sequential always block
   always @(posedge clk) begin
     if (reset) begin
-      state <= 5'b00001 << IDLE;
+      state <= 6'b000001 << IDLE;
+      count[3:0] <= 0;
       trig_num[23:0] <= 0;
       end
     else begin
       state <= nextstate;
+      count[3:0] <= next_count[3:0];
       trig_num[23:0] <= next_trig_num[23:0];
       end
   end
@@ -106,11 +126,14 @@ module triggerManager (
         nextstate[STORE_FILLNUM]   : begin
           fifo_valid <= 1;
         end
-        nextstate[TOGGLE_ARM]      : begin
+        nextstate[TOGGLE_ARM1]     : begin
+          trig_arm[4:0] <= 5'b00000;
+        end
+        nextstate[TOGGLE_ARM2]     : begin
           trig_arm[4:0] <= 5'b00000;
         end
         nextstate[WAIT_FOR_READOUT]: begin
-          trig_arm[4:0] <= 5'b11111;
+          ; // case must be complete for onehot
         end
       endcase
     end
@@ -127,8 +150,10 @@ module triggerManager (
         statename = "FILL";
       state[STORE_FILLNUM]   :
         statename = "STORE_FILLNUM";
-      state[TOGGLE_ARM]      :
-        statename = "TOGGLE_ARM";
+      state[TOGGLE_ARM1]     :
+        statename = "TOGGLE_ARM1";
+      state[TOGGLE_ARM2]     :
+        statename = "TOGGLE_ARM2";
       state[WAIT_FOR_READOUT]:
         statename = "WAIT_FOR_READOUT";
       default         :
