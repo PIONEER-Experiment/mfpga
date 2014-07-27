@@ -544,7 +544,8 @@ module wfd_top(
         .fifo_ready(tm_to_fifo_tready),
         .trig_num(tm_to_fifo_tdata),
 
-        .trigger(trigger_from_ipbus),//ext_trig_sync),
+        // .trigger(trigger_from_ipbus), // ipbus triggering
+        .trigger(ext_trig_sync),         // external triggering
         .go(acq_trigs),
         .done(acq_dones),
         .chan_readout_done(chan_readout_done), // input wire, to monitor when a fill is being read out
