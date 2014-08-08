@@ -35,25 +35,26 @@ entity slaves is
 	    axi_stream_out_tready: in std_logic;
 
 	    -- DAQ Link
-	    daq_valid : out std_logic;
-	    daq_header : out std_logic;
-	    daq_trailer : out std_logic;
-	    daq_data : out std_logic_vector(63 downto 0);
-	    daq_ready : in std_logic;
+	    daq_valid       : out std_logic;
+	    daq_header      : out std_logic;
+	    daq_trailer     : out std_logic;
+	    daq_data        : out std_logic_vector(63 downto 0);
+	    daq_ready       : in std_logic;
 	    daq_almost_full : in std_logic;
 
-	    trigger_out : out std_logic;
+	    trigger_out   : out std_logic;
 	    chan_done_out : out std_logic_vector(4 downto 0);
+	    chan_en_out   : out std_logic_vector(4 downto 0);
 
 	    -- "user_ipb" interface
-        user_ipb_clk         : out std_logic;                       -- programming clock
-        user_ipb_strobe     : out std_logic;                       -- this ipb space is selected for an I/O operation 
-        user_ipb_addr   : out std_logic_vector(31 downto 0);   -- slave address, memory or register
-        user_ipb_write       : out std_logic;		                -- this is a write operation
-        user_ipb_wdata : out std_logic_vector(31 downto 0);	-- data to write for write operations
-        user_ipb_rdata : in std_logic_vector(31 downto 0);	-- data returned for read operations
-        user_ipb_ack           : in std_logic;			            -- 'write' data has been stored, 'read' data is ready
-        user_ipb_err           : in std_logic;			            -- '1' if error, '0' if OK?
+        user_ipb_clk    : out std_logic;                     -- programming clock
+        user_ipb_strobe : out std_logic;                     -- this ipb space is selected for an I/O operation 
+        user_ipb_addr   : out std_logic_vector(31 downto 0); -- slave address, memory or register
+        user_ipb_write  : out std_logic;		             -- this is a write operation
+        user_ipb_wdata  : out std_logic_vector(31 downto 0); -- data to write for write operations
+        user_ipb_rdata  : in std_logic_vector(31 downto 0);	 -- data returned for read operations
+        user_ipb_ack    : in std_logic;			             -- 'write' data has been stored, 'read' data is ready
+        user_ipb_err    : in std_logic;			             -- '1' if error, '0' if OK?
 
 		-- counter input ports
 		frame_err: in std_logic  := '0';
@@ -105,7 +106,6 @@ begin
 
 		stat_reg <= X"DEADBEEF";
 		
-
 -- Slave 1: register
 
 	slave1: entity work.ipbus_reg
@@ -125,6 +125,12 @@ begin
 		chan_done_out(2) <= ctrl_reg(3);
 		chan_done_out(3) <= ctrl_reg(4);
 		chan_done_out(4) <= ctrl_reg(5);
+
+		chan_en_out(0) <= ctrl_reg(6);
+		chan_en_out(1) <= ctrl_reg(7);
+		chan_en_out(2) <= ctrl_reg(8);
+		chan_en_out(3) <= ctrl_reg(9);
+		chan_en_out(4) <= ctrl_reg(10);
 
 -- Slave 2: 1kword RAM
 

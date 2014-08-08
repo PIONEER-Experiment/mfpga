@@ -41,11 +41,11 @@ module wfd_top(
 	output [3:0] c4_io,               // utility signals to channel 4
     input [5:0] mezzb,                // MB[5..0] on schematic
     input mmc_reset_m,                // reset line 
-	//output adcclk_ld,                 //
+	// output adcclk_ld,              //
 	output adcclk_goe,                //
 	output adcclk_sync,               //
-	//output adcclk_los0,               //
-	//output adcclk_los1,               //
+	// output adcclk_los0,            //
+	// output adcclk_los1,            //
 	output adcclk_dlen,               //
 	output adcclk_ddat,               //
 	output adcclk_dclk,               //
@@ -137,7 +137,7 @@ module wfd_top(
     assign c_progb = 1'b1;
     assign c_clk = 1'b0;
     assign c_din = test;
-    //assign initb[4:0] = prog_done[4:0]; // initb changed from output to input
+    // assign initb[4:0] = prog_done[4:0]; // initb changed from output to input
 
 
     // Generate clocks from the 50 MHz input clock
@@ -202,6 +202,9 @@ module wfd_top(
 
     // done signals from channels
     (* mark_debug = "true" *) wire[4:0] chan_done;
+
+    // enable signals to channels
+    (* mark_debug = "true" *) wire[4:0] chan_en;
 
     // wires connecting the trig number fifo to the tm
     (* mark_debug = "true" *) wire tm_to_fifo_tvalid, tm_to_fifo_tready;
@@ -403,6 +406,9 @@ module wfd_top(
 
         // channel done to tm
         .chan_done_out(chan_done),
+
+        // channel enable to cm
+        .chan_en_out(chan_en),
 
         // counter ouputs
         .frame_err(frame_err),              
@@ -613,7 +619,7 @@ module wfd_top(
 
         // other connections
         .read_fill_done(chan_readout_done),
-        .num_channels(3'b101),              // number of channels to loop through (starting at 1)
+        .chan_en(chan_en),                  // enabled channels from ipbus
         .clk(clk125),
         .rst(rst_from_ipb),
         .busy(cm_busy)

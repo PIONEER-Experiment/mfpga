@@ -1,5 +1,5 @@
 
-// Created by fizzim.pl version $Revision: 4.44 on 2014:07:20 at 15:49:00 (www.fizzim.com)
+// Created by fizzim.pl version $Revision: 4.44 on 2014:08:07 at 20:17:16 (www.fizzim.com)
 
 module commandManager (
   output reg busy,
@@ -18,6 +18,7 @@ module commandManager (
   output reg ipbus_res_valid,
   output reg read_fill_done,
   output reg tm_fifo_ready,
+  input wire [4:0] chan_en,
   input wire [31:0] chan_rx_fifo_data,
   input wire chan_rx_fifo_last,
   input wire chan_rx_fifo_valid,
@@ -29,7 +30,6 @@ module commandManager (
   input wire ipbus_cmd_last,
   input wire ipbus_cmd_valid,
   input wire ipbus_res_ready,
-  input wire [2:0] num_channels,
   input wire rst,
   input wire [23:0] tm_fifo_data,
   input wire tm_fifo_valid 
@@ -38,38 +38,41 @@ module commandManager (
   // state bits
   parameter 
   IDLE                      = 0, 
-  CHECK_LAST                = 1, 
-  GET_TRIG_NUM              = 2, 
-  READ_CHAN_BUF_SIZE        = 3, 
-  READ_CHAN_CHAN_NUM        = 4, 
-  READ_CHAN_DATA1           = 5, 
-  READ_CHAN_DATA2           = 6, 
-  READ_CHAN_POST_TRIG_COUNT = 7, 
-  READ_CHAN_RC              = 8, 
-  READ_CHAN_RSN             = 9, 
-  READ_CHAN_TRIG_NUM        = 10, 
-  READ_CHECKSUM             = 11, 
-  READ_IPBUS_CMD            = 12, 
-  READ_IPBUS_RES            = 13, 
-  READ_IPBUS_RSN            = 14, 
-  SEND_AMC13_HEADER1        = 15, 
-  SEND_AMC13_HEADER2        = 16, 
-  SEND_AMC13_TRAILER        = 17, 
-  SEND_CHAN_CC              = 18, 
-  SEND_CHAN_CSN             = 19, 
-  SEND_CHAN_DATA            = 20, 
-  SEND_CHAN_HEADER          = 21, 
-  SEND_IPBUS_CMD            = 22, 
-  SEND_IPBUS_CSN            = 23, 
-  SEND_IPBUS_RES            = 24; 
+  CHECK_CHAN_EN             = 1, 
+  CHECK_LAST                = 2, 
+  GET_TRIG_NUM              = 3, 
+  READY_AMC13_TRAILER       = 4, 
+  READ_CHAN_BUF_SIZE        = 5, 
+  READ_CHAN_CHAN_NUM        = 6, 
+  READ_CHAN_DATA1           = 7, 
+  READ_CHAN_DATA2           = 8, 
+  READ_CHAN_POST_TRIG_COUNT = 9, 
+  READ_CHAN_RC              = 10, 
+  READ_CHAN_RSN             = 11, 
+  READ_CHAN_TRIG_NUM        = 12, 
+  READ_CHECKSUM             = 13, 
+  READ_IPBUS_CMD            = 14, 
+  READ_IPBUS_RES            = 15, 
+  READ_IPBUS_RSN            = 16, 
+  SEND_AMC13_HEADER1        = 17, 
+  SEND_AMC13_HEADER2        = 18, 
+  SEND_AMC13_TRAILER        = 19, 
+  SEND_CHAN_CC              = 20, 
+  SEND_CHAN_CSN             = 21, 
+  SEND_CHAN_DATA            = 22, 
+  SEND_CHAN_HEADER          = 23, 
+  SEND_IPBUS_CMD            = 24, 
+  SEND_IPBUS_CSN            = 25, 
+  SEND_IPBUS_RES            = 26; 
 
-  (* mark_debug = "true" *) reg [24:0] state;
-  reg [24:0] nextstate;
+  (* mark_debug = "true" *) reg [26:0] state;
+  (* mark_debug = "true" *) reg [26:0] nextstate;
   (* mark_debug = "true" *) reg [31:0] buf_size_buf;
-  reg [31:0] chan_num_buf;
-  reg [31:0] csn;
+  (* mark_debug = "true" *) reg [31:0] chan_num_buf;
+  (* mark_debug = "true" *) reg [31:0] csn;
   (* mark_debug = "true" *) reg [31:0] data_count;
-  reg [31:0] ipbus_buf;
+  (* mark_debug = "true" *) reg [31:0] ipbus_buf;
+  (* mark_debug = "true" *) reg [2:0] num_chan_en;
   (* mark_debug = "true" *) reg [31:0] trig_num_buf;
   reg [31:0] next_buf_size_buf;
   reg [31:0] next_chan_num_buf;
@@ -80,11 +83,12 @@ module commandManager (
   reg [31:0] next_data_count;
   reg [31:0] next_ipbus_buf;
   reg next_ipbus_res_last;
+  reg [2:0] next_num_chan_en;
   reg [31:0] next_trig_num_buf;
 
   // comb always block
   always @* begin
-    nextstate = 25'b0000000000000000000000000;
+    nextstate = 27'b000000000000000000000000000;
     chan_tx_fifo_data[31:0] = 0; // default
     ipbus_res_data[31:0] = 0; // default
     next_buf_size_buf[31:0] = buf_size_buf[31:0];
@@ -96,6 +100,7 @@ module commandManager (
     next_data_count[31:0] = data_count[31:0];
     next_ipbus_buf[31:0] = ipbus_buf[31:0];
     next_ipbus_res_last = ipbus_res_last;
+    next_num_chan_en[2:0] = num_chan_en[2:0];
     next_trig_num_buf[31:0] = trig_num_buf[31:0];
     case (1'b1) // synopsys parallel_case full_case
       state[IDLE]                     : begin
@@ -111,6 +116,20 @@ module commandManager (
           nextstate[IDLE] = 1'b1; // Added because implied_loopback is true
         end
       end
+      state[CHECK_CHAN_EN]            : begin
+        if (chan_en[chan_tx_fifo_dest] == 1) begin
+          nextstate[SEND_CHAN_CSN] = 1'b1;
+          next_chan_tx_fifo_last = 0;
+          next_num_chan_en[2:0] = num_chan_en[2:0]+1;
+        end
+        else if (chan_tx_fifo_dest[3:0]==4'h5) begin
+          nextstate[READY_AMC13_TRAILER] = 1'b1;
+        end
+        else begin
+          nextstate[CHECK_CHAN_EN] = 1'b1;
+          next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0]+1;
+        end
+      end
       state[CHECK_LAST]               : begin
         begin
           nextstate[SEND_IPBUS_CMD] = 1'b1;
@@ -119,9 +138,14 @@ module commandManager (
       end
       state[GET_TRIG_NUM]             : begin
         begin
-          nextstate[SEND_CHAN_CSN] = 1'b1;
-          next_chan_tx_fifo_last = 0;
+          nextstate[CHECK_CHAN_EN] = 1'b1;
           next_chan_tx_fifo_dest[3:0] = 0;
+        end
+      end
+      state[READY_AMC13_TRAILER]      : begin
+        begin
+          nextstate[SEND_AMC13_TRAILER] = 1'b1;
+          next_daq_data[63:0] = {32'h00000000,{{trig_num_buf[7:0],4'h0},(buf_size_buf[20:1]+1)*num_chan_en+3}};
         end
       end
       state[READ_CHAN_BUF_SIZE]       : begin
@@ -163,9 +187,9 @@ module commandManager (
         end
       end
       state[READ_CHAN_POST_TRIG_COUNT]: begin
-        if (chan_rx_fifo_valid && chan_num_buf[31:0] == 32'h0) begin
+        if (chan_rx_fifo_valid && chan_num_buf[31:0] == 32'h3) begin
           nextstate[SEND_AMC13_HEADER1] = 1'b1;
-          next_daq_data[63:0] = {{8'h00,trig_num_buf[23:0]},{12'h000,(buf_size_buf[20:1]+1)*num_channels+3}};
+          next_daq_data[63:0] = {{8'h00,trig_num_buf[23:0]},{12'h000,20'b11111111111111111111}};
         end
         else if (chan_rx_fifo_valid) begin
           nextstate[SEND_CHAN_HEADER] = 1'b1;
@@ -201,15 +225,13 @@ module commandManager (
         end
       end
       state[READ_CHECKSUM]            : begin
-        if (chan_rx_fifo_valid && chan_rx_fifo_last && chan_num_buf[31:0]==(num_channels-1)) begin
-          nextstate[SEND_AMC13_TRAILER] = 1'b1;
-          next_daq_data[63:0] = {32'h00000000,{{trig_num_buf[7:0],4'h0},(buf_size_buf[20:1]+1)*num_channels+3}};
+        if (chan_rx_fifo_valid && chan_rx_fifo_last && chan_num_buf[31:0]==32'h4) begin
+          nextstate[READY_AMC13_TRAILER] = 1'b1;
         end
         else if (chan_rx_fifo_valid && chan_rx_fifo_last) begin
-          nextstate[SEND_CHAN_CSN] = 1'b1;
+          nextstate[CHECK_CHAN_EN] = 1'b1;
           next_daq_data[63:0] = 0;
-          next_chan_tx_fifo_last = 0;
-          next_chan_tx_fifo_dest[3:0] = chan_num_buf[3:0]+1;
+          next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0]+1;
           next_csn[31:0] = csn[31:0]+1;
         end
         else begin
@@ -355,7 +377,7 @@ module commandManager (
   // sequential always block
   always @(posedge clk) begin
     if (rst) begin
-      state <= 25'b0000000000000000000000001 << IDLE;
+      state <= 27'b000000000000000000000000001 << IDLE;
       buf_size_buf[31:0] <= 0;
       chan_num_buf[31:0] <= 0;
       chan_tx_fifo_dest[3:0] <= 0;
@@ -365,6 +387,7 @@ module commandManager (
       data_count[31:0] <= 0;
       ipbus_buf[31:0] <= 0;
       ipbus_res_last <= 0;
+      num_chan_en[2:0] <= 0;
       trig_num_buf[31:0] <= 0;
       end
     else begin
@@ -378,6 +401,7 @@ module commandManager (
       data_count[31:0] <= next_data_count[31:0];
       ipbus_buf[31:0] <= next_ipbus_buf[31:0];
       ipbus_res_last <= next_ipbus_res_last;
+      num_chan_en[2:0] <= next_num_chan_en[2:0];
       trig_num_buf[31:0] <= next_trig_num_buf[31:0];
       end
   end
@@ -411,11 +435,17 @@ module commandManager (
         nextstate[IDLE]                     : begin
           busy <= 0;
         end
+        nextstate[CHECK_CHAN_EN]            : begin
+          ; // case must be complete for onehot
+        end
         nextstate[CHECK_LAST]               : begin
           ; // case must be complete for onehot
         end
         nextstate[GET_TRIG_NUM]             : begin
           tm_fifo_ready <= 1;
+        end
+        nextstate[READY_AMC13_TRAILER]      : begin
+          ; // case must be complete for onehot
         end
         nextstate[READ_CHAN_BUF_SIZE]       : begin
           chan_rx_fifo_ready <= 1;
@@ -497,10 +527,14 @@ module commandManager (
     case (1'b1)
       state[IDLE]                     :
         statename = "IDLE";
+      state[CHECK_CHAN_EN]            :
+        statename = "CHECK_CHAN_EN";
       state[CHECK_LAST]               :
         statename = "CHECK_LAST";
       state[GET_TRIG_NUM]             :
         statename = "GET_TRIG_NUM";
+      state[READY_AMC13_TRAILER]      :
+        statename = "READY_AMC13_TRAILER";
       state[READ_CHAN_BUF_SIZE]       :
         statename = "READ_CHAN_BUF_SIZE";
       state[READ_CHAN_CHAN_NUM]       :

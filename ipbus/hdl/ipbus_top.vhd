@@ -24,11 +24,11 @@ entity ipbus_top is port(
     user_ipb_clk    : out std_logic;                     -- programming clock
     user_ipb_strobe : out std_logic;                     -- this ipb space is selected for an I/O operation 
     user_ipb_addr   : out std_logic_vector(31 downto 0); -- slave address, memory or register
-    user_ipb_write  : out std_logic;		                -- this is a write operation
-    user_ipb_wdata  : out std_logic_vector(31 downto 0);	-- data to write for write operations
-    user_ipb_rdata  : in std_logic_vector(31 downto 0);	-- data returned for read operations
-    user_ipb_ack    : in std_logic;			            -- 'write' data has been stored, 'read' data is ready
-    user_ipb_err    : in std_logic;			            -- '1' if error, '0' if OK?	
+    user_ipb_write  : out std_logic;		             -- this is a write operation
+    user_ipb_wdata  : out std_logic_vector(31 downto 0); -- data to write for write operations
+    user_ipb_rdata  : in std_logic_vector(31 downto 0);	 -- data returned for read operations
+    user_ipb_ack    : in std_logic;			             -- 'write' data has been stored, 'read' data is ready
+    user_ipb_err    : in std_logic;			             -- '1' if error, '0' if OK?	
         
     axi_stream_in_tvalid : in std_logic;
     axi_stream_in_tdata  : in std_logic_vector(31 downto 0);
@@ -62,6 +62,9 @@ entity ipbus_top is port(
 
     -- channel done to tm
     chan_done_out : out std_logic_vector(4 downto 0);
+
+    -- enable channels in cm
+    chan_en_out : out std_logic_vector(4 downto 0);
 	
 	-- clocks
 	clk_200: in std_logic;
@@ -212,27 +215,27 @@ begin
 	            X"006055000107"; -- should never happen
 
 	-- SLAC IP addresses
-	ip_addr <= X"c0a81a20" when board_id="001" else -- Cornell address (temp)
-	           X"c0a80185" when board_id="000" else
-	           X"c0a80186" when board_id="010" else
-	           X"c0a80187" when board_id="011" else
-	           X"c0a80188" when board_id="100" else
-	           X"c0a80189"; -- should never happen
+	-- ip_addr <= X"c0a81a20" when board_id="001" else -- Cornell address (temp)
+	--            X"c0a80185" when board_id="000" else
+	--            X"c0a80186" when board_id="010" else
+	--            X"c0a80187" when board_id="011" else
+	--            X"c0a80188" when board_id="100" else
+	--            X"c0a80189"; -- should never happen
 
 	-- Cornell IP addresses
-	-- ip_addr <= X"c0a81a20" when board_id="001" else
-	--            X"c0a81a21" when board_id="000" else
-	--            X"c0a81a22" when board_id="010" else
-	--            X"c0a81a23" when board_id="011" else
-	--            X"c0a81a24" when board_id="100" else
-	--            X"c0a81a25"; -- should never happen
+	ip_addr <= X"c0a81a20" when board_id="001" else
+	           X"c0a81a21" when board_id="000" else
+	           X"c0a81a22" when board_id="010" else
+	           X"c0a81a23" when board_id="011" else
+	           X"c0a81a24" when board_id="100" else
+	           X"c0a81a25"; -- should never happen
 
 	-- old hardcoded ip and mac addresses	
 	-- mac_addr <= X"020ddba11583"; -- Careful here, arbitrary addresses do not always work
 	-- ip_addr <= X"c0a81a32"; -- 192.168.26.50
 
 
-	-- ipbus slaves live in the entity below, and can expose top-level ports
+	-- ipbus slaves live in the entity below and can expose top-level ports
 	-- The ipbus fabric is instantiated within.
 	slaves: entity work.slaves port map(
 		ipb_clk => ipb_clk,
@@ -246,14 +249,14 @@ begin
 		eth_phy_rxdisperr => eth_phy_status_vector(5),
 		eth_phy_rxnotintable => eth_phy_status_vector(6),
 		-- "user_ipb" interface
-        user_ipb_clk => user_ipb_clk,           -- programming clock
-        user_ipb_strobe => user_ipb_strobe,     -- this ipb space is selected for an I/O operation 
-        user_ipb_addr => user_ipb_addr,         -- slave address, memory or register
-        user_ipb_write => user_ipb_write,       -- this is a write operation
-        user_ipb_wdata => user_ipb_wdata,       -- data to write for write operations
-        user_ipb_rdata => user_ipb_rdata,       -- data returned for read operations
-        user_ipb_ack => user_ipb_ack,           -- 'write' data has been stored, 'read' data is ready
-        user_ipb_err => user_ipb_err,           -- '1' if error, '0' if OK?
+        user_ipb_clk => user_ipb_clk,       -- programming clock
+        user_ipb_strobe => user_ipb_strobe, -- this ipb space is selected for an I/O operation 
+        user_ipb_addr => user_ipb_addr,     -- slave address, memory or register
+        user_ipb_write => user_ipb_write,   -- this is a write operation
+        user_ipb_wdata => user_ipb_wdata,   -- data to write for write operations
+        user_ipb_rdata => user_ipb_rdata,   -- data returned for read operations
+        user_ipb_ack => user_ipb_ack,       -- 'write' data has been stored, 'read' data is ready
+        user_ipb_err => user_ipb_err,       -- '1' if error, '0' if OK?
 	    axi_stream_in => axi_stream_in,
 	    axi_stream_in_tready => axi_stream_in_tready,
 
@@ -268,8 +271,8 @@ begin
 	    daq_almost_full => daq_almost_full,
 	    
 	    trigger_out => trigger_out,
-
 	    chan_done_out => chan_done_out,
+	    chan_en_out => chan_en_out,
 
 		-- counter input ports
 		frame_err => frame_err,
