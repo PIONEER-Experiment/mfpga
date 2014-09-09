@@ -1,15 +1,16 @@
 
-// Created by fizzim.pl version $Revision: 4.44 on 2014:07:25 at 19:15:11 (www.fizzim.com)
+// Created by fizzim.pl version $Revision: 4.44 on 2014:08:08 at 16:36:26 (www.fizzim.com)
 
 module triggerManager (
   output reg fifo_valid,
-  output reg [4:0] go,
+  (* mark_debug = "true" *) output reg [4:0] go,
   output reg [4:0] trig_arm,
   output reg [23:0] trig_num,
+  input wire [4:0] chan_en,
   input wire chan_readout_done,
   input wire clk,
   input wire cm_busy,
-  input wire [4:0] done,
+  (* mark_debug = "true" *) input wire [4:0] done,
   input wire fifo_ready,
   input wire reset,
   input wire trigger 
@@ -46,7 +47,7 @@ module triggerManager (
         end
       end
       state[FILL]            : begin
-        if (done[4:0]==5'b11111) begin
+        if (done[4:0]==chan_en[4:0]) begin
           nextstate[STORE_FILLNUM] = 1'b1;
         end
         else begin
@@ -82,7 +83,7 @@ module triggerManager (
       state[WAIT_FOR_READOUT]: begin
         if (chan_readout_done) begin
           nextstate[TOGGLE_ARM1] = 1'b1;
-          next_count[3:0] = count[3:0]+1;
+          next_count[3:0] = 4'b0001;
         end
         else begin
           nextstate[WAIT_FOR_READOUT] = 1'b1; // Added because implied_loopback is true
@@ -121,7 +122,7 @@ module triggerManager (
           ; // case must be complete for onehot
         end
         nextstate[FILL]            : begin
-          go[4:0] <= 5'b11111;
+          go[4:0] <= chan_en[4:0];
         end
         nextstate[STORE_FILLNUM]   : begin
           fifo_valid <= 1;

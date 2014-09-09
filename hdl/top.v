@@ -208,10 +208,10 @@ module wfd_top(
 
     // wires connecting the trig number fifo to the tm
     (* mark_debug = "true" *) wire tm_to_fifo_tvalid, tm_to_fifo_tready;
-    wire[23:0] tm_to_fifo_tdata;
+    (* mark_debug = "true" *) wire[23:0] tm_to_fifo_tdata;
 
     (* mark_debug = "true" *) wire fifo_to_cm_tvalid, fifo_to_cm_tready;
-    wire[23:0] fifo_to_cm_tdata;
+    (* mark_debug = "true" *) wire[23:0] fifo_to_cm_tdata;
 
     // wire connecting the tm and the cm
     (* mark_debug = "true" *) wire cm_busy;
@@ -268,7 +268,7 @@ module wfd_top(
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     // packaged up channel connections for the axis tx switch output
     wire[4:0]   c_axi_stream_to_channel_tvalid, c_axi_stream_to_channel_tlast, c_axi_stream_to_channel_tready;
-    wire[19:0]  c_axi_stream_to_channel_tdest;
+    (* mark_debug = "true" *) wire[19:0]  c_axi_stream_to_channel_tdest;
     wire[159:0] c_axi_stream_to_channel_tdata;
 
     assign c0_axi_stream_to_channel_tvalid = c_axi_stream_to_channel_tvalid[0];
@@ -300,7 +300,7 @@ module wfd_top(
     // connections from cm to axis tx switch
     wire axi_stream_to_channel_from_cm_tvalid, axi_stream_to_channel_from_cm_tlast, axi_stream_to_channel_from_cm_tready;
     wire[0:31] axi_stream_to_channel_from_cm_tdata;
-    wire[0:3]  axi_stream_to_channel_from_cm_tdest;
+    (* mark_debug = "true" *) wire[0:3]  axi_stream_to_channel_from_cm_tdest;
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -556,6 +556,7 @@ module wfd_top(
         .done(acq_dones),
         .chan_readout_done(chan_readout_done), // input wire, to monitor when a fill is being read out
         .trig_arm(trig_arm),                   // output wire [4 : 0], to start the circular memory buffer
+        .chan_en(chan_en),                     // enabled channels from ipbus
 
         // other connections
         .clk(clk125),

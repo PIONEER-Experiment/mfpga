@@ -1,11 +1,11 @@
 
-// Created by fizzim.pl version $Revision: 4.44 on 2014:08:07 at 20:17:16 (www.fizzim.com)
+// Created by fizzim.pl version $Revision: 4.44 on 2014:08:11 at 13:11:46 (www.fizzim.com)
 
 module commandManager (
   output reg busy,
   output reg chan_rx_fifo_ready,
   output reg [31:0] chan_tx_fifo_data,
-  output reg [3:0] chan_tx_fifo_dest,
+  (* mark_debug = "true" *) output reg [3:0] chan_tx_fifo_dest,
   output reg chan_tx_fifo_last,
   output reg chan_tx_fifo_valid,
   output reg [63:0] daq_data,
@@ -66,13 +66,14 @@ module commandManager (
   SEND_IPBUS_RES            = 26; 
 
   (* mark_debug = "true" *) reg [26:0] state;
-  (* mark_debug = "true" *) reg [26:0] nextstate;
+  reg [26:0] nextstate;
   (* mark_debug = "true" *) reg [31:0] buf_size_buf;
   (* mark_debug = "true" *) reg [31:0] chan_num_buf;
   (* mark_debug = "true" *) reg [31:0] csn;
   (* mark_debug = "true" *) reg [31:0] data_count;
-  (* mark_debug = "true" *) reg [31:0] ipbus_buf;
+  reg [31:0] ipbus_buf;
   (* mark_debug = "true" *) reg [2:0] num_chan_en;
+  (* mark_debug = "true" *) reg sent_header;
   (* mark_debug = "true" *) reg [31:0] trig_num_buf;
   reg [31:0] next_buf_size_buf;
   reg [31:0] next_chan_num_buf;
@@ -84,6 +85,7 @@ module commandManager (
   reg [31:0] next_ipbus_buf;
   reg next_ipbus_res_last;
   reg [2:0] next_num_chan_en;
+  reg next_sent_header;
   reg [31:0] next_trig_num_buf;
 
   // comb always block
@@ -101,6 +103,7 @@ module commandManager (
     next_ipbus_buf[31:0] = ipbus_buf[31:0];
     next_ipbus_res_last = ipbus_res_last;
     next_num_chan_en[2:0] = num_chan_en[2:0];
+    next_sent_header = sent_header;
     next_trig_num_buf[31:0] = trig_num_buf[31:0];
     case (1'b1) // synopsys parallel_case full_case
       state[IDLE]                     : begin
@@ -187,7 +190,7 @@ module commandManager (
         end
       end
       state[READ_CHAN_POST_TRIG_COUNT]: begin
-        if (chan_rx_fifo_valid && chan_num_buf[31:0] == 32'h3) begin
+        if (chan_rx_fifo_valid && !sent_header) begin
           nextstate[SEND_AMC13_HEADER1] = 1'b1;
           next_daq_data[63:0] = {{8'h00,trig_num_buf[23:0]},{12'h000,20'b11111111111111111111}};
         end
@@ -278,6 +281,7 @@ module commandManager (
         if (daq_ready) begin
           nextstate[SEND_CHAN_HEADER] = 1'b1;
           next_daq_data[63:0] = {{8'h01,chan_num_buf[7:0]},{trig_num_buf[23:0],buf_size_buf[23:0]}};
+          next_sent_header = 1;
         end
         else begin
           nextstate[SEND_AMC13_HEADER2] = 1'b1; // Added because implied_loopback is true
@@ -288,6 +292,7 @@ module commandManager (
           nextstate[IDLE] = 1'b1;
           next_daq_data[63:0] = 0;
           next_chan_num_buf[31:0] = 0;
+          next_sent_header = 0;
           next_csn[31:0] = csn[31:0]+1;
           next_buf_size_buf[31:0] = 0;
           next_trig_num_buf[31:0] = 0;
@@ -388,6 +393,7 @@ module commandManager (
       ipbus_buf[31:0] <= 0;
       ipbus_res_last <= 0;
       num_chan_en[2:0] <= 0;
+      sent_header <= 0;
       trig_num_buf[31:0] <= 0;
       end
     else begin
@@ -402,6 +408,7 @@ module commandManager (
       ipbus_buf[31:0] <= next_ipbus_buf[31:0];
       ipbus_res_last <= next_ipbus_res_last;
       num_chan_en[2:0] <= next_num_chan_en[2:0];
+      sent_header <= next_sent_header;
       trig_num_buf[31:0] <= next_trig_num_buf[31:0];
       end
   end
