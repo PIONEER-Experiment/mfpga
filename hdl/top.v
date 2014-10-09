@@ -76,12 +76,12 @@ module wfd_top(
 
     assign clk50 = clkin; // just to make the frequency explicit
 
-	// dummy use of signals
-    assign debug0 = acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4];
-    assign debug1 = mmc_io[2] & mmc_io[3] & ext_trig_sync;
-    assign debug2 = initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
-    assign debug6 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m;;
-    assign debug7 = mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5];
+	// debug signals -- right now providing dummy use of otherwise unused input signals
+    assign debug0 = mmc_io[3] & mmc_io[2];
+    assign debug1 = initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
+    assign debug2 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
+    assign debug6 = wfdps[1] & wfdps[0] & mmc_reset_m;
+    assign debug7 = mezzb[5] & mezzb[4] & mezzb[3] & mezzb[2] & mezzb[1] & mezzb[0];
 
     assign c0_io[0] = 1'b0;
     assign c0_io[1] = 1'b0;
@@ -126,12 +126,9 @@ module wfd_top(
 	// assign adcclk_dlen = 1'b0;
 	// assign adcclk_ddat = 1'b0;
 	// assign adcclk_dclk = 1'b0;
-	assign daq_clk_sel = 1'b1;
+	assign daq_clk_sel = 1'b0;
 	assign daq_clk_en = 1'b1;
 
-    wire ttc_clk, ttc_rx;
-	IBUFDS ttc_clk_buf(.I(ttc_clkp), .IB(ttc_clkn), .O(ttc_clk));  
-	IBUFDS ttc_rx_buf(.I(ttc_rxp), .IB(ttc_rxn), .O(ttc_rx)); 
 	OBUFDS ttc_tx_buf(.I(ttc_rx), .O(ttc_txp), .OB(ttc_txn)); 
 
     assign c_progb = 1'b1;
@@ -163,14 +160,6 @@ module wfd_top(
     );
 
 
-    // sync_2stage module
-    // Put the external trigger into the 125 MHz clock domain
-    (* mark_debug = "true" *) wire ext_trig_sync;
-    sync_2stage trig_sync(
-        .clk(clk125),
-        .in(ext_trig),
-        .out(ext_trig_sync)
-    );
 
 
     // ======== ethernet status signals ========
@@ -198,7 +187,29 @@ module wfd_top(
 
 
     // ======== triggers and data transfer ========
+
+    // TTC trigger in TTC clock domain
+    wire ttc_L1A;
+
+    // trigger signals in 125 MHz clock domain
+    (* mark_debug = "true" *) wire ext_trig_sync;
     (* mark_debug = "true" *) wire trigger_from_ipbus;
+    (* mark_debug = "true" *) wire trigger_from_ttc;
+
+    // Put the external trigger into the 125 MHz clock domain
+    sync_2stage trig_sync(
+        .clk(clk125),
+        .in(ext_trig),
+        .out(ext_trig_sync)
+    );
+
+    // Put the TTC trigger into the 125 MHz clock domain
+    sync_2stage ttc_trig_sync(
+        .clk(clk125),
+        .in(ttc_L1A),
+        .out(trigger_from_ttc)
+    );
+
 
     // done signals from channels
     (* mark_debug = "true" *) wire[4:0] chan_done;
@@ -268,7 +279,7 @@ module wfd_top(
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     // packaged up channel connections for the axis tx switch output
     wire[4:0]   c_axi_stream_to_channel_tvalid, c_axi_stream_to_channel_tlast, c_axi_stream_to_channel_tready;
-    (* mark_debug = "true" *) wire[19:0]  c_axi_stream_to_channel_tdest;
+    wire[19:0]  c_axi_stream_to_channel_tdest;
     wire[159:0] c_axi_stream_to_channel_tdata;
 
     assign c0_axi_stream_to_channel_tvalid = c_axi_stream_to_channel_tvalid[0];
@@ -300,7 +311,7 @@ module wfd_top(
     // connections from cm to axis tx switch
     wire axi_stream_to_channel_from_cm_tvalid, axi_stream_to_channel_from_cm_tlast, axi_stream_to_channel_from_cm_tready;
     wire[0:31] axi_stream_to_channel_from_cm_tdata;
-    (* mark_debug = "true" *) wire[0:3]  axi_stream_to_channel_from_cm_tdest;
+    wire[0:3]  axi_stream_to_channel_from_cm_tdest;
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -359,6 +370,25 @@ module wfd_top(
     led_flasher led_flasher(
         .clk(clk50),
         .led(led1)
+    );
+
+
+    // TTC decoder module
+    TTC_decoder ttc(
+        .TTC_CLK_p(ttc_clkp),           // in  STD_LOGIC
+        .TTC_CLK_n(ttc_clkn),           // in  STD_LOGIC
+        .TTC_rst(),                     // in  STD_LOGIC  asynchronous reset after TTC_CLK_p/TTC_CLK_n frequency changed
+        .TTC_data_p(ttc_rxp),           // in  STD_LOGIC
+        .TTC_data_n(ttc_rxn),           // in  STD_LOGIC
+        .TTC_CLK_out(),                 // out  STD_LOGIC
+        .TTCready(),                    // out  STD_LOGIC
+        .L1Accept(ttc_L1A),             // out  STD_LOGIC
+        .BCntRes(),                     // out  STD_LOGIC
+        .EvCntRes(),                    // out  STD_LOGIC
+        .SinErrStr(),                   // out  STD_LOGIC
+        .DbErrStr(),                    // out  STD_LOGIC
+        .BrcstStr(),                    // out  STD_LOGIC
+        .Brcst()                        // out  STD_LOGIC_VECTOR (7 downto 2))
     );
 
 
@@ -551,7 +581,9 @@ module wfd_top(
         .trig_num(tm_to_fifo_tdata),
 
         // .trigger(trigger_from_ipbus), // ipbus triggering
-        .trigger(ext_trig_sync),         // external triggering
+        // .trigger(ext_trig_sync), // external triggering
+        .trigger(trigger_from_ttc), // ttc triggering
+
         .go(acq_trigs),
         .done(acq_dones),
         .chan_readout_done(chan_readout_done), // input wire, to monitor when a fill is being read out
@@ -644,7 +676,7 @@ module wfd_top(
 
         .TTCclk(clk125),
         .BcntRes(rst_from_ipb),
-        .trig(ext_trig_sync),
+        .trig(trigger_from_ttc),
         .TTSclk(1'b0),
         .TTS(4'd0),
 
