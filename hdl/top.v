@@ -80,7 +80,7 @@ module wfd_top(
     assign debug0 = mmc_io[3] & mmc_io[2];
     assign debug1 = initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
     assign debug2 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
-    assign debug6 = wfdps[1] & wfdps[0] & mmc_reset_m;
+    assign debug6 = wfdps[1] & wfdps[0] & mmc_reset_m & ext_trig_sync;
     assign debug7 = mezzb[5] & mezzb[4] & mezzb[3] & mezzb[2] & mezzb[1] & mezzb[0];
 
     assign c0_io[0] = 1'b0;

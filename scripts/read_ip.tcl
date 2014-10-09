@@ -56,7 +56,7 @@ if {[file exists $ROOT/ip/aurora_8b10b_0/aurora_8b10b_0.xci]} {
 	read_ip $ROOT/ip/aurora_8b10b_0/aurora_8b10b_0.xci
 } else {
 	create_ip -name aurora_8b10b -vendor xilinx.com -library ip -module_name aurora_8b10b_0 -dir $ROOT/ip
-	set_property -dict [list CONFIG.C_LANE_WIDTH {4} CONFIG.C_LINE_RATE {4.5} CONFIG.C_GT_LOC_1 {X} CONFIG.C_GT_LOC_5 {1}] [get_ips aurora_8b10b_0]
+	set_property -dict [list CONFIG.C_LANE_WIDTH {4} CONFIG.C_LINE_RATE {5.0} CONFIG.C_GT_LOC_1 {X} CONFIG.C_GT_LOC_5 {1}] [get_ips aurora_8b10b_0]
 	generate_target all [get_files $ROOT/ip/aurora_8b10b_0/aurora_8b10b_0.xci]
 	synth_ip [get_ips aurora_8b10b_0]
 }
