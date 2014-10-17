@@ -112,7 +112,7 @@ module all_channels(
   output c4_txp, c4_txn,           // transmit to channel 0 FPGA
 
   // debug ports
-  output [3:0] debug,
+  output [2:0] debug,
 
   // counter output ports
   output frame_err,        // output, to IPbus I/O
@@ -123,7 +123,15 @@ module all_channels(
   output pll_not_locked,   // input, from channel clock module
   output tx_resetdone_out, // output, to IPbus I/O
   output rx_resetdone_out, // output, to IPbus I/O
-  output link_reset_out    // output, to IPbus I/O
+  output link_reset_out,    // output, to IPbus I/O
+
+  output adcclk_dclk,
+  output adcclk_ddat,
+  output adcclk_dlen,
+  output adcclk_goe,
+  output adcclk_sync
+
+
 );
 
 
@@ -133,6 +141,7 @@ module all_channels(
   wire [31:0] chan2_io_rd_data;
   wire [31:0] chan3_io_rd_data;
   wire [31:0] chan4_io_rd_data;
+  wire [31:0] clk_synth_io_rd_data;
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////
   // decode high address bits to pick a channel
@@ -143,6 +152,7 @@ module all_channels(
   assign chan2_io_reg_sel = (ipb_addr[23:20] == 4'b0010);	//ipb channel register space
   assign chan3_io_reg_sel = (ipb_addr[23:20] == 4'b0011);	//ipb channel register space
   assign chan4_io_reg_sel = (ipb_addr[23:20] == 4'b0100);	//ipb channel register space
+  assign clk_synth_reg_sel = (ipb_addr[23:20] == 4'b0101);    //clock synth register space
   // reserve 4'b0101 thru 4'b1111
 
   
@@ -186,7 +196,7 @@ module all_channels(
     // serial I/O pins
     .rxp(c0_rxp), .rxn(c0_rxn),                    // receive from channel 0 FPGA
     .txp(c0_txp), .txn(c0_txn),                    // transmit to channel 0 FPGA
-    .debug(debug),
+    .debug(),
     // QPLL Ports
     // Channel 0 is in MGT bank 115, while the QPLL that is initialized in this block is in
     // MGT bank 116. The ethernet module should be initializing the QPLL in MGT band 115.
@@ -448,6 +458,37 @@ module all_channels(
     .rx_resetdone_out(),              // output, to IPbus I/O
     .link_reset_out()                  // output, to IPbus I/O
   );
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+  // clock synth registers
+  wire ipb_clk_synth_strobe, ipb_clk_synth_ack, ipb_clk_synth_err;
+  wire [31:0] ipb_clk_synth_rdata;
+  clk_synth_intf clock_synth (
+    // clocks and reset
+    .clk50(clk50),                                 // Aurora 'init_clk' uses 50 MHz clock per PG046-20
+    .clk50_reset(clk50_reset),                     // active_hi synched to 'clk50'
+    // programming interface inputs
+    .io_clk(ipb_clk),                              // programming clock
+    .io_reset(ipb_reset),
+    .io_sel(clk_synth_reg_sel),                     // this module has been selected for an I/O operation
+    .io_sync(io_sync),                             // start the I/O operation
+    .io_addr(ipb_addr[19:0]),                      // slave address, memory or register, top 12 bits have been consumed
+    .io_rd_en(io_rd_en),                           // this is a read operation, enable readback logic
+    .io_wr_en(io_wr_en),                           // this is a write operation, enable target for one clock
+    .io_wr_data(ipb_wdata[31:0]),                  // data to write for write operations
+    // programming interface  outputs
+    .io_rd_data(clk_synth_io_rd_data[31:0]),           // data returned for read operations
+    .io_rd_ack(clk_synth_io_rd_ack),                   // 'write' data has been stored, 'read' data is ready
+    //physical clock synth connections
+    .dclk(adcclk_dclk),
+    .ddat(adcclk_ddat),
+    .dlen(adcclk_dlen),
+    .goe(adcclk_goe),
+    .sync(adcclk_sync),
+    .debug(debug[2:0]) 
+    );
+
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////
   // qpll stuff for channels 1-4. The qpll in the other MGT is set up by the Ethernet module

@@ -77,11 +77,21 @@ module wfd_top(
     assign clk50 = clkin; // just to make the frequency explicit
 
 	// debug signals -- right now providing dummy use of otherwise unused input signals
-    assign debug0 = mmc_io[3] & mmc_io[2];
-    assign debug1 = initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
-    assign debug2 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
-    assign debug6 = wfdps[1] & wfdps[0] & mmc_reset_m & ext_trig_sync;
-    assign debug7 = mezzb[5] & mezzb[4] & mezzb[3] & mezzb[2] & mezzb[1] & mezzb[0];
+  //  assign debug0 = mmc_io[3] & mmc_io[2];
+  //  assign debug1 = initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
+  //  assign debug2 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
+  //  assign debug6 = wfdps[1] & wfdps[0] & mmc_reset_m & ext_trig_sync;
+  //  assign debug7 = mezzb[5] & mezzb[4] & mezzb[3] & mezzb[2] & mezzb[1] & mezzb[0];
+
+    // dummy use of signals
+    assign debug6 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m;;
+    assign debug7 = mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] & acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0] ;
+
+
+    wire [2:0] debug;
+    assign debug0 = debug[0];
+    assign debug1 = debug[1];
+    assign debug2 = debug[2];
 
     assign c0_io[0] = 1'b0;
     assign c0_io[1] = 1'b0;
@@ -559,6 +569,16 @@ module wfd_top(
         .c4_rxp(c4_rx), .c4_rxn(c4_rx_N),                     // receive from channel 0 FPGA
         .c4_txp(c4_tx), .c4_txn(c4_tx_N),                     // transmit to channel 0 FPGA
 
+        //clock synthesizer connections
+        .adcclk_dclk(adcclk_dclk),
+        .adcclk_ddat(adcclk_ddat),
+        .adcclk_dlen(adcclk_dlen),
+        .adcclk_goe(adcclk_goe),
+        .adcclk_sync(adcclk_sync),
+        .debug(debug[2:0]),
+
+
+
         // counter ouputs
         .frame_err(frame_err),              
         .hard_err(hard_err),                
@@ -733,16 +753,16 @@ module wfd_top(
 
 
     // clock synthesizer initialization
-    clk_synth_intf clk_synth1(
-        .clk(clk50),
-        .reset(rst_from_ipb),
-        .dclk(adcclk_dclk),
-        .ddat(adcclk_ddat),
-        .dlen(adcclk_dlen),
-        .goe(adcclk_goe),
-        .sync(adcclk_sync),
-        .debug() 
-    );
+    //clk_synth_intf clk_synth1(
+    //    .clk(clk50),
+    //   .reset(rst_from_ipb),
+    //    .dclk(adcclk_dclk),
+    //    .ddat(adcclk_ddat),
+    //    .dlen(adcclk_dlen),
+    //    .goe(adcclk_goe),
+    //    .sync(adcclk_sync),
+    //    .debug() 
+    //);
 
 
 endmodule
