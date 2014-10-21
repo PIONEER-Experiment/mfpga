@@ -238,7 +238,7 @@ function GTXRESET_SPEEDUP(is_sim : boolean) return string is
 	end function;
 constant N : integer := 8;
 constant Acknowledge : std_logic_vector(7 downto 0) := x"12";
-constant version : std_logic_vector(7 downto 0) := x"03";
+constant version : std_logic_vector(7 downto 0) := x"06";
 constant data : std_logic_vector(7 downto 0) := x"34";
 constant InitRqst : std_logic_vector(7 downto 0) := x"56";
 constant Counter : std_logic_vector(7 downto 0) := x"78";
@@ -257,17 +257,13 @@ constant SendData : std_logic_vector(3 downto 0) := x"8"; -- TxState sending eve
 constant SendCntr : std_logic_vector(3 downto 0) := x"9"; -- TxState sending event data words
 constant SendEOF : std_logic_vector(3 downto 0) := x"a"; -- TxState sending EOF
 signal TxState: std_logic_vector(3 downto 0) := (others => '0');
---signal w : positive := 16;
 signal sel_TTS_TRIG : std_logic := '0';
 signal bcnt_err_cnt : std_logic_vector(3 downto 0) := (others => '0');
 signal UsrClk : std_logic := '0';
 signal reset_SyncRegs : std_logic_vector(3 downto 0) := (others => '0');
 signal RxResetDoneSyncRegs : std_logic_vector(2 downto 0) := (others => '0');
---signal rst_cdr : std_logic := '0';
 signal DATA_VALID : std_logic := '0';
---signal rst_wait : std_logic := '0';
 signal RXNOTINTABLE : std_logic_vector(1 downto 0) := (others => '0');
---signal wait_cntr : std_logic_vector(16 downto 0) := (others => '0');
 signal UsrClkDiv : std_logic_vector(1 downto 0) := (others => '0');
 signal TTS_TRIG_data : std_logic_vector(17 downto 0) := (others => '0');
 signal fifo_reset : std_logic := '0';
@@ -279,15 +275,12 @@ signal EventCRC_d : std_logic_vector(31 downto 0) := (others => '0');
 signal EventCRC : std_logic_vector(31 downto 0) := (others => '0');
 signal BoE : std_logic := '0';
 signal EoE : std_logic := '0';
---type ram_32768X17 is array(0 to 32767) of std_logic_vector(16 downto 0);
---signal dataBufRAM : ram_32768X17;
 signal FillDataBuf : std_logic := '0';
 signal dataBuf_WrEn : std_logic := '0';
 signal DataBuf_wa : std_logic_vector(14 downto 0) := (others => '0');
 signal DataBuf_ra : std_logic_vector(14 downto 0) := (others => '0');
 signal DataBuf_start : std_logic_vector(14 downto 0) := (others => '0');
 signal DataBuf_Din : std_logic_vector(16 downto 0) := (others => '0');
---signal DataBuf_Do : std_logic_vector(16 downto 0) := (others => '0');
 signal DataBuf_Dout : std_logic_vector(16 downto 0) := (others => '0');
 signal ec_DataBuf_ra : std_logic := '0';
 signal ec_DataBuf_ra_q : std_logic := '0';
@@ -358,7 +351,6 @@ signal IsACK : std_logic := '0';
 signal IsCntr : std_logic := '0';
 signal IsData : std_logic := '0';
 signal CntrSent : std_logic := '0';
---signal PacketLength : std_logic_vector(11 downto 0) := (others => '0');
 signal ReSendQueIn : std_logic_vector(27 downto 0) := (others => '0');
 signal ReSendQueOut : std_logic_vector(27 downto 0) := (others => '0');
 signal ACKNUM_full : std_logic := '0';
@@ -369,19 +361,14 @@ signal ACKNUM_a : std_logic_vector(1 downto 0) := (others => '1');
 signal we_RxCRC : std_logic := '0';
 signal Init_RxCRC : std_logic := '0';
 signal RxCRC : std_logic_vector(15 downto 0) := (others => '0');
---type ram_1024X16 is array(0 to 1023) of std_logic_vector(15 downto 0);
---signal AMCinfoRAM : ram_1024X16;
 signal AMCinfo_WrEn : std_logic := '0';
 signal AMCinfo_wa : std_logic_vector(9 downto 0) := (others => '0');
 signal AMCinfo_sel : std_logic_vector(2 downto 0) := (others => '0');
 signal AMCinfo_Di : std_logic_vector(15 downto 0) := (others => '0');
 signal AMCinfo_Do : std_logic_vector(15 downto 0) := (others => '0');
---signal AMCinfo : std_logic_vector(15 downto 0) := (others => '0');
 signal evnLSB : std_logic_vector(7 downto 0) := (others => '0');
 signal bad_ID : std_logic := '0';
 signal AMC_header : std_logic := '0';
---signal AMC_header_Index : std_logic_vector(2 downto 0) := (others => '0');
---signal L1AinfoRAM : ram_1024X16;
 signal L1Ainfo_WrEn : std_logic := '0';
 signal OldL1Ainfo_wa : std_logic_vector(7 downto 0) := (others => '0');
 signal L1Ainfo_wa : std_logic_vector(9 downto 0) := (others => '0');
@@ -392,7 +379,6 @@ signal L1Ainfo_empty : std_logic := '1';
 signal RxL1Ainfo : std_logic := '0';
 signal AMCinfo_empty : std_logic := '1';
 signal ce_info_ra : std_logic := '0';
---signal ce_AMCinfo_ra : std_logic := '0';
 signal check_L1Ainfo : std_logic := '0';
 signal check_L1Ainfo_q : std_logic := '0';
 signal L1AinfoMM : std_logic := '0';
@@ -431,6 +417,11 @@ signal cntrc : std_logic_vector(15 downto 0) := (others => '0');
 signal cntrd : std_logic_vector(15 downto 0) := (others => '0');
 signal cntre : std_logic_vector(15 downto 0) := (others => '0');
 signal cntrf : std_logic_vector(15 downto 0) := (others => '0');
+signal cntr10 : std_logic_vector(15 downto 0) := (others => '0');
+signal cntr11 : std_logic_vector(15 downto 0) := (others => '0');
+signal cntr12 : std_logic_vector(15 downto 0) := (others => '0');
+signal cntr13 : std_logic_vector(15 downto 0) := (others => '0');
+signal cntr14 : std_logic_vector(15 downto 0) := (others => '0');
 signal input_word_cntr : std_logic_vector(15 downto 0) := (others => '0');
 signal input_header_cntr : std_logic_vector(15 downto 0) := (others => '0');
 signal input_trailer_cntr : std_logic_vector(15 downto 0) := (others => '0');
@@ -439,29 +430,19 @@ signal input_evn : std_logic_vector(23 downto 0) := (others => '0');
 signal sample_sync : std_logic_vector(3 downto 0) := (others => '0');
 signal sample : std_logic := '0';
 signal FIFO_ovf : std_logic := '0';
---signal RXENPCOMMAALIGN : std_logic := '0';
---signal RXENMCOMMAALIGN : std_logic := '0';
 signal cplllock : std_logic := '0';
---signal RXCDRRESET : std_logic := '0';
 signal TXOUTCLK : std_logic := '0';
 signal RxResetDone : std_logic := '0';
---signal RxPllLock : std_logic := '0';
 signal txfsmresetdone : std_logic := '0';
---signal mgtrefclkrx : std_logic_vector(1 downto 0) := (others => '0');
 signal LoopBack : std_logic_vector(2 downto 0) := (others => '0');
 signal RXCHARISCOMMA : std_logic_vector(1 downto 0) := (others => '0');
 signal RXCHARISK : std_logic_vector(1 downto 0) := (others => '0');
---signal RXLOSSOFSYNC : std_logic_vector(1 downto 0) := (others => '0');
 signal RXDATA : std_logic_vector(15 downto 0) := (others => '0');
---signal TXPOSTEMPHASIS : std_logic_vector(4 downto 0) := (others => '0');
---signal TXPREEMPHASIS : std_logic_vector(3 downto 0) := (others => '0');
---signal RXEQMIX : std_logic_vector(2 downto 0) := (others => '0');
 signal TXDIFFCTRL : std_logic_vector(3 downto 0) := x"b"; -- 790mV drive
 signal TXCHARISK : std_logic_vector(1 downto 0) := (others => '0');
 signal TXDATA : std_logic_vector(15 downto 0) := (others => '0');
 signal RXCHARISK_q : std_logic_vector(1 downto 0) := (others => '1');
 signal RXCHARISCOMMA_q : std_logic_vector(1 downto 0) := (others => '1');
---signal RXLOSSOFSYNC_q : std_logic_vector(1 downto 0) := (others => '1');
 signal RXDATA_q : std_logic_vector(15 downto 0) := (others => '1');
 signal FIFO_rst : std_logic := '0';
 signal FIFO_en : std_logic := '0';
@@ -473,6 +454,7 @@ signal DataFIFO_di : std_logic_vector(65 downto 0) := (others => '0');
 signal DataFIFO_do : std_logic_vector(65 downto 0) := (others => '0');
 signal RDCOUNT : std_logic_vector(8 downto 0) := (others => '0');
 signal WRCOUNT : std_logic_vector(8 downto 0) := (others => '0');
+signal K_Cntr : std_logic_vector(7 downto 0) := (others => '0');
 begin
 Ready <= fifo_en;
 AlmostFull <= AlmostFull_i;
@@ -566,10 +548,6 @@ begin
 			else
 				DataBuf_Din(15 downto 0) <= EventCRC_d(15 downto 0);
 			end if;
-		elsif(BoE = '1' and UsrClkDiv(1) = '0')then
-			DataBuf_Din(15 downto 0) <= x"0" & AMC_ID(3 downto 0) & EventCRC_d(23 downto 16);
-		elsif(EoE = '1' and UsrClkDiv(1) = '1')then
-			DataBuf_Din(15 downto 0) <= EventCRC_d(31 downto 24) & x"0" & EventCRC_d(19 downto 16);
 		elsif(EoE = '1' and UsrClkDiv(1) = '0')then
 			DataBuf_Din(15 downto 0) <= EventCRC(31 downto 16);
 		else
@@ -602,13 +580,20 @@ begin
 		reset_SyncRegs <= reset_SyncRegs(2 downto 0) & '0';
 	end if;
 end process;
+-- following is used to reset CDR when sync get lost
+--w <= 8 when simulation = true else 16;
 process(UsrClk)
 begin
 	if(UsrClk'event and UsrClk = '1')then
-		if(RxResetDoneSyncRegs(2) = '0' or or_reduce(RXNOTINTABLE) = '1' or bad_K = '1')then
-			DATA_VALID <= '0';
-		elsif(RXCHARISK(0) = '1' and RXDATA(7 downto 0) = x"bc")then
+		if(RXCHARISK = "11" and RXDATA = x"3cbc")then
 			DATA_VALID <= '1';
+		elsif(RxResetDoneSyncRegs(2) = '0' or or_reduce(RXNOTINTABLE) = '1' or K_Cntr(7) = '1')then
+			DATA_VALID <= '0';
+		end if;
+		if((RXCHARISK = "11" and RXDATA = x"3cbc"))then
+			K_Cntr <= (others => '0');
+		else
+			K_Cntr <= K_Cntr + 1;
 		end if;
 		RXCHARISCOMMA_q <= RXCHARISCOMMA;
 		RXCHARISK_q <= RXCHARISK;
@@ -707,7 +692,7 @@ begin
 		elsif(TxState = SendEOF and TxFIFO_full = '0')then
 			RdEventCnt <= RdEventCnt + 1;
 		end if;
-		if(WrEventCnt = RdEventCnt and DataBuf_wc(14 downto 12) = "000")then
+		if((WrEventCnt = RdEventCnt and DataBuf_wc(14 downto 12) = "000") or InitLink = '1')then
 			EventData2Send <= '0';
 		else
 			EventData2Send <= '1';
@@ -765,7 +750,7 @@ TxFIFO_Di(15 downto 0) <= cntrs when sel_cntr = '1' else TxFIFO_Dip;
 process(UsrClk)
 begin
 	if(UsrClk'event and UsrClk = '1')then
-		if(TxFIFO_a = x"f" or (TxFIFO_a = x"0" and sel_TTS_TRIG = '0' and we_TxFIFO = '0'))then
+		if(TxFIFO_a = x"f" or InitLink = '1' or (TxFIFO_a = x"0" and sel_TTS_TRIG = '0' and we_TxFIFO = '0'))then
 			TxFIFO_empty <= '1';
 		else
 			TxFIFO_empty <= '0';
@@ -802,13 +787,11 @@ begin
 		end if;
 		if(reset_SyncRegs(3) = '1')then
 			InitLink <= '0';
-		else
 -- whenever a good initialization packet is received, (re)initializa miniCTR
-			if(check_packet = '1' and CRC_OK = '1' and TypeInit = '1' and frame_OK = '1' and WC_OK = '1' and bad_K = '0')then
-				InitLink <= '1';
-			else
-				InitLink <= '0';
-			end if;
+		elsif(check_packet = '1' and CRC_OK = '1' and TypeInit = '1' and frame_OK = '1' and WC_OK = '1' and bad_K = '0')then
+			InitLink <= '1';
+		else
+			InitLink <= '0';
 		end if;
 		if(reset_SyncRegs(3) = '1' or InitLink = '1')then
 			Ready_i <= '0';
@@ -817,9 +800,10 @@ begin
 		end if;
 		if(reset_SyncRegs(3) = '1' or ReSend = '1' or InitLink = '1')then
 			ReSendQue_a <= (others => '1');
-		else
-			ReSendQue_a(1) <= ReSendQue_a(1) xor ((ReSendQue_a(0) and we_ReSendQue and not ACK) or (not ReSendQue_a(0) and not we_ReSendQue and ACK));
-			ReSendQue_a(0) <= ReSendQue_a(0) xor we_ReSendQue xor ACK;
+		elsif(we_ReSendQue = '1' and ACK = '0')then
+			ReSendQue_a <= ReSendQue_a + 1;
+		elsif(we_ReSendQue = '0' and ACK = '1' and ReSendQue_a /= "11")then
+			ReSendQue_a <= ReSendQue_a - 1;
 		end if;
 		if(TxState = SendWC and TxFIFO_full = '0' and IsData = '1' and ReSend = '0')then
 			we_ReSendQue <= '1';
@@ -963,7 +947,13 @@ begin
 				when x"3" => cntrs <= "000000" & L1Ainfo_wa;
 				when x"4" => cntrs <= "000000" & info_ra;
 				when x"5" => cntrs <= "000000" & AMCinfo_wa;
+--				when x"6" => cntrs <= "000000" & info_ra;
 				when x"7" => cntrs <= "0000000" & EventCnt & ReSendQue_a & AlmostFull_i & dataFIFO_Empty;
+				when x"8" => cntrs <= cntr10;
+				when x"9" => cntrs <= cntr11;
+				when x"a" => cntrs <= cntr12;
+				when x"b" => cntrs <= cntr13;
+				when x"c" => cntrs <= cntr14;
 				when others => cntrs <= (others => '0');
 			end case;
 		end if;
@@ -1135,6 +1125,7 @@ begin
 		else
 			check_packet <= '0';
 		end if;
+--		accept <= (check_packet and SEQ_OK and CRC_OK and frame_OK and not bad_K and not ACKNUM_full and TypeData) or InitLink;
 		accept <= check_packet and SEQ_OK and CRC_OK and frame_OK and not bad_K and not ACKNUM_full and (TypeInit or TypeData);
 -- acknowledge even received packet is not the expected one
 		we_ACKNUM <= check_packet and CRC_OK and frame_OK and not bad_K and not ACKNUM_full and (TypeInit or TypeData);
@@ -1180,8 +1171,28 @@ begin
 		end if;
 		if(InitLink = '1')then
 			cntr2 <= (others => '0');
+			cntr10 <= (others => '0');
+			cntr11 <= (others => '0');
+			cntr12 <= (others => '0');
+			cntr13 <= (others => '0');
+			cntr14 <= (others => '0');
 		elsif(L1Aabort = '1')then
 			cntr2 <= cntr2 + 1;
+			if(SEQ_OK = '0')then
+				cntr10 <= cntr10 + 1;
+			end if;
+			if(CRC_OK = '0')then
+				cntr11 <= cntr11 + 1;
+			end if;
+			if(frame_OK = '0')then
+				cntr12 <= cntr12 + 1;
+			end if;
+			if(bad_K = '1')then
+				cntr13 <= cntr13 + 1;
+			end if;
+			if(ACKNUM_full = '1')then
+				cntr14 <= cntr14 + 1;
+			end if;
 		end if;
 		if(InitLink = '1')then
 			cntr3 <= (others => '0');
@@ -1416,8 +1427,8 @@ begin
 			EventStatus_Di(2 downto 0) <= "111";
 		elsif(L1AinfoMM = '1')then
 			case info_ra_q is
-				when "00" => EventStatus_Di(2) <= '0'; -- BcN mismatch
-				when "11" => EventStatus_Di(1) <= '0'; -- OrN mismatch
+				when "01" => EventStatus_Di(2) <= '0'; -- BcN mismatch
+				when "00" => EventStatus_Di(1) <= '0'; -- OrN mismatch
 				when others => EventStatus_Di(0) <= '0'; -- EvN mismatch
 			end case;
 		end if;
@@ -1469,7 +1480,7 @@ i_DAQLINK_7S_init : DAQLINK_7S_init
     (
         SYSCLK_IN                       =>      SYSCLK_IN,
         SOFT_RESET_IN                   =>      '0',
-        DONT_RESET_ON_DATA_ERROR_IN     =>      '1',
+        DONT_RESET_ON_DATA_ERROR_IN     =>      '0',
         GT0_TX_FSM_RESET_DONE_OUT       =>      txfsmresetdone,
         GT0_RX_FSM_RESET_DONE_OUT       =>      open,
         GT0_DATA_VALID_IN               =>      DATA_VALID,

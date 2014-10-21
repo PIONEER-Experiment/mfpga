@@ -1,3 +1,15 @@
+Revisions:
+
+2014-04-30  initial version with some bugs
+2014-05-07  release_1.0
+2014-05-28  updated (but as yet untested) version; works with Kintex 0x8104 and 0x204
+2014-06-02  another update with various bug fixes; REQUIRES Kintex >= 0x8106
+  or >= 0x207
+2014-06-02  trunk copied as release_1.1
+2014-09-09  replace Xilinx FIFO with fifo66x512.vhd
+	    Link version now 5
+2014-10-18  Link version now 6 plus some other bug fixes
+
 In module's declaration or its instantiation, set the following
 two generic parameters accroding to your design:
 
