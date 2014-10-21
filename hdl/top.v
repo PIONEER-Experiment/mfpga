@@ -66,6 +66,7 @@ module wfd_top(
     input test                        // 
 );
 
+
     // ======== clock signals ========
     wire clk50;
     wire clk125;
@@ -75,6 +76,19 @@ module wfd_top(
     wire pll_lock;
 
     assign clk50 = clkin; // just to make the frequency explicit
+
+    // ======== LEDs ========
+    
+    // green LED is on when TTC is not ready
+    wire TTCready;
+    assign led0 = TTCready;
+
+    // LED flasher module -- red LED flashes when FPGA is programmed
+    led_flasher led_flasher(
+        .clk(clk50),
+        .led(led1)
+    );
+
 
 	// debug signals -- right now providing dummy use of otherwise unused input signals
   //  assign debug0 = mmc_io[3] & mmc_io[2];
@@ -175,11 +189,6 @@ module wfd_top(
     // ======== ethernet status signals ========
     reg sfp_los = 0;      // loss of signal for gigabit ethernet. Not used
     wire eth_link_status; // link status of gigabit ethernet
-
-    // LED is green when GigE link is up, red otherwise
-    assign led0 = eth_link_status;     // green
-    // assign led1 = ~eth_link_status; // red (now flashes instead)
-
 
     // ======== reset signals ========
     wire rst_from_ipb;            // reset from IPbus. Synchronous to IPbus clock
@@ -403,13 +412,6 @@ module wfd_top(
 
     // ======== module instantiations ========
 
-    // LED flasher module
-    led_flasher led_flasher(
-        .clk(clk50),
-        .led(led1)
-    );
-
-
     // TTC decoder module
     TTC_decoder ttc(
         .TTC_CLK_p(ttc_clkp),           // in  STD_LOGIC
@@ -418,7 +420,7 @@ module wfd_top(
         .TTC_data_p(ttc_rxp),           // in  STD_LOGIC
         .TTC_data_n(ttc_rxn),           // in  STD_LOGIC
         .TTC_CLK_out(),                 // out  STD_LOGIC
-        .TTCready(),                    // out  STD_LOGIC
+        .TTCready(TTCready),            // out  STD_LOGIC
         .L1Accept(ttc_L1A),             // out  STD_LOGIC
         .BCntRes(),                     // out  STD_LOGIC
         .EvCntRes(),                    // out  STD_LOGIC
