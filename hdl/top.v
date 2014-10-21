@@ -222,7 +222,34 @@ module wfd_top(
 
 
     // done signals from channels
-    (* mark_debug = "true" *) wire[4:0] chan_done;
+    (* mark_debug = "true" *) wire[4:0] acq_dones_sync;
+    sync_2stage acq_dones_sync0(
+        .clk(clk125),
+        .in(acq_dones[0]),
+        .out(acq_dones_sync[0])
+    );
+    sync_2stage acq_dones_sync1(
+        .clk(clk125),
+        .in(acq_dones[1]),
+        .out(acq_dones_sync[1])
+    );
+    sync_2stage acq_dones_sync2(
+        .clk(clk125),
+        .in(acq_dones[2]),
+        .out(acq_dones_sync[2])
+    );
+    sync_2stage acq_dones_sync3(
+        .clk(clk125),
+        .in(acq_dones[3]),
+        .out(acq_dones_sync[3])
+    );
+    sync_2stage acq_dones_sync4(
+        .clk(clk125),
+        .in(acq_dones[4]),
+        .out(acq_dones_sync[4])
+    );
+
+
 
     // enable signals to channels
     (* mark_debug = "true" *) wire[4:0] chan_en;
@@ -445,7 +472,7 @@ module wfd_top(
         .trigger_out(trigger_from_ipbus),
 
         // channel done to tm
-        .chan_done_out(chan_done),
+        .chan_done_out(chan_done_from_ipbus),
 
         // channel enable to cm
         .chan_en_out(chan_en),
@@ -605,7 +632,7 @@ module wfd_top(
         .trigger(trigger_from_ttc), // ttc triggering
 
         .go(acq_trigs),
-        .done(acq_dones),
+        .done(acq_dones_sync),
         .chan_readout_done(chan_readout_done), // input wire, to monitor when a fill is being read out
         .trig_arm(trig_arm),                   // output wire [4 : 0], to start the circular memory buffer
         .chan_en(chan_en),                     // enabled channels from ipbus
