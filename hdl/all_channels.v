@@ -147,6 +147,7 @@ module all_channels(
   // decode high address bits to pick a channel
   // eventually, if needed, bit A23 will select 'register' space if =0 or 'memory' space if =1
   wire chan0_io_reg_sel, chan1_io_reg_sel, chan2_io_reg_sel, chan3_io_reg_sel, chan4_io_reg_sel;
+  wire clk_synth_reg_sel;
   assign chan0_io_reg_sel = (ipb_addr[23:20] == 4'b0000);	//ipb channel register space
   assign chan1_io_reg_sel = (ipb_addr[23:20] == 4'b0001);	//ipb channel register space
   assign chan2_io_reg_sel = (ipb_addr[23:20] == 4'b0010);	//ipb channel register space
@@ -513,15 +514,16 @@ module all_channels(
   reg io_rd_ack_reg;
   always @(posedge ipb_clk) begin
     // 'io_rd_ack' comes from the selected channel
-    io_rd_ack_reg <= io_sync & io_rd_en & (chan0_io_rd_ack | chan1_io_rd_ack | chan2_io_rd_ack | chan3_io_rd_ack | chan4_io_rd_ack);
+    io_rd_ack_reg <= io_sync & io_rd_en & (chan0_io_rd_ack | chan1_io_rd_ack | chan2_io_rd_ack | chan3_io_rd_ack | chan4_io_rd_ack | clk_synth_io_rd_ack);
   end
   always @(posedge ipb_clk) begin
     // mux: connect the 'rd' data bus of the channel that is asserting 'ack'
-    if (chan0_io_rd_ack)    io_rd_data_reg <= chan0_io_rd_data;
-    if (chan1_io_rd_ack)    io_rd_data_reg <= chan1_io_rd_data;
-    if (chan2_io_rd_ack)    io_rd_data_reg <= chan2_io_rd_data;
-    if (chan3_io_rd_ack)    io_rd_data_reg <= chan3_io_rd_data;
-    if (chan0_io_rd_ack)    io_rd_data_reg <= chan4_io_rd_data;
+    if (chan0_io_rd_ack)     io_rd_data_reg <= chan0_io_rd_data;
+    if (chan1_io_rd_ack)     io_rd_data_reg <= chan1_io_rd_data;
+    if (chan2_io_rd_ack)     io_rd_data_reg <= chan2_io_rd_data;
+    if (chan3_io_rd_ack)     io_rd_data_reg <= chan3_io_rd_data;
+    if (chan4_io_rd_ack)     io_rd_data_reg <= chan4_io_rd_data;
+    if (clk_synth_io_rd_ack) io_rd_data_reg <= clk_synth_io_rd_data;
   end
 
 

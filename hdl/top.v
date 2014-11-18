@@ -781,17 +781,4 @@ module wfd_top(
     );
 
 
-    // clock synthesizer initialization
-    //clk_synth_intf clk_synth1(
-    //    .clk(clk50),
-    //   .reset(rst_from_ipb),
-    //    .dclk(adcclk_dclk),
-    //    .ddat(adcclk_ddat),
-    //    .dlen(adcclk_dlen),
-    //    .goe(adcclk_goe),
-    //    .sync(adcclk_sync),
-    //    .debug() 
-    //);
-
-
 endmodule
