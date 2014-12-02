@@ -63,7 +63,10 @@ module wfd_top(
     output c_din,                     // to all channels FPGA Configuration
     input [4:0] initb,                // to each channel FPGA Configuration
     input [4:0] prog_done,            // from each channel FPGA Configuration
-    input test                        // 
+    input test,                       // 
+    input spi_miso,                   // serial data from SPI flash memory
+    output spi_mosi,                  // serial data (commands) to SPI flash memory
+    output spi_ss                     // SPI flash memory chip select
 );
 
 
@@ -99,7 +102,7 @@ module wfd_top(
 
     // dummy use of signals
     assign debug6 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m;;
-    assign debug7 = mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] & acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0] ;
+    assign debug7 = mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] & acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0] & spi_miso_sync ;
 
 
     wire [2:0] debug;
@@ -183,6 +186,41 @@ module wfd_top(
         .CLKFBIN(clkfb)
     );
 
+
+    // ================== communicate with SPI flash memory ==================
+
+    // Put the SPI MISO into the 50 MHz clock domain
+    (* mark_debug = "true" *) wire spi_miso_sync;
+    sync_2stage spi_miso_sync(
+        .clk(clk50),
+        .in(spi_miso),
+        .out(spi_miso_sync)
+    );
+
+    // The startup block will give us access to the SPI clock pin (which is otherwise reserved for use during FPGA configuration)
+    // STARTUPE2: STARTUP Block
+    //            7  Series
+    // Xilinx HDL Libraries Guide, version 13.3
+    STARTUPE2 #(
+        .PROG_USR("FALSE"),  // Activate program event security feature. Requires encrypted bitstreams.
+        .SIM_CCLK_FREQ(0.0)  // Set the Configuration Clock Frequency(ns) for simulation.
+    )
+    STARTUPE2_inst (
+        .CFGCLK(),         // 1-bit output: Configuration main clock output
+        .CFGMCLK(),        // 1-bit output: Configuration internal oscillator clock output
+        .EOS(),            // 1-bit output: Active high output signal indicating the End Of Startup.
+        .PREQ(),           // 1-bit output: PROGRAM request to fabric output
+        .CLK(0),           // 1-bit input: User start-up clock input
+        .GSR(0),           // 1-bit input: Global Set/Reset input (GSR cannot be used for the port name)
+        .GTS(0),           // 1-bit input: Global 3-state input (GTS cannot be used for the port name)
+        .KEYCLEARB(0),     // 1-bit input: Clear AES Decrypter Key input from Battery-Backed RAM (BBRAM)
+        .PACK(0),          // 1-bit input: PROGRAM acknowledge input
+        .USRCCLKO(clk50),  // 1-bit input: User CCLK input
+        .USRCCLKTS(0),     // 1-bit input: User CCLK 3-state enable input
+        .USRDONEO(0),      // 1-bit input: User DONE pin output control
+        .USRDONETS(0)      // 1-bit input: User DONE 3-state enable output
+    );
+    //  End of STARTUPE2_inst instantiation
 
 
 
