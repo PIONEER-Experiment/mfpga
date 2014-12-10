@@ -1,8 +1,7 @@
 
-// Created by fizzim.pl version $Revision: 4.44 on 2014:07:07 at 11:04:30 (www.fizzim.com)
+// Created by fizzim.pl version 4.42 on 2014:07:02 at 18:26:04 (www.fizzim.com)
 
 module dataTransferManager (
-  (* mark_debug = "true" *) output wire busy,
   output wire chan_rx_fifo_ready,
   output reg [31:0] chan_tx_fifo_data,
   output reg chan_tx_fifo_dest,
@@ -23,32 +22,32 @@ module dataTransferManager (
   input wire [23:0] tm_fifo_data,
   input wire tm_fifo_valid 
 );
-
+  
   // state bits
   parameter 
-  IDLE          = 10'b0010000000, // extra=00 tm_fifo_ready=1 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 busy=0 
-  DATA1         = 10'b0000000011, // extra=00 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=1 busy=1 
-  DATA2         = 10'b0001000001, // extra=00 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 busy=1 
-  HAS_FILLNUM   = 10'b0000000001, // extra=00 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 busy=1 
-  HEADER1       = 10'b0001010001, // extra=00 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=1 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 busy=1 
-  HEADER2       = 10'b0101000001, // extra=01 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 busy=1 
-  LAST_DATA1    = 10'b1001000001, // extra=10 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 busy=1 
-  LAST_DATA2    = 10'b1101000001, // extra=11 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 busy=1 
-  READY_DATA    = 10'b0100000011, // extra=01 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=1 busy=1 
-  SEND_CC       = 10'b0000001001, // extra=00 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=1 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 busy=1 
-  SEND_CSN      = 10'b0100001001, // extra=01 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=1 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 busy=1 
-  SEND_WORD     = 10'b0000001101, // extra=00 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=1 chan_tx_fifo_last=1 chan_rx_fifo_ready=0 busy=1 
-  TRAILER       = 10'b0001100001, // extra=00 tm_fifo_ready=0 daq_valid=1 daq_trailer=1 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 busy=1 
-  WAIT_RESPONSE = 10'b1000000011; // extra=10 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=1 busy=1 
-
-  (* mark_debug = "true" *) reg [9:0] state;
-  (* mark_debug = "true" *) reg [9:0] nextstate;
+  IDLE          = 9'b001000000, // extra=00 tm_fifo_ready=1 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
+  DATA1         = 9'b000000001, // extra=00 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=1 
+  DATA2         = 9'b000100000, // extra=00 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
+  HAS_FILLNUM   = 9'b000000000, // extra=00 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
+  HEADER1       = 9'b000101000, // extra=00 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=1 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
+  HEADER2       = 9'b010100000, // extra=01 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
+  LAST_DATA1    = 9'b100100000, // extra=10 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
+  LAST_DATA2    = 9'b110100000, // extra=11 tm_fifo_ready=0 daq_valid=1 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
+  READY_DATA    = 9'b010000001, // extra=01 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=1 
+  SEND_CC       = 9'b000000100, // extra=00 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=1 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
+  SEND_CSN      = 9'b010000100, // extra=01 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=1 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
+  SEND_WORD     = 9'b000000110, // extra=00 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=1 chan_tx_fifo_last=1 chan_rx_fifo_ready=0 
+  TRAILER       = 9'b000110000, // extra=00 tm_fifo_ready=0 daq_valid=1 daq_trailer=1 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=0 
+  WAIT_RESPONSE = 9'b100000001; // extra=10 tm_fifo_ready=0 daq_valid=0 daq_trailer=0 daq_header=0 chan_tx_fifo_valid=0 chan_tx_fifo_last=0 chan_rx_fifo_ready=1 
+  
+  reg [8:0] state;
+  reg [8:0] nextstate;
   reg chan_num;
   reg [23:0] fill_num;
   reg next_chan_num;
   reg [63:0] next_daq_data;
   reg [23:0] next_fill_num;
-
+  
   // comb always block
   always @* begin
     nextstate = state; // default to hold value because implied_loopback is set
@@ -165,17 +164,16 @@ module dataTransferManager (
       end
     endcase
   end
-
+  
   // Assign reg'd outputs to state bits
-  assign busy = state[0];
-  assign chan_rx_fifo_ready = state[1];
-  assign chan_tx_fifo_last = state[2];
-  assign chan_tx_fifo_valid = state[3];
-  assign daq_header = state[4];
-  assign daq_trailer = state[5];
-  assign daq_valid = state[6];
-  assign tm_fifo_ready = state[7];
-
+  assign chan_rx_fifo_ready = state[0];
+  assign chan_tx_fifo_last = state[1];
+  assign chan_tx_fifo_valid = state[2];
+  assign daq_header = state[3];
+  assign daq_trailer = state[4];
+  assign daq_valid = state[5];
+  assign tm_fifo_ready = state[6];
+  
   // sequential always block
   always @(posedge clk or posedge rst) begin
     if (rst) begin
@@ -191,7 +189,7 @@ module dataTransferManager (
       fill_num[23:0] <= next_fill_num[23:0];
       end
   end
-
+  
   // This code allows you to see state names in simulation
   `ifndef SYNTHESIS
   reg [103:0] statename;
