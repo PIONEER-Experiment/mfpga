@@ -106,7 +106,7 @@ module wfd_top(
 
 
     wire [2:0] debug;
-    assign debug0 = debug[0];
+    assign debug0 = clk50_reset;
     assign debug1 = debug[1];
     assign debug2 = debug[2];
 
@@ -187,6 +187,26 @@ module wfd_top(
     );
 
 
+
+    // ======== ethernet status signals ========
+    reg sfp_los = 0;      // loss of signal for gigabit ethernet. Not used
+    wire eth_link_status; // link status of gigabit ethernet
+
+    // ======== reset signals ========
+    (* mark_debug = "true" *) wire rst_from_ipb;            // reset from IPbus. Synchronous to IPbus clock
+    wire rst_n;                   // active low reset
+    assign rst_n = ~rst_from_ipb;
+
+    // Synchronize reset from IPbus clock domain to other domains
+    (* mark_debug = "true" *) wire clk50_reset;
+    resets r (
+        .ipb_rst_in(rst_from_ipb),
+        .ipb_clk(clk125),
+        .clk50(clk50),
+        .rst_clk50(clk50_reset)
+    );
+
+    
     // ================== communicate with SPI flash memory ==================
 
     // Put the SPI MISO into the 50 MHz clock domain
@@ -215,7 +235,7 @@ module wfd_top(
         .GTS(0),           // 1-bit input: Global 3-state input (GTS cannot be used for the port name)
         .KEYCLEARB(0),     // 1-bit input: Clear AES Decrypter Key input from Battery-Backed RAM (BBRAM)
         .PACK(0),          // 1-bit input: PROGRAM acknowledge input
-        .USRCCLKO(clk50),  // 1-bit input: User CCLK input
+        .USRCCLKO(spi_clk),// 1-bit input: User CCLK input
         .USRCCLKTS(0),     // 1-bit input: User CCLK 3-state enable input
         .USRDONEO(0),      // 1-bit input: User DONE pin output control
         .USRDONETS(0)      // 1-bit input: User DONE 3-state enable output
@@ -223,24 +243,19 @@ module wfd_top(
     //  End of STARTUPE2_inst instantiation
 
 
+    (* mark_debug = "true" *) wire [31:0] spi_data;
 
-    // ======== ethernet status signals ========
-    reg sfp_los = 0;      // loss of signal for gigabit ethernet. Not used
-    wire eth_link_status; // link status of gigabit ethernet
-
-    // ======== reset signals ========
-    wire rst_from_ipb;            // reset from IPbus. Synchronous to IPbus clock
-    wire rst_n;                   // active low reset
-    assign rst_n = ~rst_from_ipb;
-
-    // Synchronize reset from IPbus clock domain to other domains
-    wire clk50_reset;
-    resets r (
-        .ipb_rst_in(rst_from_ipb),
-        .ipb_clk(clk125),
-        .clk50(clk50),
-        .rst_clk50(clk50_reset)
+    spi_flash_intf spi_flash_intf(
+        .clk(clk50),
+        .reset(clk50_reset),
+        .data_in(32'h03000000),
+        .data_out(spi_data),
+        .spi_clk(spi_clk),
+        .spi_mosi(spi_mosi),
+        .spi_miso(spi_miso_sync),
+        .spi_ss(spi_ss)
     );
+
 
 
     // ======== triggers and data transfer ========
