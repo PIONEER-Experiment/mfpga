@@ -126,7 +126,8 @@ begin
                     spi_ss <= 1'b0;
                     sreg_ready <= 1'b0;
                     if (sreg_cnt_max)
-                        shift_state <= IDLE;
+                        //shift_state <= IDLE;
+                        shift_state <= SHIFTING; // stay here forever
                     else
                         shift_state <= SHIFTING;
                 end

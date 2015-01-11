@@ -1,4 +1,4 @@
-F##############
+##############
 # io standards
 ##############
 set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gige_rx]

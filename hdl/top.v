@@ -63,7 +63,7 @@ module wfd_top(
     output c_din,                     // to all channels FPGA Configuration
     input [4:0] initb,                // to each channel FPGA Configuration
     input [4:0] prog_done,            // from each channel FPGA Configuration
-    input test,                       // 
+    input test,                       //
     input spi_miso,                   // serial data from SPI flash memory
     output spi_mosi,                  // serial data (commands) to SPI flash memory
     output spi_ss                     // SPI flash memory chip select
@@ -93,22 +93,15 @@ module wfd_top(
     );
 
 
-	// debug signals -- right now providing dummy use of otherwise unused input signals
-  //  assign debug0 = mmc_io[3] & mmc_io[2];
-  //  assign debug1 = initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
-  //  assign debug2 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
-  //  assign debug6 = wfdps[1] & wfdps[0] & mmc_reset_m & ext_trig_sync;
-  //  assign debug7 = mezzb[5] & mezzb[4] & mezzb[3] & mezzb[2] & mezzb[1] & mezzb[0];
+	// debug signals
+    assign debug0 = spi_clk;
+    assign debug1 = spi_mosi;
+    assign debug2 = spi_miso;
+    assign debug6 = spi_ss;
 
     // dummy use of signals
-    assign debug6 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m;;
-    assign debug7 = mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] & acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0] & spi_miso_sync ;
+    assign debug7 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] & acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
 
-
-    wire [2:0] debug;
-    assign debug0 = clk50_reset;
-    assign debug1 = debug[1];
-    assign debug2 = debug[2];
 
     assign c0_io[0] = 1'b0;
     assign c0_io[1] = 1'b0;
@@ -657,7 +650,7 @@ module wfd_top(
         .adcclk_dlen(adcclk_dlen),
         .adcclk_goe(adcclk_goe),
         .adcclk_sync(adcclk_sync),
-        .debug(debug[2:0]),
+        .debug(),
 
 
 
