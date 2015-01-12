@@ -65,6 +65,9 @@ entity ipbus_top is port(
 
     -- enable channels in cm
     chan_en_out : out std_logic_vector(4 downto 0);
+
+    -- signal to start programming sequence for channel FPGAs
+    prog_chan_out : out std_logic;
 	
 	-- clocks
 	clk_200: in std_logic;
@@ -273,6 +276,7 @@ begin
 	    trigger_out => trigger_out,
 	    chan_done_out => chan_done_out,
 	    chan_en_out => chan_en_out,
+	    prog_chan_out => prog_chan_out,
 
 		-- counter input ports
 		frame_err => frame_err,

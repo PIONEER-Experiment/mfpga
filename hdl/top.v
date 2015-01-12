@@ -61,7 +61,7 @@ module wfd_top(
     output c_progb,                   // to all channels FPGA Configuration
     output c_clk,                     // to all channels FPGA Configuration
     output c_din,                     // to all channels FPGA Configuration
-    input [4:0] initb,                // to each channel FPGA Configuration
+    input [4:0] initb,                // from each channel FPGA Configuration
     input [4:0] prog_done,            // from each channel FPGA Configuration
     input test,                       //
     input spi_miso,                   // serial data from SPI flash memory
@@ -150,11 +150,6 @@ module wfd_top(
 	assign daq_clk_en = 1'b1;
 
 	OBUFDS ttc_tx_buf(.I(ttc_rx), .O(ttc_txp), .OB(ttc_txn)); 
-
-    assign c_progb = 1'b1;
-    assign c_clk = 1'b0;
-    assign c_din = test;
-    // assign initb[4:0] = prog_done[4:0]; // initb changed from output to input
 
 
     // Generate clocks from the 50 MHz input clock
@@ -247,6 +242,30 @@ module wfd_top(
         .spi_mosi(spi_mosi),
         .spi_miso(spi_miso_sync),
         .spi_ss(spi_ss)
+    );
+
+
+    // ======== program channel FPGAs using bistream stored on SPI flash memory ========
+
+    wire prog_chan_start_from_ipbus; // in 125 MHz clock domain
+    (* mark_debug = "true" *) wire prog_chan_start; // in 50 MHz clock domain 
+             // don't have to worry about missing the faster signal -- stays high 
+             // until you use ipbus to set it low again
+    sync_2stage prog_chan_start_sync(
+        .clk(clk50),
+        .in(prog_chan_start_from_ipbus),
+        .out(prog_chan_start)
+    );
+
+    prog_channels prog_channels(
+        .clk(clk50),
+        .reset(clk50_reset),
+        .prog_chan_start(prog_chan_start),
+        .c_progb(c_progb),      // configuration signal to all five channels
+        .c_clk(c_clk),          // configuration clock to all five channels
+        .c_din(c_din),          // configuration bitstream to all five channels
+        .initb(initb),          // configuration signals from each channel
+        .prog_done(prog_done)   // configuration signals from each channel
     );
 
 
@@ -524,6 +543,9 @@ module wfd_top(
 
         // channel enable to cm
         .chan_en_out(chan_en),
+
+        // signal to start programming sequence for channel FPGAs
+        .prog_chan_out(prog_chan_start_from_ipbus),
 
         // counter ouputs
         .frame_err(frame_err),              
