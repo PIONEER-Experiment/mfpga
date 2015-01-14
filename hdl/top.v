@@ -232,16 +232,20 @@ module wfd_top(
 
 
     (* mark_debug = "true" *) wire [31:0] spi_data;
+    (* mark_debug = "true" *) wire read_bitstream;
+    (* mark_debug = "true" *) wire end_bitstream;
 
     spi_flash_intf spi_flash_intf(
         .clk(clk50),
         .reset(clk50_reset),
-        .data_in(32'h03000000),
+        .data_in(32'h03800000), // 0x03 = read command, 0x800000 = address of channel bitstream
         .data_out(spi_data),
         .spi_clk(spi_clk),
         .spi_mosi(spi_mosi),
         .spi_miso(spi_miso_sync),
-        .spi_ss(spi_ss)
+        .spi_ss(spi_ss),
+        .read_bitstream(read_bitstream), // start signal from prog_channels
+        .end_bitstream(end_bitstream) // done signal to prog_channels
     );
 
 
@@ -265,7 +269,10 @@ module wfd_top(
         .c_clk(c_clk),          // configuration clock to all five channels
         .c_din(c_din),          // configuration bitstream to all five channels
         .initb(initb),          // configuration signals from each channel
-        .prog_done(prog_done)   // configuration signals from each channel
+        .prog_done(prog_done),  // configuration signals from each channel
+        .bitstream(spi_miso_sync), // bitstream from flash memory
+        .read_bitstream(read_bitstream), // start signal to spi_flash_intf
+        .end_bitstream(end_bitstream) // done signal from spi_flash_intf
     );
 
 

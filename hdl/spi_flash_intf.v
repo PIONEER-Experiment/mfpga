@@ -1,5 +1,7 @@
 `timescale 1ns / 1ps
 
+// Based on Nate's ADC interface. Right now only suitable for reading the channel bitstream. Needs to be cleaned up & turned into a more general interface. 
+
 // TODO: figure out miso synchronization delay
 
 module spi_flash_intf(
@@ -10,7 +12,9 @@ module spi_flash_intf(
 	output spi_clk,
 	output spi_mosi,
 	input spi_miso,
-	output reg spi_ss
+	output reg spi_ss,
+    input read_bitstream,
+    output reg end_bitstream
 );
 
 
@@ -38,11 +42,12 @@ assign spi_clk = !clk;
 (* mark_debug = "true" *) reg sreg_strobe;
 (* mark_debug = "true" *) reg [63:0] sreg_in;
 (* mark_debug = "true" *) reg [63:0] sreg_out;
-(* mark_debug = "true" *) reg [5:0] sreg_cnt = 6'b000000;
+(* mark_debug = "true" *) reg [24:0] sreg_cnt = 25'b0;
 (* mark_debug = "true" *) reg sreg_ready;
 parameter IDLE = 2'b00;
 parameter LOAD = 2'b01;
 parameter SHIFTING = 2'b10;
+parameter DONE = 2'b11;
 
 (* mark_debug = "true" *) reg [1:0] shift_state = IDLE;
 
@@ -50,16 +55,16 @@ parameter SHIFTING = 2'b10;
 (* mark_debug = "true" *) reg sreg_cnt_reset;
 
 (* mark_debug = "true" *) wire sreg_cnt_max;
-assign sreg_cnt_max = (sreg_cnt == 6'b111110) ? 1'b1 : 1'b0;
+assign sreg_cnt_max = (sreg_cnt == 25'h16F97FE) ? 1'b1 : 1'b0;
 
 always @ (posedge clk)
 begin
     if (sreg_cnt_reset)
-        sreg_cnt[5:0] <= 6'b000000;
+        sreg_cnt[24:0] <= 25'b0;
     else if (sreg_cnt_ena)
-        sreg_cnt[5:0] <= sreg_cnt[5:0] + 6'b000001; 
+        sreg_cnt[24:0] <= sreg_cnt[24:0] + 1'b1; 
     else
-        sreg_cnt[5:0] <= sreg_cnt[5:0];
+        sreg_cnt[24:0] <= sreg_cnt[24:0];
 end
 
 (* mark_debug = "true" *) reg sreg_load;
@@ -90,6 +95,7 @@ begin
             sreg_cnt_ena <= 1'b0;
             spi_ss <= 1'b1;
             sreg_ready <= 1'b1;
+            end_bitstream <= 1'b0;
             shift_state <= IDLE;
         end
     else
@@ -101,6 +107,7 @@ begin
                     sreg_load <= 1'b1;                    
                     spi_ss <= 1'b1;
                     sreg_ready <= 1'b1;
+                    end_bitstream <= 1'b0;
                     if (sreg_strobe)
                         shift_state <= LOAD;
                     else
@@ -113,6 +120,7 @@ begin
                     sreg_load <= 1'b1;                    
                     spi_ss <= 1'b1;
                     sreg_ready <= 1'b0;
+                    end_bitstream <= 1'b0;
                     if (sreg_strobe)
                         shift_state <= LOAD;
                     else
@@ -125,11 +133,21 @@ begin
                     sreg_load <= 1'b0;
                     spi_ss <= 1'b0;
                     sreg_ready <= 1'b0;
+                    end_bitstream <= 1'b0;
                     if (sreg_cnt_max)
-                        //shift_state <= IDLE;
-                        shift_state <= SHIFTING; // stay here forever
+                        shift_state <= IDLE;
                     else
                         shift_state <= SHIFTING;
+                end
+
+                DONE : begin
+                    sreg_cnt_reset <= 1'b1;
+                    sreg_cnt_ena <= 1'b0;
+                    sreg_load <= 1'b1;
+                    spi_ss <= 1'b1;
+                    sreg_ready <= 1'b1;
+                    end_bitstream <= 1'b1; // tell prog_channels this is the end
+                    shift_state <= IDLE; // stay here one clock cycle, then go to IDLE
                 end
             endcase
         end                
@@ -160,8 +178,6 @@ parameter S3 = 3'b010;
 
 assign payload = {data_in[31:0],32'h00000000};
 
-(* mark_debug = "true" *) reg [6:0] delay_counter = 7'b0000000;
-
 always @ (posedge clk)
 begin
 	if (reset)
@@ -175,16 +191,10 @@ begin
                 // idle
                 S1 : begin
             	    sreg_strobe <= 1'b0;
-                    if (delay_counter[6])   // time to start!
-                	    begin
-                		  delay_counter[6:0] <= 7'b0000000;						
-                		  spi_state <= S2;
-                	    end
+                    if (read_bitstream)   // time to start!
+                		spi_state <= S2;
                     else
-                	    begin
-                		  delay_counter[6:0] <= delay_counter[6:0] + 7'b0000001;
-                		  spi_state <= S1;
-                	    end
+                	    spi_state <= S1;
                 end
         
                 // load & shift
