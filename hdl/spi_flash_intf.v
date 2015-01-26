@@ -6,9 +6,10 @@
 
 module spi_flash_intf(
 	input clk,
+    ipb_clk,
 	(* mark_debug = "true" *) input reset,
 	input [31:0] data_in,
-	output reg [31:0] data_out,
+	output [31:0] data_out,
 	output spi_clk,
 	output spi_mosi,
 	input spi_miso,
@@ -156,13 +157,13 @@ end
 //*************************************************************************
 // latch to offload the shift register
 //*************************************************************************
-always @ (posedge clk)
-begin
-	if (sreg_ready)
-		data_out[31:0] <= {sreg_in[31:0]};
-	else
-		data_out[31:0] <= data_out[31:0];
-end	
+//always @ (posedge clk)
+//begin
+//	if (sreg_ready)
+//		data_out[31:0] <= {sreg_in[31:0]};
+//	else
+//		data_out[31:0] <= data_out[31:0];
+//end	
 
 //*************************************************************************
 // command state machine
@@ -215,5 +216,39 @@ begin
         end
 end
 
+// block RAM -- for practice right now (make sure can communicate via IPbus)
+
+RAMB18E1 #(
+    .RAM_MODE("SDP"),
+    .READ_WIDTH_A(36),
+    .WRITE_WIDTH_B(36)
+)
+RAMB18E1_inst (
+    .CLKARDCLK(ipb_clk),           // 1-bit input: Read clk (port A)
+    .CLKBWRCLK(ipb_clk),           // 1-bit input: Write clk (port B)
+
+    .ENARDEN(1'b0),                // 1-bit input: Read enable (port A)
+    .ENBWREN(1'b0),                // 1-bit input: Write enable (port B)
+    .WEBWE(4'b1111),               // 4-bit input: byte-wide write enable
+
+    .RSTREGARSTREG(1'b0),          // 1-bit input: A port register set/reset
+    .RSTRAMARSTRAM(1'b0),          // 1-bit input: A port set/reset
+
+    // addresses: 36-bit port has depth = 512, 9-bit address (bits [13:5] are used)
+    .ADDRARDADDR(14'h0000),        // 14-bit input: Read address
+    .ADDRBWRADDR(14'h0000),        // 14-bit input: Write address
+
+    // data in (and parity bits)
+    .DIBDI(data_in[31:16]),        // 16-bit input: DI[31:16]
+    .DIADI(data_in[15:0]),         // 16-bit input: DI[15:0]
+    .DIPBDIP(2'b00),               // 2-bit input: DIP[3:2]
+    .DIPADIP(2'b00),               // 2-bit input: DIP[1:0]
+
+    // data out (and parity bits)
+    .DOBDO(data_out[31:16]),       // 16-bit output: DO[31:16]
+    .DOADO(data_out[15:0]),        // 16-bit output: DO[15:0]
+    .DOPBDOP(),                    // 2-bit output: DOP[3:2]
+    .DOPADOP()                     // 2-bit output: DOP[1:0]
+);
 
 endmodule

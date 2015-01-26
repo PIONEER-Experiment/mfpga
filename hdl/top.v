@@ -237,6 +237,7 @@ module wfd_top(
 
     spi_flash_intf spi_flash_intf(
         .clk(clk50),
+        .ipb_clk(clk125),
         .reset(clk50_reset),
         .data_in(32'h03800000), // 0x03 = read command, 0x800000 = address of channel bitstream
         .data_out(spi_data),
