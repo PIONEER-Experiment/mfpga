@@ -15,7 +15,13 @@ module spi_flash_intf(
 	input spi_miso,
 	output reg spi_ss,
     input read_bitstream,
-    output reg end_bitstream
+    output reg end_bitstream,
+    input rbuf_en,
+    input [6:0] rbuf_addr,
+    output [31:0] rbuf_data,
+    input wbuf_en,
+    input [6:0] wbuf_addr,
+    input [31:0] wbuf_data
 );
 
 
@@ -227,26 +233,26 @@ RAMB18E1_inst (
     .CLKARDCLK(ipb_clk),           // 1-bit input: Read clk (port A)
     .CLKBWRCLK(ipb_clk),           // 1-bit input: Write clk (port B)
 
-    .ENARDEN(1'b0),                // 1-bit input: Read enable (port A)
-    .ENBWREN(1'b0),                // 1-bit input: Write enable (port B)
+    .ENARDEN(rbuf_en),             // 1-bit input: Read enable (port A)
+    .ENBWREN(wbuf_en),             // 1-bit input: Write enable (port B)
     .WEBWE(4'b1111),               // 4-bit input: byte-wide write enable
 
     .RSTREGARSTREG(1'b0),          // 1-bit input: A port register set/reset
     .RSTRAMARSTRAM(1'b0),          // 1-bit input: A port set/reset
 
     // addresses: 36-bit port has depth = 512, 9-bit address (bits [13:5] are used)
-    .ADDRARDADDR(14'h0000),        // 14-bit input: Read address
-    .ADDRBWRADDR(14'h0000),        // 14-bit input: Write address
+    .ADDRARDADDR({2'b00, rbuf_addr[6:0], 5'b00000}), // 14-bit input: Read address
+    .ADDRBWRADDR({2'b00, wbuf_addr[6:0], 5'b00000}), // 14-bit input: Write address
 
     // data in (and parity bits)
-    .DIBDI(data_in[31:16]),        // 16-bit input: DI[31:16]
-    .DIADI(data_in[15:0]),         // 16-bit input: DI[15:0]
+    .DIBDI(wbuf_data[31:16]),      // 16-bit input: DI[31:16]
+    .DIADI(wbuf_data[15:0]),       // 16-bit input: DI[15:0]
     .DIPBDIP(2'b00),               // 2-bit input: DIP[3:2]
     .DIPADIP(2'b00),               // 2-bit input: DIP[1:0]
 
     // data out (and parity bits)
-    .DOBDO(data_out[31:16]),       // 16-bit output: DO[31:16]
-    .DOADO(data_out[15:0]),        // 16-bit output: DO[15:0]
+    .DOBDO(rbuf_data[31:16]),      // 16-bit output: DO[31:16]
+    .DOADO(rbuf_data[15:0]),       // 16-bit output: DO[15:0]
     .DOPBDOP(),                    // 2-bit output: DOP[3:2]
     .DOPADOP()                     // 2-bit output: DOP[1:0]
 );

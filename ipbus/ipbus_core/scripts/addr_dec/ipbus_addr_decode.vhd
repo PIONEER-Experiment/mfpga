@@ -37,8 +37,10 @@ package body ipbus_addr_decode is
 			sel := 5; -- channel / base 00004000 / mask 0000000f
 		elsif std_match(addr, "-------0---------101------------") then
 			sel := 6; -- daq_link / base 00005000 / mask 00000003
+		elsif std_match(addr, "-------0---------110------------") then
+			sel := 7; -- ipbus_flash / base 00006000 / mask 000001ff
 		elsif std_match(addr, "-------1------------------------") then
-			sel := 7; -- ipbus_user / base 01000000 / mask 00ffffff
+			sel := 8; -- ipbus_user / base 01000000 / mask 00ffffff
 		else
 			sel := 99;
 		end if;

@@ -66,14 +66,22 @@ entity slaves is
 		pll_not_locked: in std_logic  := '0';
 		tx_resetdone_out: in std_logic  := '0';
 		rx_resetdone_out: in std_logic  := '0';
-		link_reset_out: in std_logic := '0'
+		link_reset_out: in std_logic := '0';
+
+		-- flash interface ports
+		flash_rbuf_en   : out std_logic;
+		flash_rbuf_addr : out std_logic_vector(6 downto 0);
+		flash_rbuf_data : in  std_logic_vector(31 downto 0);
+		flash_wbuf_en   : out std_logic;
+		flash_wbuf_addr : out std_logic_vector(6 downto 0);
+		flash_wbuf_data : out std_logic_vector(31 downto 0)
 	);
 
 end slaves;
 
 architecture rtl of slaves is
 
-	constant NSLV: positive := 8;
+	constant NSLV: positive := 9;
 	signal ipbw: ipb_wbus_array(NSLV-1 downto 0);
 	signal ipbr, ipbr_d: ipb_rbus_array(NSLV-1 downto 0);
 	signal ctrl_reg: std_logic_vector(31 downto 0);
@@ -226,15 +234,32 @@ begin
 	    debug => debug
 	  );
 
--- Slave 7: 24 Mbyte user space
+-- Slave 7: flash
 
-	slave7: entity work.ipbus_user
-		generic map(addr_width => 24)
+	slave7: entity work.ipbus_flash
+		generic map(addr_width => 9)
 		port map(
 			clk => ipb_clk,
 			reset => ipb_rst,
 			ipbus_in => ipbw(7),
-            ipbus_out => ipbr(7),
+			ipbus_out => ipbr(7),
+			flash_rbuf_en => flash_rbuf_en,
+			flash_rbuf_addr => flash_rbuf_addr,
+			flash_rbuf_data => flash_rbuf_data,
+			flash_wbuf_en => flash_wbuf_en,
+			flash_wbuf_addr => flash_wbuf_addr,
+			flash_wbuf_data => flash_wbuf_data
+		);
+
+-- Slave 8: 24 Mbyte user space
+
+	slave8: entity work.ipbus_user
+		generic map(addr_width => 24)
+		port map(
+			clk => ipb_clk,
+			reset => ipb_rst,
+			ipbus_in => ipbw(8),
+            ipbus_out => ipbr(8),
 			-- "user_ipb" interface
             user_ipb_clk => user_ipb_clk,           -- programming clock
             user_ipb_strobe => user_ipb_strobe,     -- this ipb space is selected for an I/O operation 
@@ -245,5 +270,7 @@ begin
             user_ipb_ack => user_ipb_ack,           -- 'write' data has been stored, 'read' data is ready
             user_ipb_err => user_ipb_err            -- '1' if error, '0' if OK?
 		);
+
+
 
 end rtl;

@@ -87,7 +87,15 @@ entity ipbus_top is port(
 	link_reset_out : in std_logic;
 
 	debug: out std_logic_vector(7 downto 0);
-	board_id : in std_logic_vector(2 downto 0)
+	board_id : in std_logic_vector(2 downto 0);
+
+	-- flash interface ports
+	flash_rbuf_en   : out std_logic;
+	flash_rbuf_addr : out std_logic_vector(6 downto 0);
+	flash_rbuf_data : in  std_logic_vector(31 downto 0);
+	flash_wbuf_en   : out std_logic;
+	flash_wbuf_addr : out std_logic_vector(6 downto 0);
+	flash_wbuf_data : out std_logic_vector(31 downto 0)
 );
 
 end ipbus_top;
@@ -289,7 +297,15 @@ begin
 		rx_resetdone_out => rx_resetdone_out,
 		link_reset_out => link_reset_out,
 
-	    debug => debug
+	    debug => debug,
+
+	    -- flash interface ports
+	    flash_rbuf_en => flash_rbuf_en,
+		flash_rbuf_addr => flash_rbuf_addr,
+		flash_rbuf_data => flash_rbuf_data,
+		flash_wbuf_en => flash_wbuf_en,
+		flash_wbuf_addr => flash_wbuf_addr,
+		flash_wbuf_data => flash_wbuf_data
 	);
 
 	-- break out axi signals

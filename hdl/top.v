@@ -235,6 +235,13 @@ module wfd_top(
     (* mark_debug = "true" *) wire read_bitstream;
     (* mark_debug = "true" *) wire end_bitstream;
 
+    wire ipbus_to_flash_rbuf_en;
+    wire [6:0] ipbus_to_flash_rbuf_addr;
+    wire [31:0] flash_rbuf_to_ipbus_data;
+    wire ipbus_to_flash_wbuf_en;
+    wire [6:0] ipbus_to_flash_wbuf_addr;
+    wire [31:0] ipbus_to_flash_wbuf_data;
+
     spi_flash_intf spi_flash_intf(
         .clk(clk50),
         .ipb_clk(clk125),
@@ -246,7 +253,13 @@ module wfd_top(
         .spi_miso(spi_miso_sync),
         .spi_ss(spi_ss),
         .read_bitstream(read_bitstream), // start signal from prog_channels
-        .end_bitstream(end_bitstream) // done signal to prog_channels
+        .end_bitstream(end_bitstream), // done signal to prog_channels
+        .rbuf_en(ipbus_to_flash_rbuf_en),
+        .rbuf_addr(ipbus_to_flash_rbuf_addr),
+        .rbuf_data(flash_rbuf_to_ipbus_data),
+        .wbuf_en(ipbus_to_flash_wbuf_en),
+        .wbuf_addr(ipbus_to_flash_wbuf_addr),
+        .wbuf_data(ipbus_to_flash_wbuf_data)
     );
 
 
@@ -566,7 +579,15 @@ module wfd_top(
         .rx_resetdone_out(rx_resetdone_out),
         .link_reset_out(link_reset_out),
 
-        .board_id(board_id)
+        .board_id(board_id),
+
+        // flash interface ports
+        .flash_rbuf_en(ipbus_to_flash_rbuf_en),
+        .flash_rbuf_addr(ipbus_to_flash_rbuf_addr),
+        .flash_rbuf_data(flash_rbuf_to_ipbus_data),
+        .flash_wbuf_en(ipbus_to_flash_wbuf_en),
+        .flash_wbuf_addr(ipbus_to_flash_wbuf_addr),
+        .flash_wbuf_data(ipbus_to_flash_wbuf_data)
     );
 
  
