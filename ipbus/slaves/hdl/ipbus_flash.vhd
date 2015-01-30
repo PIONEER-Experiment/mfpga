@@ -15,12 +15,14 @@ entity ipbus_flash is
 		reset: in std_logic;
 		ipbus_in: in ipb_wbus;
 		ipbus_out: out ipb_rbus;
-		flash_rbuf_en   : out std_logic;
-		flash_rbuf_addr : out std_logic_vector(6 downto 0);
-		flash_rbuf_data : in  std_logic_vector(31 downto 0);
-		flash_wbuf_en   : out std_logic;
-		flash_wbuf_addr : out std_logic_vector(6 downto 0);
-		flash_wbuf_data : out std_logic_vector(31 downto 0)
+		flash_wr_byte_cnt : out std_logic_vector(8 downto 0);
+		flash_cmd_strobe  : out std_logic;
+		flash_rbuf_en     : out std_logic;
+		flash_rbuf_addr   : out std_logic_vector(6 downto 0);
+		flash_rbuf_data   : in  std_logic_vector(31 downto 0);
+		flash_wbuf_en     : out std_logic;
+		flash_wbuf_addr   : out std_logic_vector(6 downto 0);
+		flash_wbuf_data   : out std_logic_vector(31 downto 0)
 	);
 
 end ipbus_flash;
@@ -40,6 +42,8 @@ begin
 			if ipbus_in.ipb_addr(8)='1' then
 			-- FLASH.CMD
 
+				flash_wr_byte_cnt <= ipbus_in.ipb_wdata(8 downto 0);
+				flash_cmd_strobe <= ipbus_in.ipb_strobe and ipbus_in.ipb_write;
 				flash_rbuf_en <= '0';
 				flash_wbuf_en <= '0';
 
@@ -50,6 +54,7 @@ begin
 				flash_rbuf_addr <= ipbus_in.ipb_addr(6 downto 0);
 				ipbus_out.ipb_rdata <= flash_rbuf_data;
 				flash_wbuf_en <= '0';
+				flash_cmd_strobe <= '0';
 
 			else
 			-- FLASH.WBUF
@@ -59,6 +64,7 @@ begin
 				flash_wbuf_data <= ipbus_in.ipb_wdata;
 				ipbus_out.ipb_rdata <= ipbus_in.ipb_wdata;
 				flash_rbuf_en <= '0';
+				flash_cmd_strobe <= '0';
 
 			end if;
 

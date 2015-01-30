@@ -7,7 +7,7 @@
 module spi_flash_intf(
 	input clk,
     ipb_clk,
-	(* mark_debug = "true" *) input reset,
+	input reset,
 	input [31:0] data_in,
 	output [31:0] data_out,
 	output spi_clk,
@@ -16,26 +16,16 @@ module spi_flash_intf(
 	output reg spi_ss,
     input read_bitstream,
     output reg end_bitstream,
-    input rbuf_en,
-    input [6:0] rbuf_addr,
-    output [31:0] rbuf_data,
-    input wbuf_en,
-    input [6:0] wbuf_addr,
-    input [31:0] wbuf_data
+    input [8:0] ipb_flash_wr_byte_cnt,
+    input ipb_flash_cmd_strobe,
+    input rbuf_rd_en,
+    input [6:0] rbuf_rd_addr,
+    output [31:0] rbuf_data_out,
+    input wbuf_wr_en,
+    input [6:0] wbuf_wr_addr,
+    input [31:0] wbuf_data_in
 );
 
-
-(* mark_debug = "true" *) reg test = 1'b0;  
-(* mark_debug = "true" *) reg test_clk = 1'b0;
-
-always @ (posedge clk)
-begin
-    if (reset)
-    begin
-        test <= 1'b1;
-        test_clk <= !test_clk;
-    end
-end
 
 assign spi_clk = !clk;
 
@@ -46,22 +36,22 @@ assign spi_clk = !clk;
 // payload - what will be shifted
 // sreg_ready - active high status signal
 //*************************************************************************
-(* mark_debug = "true" *) reg sreg_strobe;
-(* mark_debug = "true" *) reg [63:0] sreg_in;
-(* mark_debug = "true" *) reg [63:0] sreg_out;
-(* mark_debug = "true" *) reg [24:0] sreg_cnt = 25'b0;
-(* mark_debug = "true" *) reg sreg_ready;
+reg sreg_strobe;
+reg [63:0] sreg_in;
+reg [63:0] sreg_out;
+reg [24:0] sreg_cnt = 25'b0;
+reg sreg_ready;
 parameter IDLE = 2'b00;
 parameter LOAD = 2'b01;
 parameter SHIFTING = 2'b10;
 parameter DONE = 2'b11;
 
-(* mark_debug = "true" *) reg [1:0] shift_state = IDLE;
+reg [1:0] shift_state = IDLE;
 
-(* mark_debug = "true" *) reg sreg_cnt_ena;
-(* mark_debug = "true" *) reg sreg_cnt_reset;
+reg sreg_cnt_ena;
+reg sreg_cnt_reset;
 
-(* mark_debug = "true" *) wire sreg_cnt_max;
+wire sreg_cnt_max;
 assign sreg_cnt_max = (sreg_cnt == 25'h16F97FE) ? 1'b1 : 1'b0;
 
 always @ (posedge clk)
@@ -74,7 +64,7 @@ begin
         sreg_cnt[24:0] <= sreg_cnt[24:0];
 end
 
-(* mark_debug = "true" *) reg sreg_load;
+reg sreg_load;
 
 always @ (posedge clk)
 begin
@@ -179,9 +169,9 @@ parameter S1 = 3'b000;
 parameter S2 = 3'b001;
 parameter S3 = 3'b010;
 
-(* mark_debug = "true" *) reg [2:0] spi_state = S1;
+reg [2:0] spi_state = S1;
 
-(* mark_debug = "true" *) wire [63:0] payload;
+wire [63:0] payload;
 
 assign payload = {data_in[31:0],32'h00000000};
 
@@ -222,39 +212,162 @@ begin
         end
 end
 
-// block RAM -- for practice right now (make sure can communicate via IPbus)
+
+// wire wbuf_rd_en;
+// wire [13:0] wbuf_rd_addr;
+(* mark_debug = "true" *) wire wbuf_data_out;
+// wire rbuf_wr_en;
+// wire [13:0] rbuf_wr_addr;
+// wire rbuf_data_in;
+
+(* mark_debug = "true" *) wire flash_cmd_strobe;
+(* mark_debug = "true" *) reg [8:0] flash_wr_byte_cnt;
+
+// state machine for reading WBUF and writing RBUF using the 1-bit ports
+// (to test operation of block RAMs before hooking them up to the flash memory SPI interface)
+
+// bring IPbus signals into the 50 MHz clk domain
+//    (we know these signals change slowly -- need to update timing constraints)
+
+always @ (posedge clk) begin
+    flash_wr_byte_cnt <= ipb_flash_wr_byte_cnt;
+end
+
+sync_2stage flash_cmd_sync(
+    .clk(clk),
+    .in(ipb_flash_cmd_strobe),
+    .out(flash_cmd_strobe)
+);
+
+(* mark_debug = "true" *) reg [11:0] bit_cnt = 12'b0;
+(* mark_debug = "true" *) reg bit_cnt_reset;
+(* mark_debug = "true" *) reg trans_en;
+
+(* mark_debug = "true" *) wire bit_cnt_max;
+assign bit_cnt_max = (bit_cnt == {flash_wr_byte_cnt[8:0],3'b000}) ? 1'b1 : 1'b0;
+
+always @ (posedge clk)
+begin
+    if (bit_cnt_reset)
+        bit_cnt[11:0] <= 12'b0;
+    else if (trans_en)
+        bit_cnt[11:0] <= bit_cnt[11:0] + 1'b1; 
+    else
+        bit_cnt[11:0] <= bit_cnt[11:0];
+end
+
+parameter S_IDLE = 3'b000;
+parameter S_TRANSFER = 3'b001;
+
+(* mark_debug = "true" *) reg [2:0] buf_state = S_IDLE;
+
+always @ (posedge clk)
+begin
+    if (reset)
+        begin
+            bit_cnt_reset <= 1'b1;
+            trans_en <= 1'b0;
+            buf_state <= S_IDLE;
+        end
+    else
+        begin
+            case (buf_state)
+                // idle
+                S_IDLE : begin
+                    bit_cnt_reset <= 1'b1;
+                    trans_en <= 1'b0;
+                    if (flash_cmd_strobe) // time to start data transfer!
+                        buf_state <= S_TRANSFER;
+                    else
+                        buf_state <= S_IDLE;
+                end
+        
+                // load & shift
+                S_TRANSFER : begin
+                    bit_cnt_reset <= 1'b0;
+                    trans_en <= 1'b1;
+                    if (bit_cnt_max) // we're done
+                        buf_state <= S_IDLE;
+                    else
+                        buf_state <= S_TRANSFER;
+                end 
+            endcase
+        end
+end
+
+
+
+// ======== dual port block RAMs ========
+// WBUF: for writing to flash
+//      32-bit port = input from IPbus
+//       1-bit port = output to flash
+// RBUF: for reading from flash
+//       1-bit port = input from flash
+//      32-bit port = output to IPbus
 
 RAMB18E1 #(
     .RAM_MODE("SDP"),
-    .READ_WIDTH_A(36),
-    .WRITE_WIDTH_B(36)
+    .READ_WIDTH_A(1),
+    .WRITE_WIDTH_B(36) // 32 data bits, 4 (unused) parity bits
 )
-RAMB18E1_inst (
-    .CLKARDCLK(ipb_clk),           // 1-bit input: Read clk (port A)
+wbuf (
+    .CLKARDCLK(clk),               // 1-bit input: Read clk (port A)
     .CLKBWRCLK(ipb_clk),           // 1-bit input: Write clk (port B)
 
-    .ENARDEN(rbuf_en),             // 1-bit input: Read enable (port A)
-    .ENBWREN(wbuf_en),             // 1-bit input: Write enable (port B)
+    // .ENARDEN(wbuf_rd_en),          // 1-bit input: Read enable (port A)
+    .ENARDEN(trans_en),            // 1-bit input: Read enable (port A)
+    .ENBWREN(wbuf_wr_en),          // 1-bit input: Write enable (port B)
     .WEBWE(4'b1111),               // 4-bit input: byte-wide write enable
 
     .RSTREGARSTREG(1'b0),          // 1-bit input: A port register set/reset
     .RSTRAMARSTRAM(1'b0),          // 1-bit input: A port set/reset
 
-    // addresses: 36-bit port has depth = 512, 9-bit address (bits [13:5] are used)
-    .ADDRARDADDR({2'b00, rbuf_addr[6:0], 5'b00000}), // 14-bit input: Read address
-    .ADDRBWRADDR({2'b00, wbuf_addr[6:0], 5'b00000}), // 14-bit input: Write address
+    // addresses: 32-bit port has depth = 512, 9-bit address (bits [13:5] are used)
+    //             1-bit port has depth = 16384 and uses the full 14-bit address
+    // .ADDRARDADDR(wbuf_rd_addr[13:0]),                   // 14-bit input: Read address
+    .ADDRARDADDR({2'b00, bit_cnt[11:0]}),                   // 14-bit input: Read address
+    .ADDRBWRADDR({2'b00, wbuf_wr_addr[6:0], 5'b00000}), // 14-bit input: Write address
 
-    // data in (and parity bits)
-    .DIBDI(wbuf_data[31:16]),      // 16-bit input: DI[31:16]
-    .DIADI(wbuf_data[15:0]),       // 16-bit input: DI[15:0]
-    .DIPBDIP(2'b00),               // 2-bit input: DIP[3:2]
-    .DIPADIP(2'b00),               // 2-bit input: DIP[1:0]
+    // data in
+    .DIBDI(wbuf_data_in[31:16]),    // 16-bit input: DI[31:16]
+    .DIADI(wbuf_data_in[15:0]),     // 16-bit input: DI[15:0]
 
-    // data out (and parity bits)
-    .DOBDO(rbuf_data[31:16]),      // 16-bit output: DO[31:16]
-    .DOADO(rbuf_data[15:0]),       // 16-bit output: DO[15:0]
-    .DOPBDOP(),                    // 2-bit output: DOP[3:2]
-    .DOPADOP()                     // 2-bit output: DOP[1:0]
+    // data out
+    .DOADO(wbuf_data_out) // 16-bit output: DO[0]
+
+);
+
+RAMB18E1 #(
+    .RAM_MODE("SDP"),
+    .READ_WIDTH_A(36),  // 32 data bits, 4 (unused) parity bits
+    .WRITE_WIDTH_B(1)
+)
+rbuf (
+    .CLKARDCLK(ipb_clk),           // 1-bit input: Read clk (port A)
+    .CLKBWRCLK(clk),               // 1-bit input: Write clk (port B)
+
+    .ENARDEN(rbuf_rd_en),          // 1-bit input: Read enable (port A)
+    // .ENBWREN(rbuf_wr_en),          // 1-bit input: Write enable (port B)
+    .ENBWREN(trans_en),            // 1-bit input: Write enable (port B)
+    .WEBWE(4'b1111),               // 4-bit input: byte-wide write enable
+
+    .RSTREGARSTREG(1'b0),          // 1-bit input: A port register set/reset
+    .RSTRAMARSTRAM(1'b0),          // 1-bit input: A port set/reset
+
+    // addresses: 32-bit port has depth = 512, 9-bit address (bits [13:5] are used)
+    //             1-bit port has depth = 16384 and uses the full 14-bit address
+    .ADDRARDADDR({2'b00, rbuf_rd_addr[6:0], 5'b00000}), // 14-bit input: Read address
+    // .ADDRBWRADDR(rbuf_wr_addr[13:0]),                   // 14-bit input: Write address
+    .ADDRBWRADDR({2'b00, bit_cnt[11:0]}),                   // 14-bit input: Write address
+
+    // data in
+    // .DIADI(rbuf_data_in),          // 1-bit input: DI[0]
+    .DIADI(wbuf_data_out),          // 1-bit input: DI[0]
+
+    // data out
+    .DOBDO(rbuf_data_out[31:16]),  // 16-bit output: DO[31:16]
+    .DOADO(rbuf_data_out[15:0])    // 16-bit output: DO[15:0]
+
 );
 
 endmodule

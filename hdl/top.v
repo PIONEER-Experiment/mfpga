@@ -231,9 +231,9 @@ module wfd_top(
     //  End of STARTUPE2_inst instantiation
 
 
-    (* mark_debug = "true" *) wire [31:0] spi_data;
-    (* mark_debug = "true" *) wire read_bitstream;
-    (* mark_debug = "true" *) wire end_bitstream;
+    wire [31:0] spi_data;
+    wire read_bitstream;
+    wire end_bitstream;
 
     wire ipbus_to_flash_rbuf_en;
     wire [6:0] ipbus_to_flash_rbuf_addr;
@@ -254,12 +254,14 @@ module wfd_top(
         .spi_ss(spi_ss),
         .read_bitstream(read_bitstream), // start signal from prog_channels
         .end_bitstream(end_bitstream), // done signal to prog_channels
-        .rbuf_en(ipbus_to_flash_rbuf_en),
-        .rbuf_addr(ipbus_to_flash_rbuf_addr),
-        .rbuf_data(flash_rbuf_to_ipbus_data),
-        .wbuf_en(ipbus_to_flash_wbuf_en),
-        .wbuf_addr(ipbus_to_flash_wbuf_addr),
-        .wbuf_data(ipbus_to_flash_wbuf_data)
+        .ipb_flash_wr_byte_cnt(ipbus_to_flash_wr_byte_cnt),
+        .ipb_flash_cmd_strobe(ipbus_to_flash_cmd_strobe),
+        .rbuf_rd_en(ipbus_to_flash_rbuf_en),
+        .rbuf_rd_addr(ipbus_to_flash_rbuf_addr),
+        .rbuf_data_out(flash_rbuf_to_ipbus_data),
+        .wbuf_wr_en(ipbus_to_flash_wbuf_en),
+        .wbuf_wr_addr(ipbus_to_flash_wbuf_addr),
+        .wbuf_data_in(ipbus_to_flash_wbuf_data)
     );
 
 
@@ -582,6 +584,8 @@ module wfd_top(
         .board_id(board_id),
 
         // flash interface ports
+        .flash_wr_byte_cnt(ipbus_to_flash_wr_byte_cnt),
+        .flash_cmd_strobe(ipbus_to_flash_cmd_strobe),
         .flash_rbuf_en(ipbus_to_flash_rbuf_en),
         .flash_rbuf_addr(ipbus_to_flash_rbuf_addr),
         .flash_rbuf_data(flash_rbuf_to_ipbus_data),

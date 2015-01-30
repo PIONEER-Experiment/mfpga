@@ -5,8 +5,8 @@ module resets(
 	output reg rst_clk50
 	);
 
-(* mark_debug = "true" *) reg[1:0] rst_clk50_sync;
-(* mark_debug = "true" *) reg[3:0] ipb_rst_stretch;
+reg[1:0] rst_clk50_sync;
+reg[3:0] ipb_rst_stretch;
 
 // stretch the 125MHz reset so that the slower clocks don't miss it
 always @(posedge ipb_clk) begin
