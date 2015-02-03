@@ -5,7 +5,7 @@ module commandManager (
   output reg busy,
   output reg chan_rx_fifo_ready,
   output reg [31:0] chan_tx_fifo_data,
-  (* mark_debug = "true" *) output reg [3:0] chan_tx_fifo_dest,
+  output reg [3:0] chan_tx_fifo_dest,
   output reg chan_tx_fifo_last,
   output reg chan_tx_fifo_valid,
   output reg [63:0] daq_data,
@@ -65,16 +65,16 @@ module commandManager (
   SEND_IPBUS_CSN            = 25, 
   SEND_IPBUS_RES            = 26; 
 
-  (* mark_debug = "true" *) reg [26:0] state;
+  reg [26:0] state;
   reg [26:0] nextstate;
-  (* mark_debug = "true" *) reg [31:0] buf_size_buf;
-  (* mark_debug = "true" *) reg [31:0] chan_num_buf;
-  (* mark_debug = "true" *) reg [31:0] csn;
-  (* mark_debug = "true" *) reg [31:0] data_count;
+  reg [31:0] buf_size_buf;
+  reg [31:0] chan_num_buf;
+  reg [31:0] csn;
+  reg [31:0] data_count;
   reg [31:0] ipbus_buf;
-  (* mark_debug = "true" *) reg [2:0] num_chan_en;
-  (* mark_debug = "true" *) reg sent_header;
-  (* mark_debug = "true" *) reg [31:0] trig_num_buf;
+  reg [2:0] num_chan_en;
+  reg sent_header;
+  reg [31:0] trig_num_buf;
   reg [31:0] next_buf_size_buf;
   reg [31:0] next_chan_num_buf;
   reg [3:0] next_chan_tx_fifo_dest;

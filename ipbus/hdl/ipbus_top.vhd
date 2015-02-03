@@ -90,8 +90,9 @@ entity ipbus_top is port(
 	board_id : in std_logic_vector(2 downto 0);
 
 	-- flash interface ports
-	flash_wr_byte_cnt : out std_logic_vector(8 downto 0);
+	flash_wr_nBytes   : out std_logic_vector(8 downto 0);
 	flash_cmd_strobe  : out std_logic;
+	flash_cmd_ack     : in  std_logic;
 	flash_rbuf_en     : out std_logic;
 	flash_rbuf_addr   : out std_logic_vector(6 downto 0);
 	flash_rbuf_data   : in  std_logic_vector(31 downto 0);
@@ -302,8 +303,9 @@ begin
 	    debug => debug,
 
 	    -- flash interface ports
-	    flash_wr_byte_cnt => flash_wr_byte_cnt,
+	    flash_wr_nBytes => flash_wr_nBytes,
 	    flash_cmd_strobe => flash_cmd_strobe,
+	    flash_cmd_ack => flash_cmd_ack,
 	    flash_rbuf_en => flash_rbuf_en,
 		flash_rbuf_addr => flash_rbuf_addr,
 		flash_rbuf_data => flash_rbuf_data,

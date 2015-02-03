@@ -1,5 +1,7 @@
 // top-level module for g-2 WFD5 Master FPGA
 
+// as a useful reference, here's the syntax to mark signals for debug:
+// (* mark_debug = "true" *) 
 
 module wfd_top(
     input wire  clkin,                // 50 MHz clock
@@ -123,7 +125,7 @@ module wfd_top(
     assign c4_io[3] = rst_from_ipb;
 
     // trigger arm signal for trigger manager
-    (* mark_debug = "true" *) wire [4:0] trig_arm;
+    wire [4:0] trig_arm;
     assign c0_io[2] = trig_arm[0];
     assign c1_io[2] = trig_arm[1];
     assign c2_io[2] = trig_arm[2];
@@ -181,12 +183,12 @@ module wfd_top(
     wire eth_link_status; // link status of gigabit ethernet
 
     // ======== reset signals ========
-    (* mark_debug = "true" *) wire rst_from_ipb;            // reset from IPbus. Synchronous to IPbus clock
+    wire rst_from_ipb;            // reset from IPbus. Synchronous to IPbus clock
     wire rst_n;                   // active low reset
     assign rst_n = ~rst_from_ipb;
 
     // Synchronize reset from IPbus clock domain to other domains
-    (* mark_debug = "true" *) wire clk50_reset;
+    wire clk50_reset;
     resets r (
         .ipb_rst_in(rst_from_ipb),
         .ipb_clk(clk125),
@@ -198,7 +200,7 @@ module wfd_top(
     // ================== communicate with SPI flash memory ==================
 
     // Put the SPI MISO into the 50 MHz clock domain
-    (* mark_debug = "true" *) wire spi_miso_sync;
+    wire spi_miso_sync;
     sync_2stage spi_miso_sync(
         .clk(clk50),
         .in(spi_miso),
@@ -235,6 +237,9 @@ module wfd_top(
     wire read_bitstream;
     wire end_bitstream;
 
+    wire [8:0] ipbus_to_flash_wr_nBytes;
+    wire ipbus_to_flash_cmd_strobe;
+    wire flash_to_ipbus_cmd_ack;
     wire ipbus_to_flash_rbuf_en;
     wire [6:0] ipbus_to_flash_rbuf_addr;
     wire [31:0] flash_rbuf_to_ipbus_data;
@@ -254,8 +259,9 @@ module wfd_top(
         .spi_ss(spi_ss),
         .read_bitstream(read_bitstream), // start signal from prog_channels
         .end_bitstream(end_bitstream), // done signal to prog_channels
-        .ipb_flash_wr_byte_cnt(ipbus_to_flash_wr_byte_cnt),
+        .ipb_flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
         .ipb_flash_cmd_strobe(ipbus_to_flash_cmd_strobe),
+        .flash_cmd_ack(flash_to_ipbus_cmd_ack),
         .rbuf_rd_en(ipbus_to_flash_rbuf_en),
         .rbuf_rd_addr(ipbus_to_flash_rbuf_addr),
         .rbuf_data_out(flash_rbuf_to_ipbus_data),
@@ -264,11 +270,16 @@ module wfd_top(
         .wbuf_data_in(ipbus_to_flash_wbuf_data)
     );
 
+    sync_2stage flash_cmd_ack_sync(
+        .clk(clk125),
+        .in(flash_to_ipbus_cmd_ack),
+        .out(flash_to_ipbus_cmd_ack_sync)
+    );
 
     // ======== program channel FPGAs using bistream stored on SPI flash memory ========
 
     wire prog_chan_start_from_ipbus; // in 125 MHz clock domain
-    (* mark_debug = "true" *) wire prog_chan_start; // in 50 MHz clock domain 
+    wire prog_chan_start; // in 50 MHz clock domain 
              // don't have to worry about missing the faster signal -- stays high 
              // until you use ipbus to set it low again
     sync_2stage prog_chan_start_sync(
@@ -299,9 +310,9 @@ module wfd_top(
     wire ttc_L1A;
 
     // trigger signals in 125 MHz clock domain
-    (* mark_debug = "true" *) wire ext_trig_sync;
-    (* mark_debug = "true" *) wire trigger_from_ipbus;
-    (* mark_debug = "true" *) wire trigger_from_ttc;
+    wire ext_trig_sync;
+    wire trigger_from_ipbus;
+    wire trigger_from_ttc;
 
     // Put the external trigger into the 125 MHz clock domain
     sync_2stage trig_sync(
@@ -319,7 +330,7 @@ module wfd_top(
 
 
     // done signals from channels
-    (* mark_debug = "true" *) wire[4:0] acq_dones_sync;
+    wire[4:0] acq_dones_sync;
     sync_2stage acq_dones_sync0(
         .clk(clk125),
         .in(acq_dones[0]),
@@ -349,17 +360,17 @@ module wfd_top(
 
 
     // enable signals to channels
-    (* mark_debug = "true" *) wire[4:0] chan_en;
+    wire[4:0] chan_en;
 
     // wires connecting the trig number fifo to the tm
-    (* mark_debug = "true" *) wire tm_to_fifo_tvalid, tm_to_fifo_tready;
-    (* mark_debug = "true" *) wire[23:0] tm_to_fifo_tdata;
+    wire tm_to_fifo_tvalid, tm_to_fifo_tready;
+    wire[23:0] tm_to_fifo_tdata;
 
-    (* mark_debug = "true" *) wire fifo_to_cm_tvalid, fifo_to_cm_tready;
-    (* mark_debug = "true" *) wire[23:0] fifo_to_cm_tdata;
+    wire fifo_to_cm_tvalid, fifo_to_cm_tready;
+    wire[23:0] fifo_to_cm_tdata;
 
     // wire connecting the tm and the cm
-    (* mark_debug = "true" *) wire cm_busy;
+    wire cm_busy;
 
 
     // ======== wires for interface to channel serial link ========
@@ -492,9 +503,9 @@ module wfd_top(
 
 
     // ======== Communication with the AMC13 DAQ Link ========
-    (* mark_debug = "true" *) wire daq_valid, daq_header, daq_trailer;
-    (* mark_debug = "true" *) wire[63:0] daq_data;
-    (* mark_debug = "true" *) wire daq_ready;
+    wire daq_valid, daq_header, daq_trailer;
+    wire[63:0] daq_data;
+    wire daq_ready;
     wire daq_almost_full;
 
 
@@ -584,8 +595,9 @@ module wfd_top(
         .board_id(board_id),
 
         // flash interface ports
-        .flash_wr_byte_cnt(ipbus_to_flash_wr_byte_cnt),
+        .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
         .flash_cmd_strobe(ipbus_to_flash_cmd_strobe),
+        .flash_cmd_ack(flash_to_ipbus_cmd_ack_sync),
         .flash_rbuf_en(ipbus_to_flash_rbuf_en),
         .flash_rbuf_addr(ipbus_to_flash_rbuf_addr),
         .flash_rbuf_data(flash_rbuf_to_ipbus_data),
@@ -723,7 +735,7 @@ module wfd_top(
 
 
     // trigger manager module
-    (* mark_debug = "true" *) wire chan_readout_done; // needed for the trig_arm signal
+    wire chan_readout_done; // needed for the trig_arm signal
     triggerManager tm(
         // interface to trig number FIFO
         .fifo_valid(tm_to_fifo_tvalid),
