@@ -30,6 +30,9 @@ set_false_path -from [get_cells ipb/slaves/slave7/flash_cmd_strobe_reg*]\
 set_false_path -from [get_cells ipb/slaves/slave7/flash_wr_nBytes_reg*]\
                  -to [get_cells spi_flash_intf/flash_wr_nBytes_sync_reg*]
 
+set_false_path -from [get_cells ipb/slaves/slave7/flash_rd_nBytes_reg*]\
+                 -to [get_cells spi_flash_intf/flash_rd_nBytes_sync_reg*]
+
 set_false_path -from [get_cells ipb/slaves/slave1/reg_reg*]\
                  -to [get_cells prog_chan_start_sync/sync1_reg*]
 

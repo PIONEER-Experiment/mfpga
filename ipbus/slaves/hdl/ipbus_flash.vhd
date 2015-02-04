@@ -16,6 +16,7 @@ entity ipbus_flash is
 		ipbus_in: in ipb_wbus;
 		ipbus_out: out ipb_rbus;
 		flash_wr_nBytes   : out std_logic_vector(8 downto 0);
+		flash_rd_nBytes   : out std_logic_vector(8 downto 0);
 		flash_cmd_strobe  : out std_logic;
 		flash_cmd_ack     : in  std_logic; -- not currently using this signal
 		flash_rbuf_en     : out std_logic;
@@ -66,7 +67,8 @@ begin
 				-- capture the command when the strobe turns on
 				--     (there will only ever be one command per strobe)
 				if (prev_strobe = '0' and strobe = '1') then
-					flash_wr_nBytes <= ipbus_in.ipb_wdata(8 downto 0);
+					flash_wr_nBytes <= ipbus_in.ipb_wdata(24 downto 16);
+					flash_rd_nBytes <= ipbus_in.ipb_wdata(8 downto 0);
 				end if;
 				
 				flash_cmd_strobe <= ipbus_in.ipb_strobe and ipbus_in.ipb_write;

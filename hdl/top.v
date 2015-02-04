@@ -199,14 +199,6 @@ module wfd_top(
     
     // ================== communicate with SPI flash memory ==================
 
-    // Put the SPI MISO into the 50 MHz clock domain
-    wire spi_miso_sync;
-    sync_2stage spi_miso_sync(
-        .clk(clk50),
-        .in(spi_miso),
-        .out(spi_miso_sync)
-    );
-
     // The startup block will give us access to the SPI clock pin (which is otherwise reserved for use during FPGA configuration)
     // STARTUPE2: STARTUP Block
     //            7  Series
@@ -238,6 +230,7 @@ module wfd_top(
     wire end_bitstream;
 
     wire [8:0] ipbus_to_flash_wr_nBytes;
+    wire [8:0] ipbus_to_flash_rd_nBytes;
     wire ipbus_to_flash_cmd_strobe;
     wire flash_to_ipbus_cmd_ack;
     wire ipbus_to_flash_rbuf_en;
@@ -255,11 +248,12 @@ module wfd_top(
         .data_out(spi_data),
         .spi_clk(spi_clk),
         .spi_mosi(spi_mosi),
-        .spi_miso(spi_miso_sync),
+        .spi_miso(spi_miso),
         .spi_ss(spi_ss),
         .read_bitstream(read_bitstream), // start signal from prog_channels
         .end_bitstream(end_bitstream), // done signal to prog_channels
         .ipb_flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
+        .ipb_flash_rd_nBytes(ipbus_to_flash_rd_nBytes),
         .ipb_flash_cmd_strobe(ipbus_to_flash_cmd_strobe),
         .flash_cmd_ack(flash_to_ipbus_cmd_ack),
         .rbuf_rd_en(ipbus_to_flash_rbuf_en),
@@ -596,6 +590,7 @@ module wfd_top(
 
         // flash interface ports
         .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
+        .flash_rd_nBytes(ipbus_to_flash_rd_nBytes),
         .flash_cmd_strobe(ipbus_to_flash_cmd_strobe),
         .flash_cmd_ack(flash_to_ipbus_cmd_ack_sync),
         .flash_rbuf_en(ipbus_to_flash_rbuf_en),

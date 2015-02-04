@@ -70,6 +70,7 @@ entity slaves is
 
 		-- flash interface ports
 		flash_wr_nBytes   : out std_logic_vector(8 downto 0);
+		flash_rd_nBytes   : out std_logic_vector(8 downto 0);
 		flash_cmd_strobe  : out std_logic;
 		flash_cmd_ack     : in std_logic;
 		flash_rbuf_en     : out std_logic;
@@ -247,6 +248,7 @@ begin
 			ipbus_in => ipbw(7),
 			ipbus_out => ipbr(7),
 			flash_wr_nBytes => flash_wr_nBytes,
+			flash_rd_nBytes => flash_rd_nBytes,
 			flash_cmd_strobe => flash_cmd_strobe,
 			flash_cmd_ack => flash_cmd_ack,
 			flash_rbuf_en => flash_rbuf_en,
