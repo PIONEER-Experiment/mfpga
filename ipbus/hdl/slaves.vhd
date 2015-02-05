@@ -45,6 +45,7 @@ entity slaves is
 	    trigger_out   : out std_logic;
 	    chan_done_out : out std_logic_vector(4 downto 0);
 	    chan_en_out   : out std_logic_vector(4 downto 0);
+	    prog_chan_out : out std_logic;
 
 	    -- "user_ipb" interface
         user_ipb_clk    : out std_logic;                     -- programming clock
@@ -65,14 +66,25 @@ entity slaves is
 		pll_not_locked: in std_logic  := '0';
 		tx_resetdone_out: in std_logic  := '0';
 		rx_resetdone_out: in std_logic  := '0';
-		link_reset_out: in std_logic := '0'
+		link_reset_out: in std_logic := '0';
+
+		-- flash interface ports
+		flash_wr_nBytes   : out std_logic_vector(8 downto 0);
+		flash_rd_nBytes   : out std_logic_vector(8 downto 0);
+		flash_cmd_strobe  : out std_logic;
+		flash_rbuf_en     : out std_logic;
+		flash_rbuf_addr   : out std_logic_vector(6 downto 0);
+		flash_rbuf_data   : in  std_logic_vector(31 downto 0);
+		flash_wbuf_en     : out std_logic;
+		flash_wbuf_addr   : out std_logic_vector(6 downto 0);
+		flash_wbuf_data   : out std_logic_vector(31 downto 0)
 	);
 
 end slaves;
 
 architecture rtl of slaves is
 
-	constant NSLV: positive := 8;
+	constant NSLV: positive := 9;
 	signal ipbw: ipb_wbus_array(NSLV-1 downto 0);
 	signal ipbr, ipbr_d: ipb_rbus_array(NSLV-1 downto 0);
 	signal ctrl_reg: std_logic_vector(31 downto 0);
@@ -131,6 +143,8 @@ begin
 		chan_en_out(2) <= ctrl_reg(8);
 		chan_en_out(3) <= ctrl_reg(9);
 		chan_en_out(4) <= ctrl_reg(10);
+
+		prog_chan_out <= ctrl_reg(12);
 
 -- Slave 2: 1kword RAM
 
@@ -223,15 +237,35 @@ begin
 	    debug => debug
 	  );
 
--- Slave 7: 24 Mbyte user space
+-- Slave 7: flash
 
-	slave7: entity work.ipbus_user
-		generic map(addr_width => 24)
+	slave7: entity work.ipbus_flash
+		generic map(addr_width => 9)
 		port map(
 			clk => ipb_clk,
 			reset => ipb_rst,
 			ipbus_in => ipbw(7),
-            ipbus_out => ipbr(7),
+			ipbus_out => ipbr(7),
+			flash_wr_nBytes => flash_wr_nBytes,
+			flash_rd_nBytes => flash_rd_nBytes,
+			flash_cmd_strobe => flash_cmd_strobe,
+			flash_rbuf_en => flash_rbuf_en,
+			flash_rbuf_addr => flash_rbuf_addr,
+			flash_rbuf_data => flash_rbuf_data,
+			flash_wbuf_en => flash_wbuf_en,
+			flash_wbuf_addr => flash_wbuf_addr,
+			flash_wbuf_data => flash_wbuf_data
+		);
+
+-- Slave 8: 24 Mbyte user space
+
+	slave8: entity work.ipbus_user
+		generic map(addr_width => 24)
+		port map(
+			clk => ipb_clk,
+			reset => ipb_rst,
+			ipbus_in => ipbw(8),
+            ipbus_out => ipbr(8),
 			-- "user_ipb" interface
             user_ipb_clk => user_ipb_clk,           -- programming clock
             user_ipb_strobe => user_ipb_strobe,     -- this ipb space is selected for an I/O operation 
@@ -242,5 +276,7 @@ begin
             user_ipb_ack => user_ipb_ack,           -- 'write' data has been stored, 'read' data is ready
             user_ipb_err => user_ipb_err            -- '1' if error, '0' if OK?
 		);
+
+
 
 end rtl;

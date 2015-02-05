@@ -1,5 +1,7 @@
 // top-level module for g-2 WFD5 Master FPGA
 
+// as a useful reference, here's the syntax to mark signals for debug:
+// (* mark_debug = "true" *) 
 
 module wfd_top(
     input wire  clkin,                // 50 MHz clock
@@ -61,9 +63,12 @@ module wfd_top(
     output c_progb,                   // to all channels FPGA Configuration
     output c_clk,                     // to all channels FPGA Configuration
     output c_din,                     // to all channels FPGA Configuration
-    input [4:0] initb,                // to each channel FPGA Configuration
+    input [4:0] initb,                // from each channel FPGA Configuration
     input [4:0] prog_done,            // from each channel FPGA Configuration
-    input test                        // 
+    input test,                       //
+    input spi_miso,                   // serial data from SPI flash memory
+    output spi_mosi,                  // serial data (commands) to SPI flash memory
+    output spi_ss                     // SPI flash memory chip select
 );
 
 
@@ -90,22 +95,15 @@ module wfd_top(
     );
 
 
-	// debug signals -- right now providing dummy use of otherwise unused input signals
-  //  assign debug0 = mmc_io[3] & mmc_io[2];
-  //  assign debug1 = initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
-  //  assign debug2 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
-  //  assign debug6 = wfdps[1] & wfdps[0] & mmc_reset_m & ext_trig_sync;
-  //  assign debug7 = mezzb[5] & mezzb[4] & mezzb[3] & mezzb[2] & mezzb[1] & mezzb[0];
+	// debug signals
+    assign debug0 = spi_clk;
+    assign debug1 = spi_mosi;
+    assign debug2 = spi_miso;
+    assign debug6 = spi_ss;
 
     // dummy use of signals
-    assign debug6 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m;;
-    assign debug7 = mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] & acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0] ;
+    assign debug7 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] & acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
 
-
-    wire [2:0] debug;
-    assign debug0 = debug[0];
-    assign debug1 = debug[1];
-    assign debug2 = debug[2];
 
     assign c0_io[0] = 1'b0;
     assign c0_io[1] = 1'b0;
@@ -127,7 +125,7 @@ module wfd_top(
     assign c4_io[3] = rst_from_ipb;
 
     // trigger arm signal for trigger manager
-    (* mark_debug = "true" *) wire [4:0] trig_arm;
+    wire [4:0] trig_arm;
     assign c0_io[2] = trig_arm[0];
     assign c1_io[2] = trig_arm[1];
     assign c2_io[2] = trig_arm[2];
@@ -155,11 +153,6 @@ module wfd_top(
 
 	OBUFDS ttc_tx_buf(.I(ttc_rx), .O(ttc_txp), .OB(ttc_txn)); 
 
-    assign c_progb = 1'b1;
-    assign c_clk = 1'b0;
-    assign c_din = test;
-    // assign initb[4:0] = prog_done[4:0]; // initb changed from output to input
-
 
     // Generate clocks from the 50 MHz input clock
     // Most of the design is run from the 125 MHz clock (Don't confuse it with the 125 MHz GTREFCLK)
@@ -185,7 +178,6 @@ module wfd_top(
 
 
 
-
     // ======== ethernet status signals ========
     reg sfp_los = 0;      // loss of signal for gigabit ethernet. Not used
     wire eth_link_status; // link status of gigabit ethernet
@@ -204,6 +196,104 @@ module wfd_top(
         .rst_clk50(clk50_reset)
     );
 
+    
+    // ================== communicate with SPI flash memory ==================
+
+    // The startup block will give us access to the SPI clock pin (which is otherwise reserved for use during FPGA configuration)
+    // STARTUPE2: STARTUP Block
+    //            7  Series
+    // Xilinx HDL Libraries Guide, version 13.3
+    STARTUPE2 #(
+        .PROG_USR("FALSE"),  // Activate program event security feature. Requires encrypted bitstreams.
+        .SIM_CCLK_FREQ(0.0)  // Set the Configuration Clock Frequency(ns) for simulation.
+    )
+    STARTUPE2_inst (
+        .CFGCLK(),         // 1-bit output: Configuration main clock output
+        .CFGMCLK(),        // 1-bit output: Configuration internal oscillator clock output
+        .EOS(),            // 1-bit output: Active high output signal indicating the End Of Startup.
+        .PREQ(),           // 1-bit output: PROGRAM request to fabric output
+        .CLK(0),           // 1-bit input: User start-up clock input
+        .GSR(0),           // 1-bit input: Global Set/Reset input (GSR cannot be used for the port name)
+        .GTS(0),           // 1-bit input: Global 3-state input (GTS cannot be used for the port name)
+        .KEYCLEARB(0),     // 1-bit input: Clear AES Decrypter Key input from Battery-Backed RAM (BBRAM)
+        .PACK(0),          // 1-bit input: PROGRAM acknowledge input
+        .USRCCLKO(spi_clk),// 1-bit input: User CCLK input
+        .USRCCLKTS(0),     // 1-bit input: User CCLK 3-state enable input
+        .USRDONEO(0),      // 1-bit input: User DONE pin output control
+        .USRDONETS(0)      // 1-bit input: User DONE 3-state enable output
+    );
+    //  End of STARTUPE2_inst instantiation
+
+
+    wire [31:0] spi_data;
+    wire read_bitstream;
+    wire end_bitstream;
+
+    wire [8:0] ipbus_to_flash_wr_nBytes;
+    wire [8:0] ipbus_to_flash_rd_nBytes;
+    wire ipbus_to_flash_cmd_strobe;
+    wire flash_to_ipbus_cmd_ack;
+    wire ipbus_to_flash_rbuf_en;
+    wire [6:0] ipbus_to_flash_rbuf_addr;
+    wire [31:0] flash_rbuf_to_ipbus_data;
+    wire ipbus_to_flash_wbuf_en;
+    wire [6:0] ipbus_to_flash_wbuf_addr;
+    wire [31:0] ipbus_to_flash_wbuf_data;
+
+    spi_flash_intf spi_flash_intf(
+        .clk(clk50),
+        .ipb_clk(clk125),
+        .reset(clk50_reset),
+        .spi_clk(spi_clk),
+        .spi_mosi(spi_mosi),
+        .spi_miso(spi_miso),
+        .spi_ss(spi_ss),
+        .prog_chan_in_progress(prog_chan_in_progress), // signal from prog_channels
+        .read_bitstream(read_bitstream), // start signal from prog_channels
+        .end_bitstream(end_bitstream), // done signal to prog_channels
+        .ipb_flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
+        .ipb_flash_rd_nBytes(ipbus_to_flash_rd_nBytes),
+        .ipb_flash_cmd_strobe(ipbus_to_flash_cmd_strobe),
+        .ipb_rbuf_rd_en(ipbus_to_flash_rbuf_en),
+        .ipb_rbuf_rd_addr(ipbus_to_flash_rbuf_addr),
+        .ipb_rbuf_data_out(flash_rbuf_to_ipbus_data),
+        .ipb_wbuf_wr_en(ipbus_to_flash_wbuf_en),
+        .ipb_wbuf_wr_addr(ipbus_to_flash_wbuf_addr),
+        .ipb_wbuf_data_in(ipbus_to_flash_wbuf_data),
+        .pc_wbuf_wr_en(pc_to_flash_wbuf_en), // from prog_channels
+        .pc_wbuf_wr_addr(7'b0000000),        // hardcode address 0
+        .pc_wbuf_data_in(32'h03CE0000)    // hardcode read command for channel bitstream
+    );
+
+    // ======== program channel FPGAs using bistream stored on SPI flash memory ========
+
+    wire prog_chan_start_from_ipbus; // in 125 MHz clock domain
+    wire prog_chan_start; // in 50 MHz clock domain 
+             // don't have to worry about missing the faster signal -- stays high 
+             // until you use ipbus to set it low again
+    sync_2stage prog_chan_start_sync(
+        .clk(clk50),
+        .in(prog_chan_start_from_ipbus),
+        .out(prog_chan_start)
+    );
+
+    prog_channels prog_channels(
+        .clk(clk50),
+        .reset(clk50_reset),
+        .prog_chan_start(prog_chan_start), // start signal from IPbus
+        .c_progb(c_progb),      // configuration signal to all five channels
+        .c_clk(c_clk),          // configuration clock to all five channels
+        .c_din(c_din),          // configuration bitstream to all five channels
+        .initb(initb),          // configuration signals from each channel
+        .prog_done(prog_done),  // configuration signals from each channel
+        .bitstream(spi_miso),   // bitstream from flash memory
+        .prog_chan_in_progress(prog_chan_in_progress), // signal to spi_flash_intf
+        .store_flash_command(pc_to_flash_wbuf_en), // signal to spi_flash_intf
+        .read_bitstream(read_bitstream), // start signal to spi_flash_intf
+        .end_bitstream(end_bitstream) // done signal from spi_flash_intf
+    );
+
+
 
     // ======== triggers and data transfer ========
 
@@ -211,9 +301,9 @@ module wfd_top(
     wire ttc_L1A;
 
     // trigger signals in 125 MHz clock domain
-    (* mark_debug = "true" *) wire ext_trig_sync;
-    (* mark_debug = "true" *) wire trigger_from_ipbus;
-    (* mark_debug = "true" *) wire trigger_from_ttc;
+    wire ext_trig_sync;
+    wire trigger_from_ipbus;
+    wire trigger_from_ttc;
 
     // Put the external trigger into the 125 MHz clock domain
     sync_2stage trig_sync(
@@ -231,7 +321,7 @@ module wfd_top(
 
 
     // done signals from channels
-    (* mark_debug = "true" *) wire[4:0] acq_dones_sync;
+    wire[4:0] acq_dones_sync;
     sync_2stage acq_dones_sync0(
         .clk(clk125),
         .in(acq_dones[0]),
@@ -261,17 +351,17 @@ module wfd_top(
 
 
     // enable signals to channels
-    (* mark_debug = "true" *) wire[4:0] chan_en;
+    wire[4:0] chan_en;
 
     // wires connecting the trig number fifo to the tm
-    (* mark_debug = "true" *) wire tm_to_fifo_tvalid, tm_to_fifo_tready;
-    (* mark_debug = "true" *) wire[23:0] tm_to_fifo_tdata;
+    wire tm_to_fifo_tvalid, tm_to_fifo_tready;
+    wire[23:0] tm_to_fifo_tdata;
 
-    (* mark_debug = "true" *) wire fifo_to_cm_tvalid, fifo_to_cm_tready;
-    (* mark_debug = "true" *) wire[23:0] fifo_to_cm_tdata;
+    wire fifo_to_cm_tvalid, fifo_to_cm_tready;
+    wire[23:0] fifo_to_cm_tdata;
 
     // wire connecting the tm and the cm
-    (* mark_debug = "true" *) wire cm_busy;
+    wire cm_busy;
 
 
     // ======== wires for interface to channel serial link ========
@@ -404,9 +494,9 @@ module wfd_top(
 
 
     // ======== Communication with the AMC13 DAQ Link ========
-    (* mark_debug = "true" *) wire daq_valid, daq_header, daq_trailer;
-    (* mark_debug = "true" *) wire[63:0] daq_data;
-    (* mark_debug = "true" *) wire daq_ready;
+    wire daq_valid, daq_header, daq_trailer;
+    wire[63:0] daq_data;
+    wire daq_ready;
     wire daq_almost_full;
 
 
@@ -479,6 +569,9 @@ module wfd_top(
         // channel enable to cm
         .chan_en_out(chan_en),
 
+        // signal to start programming sequence for channel FPGAs
+        .prog_chan_out(prog_chan_start_from_ipbus),
+
         // counter ouputs
         .frame_err(frame_err),              
         .hard_err(hard_err),                
@@ -490,7 +583,18 @@ module wfd_top(
         .rx_resetdone_out(rx_resetdone_out),
         .link_reset_out(link_reset_out),
 
-        .board_id(board_id)
+        .board_id(board_id),
+
+        // flash interface ports
+        .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
+        .flash_rd_nBytes(ipbus_to_flash_rd_nBytes),
+        .flash_cmd_strobe(ipbus_to_flash_cmd_strobe),
+        .flash_rbuf_en(ipbus_to_flash_rbuf_en),
+        .flash_rbuf_addr(ipbus_to_flash_rbuf_addr),
+        .flash_rbuf_data(flash_rbuf_to_ipbus_data),
+        .flash_wbuf_en(ipbus_to_flash_wbuf_en),
+        .flash_wbuf_addr(ipbus_to_flash_wbuf_addr),
+        .flash_wbuf_data(ipbus_to_flash_wbuf_data)
     );
 
  
@@ -604,7 +708,7 @@ module wfd_top(
         .adcclk_dlen(adcclk_dlen),
         .adcclk_goe(adcclk_goe),
         .adcclk_sync(adcclk_sync),
-        .debug(debug[2:0]),
+        .debug(),
 
 
 
@@ -622,7 +726,7 @@ module wfd_top(
 
 
     // trigger manager module
-    (* mark_debug = "true" *) wire chan_readout_done; // needed for the trig_arm signal
+    wire chan_readout_done; // needed for the trig_arm signal
     triggerManager tm(
         // interface to trig number FIFO
         .fifo_valid(tm_to_fifo_tvalid),

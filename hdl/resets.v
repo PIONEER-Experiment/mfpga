@@ -18,7 +18,15 @@ always @(posedge ipb_clk) begin
 end
 
 always @(posedge clk50) begin
-    rst_clk50_sync[1] <= (ipb_rst_stretch > 0);
+    if (ipb_rst_stretch > 4'h0)
+        begin
+            rst_clk50_sync[1] <= 1'b1;
+        end 
+    else 
+        begin
+            rst_clk50_sync[1] <= 1'b0;
+        end
+
     rst_clk50_sync[0] <= rst_clk50_sync[1];
     rst_clk50 <= rst_clk50_sync[0];
 end

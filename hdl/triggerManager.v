@@ -3,14 +3,14 @@
 
 module triggerManager (
   output reg fifo_valid,
-  (* mark_debug = "true" *) output reg [4:0] go,
+  output reg [4:0] go,
   output reg [4:0] trig_arm,
   output reg [23:0] trig_num,
   input wire [4:0] chan_en,
   input wire chan_readout_done,
   input wire clk,
   input wire cm_busy,
-  (* mark_debug = "true" *) input wire [4:0] done,
+  input wire [4:0] done,
   input wire fifo_ready,
   input wire reset,
   input wire trigger 
@@ -25,9 +25,9 @@ module triggerManager (
   TOGGLE_ARM2      = 4, 
   WAIT_FOR_READOUT = 5; 
 
-  (* mark_debug = "true" *) reg [5:0] state;
+  reg [5:0] state;
   reg [5:0] nextstate;
-  (* mark_debug = "true" *) reg [3:0] count;
+  reg [3:0] count;
   reg [3:0] next_count;
   reg [23:0] next_trig_num;
 
