@@ -1,7 +1,19 @@
--- ipbus slave connected to SPI flash WBUF and RBUF block RAMs
--- also has one address for sending commands to initiate communication w/ flash
+-- ipbus slave for communication with SPI flash memory
+-- (see also the spi_flash_intf.v module)
 --
--- Robin Bjorkquist, January 2015
+-- FLASH.WBUF: write 32-bit words to this address to store data for transfer to flash
+--             (the MSB will be sent to the flash first)
+--
+-- FLASH.RBUF: read 32-bit words from this address to see the flash response
+--             (the MSB is the first bit of the flash response)
+--
+-- FLASH.CMD: write a 32-bit command to this address to initiate a transaction with the flash
+--            The format of the 32-bit command is 0x0NNN0MMM
+--            "NNN" is the number of bytes that will be sent from WBUF to the flash
+--            "MMM" is the number of response bytes to store in RBUF from the flash
+--            both NNN and MMM are limited to 9 bits
+--
+-- Robin Bjorkquist, February 2015
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -18,7 +30,6 @@ entity ipbus_flash is
 		flash_wr_nBytes   : out std_logic_vector(8 downto 0);
 		flash_rd_nBytes   : out std_logic_vector(8 downto 0);
 		flash_cmd_strobe  : out std_logic;
-		flash_cmd_ack     : in  std_logic; -- not currently using this signal
 		flash_rbuf_en     : out std_logic;
 		flash_rbuf_addr   : out std_logic_vector(6 downto 0);
 		flash_rbuf_data   : in  std_logic_vector(31 downto 0);
@@ -36,18 +47,6 @@ architecture rtl of ipbus_flash is
 	signal strobe : std_logic;
 	signal prev_strobe : std_logic;
 
-	signal addr : std_logic_vector(31 downto 0);
-	signal wdata : std_logic_vector(31 downto 0);
-	signal rdata : std_logic_vector(31 downto 0);
-
-	attribute mark_debug : string;
-	attribute mark_debug of ack : signal is "true";
-	attribute mark_debug of strobe : signal is "true";
-	attribute mark_debug of prev_strobe : signal is "true";
-	attribute mark_debug of addr : signal is "true";
-	attribute mark_debug of wdata : signal is "true";
-	attribute mark_debug of rdata : signal is "true";
-
 begin
 
 	process(clk)
@@ -57,9 +56,6 @@ begin
 
 			prev_strobe <= strobe;
 			strobe <= ipbus_in.ipb_strobe;
-
-			addr <= ipbus_in.ipb_addr;
-			wdata <= ipbus_in.ipb_wdata;
 
 			if ipbus_in.ipb_addr(8)='1' then
 			-- FLASH.CMD
@@ -81,7 +77,6 @@ begin
 				flash_rbuf_en <= ipbus_in.ipb_strobe;
 				flash_rbuf_addr <= ipbus_in.ipb_addr(6 downto 0);
 				ipbus_out.ipb_rdata <= flash_rbuf_data;
-				rdata <= flash_rbuf_data;
 				flash_wbuf_en <= '0';
 				flash_cmd_strobe <= '0';
 

@@ -244,30 +244,25 @@ module wfd_top(
         .clk(clk50),
         .ipb_clk(clk125),
         .reset(clk50_reset),
-        .data_in(32'h03800000), // 0x03 = read command, 0x800000 = address of channel bitstream
-        .data_out(spi_data),
         .spi_clk(spi_clk),
         .spi_mosi(spi_mosi),
         .spi_miso(spi_miso),
         .spi_ss(spi_ss),
+        .prog_chan_in_progress(prog_chan_in_progress), // signal from prog_channels
         .read_bitstream(read_bitstream), // start signal from prog_channels
         .end_bitstream(end_bitstream), // done signal to prog_channels
         .ipb_flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
         .ipb_flash_rd_nBytes(ipbus_to_flash_rd_nBytes),
         .ipb_flash_cmd_strobe(ipbus_to_flash_cmd_strobe),
-        .flash_cmd_ack(flash_to_ipbus_cmd_ack),
-        .rbuf_rd_en(ipbus_to_flash_rbuf_en),
-        .rbuf_rd_addr(ipbus_to_flash_rbuf_addr),
-        .rbuf_data_out(flash_rbuf_to_ipbus_data),
-        .wbuf_wr_en(ipbus_to_flash_wbuf_en),
-        .wbuf_wr_addr(ipbus_to_flash_wbuf_addr),
-        .wbuf_data_in(ipbus_to_flash_wbuf_data)
-    );
-
-    sync_2stage flash_cmd_ack_sync(
-        .clk(clk125),
-        .in(flash_to_ipbus_cmd_ack),
-        .out(flash_to_ipbus_cmd_ack_sync)
+        .ipb_rbuf_rd_en(ipbus_to_flash_rbuf_en),
+        .ipb_rbuf_rd_addr(ipbus_to_flash_rbuf_addr),
+        .ipb_rbuf_data_out(flash_rbuf_to_ipbus_data),
+        .ipb_wbuf_wr_en(ipbus_to_flash_wbuf_en),
+        .ipb_wbuf_wr_addr(ipbus_to_flash_wbuf_addr),
+        .ipb_wbuf_data_in(ipbus_to_flash_wbuf_data),
+        .pc_wbuf_wr_en(pc_to_flash_wbuf_en), // from prog_channels
+        .pc_wbuf_wr_addr(7'b0000000),        // hardcode address 0
+        .pc_wbuf_data_in(32'h03CE0000)    // hardcode read command for channel bitstream
     );
 
     // ======== program channel FPGAs using bistream stored on SPI flash memory ========
@@ -285,13 +280,15 @@ module wfd_top(
     prog_channels prog_channels(
         .clk(clk50),
         .reset(clk50_reset),
-        .prog_chan_start(prog_chan_start),
+        .prog_chan_start(prog_chan_start), // start signal from IPbus
         .c_progb(c_progb),      // configuration signal to all five channels
         .c_clk(c_clk),          // configuration clock to all five channels
         .c_din(c_din),          // configuration bitstream to all five channels
         .initb(initb),          // configuration signals from each channel
         .prog_done(prog_done),  // configuration signals from each channel
-        .bitstream(spi_miso_sync), // bitstream from flash memory
+        .bitstream(spi_miso),   // bitstream from flash memory
+        .prog_chan_in_progress(prog_chan_in_progress), // signal to spi_flash_intf
+        .store_flash_command(pc_to_flash_wbuf_en), // signal to spi_flash_intf
         .read_bitstream(read_bitstream), // start signal to spi_flash_intf
         .end_bitstream(end_bitstream) // done signal from spi_flash_intf
     );
@@ -592,7 +589,6 @@ module wfd_top(
         .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
         .flash_rd_nBytes(ipbus_to_flash_rd_nBytes),
         .flash_cmd_strobe(ipbus_to_flash_cmd_strobe),
-        .flash_cmd_ack(flash_to_ipbus_cmd_ack_sync),
         .flash_rbuf_en(ipbus_to_flash_rbuf_en),
         .flash_rbuf_addr(ipbus_to_flash_rbuf_addr),
         .flash_rbuf_data(flash_rbuf_to_ipbus_data),
