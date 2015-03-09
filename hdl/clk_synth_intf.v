@@ -199,7 +199,6 @@ parameter SHIFTING = 2'b10;
 
 reg [1:0] shift_state = IDLE;
 
-reg [5:0] sreg_cnt = 6'b000000;
 reg sreg_cnt_ena;
 reg sreg_cnt_reset;
 

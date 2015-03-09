@@ -1,7 +1,7 @@
 # system clock
 create_clock -period 20.000 -name clk50 -waveform {0.000 10.000} [get_ports {clkin}]
 
-# gtx clock for GigE
+# GTX clock for GigE
 create_clock -name gige_clk -period 8.000 [get_ports gtx_clk0]
 
 # TTC clock
@@ -47,4 +47,4 @@ set_clock_groups -name async_clks -asynchronous\
 -group [get_clocks -include_generated_clocks user_clk_chan2]\
 -group [get_clocks -include_generated_clocks user_clk_chan3]\
 -group [get_clocks -include_generated_clocks user_clk_chan4]\
--group [get_clocks -include_generated_clocks ipb/eth/phy/U0/pcs_pma_block_i/transceiver_inst/gtwizard_inst/*/gtwizard_i/gt0_GTWIZARD_i/gtxe2_i/TXOUTCLK]
+-group [get_clocks -include_generated_clocks ipb/eth/phy/inst/pcs_pma_block_i/transceiver_inst/gtwizard_inst/inst/gtwizard_i/gt0_GTWIZARD_i/gtxe2_i/TXOUTCLK]

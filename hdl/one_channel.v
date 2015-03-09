@@ -200,7 +200,7 @@ module one_channel(
     .WARN_CC(warn_cc),
     .DO_CC(do_cc),
     // System Interface
-    .PLL_NOT_LOCKED( pll_not_locked),
+    .PLL_NOT_LOCKED(pll_not_locked),
     .USER_CLK(aurora_user_clk)
   );
 
@@ -212,7 +212,7 @@ module one_channel(
     .GT_RESET_IN(clk50_reset),        // incoming reset signal, negated synchronously to 'clk50'
     .RESET(clk50_reset),               // direct input to 'user_clk' domain, activates 'system_reset'
     .USER_CLK(aurora_user_clk),       // Aurora interface clock, 250 MHz, goes away at times
-   // outputs
+    // outputs
     .SYSTEM_RESET(system_reset),      // local reset signal in 'aurora_user_clk' domain
     .GT_RESET_OUT(local_gt_reset)     // local reset signal in 'clk50' domain
   );

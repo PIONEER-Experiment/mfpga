@@ -1,9 +1,23 @@
-.*
-*.dmp
-*.log
-*.jou
-*.png
-*.str
-_SYNCAPP
-project
-scripts/setup.tcl
+# Ignore all
+*
+!.gitignore
+
+# Folders
+!*/
+projects/
+
+# Constraints
+!constraints/**/*.xdc
+
+# Sources
+!*.v
+!*.vhd
+
+# IPs
+!ip/**/*.xci
+
+ip/**/*.v
+ip/**/*.vhd
+
+# Tcl Scripts
+!scripts/**/*.tcl
