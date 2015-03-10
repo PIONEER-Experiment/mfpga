@@ -10,6 +10,7 @@ module all_channels(
   input axis_clk,          // clock for the interconnect side of the FIFOs
   input axis_clk_resetN,   // active-lo reset for the interconnect side of the FIFOs
   input gt_refclk,         // 125 MHz oscillator, from IBUFDS_GTE2 at a higher level
+  
   // IPbus inputs
   input ipb_clk,           // programming clock
   input ipb_reset,
@@ -130,8 +131,6 @@ module all_channels(
   output adcclk_dlen,
   output adcclk_goe,
   output adcclk_sync
-
-
 );
 
 
@@ -267,8 +266,20 @@ module all_channels(
     .gt0_qpllrefclklost(gt0_qpllrefclklost),       // input
     .gt_qpllclk_quad2(gt_qpllclk_quad2),           // input
     .gt_qpllrefclk_quad2(gt_qpllrefclk_quad2),     // input
-    .gt0_qpllreset(c1_gt0_qpllreset)               // output
+    .gt0_qpllreset(c1_gt0_qpllreset),               // output
 
+    // unused ports that produce warnings
+    .debug(),
+    // counter output ports
+    .frame_err(),                    // output, to IPbus I/O
+    .hard_err(),                     // output, to IPbus I/O
+    .soft_err(),                     // output, to IPbus I/O
+    .channel_up(),                   // output, to IPbus I/O
+    .lane_up(),                      // output, to IPbus I/O
+    .pll_not_locked(),               // input, from channel clock module
+    .tx_resetdone_out(),             // output, to IPbus I/O
+    .rx_resetdone_out(),             // output, to IPbus I/O
+    .link_reset_out()                // output, to IPbus I/O
   );
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -331,7 +342,10 @@ module all_channels(
     .pll_not_locked(),                  // input, from channel clock module
     .tx_resetdone_out(),              // output, to IPbus I/O
     .rx_resetdone_out(),              // output, to IPbus I/O
-    .link_reset_out()                  // output, to IPbus I/O
+    .link_reset_out(),                  // output, to IPbus I/O
+    
+    // unused ports that produce warnings
+    .debug()
   );
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -394,7 +408,10 @@ module all_channels(
     .pll_not_locked(),                  // input, from channel clock module
     .tx_resetdone_out(),              // output, to IPbus I/O
     .rx_resetdone_out(),              // output, to IPbus I/O
-    .link_reset_out()                  // output, to IPbus I/O
+    .link_reset_out(),                  // output, to IPbus I/O
+    
+    // unused ports that produce warnings
+    .debug()
   );
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -457,7 +474,10 @@ module all_channels(
     .pll_not_locked(),                  // input, from channel clock module
     .tx_resetdone_out(),              // output, to IPbus I/O
     .rx_resetdone_out(),              // output, to IPbus I/O
-    .link_reset_out()                  // output, to IPbus I/O
+    .link_reset_out(),                  // output, to IPbus I/O
+    
+    // unused ports that produce warnings
+    .debug()
   );
 
 

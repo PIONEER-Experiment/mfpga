@@ -284,7 +284,6 @@ begin
             NS[IDLE] = 1'b1;
         end
 
-
     endcase
 end
 
@@ -376,7 +375,6 @@ wbuf (
 
     // data out
     .DOADO(wbuf_data_out)           // 16-bit output: we only use DO[0]
-
 );
 
 RAMB18E1 #(
@@ -407,7 +405,6 @@ rbuf (
     // data out
     .DOBDO(rbuf_data_out_r[31:16]), // 16-bit output: DO[31:16]
     .DOADO(rbuf_data_out_r[15:0])   // 16-bit output: DO[15:0]
-
 );
 
 endmodule

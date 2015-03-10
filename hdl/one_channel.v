@@ -57,7 +57,7 @@ module one_channel(
   output tx_resetdone_out,             // output, to IPbus I/O
   output rx_resetdone_out,             // output, to IPbus I/O
   output link_reset_out                // output, to IPbus I/O
- );
+);
 
   wire local_axis_resetn;                 // a local reset synched to the Aurora 'user_clk'
   wire aurora_user_clk;                      // used to connect to the parallel side of the Aurora
@@ -103,7 +103,10 @@ module one_channel(
     .m_axis_tdata(local_axis_tx_tdata),            // output wire [31 : 0] m_axis_tdata
     .m_axis_tkeep(local_axis_tx_tkeep),            // output wire [3 : 0] m_axis_tkeep
     .m_axis_tready(local_axis_tx_tready),            // input wire m_axis_tready
-    .m_axis_tlast(local_axis_tx_tlast)             // output wire m_axis_tlast
+    .m_axis_tlast(local_axis_tx_tlast),             // output wire m_axis_tlast
+    .axis_data_count(),
+    .axis_wr_data_count(),
+    .axis_rd_data_count()
   );
 
   // Connect the receive FIFO that buffer data arriving from the channel FPGA and crosses clock domains
@@ -121,7 +124,10 @@ module one_channel(
     .m_axis_tdata(m_axis_rx_tdata),            // output wire [31 : 0] m_axis_tdata
     .m_axis_tkeep(m_axis_rx_tkeep),            // output wire [3 : 0] m_axis_tkeep
     .m_axis_tready(m_axis_rx_tready),            // input wire m_axis_tready
-    .m_axis_tlast(m_axis_rx_tlast)             // output wire m_axis_tlast
+    .m_axis_tlast(m_axis_rx_tlast),             // output wire m_axis_tlast
+    .axis_data_count(),
+    .axis_wr_data_count(),
+    .axis_rd_data_count()
   );
 
   // Connect a channel instance of aurora_8b10b_0.xci

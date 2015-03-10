@@ -25,7 +25,8 @@ This repository is intended to be run in Vivado's project mode. To build the
 Vivado project from a fresh checkout, first open the Vivado 2014.4 GUI and run
 the script 'scripts/build_project.tcl'. This will create a new folder named
 'project' which contains all of the project-related files. To open the project
-afterward, use the Vivado project file 'WFD_Master.xpr'.
+afterward, use the Vivado project file 'WFD_Master.xpr'. Note: the local
+repository's absolute path is not allowed to have any spaces.
 
 To build the firmware, click 'Generate Bitstream' from the Flow Navigator which
 will automatically run synthesis and/or implementation if required.  If successful,

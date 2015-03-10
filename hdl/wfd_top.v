@@ -94,7 +94,6 @@ module wfd_top(
         .led(led1)
     );
 
-
 	// debug signals
     assign debug0 = spi_clk;
     assign debug1 = spi_mosi;
@@ -103,7 +102,6 @@ module wfd_top(
 
     // dummy use of signals
     assign debug7 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] & acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
-
 
     assign c0_io[0] = 1'b0;
     assign c0_io[1] = 1'b0;
@@ -153,7 +151,6 @@ module wfd_top(
 
 	OBUFDS ttc_tx_buf(.I(ttc_rx), .O(ttc_txp), .OB(ttc_txn)); 
 
-
     // Generate clocks from the 50 MHz input clock
     // Most of the design is run from the 125 MHz clock (Don't confuse it with the 125 MHz GTREFCLK)
     // clk200 acts as the independent clock required by the Gigabit ethernet IP
@@ -166,6 +163,7 @@ module wfd_top(
         .CLKIN1(clkin),
         .CLKOUT0(clk200),
         .CLKOUT1(clk125),
+        .CLKOUT2(),
         .CLKOUT3(),
         .CLKOUT4(),
         .CLKOUT5(),
@@ -175,8 +173,6 @@ module wfd_top(
         .CLKFBOUT(clkfb),
         .CLKFBIN(clkfb)
     );
-
-
 
     // ======== ethernet status signals ========
     reg sfp_los = 0;      // loss of signal for gigabit ethernet. Not used
@@ -294,7 +290,6 @@ module wfd_top(
     );
 
 
-
     // ======== triggers and data transfer ========
 
     // TTC trigger in TTC clock domain
@@ -347,7 +342,6 @@ module wfd_top(
         .in(acq_dones[4]),
         .out(acq_dones_sync[4])
     );
-
 
 
     // enable signals to channels
@@ -529,6 +523,8 @@ module wfd_top(
         .sfp_los(sfp_los),
         .eth_link_status(eth_link_status),
         .rst_out(rst_from_ipb),
+        
+        // clocks
         .clk_200(clk200),
         .clk_125(),
         .ipb_clk(clk125),
@@ -545,26 +541,32 @@ module wfd_top(
         .user_ipb_ack(user_ipb_ack),           // 'write' data has been stored, 'read' data is ready
         .user_ipb_err(1'b0),                   // '1' if error, '0' if OK? We never generate an error!
 
-
         // Data interface to channel serial link
-
         // connections from ipbus to cm
         .axi_stream_out_tvalid(axi_stream_to_cm_from_ipbus_tvalid),
         .axi_stream_out_tdata(axi_stream_to_cm_from_ipbus_tdata[0:31]),
         .axi_stream_out_tlast(axi_stream_to_cm_from_ipbus_tlast),
         .axi_stream_out_tdest(axi_stream_to_cm_from_ipbus_tdest),
         .axi_stream_out_tready(axi_stream_to_cm_from_ipbus_tready),
+        .axi_stream_out_tstrb(),
+        .axi_stream_out_tkeep(),
+        .axi_stream_out_tid(),
 
         // connections from cm to ipbus
         .axi_stream_in_tvalid(axi_stream_to_ipbus_from_cm_tvalid),
         .axi_stream_in_tdata(axi_stream_to_ipbus_from_cm_tdata),
         .axi_stream_in_tready(axi_stream_to_ipbus_from_cm_tready),
+        .axi_stream_in_tstrb(),
+        .axi_stream_in_tkeep(),
+        .axi_stream_in_tlast(),
+        .axi_stream_in_tid(),
+        .axi_stream_in_tdest(),
 
         // trigger via IPbus for now
         .trigger_out(trigger_from_ipbus),
 
         // channel done to tm
-        .chan_done_out(chan_done_from_ipbus),
+        .chan_done_out(),
 
         // channel enable to cm
         .chan_en_out(chan_en),
@@ -583,6 +585,7 @@ module wfd_top(
         .rx_resetdone_out(rx_resetdone_out),
         .link_reset_out(link_reset_out),
 
+        .debug(),
         .board_id(board_id),
 
         // flash interface ports
@@ -594,7 +597,15 @@ module wfd_top(
         .flash_rbuf_data(flash_rbuf_to_ipbus_data),
         .flash_wbuf_en(ipbus_to_flash_wbuf_en),
         .flash_wbuf_addr(ipbus_to_flash_wbuf_addr),
-        .flash_wbuf_data(ipbus_to_flash_wbuf_data)
+        .flash_wbuf_data(ipbus_to_flash_wbuf_data),
+        
+        // unused DAQ Link ports (produce warnings if not listed)
+        .daq_valid(),
+        .daq_header(),
+        .daq_trailer(),
+        .daq_data(),
+        .daq_ready(),
+        .daq_almost_full()
     );
 
  
@@ -621,12 +632,13 @@ module wfd_top(
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
         .c0_s_axi_tx_tdata(c0_axi_stream_to_channel_tdata),   // note index order
-        .c0_s_axi_tx_tkeep(c0_axi_stream_to_channel_tkeep),   // note index order
+        .c0_s_axi_tx_tkeep({ 4 {c0_axi_stream_to_channel_tkeep} }),   // note index order
         .c0_s_axi_tx_tvalid(c0_axi_stream_to_channel_tvalid),
         .c0_s_axi_tx_tlast(c0_axi_stream_to_channel_tlast),
         .c0_s_axi_tx_tready(c0_axi_stream_to_channel_tready),
         // RX Interface to master side of receive FIFO
         .c0_m_axi_rx_tdata(c0_axi_stream_to_cm_tdata),        // note index order
+        .c0_m_axi_rx_tkeep(),                                 // note index order
         .c0_m_axi_rx_tvalid(c0_axi_stream_to_cm_tvalid),
         .c0_m_axi_rx_tlast(c0_axi_stream_to_cm_tlast),
         .c0_m_axi_rx_tready(c0_axi_stream_to_cm_tready),      // input wire m_axis_tready
@@ -638,12 +650,13 @@ module wfd_top(
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
         .c1_s_axi_tx_tdata(c1_axi_stream_to_channel_tdata),   // note index order
-        .c1_s_axi_tx_tkeep(c1_axi_stream_to_channel_tkeep),   // note index order
+        .c1_s_axi_tx_tkeep({ 4 {c1_axi_stream_to_channel_tkeep} }),   // note index order
         .c1_s_axi_tx_tvalid(c1_axi_stream_to_channel_tvalid),
         .c1_s_axi_tx_tlast(c1_axi_stream_to_channel_tlast),
         .c1_s_axi_tx_tready(c1_axi_stream_to_channel_tready),
         // RX Interface to master side of receive FIFO
         .c1_m_axi_rx_tdata(c1_axi_stream_to_cm_tdata),        // note index order
+        .c1_m_axi_rx_tkeep(),                                 // note index order
         .c1_m_axi_rx_tvalid(c1_axi_stream_to_cm_tvalid),
         .c1_m_axi_rx_tlast(c1_axi_stream_to_cm_tlast),
         .c1_m_axi_rx_tready(c1_axi_stream_to_cm_tready),      // input wire m_axis_tready
@@ -655,12 +668,13 @@ module wfd_top(
 		// connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
         .c2_s_axi_tx_tdata(c2_axi_stream_to_channel_tdata),   // note index order
-        .c2_s_axi_tx_tkeep(c2_axi_stream_to_channel_tkeep),   // note index order
+        .c2_s_axi_tx_tkeep({ 4 {c2_axi_stream_to_channel_tkeep} }),   // note index order
         .c2_s_axi_tx_tvalid(c2_axi_stream_to_channel_tvalid),
         .c2_s_axi_tx_tlast(c2_axi_stream_to_channel_tlast),
         .c2_s_axi_tx_tready(c2_axi_stream_to_channel_tready),
         // RX Interface to master side of receive FIFO
         .c2_m_axi_rx_tdata(c2_axi_stream_to_cm_tdata),        // note index order
+        .c2_m_axi_rx_tkeep(),                                 // note index order
         .c2_m_axi_rx_tvalid(c2_axi_stream_to_cm_tvalid),
         .c2_m_axi_rx_tlast(c2_axi_stream_to_cm_tlast),
         .c2_m_axi_rx_tready(c2_axi_stream_to_cm_tready),      // input wire m_axis_tready
@@ -672,12 +686,13 @@ module wfd_top(
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
         .c3_s_axi_tx_tdata(c3_axi_stream_to_channel_tdata),   // note index order
-        .c3_s_axi_tx_tkeep(c3_axi_stream_to_channel_tkeep),   // note index order
+        .c3_s_axi_tx_tkeep({ 4 {c3_axi_stream_to_channel_tkeep} }),   // note index order
         .c3_s_axi_tx_tvalid(c3_axi_stream_to_channel_tvalid),
         .c3_s_axi_tx_tlast(c3_axi_stream_to_channel_tlast),
         .c3_s_axi_tx_tready(c3_axi_stream_to_channel_tready),
         // RX Interface to master side of receive FIFO
         .c3_m_axi_rx_tdata(c3_axi_stream_to_cm_tdata),        // note index order
+        .c3_m_axi_rx_tkeep(),                                 // note index order
         .c3_m_axi_rx_tvalid(c3_axi_stream_to_cm_tvalid),
         .c3_m_axi_rx_tlast(c3_axi_stream_to_cm_tlast),
         .c3_m_axi_rx_tready(c3_axi_stream_to_cm_tready),      // input wire m_axis_tready
@@ -689,12 +704,13 @@ module wfd_top(
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
         .c4_s_axi_tx_tdata(c4_axi_stream_to_channel_tdata),   // note index order
-        .c4_s_axi_tx_tkeep(c4_axi_stream_to_channel_tkeep),   // note index order
+        .c4_s_axi_tx_tkeep({ 4 {c4_axi_stream_to_channel_tkeep} }),   // note index order
         .c4_s_axi_tx_tvalid(c4_axi_stream_to_channel_tvalid),
         .c4_s_axi_tx_tlast(c4_axi_stream_to_channel_tlast),
         .c4_s_axi_tx_tready(c4_axi_stream_to_channel_tready),
         // RX Interface to master side of receive FIFO
         .c4_m_axi_rx_tdata(c4_axi_stream_to_cm_tdata),        // note index order
+        .c4_m_axi_rx_tkeep(),                                 // note index order
         .c4_m_axi_rx_tvalid(c4_axi_stream_to_cm_tvalid),
         .c4_m_axi_rx_tlast(c4_axi_stream_to_cm_tlast),
         .c4_m_axi_rx_tready(c4_axi_stream_to_cm_tready),      // input wire m_axis_tready
@@ -710,8 +726,6 @@ module wfd_top(
         .adcclk_sync(adcclk_sync),
         .debug(),
 
-
-
         // counter ouputs
         .frame_err(frame_err),              
         .hard_err(hard_err),                
@@ -721,7 +735,7 @@ module wfd_top(
         .pll_not_locked(pll_not_locked),    
         .tx_resetdone_out(tx_resetdone_out),
         .rx_resetdone_out(rx_resetdone_out),
-        .link_reset_out(link_reset_out)    
+        .link_reset_out(link_reset_out)
     );
 
 
@@ -759,7 +773,12 @@ module wfd_top(
       .s_axis_tdata(tm_to_fifo_tdata),   // input wire [23 : 0] s_axis_tdata
       .m_axis_tvalid(fifo_to_cm_tvalid), // output wire m_axis_tvalid
       .m_axis_tready(fifo_to_cm_tready), // input wire m_axis_tready
-      .m_axis_tdata(fifo_to_cm_tdata)    // output wire [23 : 0] m_axis_tdata
+      .m_axis_tdata(fifo_to_cm_tdata),   // output wire [23 : 0] m_axis_tdata
+      
+      // unused output ports
+      .axis_data_count(),
+      .axis_wr_data_count(),
+      .axis_rd_data_count()
     );
 
 
@@ -829,7 +848,7 @@ module wfd_top(
 
         .TTCclk(clk125),
         .BcntRes(rst_from_ipb),
-        .trig(trigger_from_ttc),
+        .trig({ 8 {trigger_from_ttc} }),
         .TTSclk(1'b0),
         .TTS(4'd0),
 
@@ -860,12 +879,15 @@ module wfd_top(
         .m_axis_tready(c_axi_stream_to_channel_tready), // input  wire [4 : 0]   m_axis_tready
         .m_axis_tdata(c_axi_stream_to_channel_tdata),   // output wire [159 : 0] m_axis_tdata
         .m_axis_tdest(c_axi_stream_to_channel_tdest),   // output wire [19 : 0]  m_axis_tdest
-        .m_axis_tlast(c_axi_stream_to_channel_tlast)    // output wire [4 : 0]   m_axis_tlast
+        .m_axis_tlast(c_axi_stream_to_channel_tlast),   // output wire [4 : 0]   m_axis_tlast
+        
+        // unused output port
+        .s_decode_err()
     );
 
 
     // AXIS RX Switch
-    wire s_req_suppress = 0; // active high skips next arbitration cycle
+    wire [4:0] s_req_suppress = 5'b0; // active high skips next arbitration cycle
     axis_switch_rx rx_switch (
         .aclk(clk125),                   // input wire aclk
         .aresetn(rst_n),                 // input wire aresetn
@@ -881,7 +903,10 @@ module wfd_top(
         .m_axis_tvalid(axi_stream_to_cm_from_channel_tvalid), // output wire [0 : 0]  m_axis_tvalid
         .m_axis_tready(axi_stream_to_cm_from_channel_tready), // input  wire [0 : 0]  m_axis_tready
         .m_axis_tlast(axi_stream_to_cm_from_channel_tlast),   // output wire [0 : 0]  m_axis_tlast
-        .m_axis_tdata(axi_stream_to_cm_from_channel_tdata)    // output wire [31 : 0] m_axis_tdata
+        .m_axis_tdata(axi_stream_to_cm_from_channel_tdata),   // output wire [31 : 0] m_axis_tdata
+        
+        // unused output port
+        .s_decode_err()
     );
 
 
