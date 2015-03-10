@@ -1,6 +1,7 @@
 # Ignore all
 *
 !.gitignore
+!README.txt
 
 # Folders
 !*/
