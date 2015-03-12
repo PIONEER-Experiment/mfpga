@@ -71,6 +71,54 @@ module wfd_top(
     output spi_ss                     // SPI flash memory chip select
 );
 
+    // ======== I/O lines to channel (for DDR3) ========
+    wire [4:0] acq_busy;
+    wire [9:0] acq_enable;
+    wire [4:0] acq_readout_pause;
+
+    assign c0_io[0] = acq_readout_pause[0];
+    assign c1_io[0] = acq_readout_pause[1];
+    assign c2_io[0] = acq_readout_pause[2];
+    assign c3_io[0] = acq_readout_pause[3];
+    assign c4_io[0] = acq_readout_pause[4];
+
+    assign acq_readout_pause[4:0] = 5'b0; // acq_readout_pause is not use so far, need a dummy initialization
+
+    assign c0_io[2:1] = acq_enable[1:0];
+    assign c1_io[2:1] = acq_enable[3:2];
+    assign c2_io[2:1] = acq_enable[5:4];
+    assign c3_io[2:1] = acq_enable[7:6];
+    assign c4_io[2:1] = acq_enable[9:8];
+
+    // done signals from channels
+    wire[4:0] acq_dones_sync;
+    sync_2stage acq_dones_sync0(
+        .clk(clk125),
+        .in(acq_dones[0]),
+        .out(acq_dones_sync[0])
+    );
+    sync_2stage acq_dones_sync1(
+        .clk(clk125),
+        .in(acq_dones[1]),
+        .out(acq_dones_sync[1])
+    );
+    sync_2stage acq_dones_sync2(
+        .clk(clk125),
+        .in(acq_dones[2]),
+        .out(acq_dones_sync[2])
+    );
+    sync_2stage acq_dones_sync3(
+        .clk(clk125),
+        .in(acq_dones[3]),
+        .out(acq_dones_sync[3])
+    );
+    sync_2stage acq_dones_sync4(
+        .clk(clk125),
+        .in(acq_dones[4]),
+        .out(acq_dones_sync[4])
+    );
+
+    assign acq_busy[4:0] = acq_dones_sync[4:0]; // signal named acq_done on the schematic and in the channel firmware, drives the assignment (03.11.15)
 
     // ======== clock signals ========
     wire clk50;
@@ -101,19 +149,7 @@ module wfd_top(
     assign debug6 = spi_ss;
 
     // dummy use of signals
-    assign debug7 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] & acq_dones[0] & acq_dones[1] & acq_dones[2] & acq_dones[3] & acq_dones[4] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
-
-    assign c0_io[0] = 1'b0;
-    assign c0_io[1] = 1'b0;
-    assign c1_io[0] = 1'b0;
-    assign c1_io[1] = 1'b0;
-    assign c2_io[0] = 1'b0;
-    assign c2_io[1] = 1'b0;
-    assign c3_io[0] = 1'b0;
-    assign c3_io[1] = 1'b0;
-    assign c4_io[0] = 1'b0;
-    assign c4_io[1] = 1'b0;
-
+    assign debug7 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
 
     // (active-high) reset signal to channels
     assign c0_io[3] = rst_from_ipb;
@@ -121,14 +157,6 @@ module wfd_top(
     assign c2_io[3] = rst_from_ipb;
     assign c3_io[3] = rst_from_ipb;
     assign c4_io[3] = rst_from_ipb;
-
-    // trigger arm signal for trigger manager
-    wire [4:0] trig_arm;
-    assign c0_io[2] = trig_arm[0];
-    assign c1_io[2] = trig_arm[1];
-    assign c2_io[2] = trig_arm[2];
-    assign c3_io[2] = trig_arm[3];
-    assign c4_io[2] = trig_arm[4];
 
     // use three of the debug pins as inputs for unique board identification
     wire [2:0] board_id;
@@ -313,36 +341,6 @@ module wfd_top(
         .in(ttc_L1A),
         .out(trigger_from_ttc)
     );
-
-
-    // done signals from channels
-    wire[4:0] acq_dones_sync;
-    sync_2stage acq_dones_sync0(
-        .clk(clk125),
-        .in(acq_dones[0]),
-        .out(acq_dones_sync[0])
-    );
-    sync_2stage acq_dones_sync1(
-        .clk(clk125),
-        .in(acq_dones[1]),
-        .out(acq_dones_sync[1])
-    );
-    sync_2stage acq_dones_sync2(
-        .clk(clk125),
-        .in(acq_dones[2]),
-        .out(acq_dones_sync[2])
-    );
-    sync_2stage acq_dones_sync3(
-        .clk(clk125),
-        .in(acq_dones[3]),
-        .out(acq_dones_sync[3])
-    );
-    sync_2stage acq_dones_sync4(
-        .clk(clk125),
-        .in(acq_dones[4]),
-        .out(acq_dones_sync[4])
-    );
-
 
     // enable signals to channels
     wire[4:0] chan_en;
@@ -751,16 +749,14 @@ module wfd_top(
         // .trigger(ext_trig_sync), // external triggering
         .trigger(trigger_from_ttc), // ttc triggering
 
-        .go(acq_trigs),
-        .done(acq_dones_sync),
-        .chan_readout_done(chan_readout_done), // input wire, to monitor when a fill is being read out
-        .trig_arm(trig_arm),                   // output wire [4 : 0], to start the circular memory buffer
+        .acq_trig(acq_trigs),
+        .acq_busy(acq_busy),
+        .acq_enable(acq_enable),               // output wire [9 : 0], to state the data taking mode
         .chan_en(chan_en),                     // enabled channels from ipbus
 
         // other connections
         .clk(clk125),
-        .reset(rst_from_ipb),
-        .cm_busy(cm_busy)
+        .reset(rst_from_ipb)
     );
 
 
