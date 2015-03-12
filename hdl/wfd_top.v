@@ -753,6 +753,7 @@ module wfd_top(
         .acq_busy(acq_busy),
         .acq_enable(acq_enable),               // output wire [9 : 0], to state the data taking mode
         .chan_en(chan_en),                     // enabled channels from ipbus
+	   .fill_type(2'b01),
 
         // other connections
         .clk(clk125),
