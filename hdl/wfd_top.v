@@ -72,7 +72,7 @@ module wfd_top(
 );
 
     // ======== I/O lines to channel (for DDR3) ========
-    wire [4:0] acq_busy;
+    (* mark_debug = "true" *) wire [4:0] acq_busy;
     wire [9:0] acq_enable;
     wire [4:0] acq_readout_pause;
 
@@ -750,7 +750,7 @@ module wfd_top(
         .trigger(trigger_from_ttc), // ttc triggering
 
         .acq_trig(acq_trigs),
-        .acq_busy(acq_busy),
+        .acq_done(acq_busy),
         .acq_enable(acq_enable),               // output wire [9 : 0], to state the data taking mode
         .chan_en(chan_en),                     // enabled channels from ipbus
 	   .fill_type(2'b01),

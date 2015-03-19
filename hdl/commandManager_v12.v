@@ -30,7 +30,7 @@ module commandManager (
   input wire ipbus_cmd_last,
   input wire ipbus_cmd_valid,
   input wire ipbus_res_ready,
-  input wire rst,
+   (* mark_debug = "true" *) input wire rst,
   input wire [23:0] tm_fifo_data,
   input wire tm_fifo_valid 
 );
@@ -66,7 +66,7 @@ module commandManager (
   SEND_IPBUS_RES              = 26, 
   STORE_CHAN_TAG_AND_FILLTYPE = 27; 
 
-  reg [27:0] state;
+  (* mark_debug = "true" *) reg [27:0] state;
   reg [27:0] nextstate;
   reg [31:0] burst_count;
   reg [31:0] chan_num_buf;
