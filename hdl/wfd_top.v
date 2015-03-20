@@ -71,6 +71,17 @@ module wfd_top(
     output spi_ss                     // SPI flash memory chip select
 );
 
+    // ======== clock signals ========
+    wire clk50;
+    wire clk125;
+    wire clk200;
+    wire clkfb;
+    wire gtrefclk0;
+    wire pll_lock;
+
+    assign clk50 = clkin; // just to make the frequency explicit
+
+
     // ======== I/O lines to channel (for DDR3) ========
     (* mark_debug = "true" *) wire [4:0] acq_busy;
     wire [9:0] acq_enable;
@@ -90,7 +101,8 @@ module wfd_top(
     assign c3_io[2:1] = acq_enable[7:6];
     assign c4_io[2:1] = acq_enable[9:8];
 
-    // done signals from channels
+
+        // done signals from channels
     wire[4:0] acq_dones_sync;
     sync_2stage acq_dones_sync0(
         .clk(clk125),
@@ -119,16 +131,6 @@ module wfd_top(
     );
 
     assign acq_busy[4:0] = acq_dones_sync[4:0]; // signal named acq_done on the schematic and in the channel firmware, drives the assignment (03.11.15)
-
-    // ======== clock signals ========
-    wire clk50;
-    wire clk125;
-    wire clk200;
-    wire clkfb;
-    wire gtrefclk0;
-    wire pll_lock;
-
-    assign clk50 = clkin; // just to make the frequency explicit
 
     // ======== LEDs ========
     
