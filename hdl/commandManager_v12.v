@@ -30,7 +30,7 @@ module commandManager (
   input wire ipbus_cmd_last,
   input wire ipbus_cmd_valid,
   input wire ipbus_res_ready,
-   (* mark_debug = "true" *) input wire rst,
+  input wire rst,
   input wire [23:0] tm_fifo_data,
   input wire tm_fifo_valid 
 );
@@ -66,7 +66,7 @@ module commandManager (
   SEND_IPBUS_RES              = 26, 
   STORE_CHAN_TAG_AND_FILLTYPE = 27; 
 
-  (* mark_debug = "true" *) reg [27:0] state;
+  reg [27:0] state;
   reg [27:0] nextstate;
   reg [31:0] burst_count;
   reg [31:0] chan_num_buf;
@@ -213,14 +213,12 @@ module commandManager (
         end
       end
       state[READ_CHAN_TAG_AND_FILLTYPE] : begin
-        if (chan_rx_fifo_valid && !sent_header) begin
-          nextstate[SEND_AMC13_HEADER1] = 1'b1;
-          next_chan_tag_filltype[31:0] = chan_rx_fifo_data[31:0];
-          next_daq_data[63:0] = {{8'h00,trig_num_buf[23:0]},{12'h000,20'b11111111111111111111}};
-        end
-        else begin
+        if (chan_rx_fifo_valid) begin
           nextstate[STORE_CHAN_TAG_AND_FILLTYPE] = 1'b1;
           next_chan_tag_filltype[31:0] = chan_rx_fifo_data[31:0];
+        end
+        else begin
+          nextstate[READ_CHAN_TAG_AND_FILLTYPE] = 1'b1; // implied loopback
         end
       end
       state[READ_CHAN_TRIG_NUM]         : begin
@@ -378,12 +376,13 @@ module commandManager (
         end
       end
       state[STORE_CHAN_TAG_AND_FILLTYPE]: begin
-        if (chan_rx_fifo_valid) begin
-          nextstate[SEND_CHAN_HEADER] = 1'b1;
-          next_daq_data[63:0] = {chan_tag_filltype[17:0],{trig_num_buf[23:0],burst_count[21:0]}};
+        if (!sent_header) begin
+          nextstate[SEND_AMC13_HEADER1] = 1'b1;
+          next_daq_data[63:0] = {{8'h00,trig_num_buf[23:0]},{12'h000,20'b11111111111111111111}};
         end
         else begin
-          nextstate[STORE_CHAN_TAG_AND_FILLTYPE] = 1'b1; // Added because implied_loopback is true
+          nextstate[SEND_CHAN_HEADER] = 1'b1;
+          next_daq_data[63:0] = {chan_tag_filltype[17:0],{trig_num_buf[23:0],burst_count[21:0]}};
         end
       end
     endcase
