@@ -22,3 +22,8 @@ ip/**/*.vhd
 
 # Tcl Scripts
 !scripts/**/*.tcl
+
+# Fizzim
+!fizzim/README.txt
+!fizzim/**/*.fzm
+!fizzim/**/*.v
