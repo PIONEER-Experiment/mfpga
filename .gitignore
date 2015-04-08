@@ -9,7 +9,7 @@ projects/
 ip/**/
 
 # Constraints
-!constraints/**/*.xdc
+!constraints/*.xdc
 
 # Sources
 !*.v
