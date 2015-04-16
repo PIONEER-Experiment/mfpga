@@ -43,7 +43,7 @@ module wfd_top(
 	output [3:0] c4_io,               // utility signals to channel 4
     input [5:0] mezzb,                // MB[5..0] on schematic
     input mmc_reset_m,                // reset line 
-	// output adcclk_ld,              //
+	input adcclk_ld,                  // clock synth lock detect
 	output adcclk_goe,                //
 	output adcclk_sync,               //
 	// output adcclk_los0,            //
@@ -83,15 +83,26 @@ module wfd_top(
     assign clk50 = clkin; // just to make the frequency explicit
 
     // ======== LEDs ========
+    // Note: LEDs are pulled high so that led[#]=0 is ON, led[#]=1 is OFF
     
     // green LED is on when TTC is not ready
     wire TTCready;
     assign led0 = TTCready;
 
-    // LED flasher module -- red LED flashes when FPGA is programmed
+    (* mark_debug = "true" *) wire adcclk_ld_sync;
+    sync_2stage adcclk_ld_sync0(
+        .clk(clk125),
+        .in(adcclk_ld),
+        .out(adcclk_ld_sync)
+    );
+
+    // LED flasher module
+    // red LED flashes when FPGA is programmed
+    // or is solid red when 'in' signal is LOW
     led_flasher led_flasher(
         .clk(clk50),
-        .led(led1)
+        .led(led1),
+        .in(!adcclk_ld_sync)
     );
 
 	// debug signals
