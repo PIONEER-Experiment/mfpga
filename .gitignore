@@ -6,7 +6,7 @@
 # Folders
 !*/
 project/
-ip/**/
+ip/*/**/
 
 # Constraints
 !constraints/*.xdc
