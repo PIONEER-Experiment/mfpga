@@ -39,6 +39,8 @@ module all_channels(
   // serial I/O pins
   input c0_rxp, c0_rxn,            // receive from channel 0 FPGA
   output c0_txp, c0_txn,           // transmit to channel 0 FPGA
+  // PCB traces
+  output c0_readout_pause,         // readout pause signal asserted when the Master receiving FIFO is almsot full
 
   // channel 1 connections
   // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
@@ -57,6 +59,8 @@ module all_channels(
   // serial I/O pins
   input c1_rxp, c1_rxn,            // receive from channel 0 FPGA
   output c1_txp, c1_txn,           // transmit to channel 0 FPGA
+  // PCB traces
+  output c1_readout_pause,         // readout pause signal asserted when the Master receiving FIFO is almsot full
 
   // channel 2 connections
   // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
@@ -75,6 +79,8 @@ module all_channels(
   // serial I/O pins
   input c2_rxp, c2_rxn,            // receive from channel 0 FPGA
   output c2_txp, c2_txn,           // transmit to channel 0 FPGA
+  // PCB traces
+  output c2_readout_pause,         // readout pause signal asserted when the Master receiving FIFO is almsot full
 
   // channel 3 connections
   // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
@@ -93,6 +99,8 @@ module all_channels(
   // serial I/O pins
   input c3_rxp, c3_rxn,            // receive from channel 0 FPGA
   output c3_txp, c3_txn,           // transmit to channel 0 FPGA
+  // PCB traces
+  output c3_readout_pause,         // readout pause signal asserted when the Master receiving FIFO is almsot full
 
   // channel 4 connections
   // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
@@ -111,6 +119,8 @@ module all_channels(
   // serial I/O pins
   input c4_rxp, c4_rxn,            // receive from channel 0 FPGA
   output c4_txp, c4_txn,           // transmit to channel 0 FPGA
+  // PCB traces
+  output c4_readout_pause,         // readout pause signal asserted when the Master receiving FIFO is almsot full
 
   // debug ports
   output [2:0] debug,
@@ -165,6 +175,8 @@ module all_channels(
     .clk50(clk50),                                 // Aurora 'init_clk' uses 50 MHz clock per PG046-20
     .clk50_reset(clk50_reset),                     // active_hi synched to 'clk50'
     .gt_refclk(gt_refclk),                         // 125 MHz oscillator, from IBUFDS_GTE2 at a higher level
+    // backpressure
+    .acq_readout_pause(c0_readout_pause),          // readout_pause signal to stop data sending from the channel
     // programming interface inputs
     .io_clk(ipb_clk),                              // programming clock
     .io_reset(ipb_reset),
@@ -230,6 +242,8 @@ module all_channels(
     .clk50(clk50),                                 // Aurora 'init_clk' uses 50 MHz clock per PG046-20
     .clk50_reset(clk50_reset),                     // active_hi synched to 'clk50'
     .gt_refclk(gt_refclk),                         // 125 MHz oscillator, from IBUFDS_GTE2 at a higher level
+    // backpressure
+    .acq_readout_pause(c1_readout_pause),          // readout_pause signal to stop data sending from the channel
     // programming interface inputs
     .io_clk(ipb_clk),                              // programming clock
     .io_reset(ipb_reset),
@@ -291,6 +305,8 @@ module all_channels(
     .clk50(clk50),                                 // Aurora 'init_clk' uses 50 MHz clock per PG046-20
     .clk50_reset(clk50_reset),                     // active_hi synched to 'clk50'
     .gt_refclk(gt_refclk),                         // 125 MHz oscillator, from IBUFDS_GTE2 at a higher level
+    // backpressure
+    .acq_readout_pause(c2_readout_pause),          // readout_pause signal to stop data sending from the channel
     // programming interface inputs
     .io_clk(ipb_clk),                              // programming clock
     .io_reset(ipb_reset),
@@ -357,6 +373,8 @@ module all_channels(
     .clk50(clk50),                                 // Aurora 'init_clk' uses 50 MHz clock per PG046-20
     .clk50_reset(clk50_reset),                     // active_hi synched to 'clk50'
     .gt_refclk(gt_refclk),                         // 125 MHz oscillator, from IBUFDS_GTE2 at a higher level
+    // backpressure
+    .acq_readout_pause(c3_readout_pause),          // readout_pause signal to stop data sending from the channel
     // programming interface inputs
     .io_clk(ipb_clk),                              // programming clock
     .io_reset(ipb_reset),
@@ -423,6 +441,8 @@ module all_channels(
     .clk50(clk50),                                 // Aurora 'init_clk' uses 50 MHz clock per PG046-20
     .clk50_reset(clk50_reset),                     // active_hi synched to 'clk50'
     .gt_refclk(gt_refclk),                         // 125 MHz oscillator, from IBUFDS_GTE2 at a higher level
+    // backpressure
+    .acq_readout_pause(c4_readout_pause),          // readout_pause signal to stop data sending from the channel
     // programming interface inputs
     .io_clk(ipb_clk),                              // programming clock
     .io_reset(ipb_reset),

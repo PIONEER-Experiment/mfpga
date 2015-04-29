@@ -84,7 +84,7 @@ module wfd_top(
 
     // ======== I/O lines to channel (for DDR3) ========
     (* mark_debug = "true" *) wire [4:0] acq_busy;
-    wire [9:0] acq_enable;
+    (* mark_debug = "true" *) wire [9:0] acq_enable;
     wire [4:0] acq_readout_pause;
 
     assign c0_io[0] = acq_readout_pause[0];
@@ -471,7 +471,7 @@ module wfd_top(
     assign c_axi_stream_to_cm_tdata[159:128] = c4_axi_stream_to_cm_tdata;
 
     // connections from axis rx switch to cm
-    wire axi_stream_to_cm_from_channel_tvalid, axi_stream_to_cm_from_channel_tlast, axi_stream_to_cm_from_channel_tready;
+    (* mark_debug = "true" *) wire axi_stream_to_cm_from_channel_tvalid, axi_stream_to_cm_from_channel_tlast, axi_stream_to_cm_from_channel_tready;
     wire[0:31] axi_stream_to_cm_from_channel_tdata;
 
 
@@ -645,6 +645,8 @@ module wfd_top(
         // serial I/O pins
         .c0_rxp(c0_rx), .c0_rxn(c0_rx_N),                     // receive from channel 0 FPGA
         .c0_txp(c0_tx), .c0_txn(c0_tx_N),                     // transmit to channel 0 FPGA
+        // PCB traces
+        .c0_readout_pause(acq_readout_pause[0]),                 // readout pause signal asserted when the Master receiving FIFO is almsot full
 
         // channel 1 connections
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
@@ -663,6 +665,8 @@ module wfd_top(
         // serial I/O pins
         .c1_rxp(c1_rx), .c1_rxn(c1_rx_N),                     // receive from channel 0 FPGA
         .c1_txp(c1_tx), .c1_txn(c1_tx_N),                     // transmit to channel 0 FPGA
+        // PCB traces
+        .c1_readout_pause(acq_readout_pause[1]),                 // readout pause signal asserted when the Master receiving FIFO is almsot full
 
 		// channel 2 connections
 		// connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
@@ -681,6 +685,8 @@ module wfd_top(
         // serial I/O pins
         .c2_rxp(c2_rx), .c2_rxn(c2_rx_N),                     // receive from channel 0 FPGA
         .c2_txp(c2_tx), .c2_txn(c2_tx_N),                     // transmit to channel 0 FPGA
+        // PCB traces
+        .c2_readout_pause(acq_readout_pause[2]),                 // readout pause signal asserted when the Master receiving FIFO is almsot full
 
 		// channel 3 connections
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
@@ -699,6 +705,8 @@ module wfd_top(
         // serial I/O pins
         .c3_rxp(c3_rx), .c3_rxn(c3_rx_N),                     // receive from channel 0 FPGA
         .c3_txp(c3_tx), .c3_txn(c3_tx_N),                     // transmit to channel 0 FPGA
+        // PCB traces
+        .c3_readout_pause(acq_readout_pause[3]),                 // readout pause signal asserted when the Master receiving FIFO is almsot full
  
 		// channel 4 connections
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
@@ -717,6 +725,8 @@ module wfd_top(
         // serial I/O pins
         .c4_rxp(c4_rx), .c4_rxn(c4_rx_N),                     // receive from channel 0 FPGA
         .c4_txp(c4_tx), .c4_txn(c4_tx_N),                     // transmit to channel 0 FPGA
+        // PCB traces
+        .c4_readout_pause(acq_readout_pause[4]),                 // readout pause signal asserted when the Master receiving FIFO is almsot full
 
         //clock synthesizer connections
         .adcclk_dclk(adcclk_dclk),

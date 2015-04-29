@@ -7,6 +7,8 @@ module one_channel(
   input clk50,                          // Aurora 'init_clk' uses 50 MHz clock per PG046-20
   input clk50_reset,                    // active_hi synched to 'clk50', drive 'gt_reset'
   input gt_refclk,                      // 125 MHz oscillator, from IBUFDS_GTE2 at a higher level
+  // backpressure
+  (* mark_debug = "true" *) output reg acq_readout_pause,             // readout_pause signal to stop data sending from the channel
   // programming interface inputs
   input io_clk,                         // programming clock
   input io_reset,
@@ -66,6 +68,7 @@ module one_channel(
   wire local_axis_rx_tready;
   wire drdy_out_unused;
   wire [15:0] drpdo_out_unused;
+  (* mark_debug = "true" *) wire [31:0] axis_rd_data_count;
 
   // tie off unused signals, use 'clk50' for DRP clock
   wire [8:0] drpaddr_in;
@@ -109,7 +112,7 @@ module one_channel(
     .axis_rd_data_count()
   );
 
-  // Connect the receive FIFO that buffer data arriving from the channel FPGA and crosses clock domains
+   // Connect the receive FIFO that buffer data arriving from the channel FPGA and crosses clock domains
   chan_link_axis_data_fifo rx_fifo (
     .s_axis_aresetn(local_axis_resetn),          // input wire s_axis_aresetn
     .s_axis_aclk(aurora_user_clk),                // input wire s_axis_aclk
@@ -127,8 +130,17 @@ module one_channel(
     .m_axis_tlast(m_axis_rx_tlast),             // output wire m_axis_tlast
     .axis_data_count(),
     .axis_wr_data_count(),
-    .axis_rd_data_count()
+    .axis_rd_data_count(axis_rd_data_count)                      // output wire [31:0] to check the FIFO almost_full status
   );
+
+   always @(posedge m_axis_aclk) begin
+    if (axis_rd_data_count[31:0]>12'b100000000000) begin
+        acq_readout_pause=1'b1;
+    end
+    else begin
+        acq_readout_pause=1'b0;
+    end
+  end
 
   // Connect a channel instance of aurora_8b10b_0.xci
   aurora_8b10b_0 aurora (
