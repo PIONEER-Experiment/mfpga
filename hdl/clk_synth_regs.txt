@@ -1,0 +1,34 @@
+// Registers values for clock synthesizer (LMK04011) configurations
+
+// Be sure to use [ `include "clk_synth_regs.txt" ] whenever any of these constants are needed.
+// Also, be sure to use the backtic [ ` ] when the constant is actually used.
+
+// Only define these constants once.
+`ifndef CLK_SYNTH_REGS_INCLUDED
+  `define CLK_SYNTH_REGS_INCLUDED
+  
+	// Define 32-bit register values for clock synthesizer
+
+	// ===========================================
+	// Default register values (750 MHz)
+	// ===========================================
+	`define	CS_DEF_REG07_INIT   32'h00000017	// Initial chip reset
+	
+	`define	CS_DEF_REG00		32'h01010000	// Channel 0 output enabled, LVPECL (800 mVpp), no delay
+	`define	CS_DEF_REG01		32'h01010001	// Channel 1 output enabled, LVPECL (800 mVpp), no delay
+	`define	CS_DEF_REG02		32'h01010002	// Channel 2 output enabled, LVPECL (800 mVpp), no delay
+	`define	CS_DEF_REG03		32'h01010003	// Channel 3 output enabled, LVPECL (800 mVpp), no delay
+	`define	CS_DEF_REG04		32'h01010004	// Channel 4 output enabled, LVPECL (800 mVpp), no delay
+	`define	CS_DEF_REG05		32'h00000005	// RESERVED
+	`define	CS_DEF_REG06		32'h08000076	// RESERVED
+	`define CS_DEF_REG07        32'h00000007    // RESERVED
+	`define	CS_DEF_REG08		32'h00000008	// RESERVED
+	`define	CS_DEF_REG09		32'h00a22a09	// RESERVED
+	`define	CS_DEF_REG10		32'h0150000a	// PLL2 VCO tuning algorithm runs immediately after any PLL2_N counter update, despite the state of PLL1 Digital Lock Detect
+	`define	CS_DEF_REG11		32'h006500cb	// BJT Differential CLKin0 input
+	`define	CS_DEF_REG12		32'ha00200ac	//
+	`define	CS_DEF_REG13		32'h0a04000d	//
+	`define	CS_DEF_REG14		32'h1917004e	// PLL1 and PLL2 Digital Lock Detect (active high)
+	`define	CS_DEF_REG15		32'h108000ff	//
+
+`endif
