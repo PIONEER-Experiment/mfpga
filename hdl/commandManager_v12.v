@@ -8,10 +8,10 @@ module commandManager (
   output reg [3:0] chan_tx_fifo_dest,
   output reg chan_tx_fifo_last,
   output reg chan_tx_fifo_valid,
-  (* mark_debug = "true" *) output reg [63:0] daq_data,
-  (* mark_debug = "true" *) output reg daq_header,
-  (* mark_debug = "true" *) output reg daq_trailer,
-  (* mark_debug = "true" *) output reg daq_valid,
+  output reg [63:0] daq_data,
+  output reg daq_header,
+  output reg daq_trailer,
+  output reg daq_valid,
   output reg ipbus_cmd_ready,
   output reg [31:0] ipbus_res_data,
   output reg ipbus_res_last,
@@ -19,7 +19,7 @@ module commandManager (
   output reg read_fill_done,
   output reg tm_fifo_ready,
   input wire [4:0] chan_en,
-  (* mark_debug = "true" *) input wire [31:0] chan_rx_fifo_data,
+  input wire [31:0] chan_rx_fifo_data,
   input wire chan_rx_fifo_last,
   input wire chan_rx_fifo_valid,
   input wire chan_tx_fifo_ready,
@@ -66,18 +66,19 @@ module commandManager (
   SEND_IPBUS_RES              = 26, 
   STORE_CHAN_TAG_AND_FILLTYPE = 27; 
 
-  (* mark_debug = "true" *) reg [27:0] state;
-  reg [27:0] nextstate;
-  (* mark_debug = "true" *) reg [31:0] burst_count;
+  reg [27:0] state;
+  reg [31:0] burst_count;
   reg [31:0] chan_num_buf;
   reg [31:0] chan_tag_filltype;
   reg [31:0] csn;
-  (* mark_debug = "true" *) reg [31:0] data_count;
+  reg [31:0] data_count;
   reg [31:0] ddr_start_addr;
   reg [31:0] ipbus_buf;
   reg [2:0] num_chan_en;
   reg sent_header;
   reg [31:0] trig_num_buf;
+  
+  reg [27:0] nextstate;
   reg [31:0] next_burst_count;
   reg [31:0] next_chan_num_buf;
   reg [31:0] next_chan_tag_filltype;
@@ -155,7 +156,14 @@ module commandManager (
       state[READY_AMC13_TRAILER]        : begin
         begin
           nextstate[SEND_AMC13_TRAILER] = 1'b1;
-          next_daq_data[63:0] = {32'h00000000,{{trig_num_buf[7:0],4'h0},(burst_count[31:1]*2+1)*num_chan_en+3}};
+          // *2 = 2 64-bit words per burst
+          // +1 = 1 channel header per channel data set
+          // *num_chan_en = # channels that will send data
+          // +3 = 3 (2 AMC13 header + 1 AMC13 trailer) 64-bit words per AMC13 data set
+
+          // burst_count[19:0]   = # 128-bit data words
+          // burst_count[19:0]*2 = # 64-bit data words
+          next_daq_data[63:0] = {32'h00000000,{{trig_num_buf[7:0],4'h0},(burst_count[19:0]*2+1)*num_chan_en+3}};
         end
       end
       state[READ_CHAN_BURST_COUNT]      : begin
@@ -295,6 +303,8 @@ module commandManager (
           next_daq_data[63:0] = 0;
           next_sent_header = 0;
           next_chan_num_buf[31:0] = 0;
+          next_burst_count[31:0] = 0;
+          next_num_chan_en[2:0] = 0; // Reset the number of enabled channels for each new trigger
         end
         else begin
           nextstate[SEND_AMC13_TRAILER] = 1'b1; // Added because implied_loopback is true
