@@ -7,7 +7,7 @@ module clk_synth_intf(
 
     // inputs from IPbus
     input io_clk,            // ipbus interface clock
-    (* mark_debug = "true" *) input io_reset,          // ipbus interface reset    
+    input io_reset,          // ipbus interface reset    
     input io_sel,            // this module has been selected for an I/O operation
     input io_sync,           // start the I/O operation
     input [19:0] io_addr,    // local slave address, memory or register
@@ -21,10 +21,10 @@ module clk_synth_intf(
 
     // outputs to clock synthesizer
     output dclk,
-    (* mark_debug = "true" *) output ddat,
-    (* mark_debug = "true" *) output reg dlen,
+    output ddat,
+    output reg dlen,
     output goe,
-    (* mark_debug = "true" *) output sync,
+    output sync,
 
     output [2:0] debug 
 );
@@ -40,7 +40,7 @@ assign goe = 1'b1;
 //*************************************************************************
 // synchronize state machine inputs
 //*************************************************************************
-(* mark_debug = "true" *) reg resetS;
+reg resetS;
 
 always @ (posedge slow_clk)
 begin
@@ -57,15 +57,15 @@ parameter STARTUP_RESET  = 3'b100;
 parameter STARTUP_STROBE = 3'b101;
 parameter STARTUP_DONE   = 3'b110;
 
-(* mark_debug = "true" *) reg [2:0] startup_state = STARTUP_IDLE;
+reg [2:0] startup_state = STARTUP_IDLE;
 
-(* mark_debug = "true" *) reg [15:0] startup_cnt = 16'd0; // counter to wait >3 ms after power up
-(* mark_debug = "true" *) reg startup_rst_level_cntrl;    // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for cntrl
-(* mark_debug = "true" *) reg startup_rst_level_reg;      // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for regs
-(* mark_debug = "true" *) reg startup_done;               // flag to tell other state machines that the startup procedure is complete
+reg [15:0] startup_cnt = 16'd0; // counter to wait >3 ms after power up
+reg startup_rst_level_cntrl;    // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for cntrl
+reg startup_rst_level_reg;      // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for regs
+reg startup_done;               // flag to tell other state machines that the startup procedure is complete
 
-(* mark_debug = "true" *) wire startup_rst_cntrl;
-(* mark_debug = "true" *) wire startup_rst_reg;
+wire startup_rst_cntrl;
+wire startup_rst_reg;
 assign startup_rst_cntrl = (startup_rst_level_cntrl) ? 1'b1 : 1'b0;
 assign startup_rst_reg   = (startup_rst_level_reg)   ? 1'b1 : 1'b0;
 
@@ -176,30 +176,30 @@ assign    s00reg_sel = io_sel && (io_addr[4:0] == 5'b00000);
 //          and not the clk synth register number
 // ====================================================================
 
-(* mark_debug = "true" *) wire [31:0] scntrl_reg_out; // LSB controls the strobe
+wire [31:0] scntrl_reg_out; // LSB controls the strobe
 
 // s[#]_reg_out wires used to write to the clk synth
 // these wires are driven by the reg inside the reg32_ce2 blocks
-(* mark_debug = "true" *) wire [31:0] s16_reg_out;    // clk synth reg 15
-(* mark_debug = "true" *) wire [31:0] s15_reg_out;    // clk synth reg 14
-(* mark_debug = "true" *) wire [31:0] s14_reg_out;    // clk synth reg 13
-(* mark_debug = "true" *) wire [31:0] s13_reg_out;    // clk synth reg 12
-(* mark_debug = "true" *) wire [31:0] s12_reg_out;    // clk synth reg 11
-(* mark_debug = "true" *) wire [31:0] s11_reg_out;    // clk synth reg 10
-(* mark_debug = "true" *) wire [31:0] s10_reg_out;    // clk synth reg 9
-(* mark_debug = "true" *) wire [31:0] s09_reg_out;    // clk synth reg 8
-(* mark_debug = "true" *) wire [31:0] s08_reg_out;    // clk synth reg 7
-(* mark_debug = "true" *) wire [31:0] s07_reg_out;    // clk synth reg 6
-(* mark_debug = "true" *) wire [31:0] s06_reg_out;    // clk synth reg 5
-(* mark_debug = "true" *) wire [31:0] s05_reg_out;    // clk synth reg 4
-(* mark_debug = "true" *) wire [31:0] s04_reg_out;    // clk synth reg 3
-(* mark_debug = "true" *) wire [31:0] s03_reg_out;    // clk synth reg 2
-(* mark_debug = "true" *) wire [31:0] s02_reg_out;    // clk synth reg 1
-(* mark_debug = "true" *) wire [31:0] s01_reg_out;    // clk synth reg 0
-(* mark_debug = "true" *) wire [31:0] s00_reg_out;    // clk synth reg 7
+wire [31:0] s16_reg_out;    // clk synth reg 15
+wire [31:0] s15_reg_out;    // clk synth reg 14
+wire [31:0] s14_reg_out;    // clk synth reg 13
+wire [31:0] s13_reg_out;    // clk synth reg 12
+wire [31:0] s12_reg_out;    // clk synth reg 11
+wire [31:0] s11_reg_out;    // clk synth reg 10
+wire [31:0] s10_reg_out;    // clk synth reg 9
+wire [31:0] s09_reg_out;    // clk synth reg 8
+wire [31:0] s08_reg_out;    // clk synth reg 7
+wire [31:0] s07_reg_out;    // clk synth reg 6
+wire [31:0] s06_reg_out;    // clk synth reg 5
+wire [31:0] s05_reg_out;    // clk synth reg 4
+wire [31:0] s04_reg_out;    // clk synth reg 3
+wire [31:0] s03_reg_out;    // clk synth reg 2
+wire [31:0] s02_reg_out;    // clk synth reg 1
+wire [31:0] s01_reg_out;    // clk synth reg 0
+wire [31:0] s00_reg_out;    // clk synth reg 7
 
-(* mark_debug = "true" *) wire rst_reg;    // want the reg_out values to be set to default when IPbus reset or the startup reset is asserted
-(* mark_debug = "true" *) wire rst_cntrl;    // want the cntrl_reg_out values to be set to default when IPbus reset or the startup reset is asserted
+wire rst_reg;    // want the reg_out values to be set to default when IPbus reset or the startup reset is asserted
+wire rst_cntrl;    // want the cntrl_reg_out values to be set to default when IPbus reset or the startup reset is asserted
 assign rst_reg   = resetS | startup_rst_reg;
 assign rst_cntrl = resetS | startup_rst_cntrl;
 
@@ -228,7 +228,7 @@ reg32_ce2 s00_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG
 // to reset the loop counter and thus initiate a new programming sequence
 
 // synchronize the LSB with the slow_clk
-(* mark_debug = "true" *) reg scntrl_LSB;
+reg scntrl_LSB;
 
 always @ (posedge slow_clk)
 begin
@@ -244,8 +244,8 @@ parameter STROBE_IDLE = 3'b001;
 parameter STROBE_TRIG = 3'b010;
 parameter STROBE_DONE = 3'b100;
 
-(* mark_debug = "true" *) reg [2:0] strobe_state = STROBE_IDLE;
-(* mark_debug = "true" *) reg strobe;
+reg [2:0] strobe_state = STROBE_IDLE;
+reg strobe;
 
 always @ (posedge slow_clk)
 begin
@@ -288,8 +288,8 @@ end
 //*************************************************************************
 // generate a low speed clock (6.25 MHz / 160 ns)
 //*************************************************************************
-(* mark_debug = "true" *) reg [2:0] clk_cnt;
-(* mark_debug = "true" *) wire slow_clk;
+reg [2:0] clk_cnt;
+wire slow_clk;
 wire slow_clk_180;
 
 always @ (posedge clk50)
@@ -308,21 +308,21 @@ assign slow_clk_180 = !slow_clk;
 // payload     - what will be shifted
 // sreg_ready  - active high status signal
 //*************************************************************************
-(* mark_debug = "true" *) reg sreg_strobe;
-(* mark_debug = "true" *) reg [31:0] sreg;
-(* mark_debug = "true" *) reg [5:0] sreg_cnt = 6'b000000;
-(* mark_debug = "true" *) reg sreg_ready;
+reg sreg_strobe;
+reg [31:0] sreg;
+reg [5:0] sreg_cnt = 6'b000000;
+reg sreg_ready;
 
 parameter SHIFT_IDLE     = 2'b00;
 parameter SHIFT_LOAD     = 2'b01;
 parameter SHIFT_SHIFTING = 2'b10;
 
-(* mark_debug = "true" *) reg [1:0] shift_state = SHIFT_IDLE;
+reg [1:0] shift_state = SHIFT_IDLE;
 
-(* mark_debug = "true" *) reg sreg_cnt_ena;
-(* mark_debug = "true" *) reg sreg_cnt_reset;
+reg sreg_cnt_ena;
+reg sreg_cnt_reset;
 
-(* mark_debug = "true" *) wire sreg_cnt_max;
+wire sreg_cnt_max;
 assign sreg_cnt_max = (sreg_cnt == 6'b011110) ? 1'b1 : 1'b0;
 
 always @ (posedge slow_clk)
@@ -335,7 +335,7 @@ begin
         sreg_cnt[5:0] <= sreg_cnt[5:0];
 end
 
-(* mark_debug = "true" *) reg sreg_load;
+reg sreg_load;
 
 always @ (posedge slow_clk)
 begin
@@ -408,8 +408,8 @@ end
 //*************************************************************************
 // array of registers
 //*************************************************************************
-(* mark_debug = "true" *) reg [4:0] synth_reg_addr = 5'd0;
-(* mark_debug = "true" *) reg [31:0] synth_reg = 32'd0;
+reg [4:0] synth_reg_addr = 5'd0;
+reg [31:0] synth_reg = 32'd0;
 
 always @ (posedge slow_clk)
 begin
@@ -450,14 +450,14 @@ parameter WRITE_INCREMENT = 3'b100;
 parameter SYNC_LOW        = 3'b101;
 parameter SYNC_HIGH       = 3'b110;
 
-(* mark_debug = "true" *) reg [2:0] synth_state = WRITE_IDLE;
+reg [2:0] synth_state = WRITE_IDLE;
 
 // ====================================================================
 // signals for sync functionality
 // ====================================================================
-(* mark_debug = "true" *) reg [4:0] sync_cnt = 5'b00000; // counter to keep sync wire low for >4 clock cycles
-(* mark_debug = "true" *) reg sync_asserted = 1'b0;      // flag to remember when sync has already been asserted
-(* mark_debug = "true" *) reg sync_level;                // flag to drive sync wire to either low (1'b0) or high (1'b1)
+reg [4:0] sync_cnt = 5'b00000; // counter to keep sync wire low for >4 clock cycles
+reg sync_asserted = 1'b0;      // flag to remember when sync has already been asserted
+reg sync_level;                // flag to drive sync wire to either low (1'b0) or high (1'b1)
 
 assign sync = (sync_level) ? 1'b1 : 1'b0;
 
@@ -465,10 +465,10 @@ assign sync = (sync_level) ? 1'b1 : 1'b0;
 //************************************************
 // loop counter to clock out all registers
 //************************************************
-(* mark_debug = "true" *) reg [5:0] loop_cnt = 6'b010001; // initialized to cnt_max so that the WRITE SM isn't automatically triggered
-(* mark_debug = "true" *) reg loop_cnt_ena;
+reg [5:0] loop_cnt = 6'b010001; // initialized to cnt_max so that the WRITE SM isn't automatically triggered
+reg loop_cnt_ena;
 
-(* mark_debug = "true" *) wire loop_cnt_max;
+wire loop_cnt_max;
 assign loop_cnt_max = (loop_cnt == 6'b010001) ? 1'b1 : 1'b0;
 
 always @ (posedge slow_clk)

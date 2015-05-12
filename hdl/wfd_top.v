@@ -86,21 +86,23 @@ module wfd_top(
 
     // ======== LEDs ========
     // Note: LEDs are pulled high so that led[#]=0 is ON, led[#]=1 is OFF
+   
+    // TO DO: come up with sensible scheme for LED colors
     
     // green LED is on when TTC is not ready
     wire TTCready;
     assign led0 = TTCready;
 
-    (* mark_debug = "true" *) wire adcclk_ld_sync;
+    wire adcclk_ld_sync;
     sync_2stage adcclk_ld_sync0(
-        .clk(clk125),
+        .clk(clk50),
         .in(adcclk_ld),
         .out(adcclk_ld_sync)
     );
 
     // LED flasher module
-    // red LED flashes when FPGA is programmed
-    // or is solid red when 'in' signal is LOW
+    // red LED is off when 'adc_clk_ld' signal is LOW
+    // red LED flashes when 'adc_clk_ld' signal is HIGH
     led_flasher led_flasher(
         .clk(clk50),
         .led(led1),

@@ -18,12 +18,12 @@ always @ (posedge clk) begin
     led_toggle <= ~led_toggle;
 end
 
-// 'led' is HIGH if 'in' is HIGH
+// 'led' is OFF if 'in' is HIGH
 // otherwise, 'led' flashes
 reg led_out;
 always @ (posedge clk) begin
   if (in)
-    led_out <= ~in;
+    led_out <= in;
   else
     led_out <= led_toggle;
 end
