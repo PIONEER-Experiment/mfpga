@@ -5,14 +5,16 @@
 
 # Folders
 !*/
-projects/
+project/
+ip/*/**/
 
 # Constraints
-!constraints/**/*.xdc
+!constraints/*.xdc
 
 # Sources
 !*.v
 !*.vhd
+!hdl/*.txt
 
 # IPs
 !ip/**/*.xci

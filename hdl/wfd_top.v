@@ -43,7 +43,7 @@ module wfd_top(
 	output [3:0] c4_io,               // utility signals to channel 4
     input [5:0] mezzb,                // MB[5..0] on schematic
     input mmc_reset_m,                // reset line 
-	// output adcclk_ld,              //
+	input adcclk_ld,                  // clock synth lock detect
 	output adcclk_goe,                //
 	output adcclk_sync,               //
 	// output adcclk_los0,            //
@@ -78,6 +78,8 @@ module wfd_top(
     wire clkfb;
     wire gtrefclk0;
     wire pll_lock;
+    wire ttc_clock; // 40 MHz output from TTC decoder module
+    wire spi_clock;
 
     assign clk50 = clkin; // just to make the frequency explicit
 
@@ -101,47 +103,31 @@ module wfd_top(
     assign c3_io[2:1] = acq_enable[7:6];
     assign c4_io[2:1] = acq_enable[9:8];
 
-
-        // done signals from channels
-    wire[4:0] acq_dones_sync;
-    sync_2stage acq_dones_sync0(
-        .clk(clk125),
-        .in(acq_dones[0]),
-        .out(acq_dones_sync[0])
-    );
-    sync_2stage acq_dones_sync1(
-        .clk(clk125),
-        .in(acq_dones[1]),
-        .out(acq_dones_sync[1])
-    );
-    sync_2stage acq_dones_sync2(
-        .clk(clk125),
-        .in(acq_dones[2]),
-        .out(acq_dones_sync[2])
-    );
-    sync_2stage acq_dones_sync3(
-        .clk(clk125),
-        .in(acq_dones[3]),
-        .out(acq_dones_sync[3])
-    );
-    sync_2stage acq_dones_sync4(
-        .clk(clk125),
-        .in(acq_dones[4]),
-        .out(acq_dones_sync[4])
-    );
-
     assign acq_busy[4:0] = acq_dones_sync[4:0]; // signal named acq_done on the schematic and in the channel firmware, drives the assignment (03.11.15)
 
     // ======== LEDs ========
+    // Note: LEDs are pulled high so that led[#]=0 is ON, led[#]=1 is OFF
+   
+    // TO DO: come up with sensible scheme for LED colors
     
     // green LED is on when TTC is not ready
     wire TTCready;
     assign led0 = TTCready;
 
-    // LED flasher module -- red LED flashes when FPGA is programmed
+    wire adcclk_ld_sync;
+    sync_2stage adcclk_ld_sync0(
+        .clk(clk50),
+        .in(adcclk_ld),
+        .out(adcclk_ld_sync)
+    );
+
+    // LED flasher module
+    // red LED is off when 'adc_clk_ld' signal is LOW
+    // red LED flashes when 'adc_clk_ld' signal is HIGH
     led_flasher led_flasher(
         .clk(clk50),
-        .led(led1)
+        .led(led1),
+        .in(!adcclk_ld_sync)
     );
 
 	// debug signals
@@ -151,7 +137,7 @@ module wfd_top(
     assign debug6 = spi_ss;
 
     // dummy use of signals
-    assign debug7 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
+    assign debug7 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & trigger_from_ipbus_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
 
     // (active-high) reset signal to channels
     assign c0_io[3] = rst_from_ipb;
@@ -192,7 +178,7 @@ module wfd_top(
     ) clk (
         .CLKIN1(clkin),
         .CLKOUT0(clk200),
-        .CLKOUT1(clk125),
+        .CLKOUT1(clk_125),
         .CLKOUT2(),
         .CLKOUT3(),
         .CLKOUT4(),
@@ -204,25 +190,46 @@ module wfd_top(
         .CLKFBIN(clkfb)
     );
 
+    // Added BUFG object to deal with a warning message that caused implementation to fail - RB 4/25/2015
+    // "Clock net clk125 is not driven by a Clock Buffer and has more than 2000 loads."
+    BUFG BUFG_clk125 (.I(clk_125), .O(clk125));
+
     // ======== ethernet status signals ========
     reg sfp_los = 0;      // loss of signal for gigabit ethernet. Not used
     wire eth_link_status; // link status of gigabit ethernet
 
     // ======== reset signals ========
-    wire rst_from_ipb;            // reset from IPbus. Synchronous to IPbus clock
-    wire rst_n;                   // active low reset
+    wire rst_from_ipb;        // active high reset from IPbus. Synchronous to IPbus clock
+    wire rst_n;               // active low reset
     assign rst_n = ~rst_from_ipb;
 
     // Synchronize reset from IPbus clock domain to other domains
-    wire clk50_reset;
-    resets r (
-        .ipb_rst_in(rst_from_ipb),
-        .ipb_clk(clk125),
-        .clk50(clk50),
-        .rst_clk50(clk50_reset)
+    
+    wire rst_from_ipb_stretch;
+    signal_stretch ipb_rst_stretch (
+        .signal_in(rst_from_ipb),
+        .clk(clk125),
+        .n_extra_cycles(4'h8), // add more than enough extra clock cycles for synchronization into 50 MHz and 40 MHz clock domains
+        .signal_out(rst_from_ipb_stretch)
     );
 
-    
+    wire clk50_reset;
+    sync_2stage clk50_reset_sync (
+        .clk(clk50),
+        .in(rst_from_ipb_stretch),
+        .out(clk50_reset)
+    );
+
+    wire reset40;
+    sync_2stage reset40_sync (
+        .clk(ttc_clk),
+        .in(rst_from_ipb_stretch),
+        .out(reset40)
+    );
+
+    wire reset40_n;
+    assign reset40_n = ~reset40;
+
     // ================== communicate with SPI flash memory ==================
 
     // The startup block will give us access to the SPI clock pin (which is otherwise reserved for use during FPGA configuration)
@@ -322,26 +329,60 @@ module wfd_top(
 
     // ======== triggers and data transfer ========
 
-    // TTC trigger in TTC clock domain
-    wire ttc_L1A;
-
-    // trigger signals in 125 MHz clock domain
-    wire ext_trig_sync;
-    wire trigger_from_ipbus;
+    // TTC trigger in 40 MHz TTC clock domain
     wire trigger_from_ttc;
 
-    // Put the external trigger into the 125 MHz clock domain
-    sync_2stage trig_sync(
-        .clk(clk125),
+    // put other trigger signals into 40 MHz TTC clock domain
+    wire ext_trig_sync;
+    wire trigger_from_ipbus;
+    wire trigger_from_ipbus_stretch;    
+    wire trigger_from_ipbus_sync;
+
+    sync_2stage ext_trig_sync_module(
+        .clk(ttc_clk),
         .in(ext_trig),
         .out(ext_trig_sync)
     );
 
-    // Put the TTC trigger into the 125 MHz clock domain
-    sync_2stage ttc_trig_sync(
+    signal_stretch trigger_from_ipbus_stretch_module (
+        .signal_in(trigger_from_ipbus),
         .clk(clk125),
-        .in(ttc_L1A),
-        .out(trigger_from_ttc)
+        .n_extra_cycles(4'h4),
+        .signal_out(trigger_from_ipbus_stretch)
+    );
+
+    sync_2stage trigger_from_ipbus_sync_module(
+        .clk(ttc_clk),
+        .in(trigger_from_ipbus_stretch),
+        .out(trigger_from_ipbus_sync)
+    );    
+
+    // done signals from channels
+    wire[4:0] acq_dones_sync;
+    sync_2stage acq_dones_sync0(
+        .clk(ttc_clk),
+        .in(acq_dones[0]),
+        .out(acq_dones_sync[0])
+    );
+    sync_2stage acq_dones_sync1(
+        .clk(ttc_clk),
+        .in(acq_dones[1]),
+        .out(acq_dones_sync[1])
+    );
+    sync_2stage acq_dones_sync2(
+        .clk(ttc_clk),
+        .in(acq_dones[2]),
+        .out(acq_dones_sync[2])
+    );
+    sync_2stage acq_dones_sync3(
+        .clk(ttc_clk),
+        .in(acq_dones[3]),
+        .out(acq_dones_sync[3])
+    );
+    sync_2stage acq_dones_sync4(
+        .clk(ttc_clk),
+        .in(acq_dones[4]),
+        .out(acq_dones_sync[4])
     );
 
     // enable signals to channels
@@ -356,7 +397,7 @@ module wfd_top(
 
     // wire connecting the tm and the cm
     wire cm_busy;
-
+    wire chan_readout_done; // needed for the trig_arm signal
 
     // ======== wires for interface to channel serial link ========
     // User IPbus interface. Used by Charlie's Aurora block
@@ -503,9 +544,9 @@ module wfd_top(
         .TTC_rst(),                     // in  STD_LOGIC  asynchronous reset after TTC_CLK_p/TTC_CLK_n frequency changed
         .TTC_data_p(ttc_rxp),           // in  STD_LOGIC
         .TTC_data_n(ttc_rxn),           // in  STD_LOGIC
-        .TTC_CLK_out(),                 // out  STD_LOGIC
+        .TTC_CLK_out(ttc_clk),          // out  STD_LOGIC
         .TTCready(TTCready),            // out  STD_LOGIC
-        .L1Accept(ttc_L1A),             // out  STD_LOGIC
+        .L1Accept(trigger_from_ttc),             // out  STD_LOGIC
         .BCntRes(),                     // out  STD_LOGIC
         .EvCntRes(),                    // out  STD_LOGIC
         .SinErrStr(),                   // out  STD_LOGIC
@@ -749,37 +790,72 @@ module wfd_top(
     );
 
 
+
+// ===============================================================================================
+//      synchronize signals into 40 MHz TTC clock domain for use in trigger manager module 
+// ===============================================================================================
+
+
+    // chan_en: from IPbus, typically stable at a fixed value (don't need to stretch)
+    wire [4:0] chan_en_sync;
+    sync_2stage chan_en_sync0(
+        .clk(ttc_clk),
+        .in(chan_en[0]),
+        .out(chan_en_sync[0])
+    );
+    sync_2stage chan_en_sync1(
+        .clk(ttc_clk),
+        .in(chan_en[1]),
+        .out(chan_en_sync[1])
+    );    
+    sync_2stage chan_en_sync2(
+        .clk(ttc_clk),
+        .in(chan_en[2]),
+        .out(chan_en_sync[2])
+    );
+    sync_2stage chan_en_sync3(
+        .clk(ttc_clk),
+        .in(chan_en[3]),
+        .out(chan_en_sync[3])
+    );
+    sync_2stage chan_en_sync4(
+        .clk(ttc_clk),
+        .in(chan_en[4]),
+        .out(chan_en_sync[4])
+    );
+
+
     // trigger manager module
-    wire chan_readout_done; // needed for the trig_arm signal
     triggerManager tm(
         // interface to trig number FIFO
         .fifo_valid(tm_to_fifo_tvalid),
         .fifo_ready(tm_to_fifo_tready),
         .trig_num(tm_to_fifo_tdata),
 
-        // .trigger(trigger_from_ipbus), // ipbus triggering
+        // .trigger(trigger_from_ipbus_sync), // ipbus triggering
         // .trigger(ext_trig_sync), // external triggering
         .trigger(trigger_from_ttc), // ttc triggering
-
         .acq_trig(acq_trigs),
         .acq_done(acq_busy),
         .acq_enable(acq_enable),               // output wire [9 : 0], to state the data taking mode
-        .chan_en(chan_en),                     // enabled channels from ipbus
+        .chan_en(chan_en_sync),                     // enabled channels from ipbus
 	   .fill_type(2'b01),
 
         // other connections
-        .clk(clk125),
-        .reset(rst_from_ipb)
+        .clk(ttc_clk),
+        .reset(reset40)
     );
 
 
     // trigger number fifo
     trig_num_axis_data_fifo trig_num_fifo (
-      .s_axis_aresetn(rst_n),            // input wire s_axis_aresetn
-      .s_axis_aclk(clk125),              // input wire s_axis_aclk
+      .s_axis_aresetn(reset40_n),        // input wire s_axis_aresetn
+      .m_axis_aresetn(rst_n),            // input wire m_axis_aresetn
+      .s_axis_aclk(ttc_clk),             // input wire s_axis_aclk
       .s_axis_tvalid(tm_to_fifo_tvalid), // input wire s_axis_tvalid
       .s_axis_tready(tm_to_fifo_tready), // output wire s_axis_tready
       .s_axis_tdata(tm_to_fifo_tdata),   // input wire [23 : 0] s_axis_tdata
+      .m_axis_aclk(clk125),              // input wire m_axis_aclk
       .m_axis_tvalid(fifo_to_cm_tvalid), // output wire m_axis_tvalid
       .m_axis_tready(fifo_to_cm_tready), // input wire m_axis_tready
       .m_axis_tdata(fifo_to_cm_tdata),   // output wire [23 : 0] m_axis_tdata

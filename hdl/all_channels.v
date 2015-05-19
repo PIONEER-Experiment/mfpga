@@ -509,18 +509,21 @@ module all_channels(
     // clocks and reset
     .clk50(clk50),                                 // Aurora 'init_clk' uses 50 MHz clock per PG046-20
     .clk50_reset(clk50_reset),                     // active_hi synched to 'clk50'
+    
     // programming interface inputs
     .io_clk(ipb_clk),                              // programming clock
     .io_reset(ipb_reset),
-    .io_sel(clk_synth_reg_sel),                     // this module has been selected for an I/O operation
+    .io_sel(clk_synth_reg_sel),                    // this module has been selected for an I/O operation
     .io_sync(io_sync),                             // start the I/O operation
     .io_addr(ipb_addr[19:0]),                      // slave address, memory or register, top 12 bits have been consumed
     .io_rd_en(io_rd_en),                           // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),                           // this is a write operation, enable target for one clock
     .io_wr_data(ipb_wdata[31:0]),                  // data to write for write operations
+
     // programming interface  outputs
-    .io_rd_data(clk_synth_io_rd_data[31:0]),           // data returned for read operations
-    .io_rd_ack(clk_synth_io_rd_ack),                   // 'write' data has been stored, 'read' data is ready
+    .io_rd_data(clk_synth_io_rd_data[31:0]),       // data returned for read operations
+    .io_rd_ack(clk_synth_io_rd_ack),               // 'write' data has been stored, 'read' data is ready
+
     //physical clock synth connections
     .dclk(adcclk_dclk),
     .ddat(adcclk_ddat),
@@ -528,7 +531,7 @@ module all_channels(
     .goe(adcclk_goe),
     .sync(adcclk_sync),
     .debug(debug[2:0]) 
-    );
+  );
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////
