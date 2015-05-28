@@ -46,6 +46,7 @@ entity slaves is
 	    chan_done_out : out std_logic_vector(4 downto 0);
 	    chan_en_out   : out std_logic_vector(4 downto 0);
 	    prog_chan_out : out std_logic;
+	    reprog_trigger_out : out std_logic;
 
 	    -- "user_ipb" interface
         user_ipb_clk    : out std_logic;                     -- programming clock
@@ -145,6 +146,7 @@ begin
 		chan_en_out(4) <= ctrl_reg(10);
 
 		prog_chan_out <= ctrl_reg(12);
+		reprog_trigger_out <= ctrl_reg(13);
 
 -- Slave 2: 1kword RAM
 

@@ -5,10 +5,10 @@
 
 module wfd_top(
     input wire  clkin,                // 50 MHz clock
-	input wire  gtx_clk0, gtx_clk0_N, // Bank 115 125 MHz GTX Transceiver refclk
-	input wire  gtx_clk1, gtx_clk1_N, // Bank 116 125 MHz GTX Transceiver refclk
-	output wire gige_tx,  gige_tx_N,  // Gigabit Ethernet TX
-	input wire  gige_rx,  gige_rx_N,  // Gigabit Ethernet RX
+    input wire  gtx_clk0, gtx_clk0_N, // Bank 115 125 MHz GTX Transceiver refclk
+    input wire  gtx_clk1, gtx_clk1_N, // Bank 116 125 MHz GTX Transceiver refclk
+    output wire gige_tx,  gige_tx_N,  // Gigabit Ethernet TX
+    input wire  gige_rx,  gige_rx_N,  // Gigabit Ethernet RX
     input wire  daq_rx,   daq_rx_N,   // AMC13 Link RX
     output wire daq_tx,   daq_tx_N,   // AMC13 Link TX
     input wire  c0_rx, c0_rx_N,       // Serial link to Channel 0 RX
@@ -34,32 +34,32 @@ module wfd_top(
     output wire led0, led1,           // front panel LEDs. led0 is green, led1 is red
     inout bbus_scl,                   // I2C bus clock, connected to Atmel Chip and to Channel FPGAs
     inout bbus_sda,                   // I2C bus data, connected to Atmel Chip and to Channel FPGAs
-	input wire ext_trig,              // front panel trigger
-	input [3:0] mmc_io,               // controls to/from the Atmel
-	output [3:0] c0_io,               // utility signals to channel 0
-	output [3:0] c1_io,               // utility signals to channel 1
-	output [3:0] c2_io,               // utility signals to channel 2
-	output [3:0] c3_io,               // utility signals to channel 3
-	output [3:0] c4_io,               // utility signals to channel 4
+    input wire ext_trig,              // front panel trigger
+    input [3:0] mmc_io,               // controls to/from the Atmel
+    output [3:0] c0_io,               // utility signals to channel 0
+    output [3:0] c1_io,               // utility signals to channel 1
+    output [3:0] c2_io,               // utility signals to channel 2
+    output [3:0] c3_io,               // utility signals to channel 3
+    output [3:0] c4_io,               // utility signals to channel 4
     input [5:0] mezzb,                // MB[5..0] on schematic
     input mmc_reset_m,                // reset line 
-	input adcclk_ld,                  // clock synth lock detect
-	output adcclk_goe,                //
-	output adcclk_sync,               //
-	// output adcclk_los0,            //
-	// output adcclk_los1,            //
-	output adcclk_dlen,               //
-	output adcclk_ddat,               //
-	output adcclk_dclk,               //
-	output daq_clk_sel,               //
-	output daq_clk_en,                //
-	// TTC connections
-	input ttc_clkp, ttc_clkn,         // TTC diff clock
-	input ttc_rxp, ttc_rxn,           // data from TTC
-	output ttc_txp, ttc_txn,          // data to TTC
-	// Power Supply connections
-	input [1:0] wfdps,                //
-	// Channel FPGA configuration connections
+    input adcclk_ld,                  // clock synth lock detect
+    output adcclk_goe,                //
+    output adcclk_sync,               //
+    // output adcclk_los0,            //
+    // output adcclk_los1,            //
+    output adcclk_dlen,               //
+    output adcclk_ddat,               //
+    output adcclk_dclk,               //
+    output daq_clk_sel,               //
+    output daq_clk_en,                //
+    // TTC connections
+    input ttc_clkp, ttc_clkn,         // TTC diff clock
+    input ttc_rxp, ttc_rxn,           // data from TTC
+    output ttc_txp, ttc_txn,          // data to TTC
+    // Power Supply connections
+    input [1:0] wfdps,                //
+    // Channel FPGA configuration connections
     output c_progb,                   // to all channels FPGA Configuration
     output c_clk,                     // to all channels FPGA Configuration
     output c_din,                     // to all channels FPGA Configuration
@@ -109,7 +109,7 @@ module wfd_top(
         .in(!adcclk_ld_sync)
     );
 
-	// debug signals
+    // debug signals
     assign debug0 = spi_clk;
     assign debug1 = spi_mosi;
     assign debug2 = spi_miso;
@@ -151,20 +151,20 @@ module wfd_top(
     assign board_id[1] = debug4;
     assign board_id[0] = debug5;
 
-	assign bbus_scl = ext_trig ? mmc_io[0] : 1'bz;
-	assign bbus_sda = ext_trig ? mmc_io[1] : 1'bz;
-	// assign adcclk_ld = 1'b0;
-	// assign adcclk_goe = 1'b0;
-	// assign adcclk_sync = 1'b0;
-	// assign adcclk_los0 = 1'b0;
-	// assign adcclk_los1 = 1'b0;
-	// assign adcclk_dlen = 1'b0;
-	// assign adcclk_ddat = 1'b0;
-	// assign adcclk_dclk = 1'b0;
-	assign daq_clk_sel = 1'b0;
-	assign daq_clk_en = 1'b1;
+    assign bbus_scl = ext_trig ? mmc_io[0] : 1'bz;
+    assign bbus_sda = ext_trig ? mmc_io[1] : 1'bz;
+    // assign adcclk_ld = 1'b0;
+    // assign adcclk_goe = 1'b0;
+    // assign adcclk_sync = 1'b0;
+    // assign adcclk_los0 = 1'b0;
+    // assign adcclk_los1 = 1'b0;
+    // assign adcclk_dlen = 1'b0;
+    // assign adcclk_ddat = 1'b0;
+    // assign adcclk_dclk = 1'b0;
+    assign daq_clk_sel = 1'b0;
+    assign daq_clk_en = 1'b1;
 
-	OBUFDS ttc_tx_buf(.I(ttc_rx), .O(ttc_txp), .OB(ttc_txn)); 
+    OBUFDS ttc_tx_buf(.I(ttc_rx), .O(ttc_txp), .OB(ttc_txn)); 
 
     // Generate clocks from the 50 MHz input clock
     // Most of the design is run from the 125 MHz clock (Don't confuse it with the 125 MHz GTREFCLK)
@@ -325,6 +325,42 @@ module wfd_top(
         .end_bitstream(end_bitstream) // done signal from spi_flash_intf
     );
 
+    // ======== module to reprogram FPGA from flash ========
+
+    wire reprog_trigger_from_ipbus; // in 125 MHz clock domain
+    wire reprog_trigger; // in 50 MHz clock domain
+                         // don't have to worry about missing the faster signal
+                         // (stays high until you use ipbus to set it low again)
+    wire reprog_trigger_delayed; // after passing through 32-bit shift register
+                                 // (to allow time for IPbus ack before reprogramming FPGA)
+
+    sync_2stage reprog_trigger_sync(
+        .clk(clk50),
+        .in(reprog_trigger_from_ipbus),
+        .out(reprog_trigger)
+    );
+
+    // SRLC32E: 32-bit variable length cascadable shift register LUT (Mapped to a SliceM LUT6)
+    //          with clock enable
+    //          7 Series
+    // Xilinx HDL Libraries Guide, version 14.2
+    SRLC32E #(
+        .INIT(32'h00000000) // Initial Value of Shift Register
+    ) SRLC32E_inst (
+        .Q(reprog_trigger_delayed), // SRL data output
+        .Q31(),                     // SRL cascade output pin
+        .A(5'b11111),               // 5-bit shift depth select input (5'b11111 = 32-bit shift)
+        .CE(1'b1),                  // Clock enable input
+        .CLK(clk50),                // Clock input
+        .D(reprog_trigger)          // SRL data input
+    );
+
+    reprog reprog(
+        .clk(clk50),
+        .reset(clk50_reset),
+        .trigger(reprog_trigger_delayed)
+    );
+   
 
     // ======== triggers and data transfer ========
 
@@ -533,9 +569,8 @@ module wfd_top(
     wire daq_ready;
     wire daq_almost_full;
 
-
     // ======== module instantiations ========
-
+   
     // TTC decoder module
     TTC_decoder ttc(
         .TTC_CLK_p(ttc_clkp),           // in  STD_LOGIC
@@ -613,6 +648,9 @@ module wfd_top(
 
         // signal to start programming sequence for channel FPGAs
         .prog_chan_out(prog_chan_start_from_ipbus),
+
+        // signal to issue IPROG command to re-program FPGA from flash
+        .reprog_trigger_out(reprog_trigger_from_ipbus),
 
         // counter ouputs
         .frame_err(frame_err),              
@@ -704,8 +742,8 @@ module wfd_top(
         .c1_rxp(c1_rx), .c1_rxn(c1_rx_N),                     // receive from channel 0 FPGA
         .c1_txp(c1_tx), .c1_txn(c1_tx_N),                     // transmit to channel 0 FPGA
 
-		// channel 2 connections
-		// connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
+        // channel 2 connections
+        // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
         .c2_s_axi_tx_tdata(c2_axi_stream_to_channel_tdata),   // note index order
         .c2_s_axi_tx_tkeep({ 4 {c2_axi_stream_to_channel_tkeep} }),   // note index order
@@ -722,7 +760,7 @@ module wfd_top(
         .c2_rxp(c2_rx), .c2_rxn(c2_rx_N),                     // receive from channel 0 FPGA
         .c2_txp(c2_tx), .c2_txn(c2_tx_N),                     // transmit to channel 0 FPGA
 
-		// channel 3 connections
+        // channel 3 connections
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
         .c3_s_axi_tx_tdata(c3_axi_stream_to_channel_tdata),   // note index order
@@ -740,7 +778,7 @@ module wfd_top(
         .c3_rxp(c3_rx), .c3_rxn(c3_rx_N),                     // receive from channel 0 FPGA
         .c3_txp(c3_tx), .c3_txn(c3_tx_N),                     // transmit to channel 0 FPGA
  
-		// channel 4 connections
+        // channel 4 connections
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
         .c4_s_axi_tx_tdata(c4_axi_stream_to_channel_tdata),   // note index order
