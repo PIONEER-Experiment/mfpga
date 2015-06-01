@@ -327,18 +327,25 @@ module wfd_top(
 
     // ======== module to reprogram FPGA from flash ========
 
-    wire reprog_trigger_from_ipbus; // in 125 MHz clock domain
-    wire reprog_trigger; // in 50 MHz clock domain
-                         // don't have to worry about missing the faster signal
-                         // (stays high until you use ipbus to set it low again)
-    wire reprog_trigger_delayed; // after passing through 32-bit shift register
-                                 // (to allow time for IPbus ack before reprogramming FPGA)
+    wire [1:0] reprog_trigger_from_ipbus; // in 125 MHz clock domain
+    wire [1:0] reprog_trigger; // in 50 MHz clock domain
+                               // don't have to worry about missing the faster signal
+                               // (stays high until you use ipbus to set it low again)
+    wire [1:0] reprog_trigger_delayed; // after passing through 32-bit shift register
+                                       // (to allow time for IPbus ack before reprogramming FPGA)
 
-    sync_2stage reprog_trigger_sync(
+    sync_2stage reprog_trigger_sync0(
         .clk(clk50),
-        .in(reprog_trigger_from_ipbus),
-        .out(reprog_trigger)
+        .in(reprog_trigger_from_ipbus[0]),
+        .out(reprog_trigger[0])
     );
+    sync_2stage reprog_trigger_sync1(
+        .clk(clk50),
+        .in(reprog_trigger_from_ipbus[1]),
+        .out(reprog_trigger[1])
+    );
+
+    // Delay signal by passing through 32-bit shift register (to allow time for IPbus ack)
 
     // SRLC32E: 32-bit variable length cascadable shift register LUT (Mapped to a SliceM LUT6)
     //          with clock enable
@@ -346,13 +353,23 @@ module wfd_top(
     // Xilinx HDL Libraries Guide, version 14.2
     SRLC32E #(
         .INIT(32'h00000000) // Initial Value of Shift Register
-    ) SRLC32E_inst (
-        .Q(reprog_trigger_delayed), // SRL data output
-        .Q31(),                     // SRL cascade output pin
-        .A(5'b11111),               // 5-bit shift depth select input (5'b11111 = 32-bit shift)
-        .CE(1'b1),                  // Clock enable input
-        .CLK(clk50),                // Clock input
-        .D(reprog_trigger)          // SRL data input
+    ) SRLC32E_inst0 (
+        .Q(reprog_trigger_delayed[0]), // SRL data output
+        .Q31(),                        // SRL cascade output pin
+        .A(5'b11111),                  // 5-bit shift depth select input (5'b11111 = 32-bit shift)
+        .CE(1'b1),                     // Clock enable input
+        .CLK(clk50),                   // Clock input
+        .D(reprog_trigger[0])          // SRL data input
+    );
+    SRLC32E #(
+        .INIT(32'h00000000) // Initial Value of Shift Register
+    ) SRLC32E_inst1 (
+        .Q(reprog_trigger_delayed[1]), // SRL data output
+        .Q31(),                        // SRL cascade output pin
+        .A(5'b11111),                  // 5-bit shift depth select input (5'b11111 = 32-bit shift)
+        .CE(1'b1),                     // Clock enable input
+        .CLK(clk50),                   // Clock input
+        .D(reprog_trigger[1])          // SRL data input
     );
 
     reprog reprog(

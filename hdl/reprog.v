@@ -8,7 +8,7 @@
 module reprog(
 	input clk,
 	input reset,
-	input trigger
+	input [1:0] trigger // trigger[0] for golden image, trigger[1] for regular master image
 );
 
 // =========================================================================
@@ -18,7 +18,8 @@ module reprog(
 wire clk_180 = !clk;
 reg ICAP_enable;
 wire [31:0] ICAP_input;
-reg [31:0] ICAP_value;  // determined by state machine
+reg [31:0] ICAP_value; // determined by state machine
+reg bitstream_select; // 0 for golden image, 1 for regular master image
 
 
 // =========================================================================
@@ -119,10 +120,20 @@ begin
                 IDLE : begin
         			ICAP_value <= `ICAP_DUMMY_WORD;
         			ICAP_enable <= 1'b1; // disabled
-                    if (trigger)
-                        state <= SEND_WORD1;
+                    if (trigger[0])
+                        begin
+                            bitstream_select <= 1'b0; // select golden image
+                            state <= SEND_WORD1;
+                        end
+                    else if (trigger[1])
+                        begin
+                            bitstream_select <= 1'b1; // select regular master image
+                            state <= SEND_WORD1;
+                        end
                     else
-                        state <= IDLE;
+                        begin
+                            state <= IDLE;
+                        end
                 end
 
                 SEND_WORD1 : begin
@@ -150,7 +161,10 @@ begin
                 end
 
                 SEND_WORD5 : begin
-        			ICAP_value <= `GOLDEN_FLASH_ADDR;
+                    if (bitstream_select == 0)
+        			    ICAP_value <= `GOLDEN_FLASH_ADDR;
+                    else
+                        ICAP_value <= `MASTER_FLASH_ADDR;
         			ICAP_enable <= 1'b0; // enabled
                     state <= SEND_WORD6;
                 end

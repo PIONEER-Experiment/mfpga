@@ -70,7 +70,7 @@ entity ipbus_top is port(
     prog_chan_out : out std_logic;
 
     -- signal to issue IPROG command to re-program FPGA from flash
-    reprog_trigger_out : out std_logic;
+    reprog_trigger_out : out std_logic_vector(1 downto 0);
 	
 	-- clocks
 	clk_200: in std_logic;
