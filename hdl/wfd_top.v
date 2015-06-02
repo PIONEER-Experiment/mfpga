@@ -85,8 +85,7 @@ module wfd_top(
 
 
     // ======== I/O lines to channel (for DDR3) ========
-    (* mark_debug = "true" *) wire [4:0] acq_busy;
-    (* mark_debug = "true" *) wire [9:0] acq_enable;
+    wire [9:0] acq_enable;
     wire [4:0] acq_readout_pause;
 
     assign c0_io[0] = acq_readout_pause[0];
@@ -95,15 +94,12 @@ module wfd_top(
     assign c3_io[0] = acq_readout_pause[3];
     assign c4_io[0] = acq_readout_pause[4];
 
-    assign acq_readout_pause[4:0] = 5'b0; // acq_readout_pause is not use so far, need a dummy initialization
-
     assign c0_io[2:1] = acq_enable[1:0];
     assign c1_io[2:1] = acq_enable[3:2];
     assign c2_io[2:1] = acq_enable[5:4];
     assign c3_io[2:1] = acq_enable[7:6];
     assign c4_io[2:1] = acq_enable[9:8];
 
-    assign acq_busy[4:0] = acq_dones_sync[4:0]; // signal named acq_done on the schematic and in the channel firmware, drives the assignment (03.11.15)
 
     // ======== LEDs ========
     // Note: LEDs are pulled high so that led[#]=0 is ON, led[#]=1 is OFF
@@ -512,7 +508,7 @@ module wfd_top(
     assign c_axi_stream_to_cm_tdata[159:128] = c4_axi_stream_to_cm_tdata;
 
     // connections from axis rx switch to cm
-    (* mark_debug = "true" *) wire axi_stream_to_cm_from_channel_tvalid, axi_stream_to_cm_from_channel_tlast, axi_stream_to_cm_from_channel_tready;
+    wire axi_stream_to_cm_from_channel_tvalid, axi_stream_to_cm_from_channel_tlast, axi_stream_to_cm_from_channel_tready;
     wire[0:31] axi_stream_to_cm_from_channel_tdata;
 
 
@@ -827,6 +823,9 @@ module wfd_top(
 
     // trigger manager module
     triggerManager tm(
+        .clk(ttc_clk),
+        .reset(reset40),
+
         // interface to trig number FIFO
         .fifo_valid(tm_to_fifo_tvalid),
         .fifo_ready(tm_to_fifo_tready),
@@ -835,15 +834,14 @@ module wfd_top(
         // .trigger(trigger_from_ipbus_sync), // ipbus triggering
         // .trigger(ext_trig_sync), // external triggering
         .trigger(trigger_from_ttc), // ttc triggering
-        .acq_trig(acq_trigs),
-        .acq_done(acq_busy),
-        .acq_enable(acq_enable),               // output wire [9 : 0], to state the data taking mode
-        .chan_en(chan_en_sync),                     // enabled channels from ipbus
-	   .fill_type(2'b01),
 
-        // other connections
-        .clk(ttc_clk),
-        .reset(reset40)
+        // connections to channel FPGAs
+        .acq_trig(acq_trigs),
+        .acq_done(acq_dones_sync),
+        .acq_enable(acq_enable),
+
+        .chan_en(chan_en_sync), // enabled channels from ipbus
+	    .fill_type(2'b01)       // hardcoded for "Muon Fill" (later will be a register set by TTC commands)
     );
 
 

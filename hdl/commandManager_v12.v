@@ -2,29 +2,29 @@
 // Created by fizzim.pl version $Revision: 5.0 on 2015:03:31 at 10:55:00 (www.fizzim.com)
 
 module commandManager (
-  (* mark_debug = "true" *) output reg busy,
+  output reg busy,
   output reg chan_rx_fifo_ready,
   output reg [31:0] chan_tx_fifo_data,
   output reg [3:0] chan_tx_fifo_dest,
   output reg chan_tx_fifo_last,
   output reg chan_tx_fifo_valid,
-  (* mark_debug = "true" *) output reg [63:0] daq_data,
-  (* mark_debug = "true" *) output reg daq_header,
-  (* mark_debug = "true" *) output reg daq_trailer,
-  (* mark_debug = "true" *) output reg daq_valid,
+  output reg [63:0] daq_data,
+  output reg daq_header,
+  output reg daq_trailer,
+  output reg daq_valid,
   output reg ipbus_cmd_ready,
   output reg [31:0] ipbus_res_data,
   output reg ipbus_res_last,
   output reg ipbus_res_valid,
   output reg read_fill_done,
-  (* mark_debug = "true" *) output reg tm_fifo_ready,
+  output reg tm_fifo_ready,
   input wire [4:0] chan_en,
-  (* mark_debug = "true" *) input wire [31:0] chan_rx_fifo_data,
+  input wire [31:0] chan_rx_fifo_data,
   input wire chan_rx_fifo_last,
   input wire chan_rx_fifo_valid,
   input wire chan_tx_fifo_ready,
-  (* mark_debug = "true" *) input wire clk,
-  (* mark_debug = "true" *) input wire daq_ready,
+  input wire clk,
+  input wire daq_ready,
   input wire [31:0] ipbus_cmd_data,
   input wire [3:0] ipbus_cmd_dest,
   input wire ipbus_cmd_last,
@@ -67,17 +67,17 @@ module commandManager (
   STORE_CHAN_TAG_AND_FILLTYPE = 27, 
   SEND_CHAN_HEADER2           = 28; 
 
-  (* mark_debug = "true" *) reg [28:0] state;
-  (* mark_debug = "true" *) reg [31:0] burst_count;
-  (* mark_debug = "true" *) reg [31:0] chan_num_buf;
-  (* mark_debug = "true" *) reg [31:0] chan_tag_filltype;
-  (* mark_debug = "true" *) reg [31:0] csn;
-  (* mark_debug = "true" *) reg [31:0] data_count;
-  (* mark_debug = "true" *) reg [31:0] ddr_start_addr;
-  (* mark_debug = "true" *) reg [31:0] ipbus_buf;
-  (* mark_debug = "true" *) reg [2:0] num_chan_en;
-  (* mark_debug = "true" *) reg sent_header;
-  (* mark_debug = "true" *) reg [31:0] trig_num_buf;
+  reg [28:0] state;
+  reg [31:0] burst_count;
+  reg [31:0] chan_num_buf;
+  reg [31:0] chan_tag_filltype;
+  reg [31:0] csn;
+  reg [31:0] data_count;
+  reg [31:0] ddr_start_addr;
+  reg [31:0] ipbus_buf;
+  reg [2:0] num_chan_en;
+  reg sent_header;
+  reg [31:0] trig_num_buf;
   
   reg [28:0] nextstate;
   reg [31:0] next_burst_count;

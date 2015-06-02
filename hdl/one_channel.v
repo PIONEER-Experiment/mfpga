@@ -8,7 +8,7 @@ module one_channel(
   input clk50_reset,                    // active_hi synched to 'clk50', drive 'gt_reset'
   input gt_refclk,                      // 125 MHz oscillator, from IBUFDS_GTE2 at a higher level
   // backpressure
-  (* mark_debug = "true" *) output reg acq_readout_pause,             // readout_pause signal to stop data sending from the channel
+  output reg acq_readout_pause,             // readout_pause signal to stop data sending from the channel
   // programming interface inputs
   input io_clk,                         // programming clock
   input io_reset,
@@ -68,7 +68,7 @@ module one_channel(
   wire local_axis_rx_tready;
   wire drdy_out_unused;
   wire [15:0] drpdo_out_unused;
-  (* mark_debug = "true" *) wire [31:0] axis_rd_data_count;
+  wire [31:0] axis_rd_data_count;
 
   // tie off unused signals, use 'clk50' for DRP clock
   wire [8:0] drpaddr_in;
