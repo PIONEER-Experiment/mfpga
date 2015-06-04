@@ -101,29 +101,14 @@ module wfd_top(
     assign c4_io[2:1] = acq_enable[9:8];
 
 
-    // ======== LEDs ========
-    // Note: LEDs are pulled high so that led[#]=0 is ON, led[#]=1 is OFF
-   
-    // TO DO: come up with sensible scheme for LED colors
-    
-    // green LED is on when TTC is not ready
-    wire TTCready;
-    assign led0 = TTCready;
+    // ======== front panel LED ========
 
-    wire adcclk_ld_sync;
-    sync_2stage adcclk_ld_sync0(
+    led_status led_status(
         .clk(clk50),
-        .in(adcclk_ld),
-        .out(adcclk_ld_sync)
-    );
-
-    // LED flasher module
-    // red LED is off when 'adc_clk_ld' signal is LOW
-    // red LED flashes when 'adc_clk_ld' signal is HIGH
-    led_flasher led_flasher(
-        .clk(clk50),
-        .led(led1),
-        .in(!adcclk_ld_sync)
+        .red_led(led1),
+        .green_led(led0),
+        .adcclk_ld(adcclk_ld),
+        .TTCready(TTCready)
     );
 
     // debug signals
@@ -150,14 +135,8 @@ module wfd_top(
 
     assign bbus_scl = ext_trig ? mmc_io[0] : 1'bz;
     assign bbus_sda = ext_trig ? mmc_io[1] : 1'bz;
-    // assign adcclk_ld = 1'b0;
-    // assign adcclk_goe = 1'b0;
-    // assign adcclk_sync = 1'b0;
     // assign adcclk_los0 = 1'b0;
     // assign adcclk_los1 = 1'b0;
-    // assign adcclk_dlen = 1'b0;
-    // assign adcclk_ddat = 1'b0;
-    // assign adcclk_dclk = 1'b0;
     assign daq_clk_sel = 1'b0;
     assign daq_clk_en = 1'b1;
 
