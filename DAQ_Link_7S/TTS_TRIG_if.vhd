@@ -35,11 +35,12 @@ Library UNIMACRO;
 use UNIMACRO.vcomponents.all;
 
 entity TTS_TRIG_if is
-		Generic (
-					 USE_TRIGGER_PORT : boolean := true);
+--		Generic (
+--					 USE_TRIGGER_PORT : boolean := true);
    Port ( 
            reset : in  STD_LOGIC; -- asynchronous reset, assert reset until GTX REFCLK stable
            UsrClk : in  STD_LOGIC;
+					 USE_TRIGGER_PORT : boolean;
 -- TRIGGER port
            TTCclk : in  STD_LOGIC;
            BcntRes : in  STD_LOGIC;
@@ -105,6 +106,7 @@ signal got_TTS_ACK : std_logic := '1';
 signal LastTTS : std_logic_vector(3 downto 0) := (others => '0');
 signal TTS_ACK : std_logic_vector(3 downto 0) := (others => '0');
 signal timer : std_logic_vector(7 downto 0) := (others => '0');
+signal timerb : std_logic_vector(8 downto 0) := (others => '0');
 begin
 TTS_TRIG_data <= trig_data when USE_TRIGGER_PORT else "01" & TTS_data & x"5c";--K28.2
 sel_TTS_TRIG <= sel_TTC(0) when USE_TRIGGER_PORT else SendTTS;
@@ -208,8 +210,8 @@ begin
 		else
 			ReSendTTS <= '0';
 		end if;
-		if((timer(N) = '1' and LastTTS /= TTS_FIFO_do(3 downto 0)) or ReSendTTS = '1')then
-			SendTTS <= '1';
+		if((timer(N) = '1' and LastTTS /= TTS_FIFO_do(3 downto 0)) or ReSendTTS = '1' or timerb(8) = '1')then
+			SendTTS <= not SendTTS;
 		else
 			SendTTS <= '0';
 		end if;
@@ -222,6 +224,11 @@ begin
 			timer <= x"30";
 		elsif(timer(N) = '0')then
 			timer <= timer + 1;
+		end if;
+		if(USE_TRIGGER_PORT or SendTTS = '1' or ReSendTTS = '1')then
+			timerb <= (others => '0');
+		else
+			timerb <= timerb + 1;
 		end if;
 	end if;
 end process;

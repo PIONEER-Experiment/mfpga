@@ -949,7 +949,7 @@ module wfd_top(
 
 
     // DAQ Link to AMC13
-    DAQ_Link_7S #(
+    DAQ_LINK_Kintex #(
         .F_REFCLK(125),
         .SYSCLK_IN_period(8),
         .USE_TRIGGER_PORT(1'b0)

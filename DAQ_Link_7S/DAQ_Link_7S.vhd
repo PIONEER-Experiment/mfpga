@@ -36,21 +36,21 @@ use UNIMACRO.vcomponents.all;
 
 entity DAQ_Link_7S is
 		Generic (
--- REFCLK frequency, select one among 100, 125, 200 and 250
--- If your REFCLK frequency is not in the list, please contact wusx@bu.edu
-					 F_REFCLK	: integer	:= 125;
-					 SYSCLK_IN_period : integer := 10; -- unit is ns
--- If you do not use the trigger port, set it to false
-					 USE_TRIGGER_PORT : boolean := true;
 					 simulation : boolean := false);
     Port ( 
            reset : in  STD_LOGIC; -- asynchronous reset, assert reset until GTX REFCLK stable
--- GTX signals
-           GTX_REFCLK : in  STD_LOGIC;
-           GTX_RXN : in  STD_LOGIC;
-           GTX_RXP : in  STD_LOGIC;
-           GTX_TXN : out  STD_LOGIC;
-           GTX_TXP : out  STD_LOGIC;
+					 USE_TRIGGER_PORT : boolean;
+-- MGT signals
+           UsrClk : in  STD_LOGIC; -- it must have a frequency of 250MHz
+           cplllock : in  STD_LOGIC;
+           RxResetDone : in  STD_LOGIC;
+           txfsmresetdone : in  STD_LOGIC;
+           RXNOTINTABLE : in  STD_LOGIC_VECTOR (1 downto 0);
+           RXCHARISCOMMA : in  STD_LOGIC_VECTOR (1 downto 0);
+           RXCHARISK : in  STD_LOGIC_VECTOR (1 downto 0);
+           RXDATA : in  STD_LOGIC_VECTOR (15 downto 0);
+           TXCHARISK : out  STD_LOGIC_VECTOR (1 downto 0);
+           TXDATA : out  STD_LOGIC_VECTOR (15 downto 0);
 -- TRIGGER port
            TTCclk : in  STD_LOGIC;
            BcntRes : in  STD_LOGIC;
@@ -58,9 +58,6 @@ entity DAQ_Link_7S is
 -- TTS port
            TTSclk : in  STD_LOGIC; -- clock source which clocks TTS signals
            TTS : in  STD_LOGIC_VECTOR (3 downto 0);
--- SYSCLK_IN is required by the GTX ip core, you can connect any clock source(e.g. TTSclk, TTCclk or EventDataClk) as long as its period is in the range of 8-250ns
--- do not forget to specify its period in the generic port
-           SYSCLK_IN : in  STD_LOGIC;
 -- Data port
 					 EventDataClk : in  STD_LOGIC;
            EventData_valid : in  STD_LOGIC; -- used as data write enable
@@ -68,7 +65,11 @@ entity DAQ_Link_7S is
            EventData_trailer : in  STD_LOGIC; -- last data word
            EventData : in  STD_LOGIC_VECTOR (63 downto 0);
            AlmostFull : out  STD_LOGIC; -- buffer almost full
-           Ready : out  STD_LOGIC);
+           Ready : out  STD_LOGIC;
+           sysclk : in  STD_LOGIC;
+           L1A_DATA_we : out  STD_LOGIC; -- last data word
+           L1A_DATA : out  STD_LOGIC_VECTOR (15 downto 0)
+					 );
 end DAQ_Link_7S;
 
 architecture Behavioral of DAQ_Link_7S is
@@ -92,9 +93,9 @@ COMPONENT EthernetCRCD32
 		);
 END COMPONENT;
 COMPONENT TTS_TRIG_if
-	Generic (USE_TRIGGER_PORT : boolean := true);
 	PORT(
 		reset : IN std_logic;
+		USE_TRIGGER_PORT : boolean;
 		UsrClk : IN std_logic;
 		TTCclk : IN std_logic;
 		BcntRes : IN std_logic;
@@ -107,119 +108,6 @@ COMPONENT TTS_TRIG_if
 		TTS_TRIG_data : OUT std_logic_vector(17 downto 0)
 		);
 END COMPONENT;
-component DAQLINK_7S_init 
-generic
-(
-    -- Simulation attributes
-    EXAMPLE_SIM_GTRESET_SPEEDUP    : string    := "FALSE";    -- Set to 1 to speed up sim reset
-    EXAMPLE_SIMULATION             : integer   := 0;          -- Set to 1 for simulation
-    STABLE_CLOCK_PERIOD            : integer   := 16;    --Period of the stable clock driving this state-machine, unit is [ns]
-    EXAMPLE_USE_CHIPSCOPE          : integer   := 0;           -- Set to 1 to use Chipscope to drive resets
-		-- REFCLK frequency, select one among 100, 125, 200 and 250 If your REFCLK frequency is not in the list, please contact wusx@bu.edu
-		F_REFCLK																: integer		 := 125
-
-);
-port
-(
-    SYSCLK_IN                               : in   std_logic;
-    SOFT_RESET_IN                           : in   std_logic;
-    DONT_RESET_ON_DATA_ERROR_IN             : in   std_logic;
-    GT0_TX_FSM_RESET_DONE_OUT               : out  std_logic;
-    GT0_RX_FSM_RESET_DONE_OUT               : out  std_logic;
-    GT0_DATA_VALID_IN                       : in   std_logic;
-
-    --_________________________________________________________________________
-    --GT0  (X1Y0)
-    --____________________________CHANNEL PORTS________________________________
-    --------------------------------- CPLL Ports -------------------------------
-    GT0_CPLLFBCLKLOST_OUT                   : out  std_logic;
-    GT0_CPLLLOCK_OUT                        : out  std_logic;
-    GT0_CPLLLOCKDETCLK_IN                   : in   std_logic;
-    GT0_CPLLRESET_IN                        : in   std_logic;
-    -------------------------- Channel - Clocking Ports ------------------------
-    GT0_GTREFCLK0_IN                        : in   std_logic;
-    ---------------------------- Channel - DRP Ports  --------------------------
-    GT0_DRPADDR_IN                          : in   std_logic_vector(8 downto 0);
-    GT0_DRPCLK_IN                           : in   std_logic;
-    GT0_DRPDI_IN                            : in   std_logic_vector(15 downto 0);
-    GT0_DRPDO_OUT                           : out  std_logic_vector(15 downto 0);
-    GT0_DRPEN_IN                            : in   std_logic;
-    GT0_DRPRDY_OUT                          : out  std_logic;
-    GT0_DRPWE_IN                            : in   std_logic;
-    ------------------------------- Loopback Ports -----------------------------
-    GT0_LOOPBACK_IN                         : in   std_logic_vector(2 downto 0);
-    --------------------- RX Initialization and Reset Ports --------------------
-    GT0_RXUSERRDY_IN                        : in   std_logic;
-    -------------------------- RX Margin Analysis Ports ------------------------
-    GT0_EYESCANDATAERROR_OUT                : out  std_logic;
-    ------------------------- Receive Ports - CDR Ports ------------------------
-    GT0_RXCDRLOCK_OUT                       : out  std_logic;
-    ------------------- Receive Ports - Clock Correction Ports -----------------
-    GT0_RXCLKCORCNT_OUT                     : out  std_logic_vector(1 downto 0);
-    ------------------ Receive Ports - FPGA RX Interface Ports -----------------
-    GT0_RXUSRCLK_IN                         : in   std_logic;
-    GT0_RXUSRCLK2_IN                        : in   std_logic;
-    ------------------ Receive Ports - FPGA RX interface Ports -----------------
-    GT0_RXDATA_OUT                          : out  std_logic_vector(15 downto 0);
-    ------------------- Receive Ports - Pattern Checker Ports ------------------
-    GT0_RXPRBSERR_OUT                       : out  std_logic;
-    GT0_RXPRBSSEL_IN                        : in   std_logic_vector(2 downto 0);
-    ------------------- Receive Ports - Pattern Checker ports ------------------
-    GT0_RXPRBSCNTRESET_IN                   : in   std_logic;
-    ------------------ Receive Ports - RX 8B/10B Decoder Ports -----------------
-    GT0_RXDISPERR_OUT                       : out  std_logic_vector(1 downto 0);
-    GT0_RXNOTINTABLE_OUT                    : out  std_logic_vector(1 downto 0);
-    --------------------------- Receive Ports - RX AFE -------------------------
-    GT0_GTXRXP_IN                           : in   std_logic;
-    ------------------------ Receive Ports - RX AFE Ports ----------------------
-    GT0_GTXRXN_IN                           : in   std_logic;
-    -------------- Receive Ports - RX Byte and Word Alignment Ports ------------
-    GT0_RXMCOMMAALIGNEN_IN                  : in   std_logic;
-    GT0_RXPCOMMAALIGNEN_IN                  : in   std_logic;
-    ------------- Receive Ports - RX Initialization and Reset Ports ------------
-    GT0_GTRXRESET_IN                        : in   std_logic;
-    GT0_RXPMARESET_IN                       : in   std_logic;
-    ------------------- Receive Ports - RX8B/10B Decoder Ports -----------------
-    GT0_RXCHARISCOMMA_OUT                   : out  std_logic_vector(1 downto 0);
-    GT0_RXCHARISK_OUT                       : out  std_logic_vector(1 downto 0);
-    -------------- Receive Ports -RX Initialization and Reset Ports ------------
-    GT0_RXRESETDONE_OUT                     : out  std_logic;
-    --------------------- TX Initialization and Reset Ports --------------------
-    GT0_GTTXRESET_IN                        : in   std_logic;
-    GT0_TXUSERRDY_IN                        : in   std_logic;
-    ------------------ Transmit Ports - FPGA TX Interface Ports ----------------
-    GT0_TXUSRCLK_IN                         : in   std_logic;
-    GT0_TXUSRCLK2_IN                        : in   std_logic;
-    --------------- Transmit Ports - TX Configurable Driver Ports --------------
-    GT0_TXDIFFCTRL_IN                       : in   std_logic_vector(3 downto 0);
-    ------------------ Transmit Ports - TX Data Path interface -----------------
-    GT0_TXDATA_IN                           : in   std_logic_vector(15 downto 0);
-    ---------------- Transmit Ports - TX Driver and OOB signaling --------------
-    GT0_GTXTXN_OUT                          : out  std_logic;
-    GT0_GTXTXP_OUT                          : out  std_logic;
-    ----------- Transmit Ports - TX Fabric Clock Output Control Ports ----------
-    GT0_TXOUTCLK_OUT                        : out  std_logic;
-    GT0_TXOUTCLKFABRIC_OUT                  : out  std_logic;
-    GT0_TXOUTCLKPCS_OUT                     : out  std_logic;
-    --------------------- Transmit Ports - TX Gearbox Ports --------------------
-    GT0_TXCHARISK_IN                        : in   std_logic_vector(1 downto 0);
-    ------------- Transmit Ports - TX Initialization and Reset Ports -----------
-    GT0_TXRESETDONE_OUT                     : out  std_logic;
-    ------------------ Transmit Ports - pattern Generator Ports ----------------
-    GT0_TXPRBSSEL_IN                        : in   std_logic_vector(2 downto 0);
-   
-
-    --____________________________COMMON PORTS________________________________
-    ---------------------- Common Block  - Ref Clock Ports ---------------------
-    GT0_GTREFCLK0_COMMON_IN                 : in   std_logic;
-    ------------------------- Common Block - QPLL Ports ------------------------
-    GT0_QPLLLOCK_OUT                        : out  std_logic;
-    GT0_QPLLLOCKDETCLK_IN                   : in   std_logic;
-    GT0_QPLLRESET_IN                        : in   std_logic
-
-
-);
-end component;
 COMPONENT FIFO_RESET_7S
 	PORT(
 		reset : IN std_logic;
@@ -228,17 +116,9 @@ COMPONENT FIFO_RESET_7S
 		fifo_en : OUT std_logic
 		);
 END COMPONENT;
-function GTXRESET_SPEEDUP(is_sim : boolean) return string is
-	begin
-		if(is_sim)then
-			return "TRUE";
-		else
-			return "FALSE";
-		end if;
-	end function;
 constant N : integer := 8;
 constant Acknowledge : std_logic_vector(7 downto 0) := x"12";
-constant version : std_logic_vector(7 downto 0) := x"06";
+constant version : std_logic_vector(7 downto 0) := x"0b";
 constant data : std_logic_vector(7 downto 0) := x"34";
 constant InitRqst : std_logic_vector(7 downto 0) := x"56";
 constant Counter : std_logic_vector(7 downto 0) := x"78";
@@ -259,11 +139,9 @@ constant SendEOF : std_logic_vector(3 downto 0) := x"a"; -- TxState sending EOF
 signal TxState: std_logic_vector(3 downto 0) := (others => '0');
 signal sel_TTS_TRIG : std_logic := '0';
 signal bcnt_err_cnt : std_logic_vector(3 downto 0) := (others => '0');
-signal UsrClk : std_logic := '0';
 signal reset_SyncRegs : std_logic_vector(3 downto 0) := (others => '0');
 signal RxResetDoneSyncRegs : std_logic_vector(2 downto 0) := (others => '0');
 signal DATA_VALID : std_logic := '0';
-signal RXNOTINTABLE : std_logic_vector(1 downto 0) := (others => '0');
 signal UsrClkDiv : std_logic_vector(1 downto 0) := (others => '0');
 signal TTS_TRIG_data : std_logic_vector(17 downto 0) := (others => '0');
 signal fifo_reset : std_logic := '0';
@@ -313,7 +191,7 @@ signal TxCRC : std_logic_vector(15 downto 0) := (others => '0');
 signal R_word_sent : std_logic := '0';
 signal sel_cntr : std_logic := '0';
 signal we_TxFIFO : std_logic := '0';
-signal TxFIFO_empty : std_logic := '0';
+signal TxFIFO_empty : std_logic := '1';
 signal TxFIFO_full : std_logic := '0';
 signal TxFIFO_a : std_logic_vector(3 downto 0) := (others => '1');
 signal TxFIFO_Dip : std_logic_vector(15 downto 0) := (others => '0');
@@ -383,6 +261,7 @@ signal check_L1Ainfo : std_logic := '0';
 signal check_L1Ainfo_q : std_logic := '0';
 signal L1AinfoMM : std_logic := '0';
 signal info_ra_q : std_logic_vector(1 downto 0) := (others => '0');
+signal info_ra_q2 : std_logic_vector(1 downto 0) := (others => '0');
 signal we_EventStatus : std_logic := '0';
 signal EventData2Send : std_logic := '0';
 signal UnknownEventLength : std_logic := '1';
@@ -422,6 +301,9 @@ signal cntr11 : std_logic_vector(15 downto 0) := (others => '0');
 signal cntr12 : std_logic_vector(15 downto 0) := (others => '0');
 signal cntr13 : std_logic_vector(15 downto 0) := (others => '0');
 signal cntr14 : std_logic_vector(15 downto 0) := (others => '0');
+signal cntr15 : std_logic_vector(15 downto 0) := (others => '0');
+signal cntr16 : std_logic_vector(15 downto 0) := (others => '0');
+signal short_event_cntr : std_logic_vector(15 downto 0) := (others => '0');
 signal input_word_cntr : std_logic_vector(15 downto 0) := (others => '0');
 signal input_header_cntr : std_logic_vector(15 downto 0) := (others => '0');
 signal input_trailer_cntr : std_logic_vector(15 downto 0) := (others => '0');
@@ -430,31 +312,28 @@ signal input_evn : std_logic_vector(23 downto 0) := (others => '0');
 signal sample_sync : std_logic_vector(3 downto 0) := (others => '0');
 signal sample : std_logic := '0';
 signal FIFO_ovf : std_logic := '0';
-signal cplllock : std_logic := '0';
-signal TXOUTCLK : std_logic := '0';
-signal RxResetDone : std_logic := '0';
-signal txfsmresetdone : std_logic := '0';
-signal LoopBack : std_logic_vector(2 downto 0) := (others => '0');
-signal RXCHARISCOMMA : std_logic_vector(1 downto 0) := (others => '0');
-signal RXCHARISK : std_logic_vector(1 downto 0) := (others => '0');
-signal RXDATA : std_logic_vector(15 downto 0) := (others => '0');
-signal TXDIFFCTRL : std_logic_vector(3 downto 0) := x"b"; -- 790mV drive
-signal TXCHARISK : std_logic_vector(1 downto 0) := (others => '0');
-signal TXDATA : std_logic_vector(15 downto 0) := (others => '0');
 signal RXCHARISK_q : std_logic_vector(1 downto 0) := (others => '1');
 signal RXCHARISCOMMA_q : std_logic_vector(1 downto 0) := (others => '1');
 signal RXDATA_q : std_logic_vector(15 downto 0) := (others => '1');
 signal FIFO_rst : std_logic := '0';
 signal FIFO_en : std_logic := '0';
-signal DataFIFO_EMPTY : std_logic := '0';
+signal DataFIFO_EMPTY : std_logic := '1';
 signal DataFIFO_WRERR : std_logic := '0';
 signal DataFIFO_RdEn : std_logic := '0';
+signal DataFIFO_RdEnp : std_logic := '0';
 signal DataFIFO_WrEn : std_logic := '0';
 signal DataFIFO_di : std_logic_vector(65 downto 0) := (others => '0');
 signal DataFIFO_do : std_logic_vector(65 downto 0) := (others => '0');
 signal RDCOUNT : std_logic_vector(8 downto 0) := (others => '0');
 signal WRCOUNT : std_logic_vector(8 downto 0) := (others => '0');
 signal K_Cntr : std_logic_vector(7 downto 0) := (others => '0');
+signal ChkEvtLen_in : std_logic_vector(1 downto 0) := (others => '1');
+signal ChkEvtLen : std_logic_vector(1 downto 0) := (others => '1');
+signal L1A_DATA_o : std_logic_vector(15 downto 0) := (others => '0');
+signal L1A_DATA_ra : std_logic_vector(4 downto 0) := (others => '0');
+signal L1A_DATA_wa : std_logic_vector(2 downto 0) := (others => '0');
+signal OldL1Ainfo_wa0_SyncRegs : std_logic_vector(3 downto 0) := (others => '0');
+signal ce_L1A_DATA_ra : std_logic := '0';
 begin
 Ready <= fifo_en;
 AlmostFull <= AlmostFull_i;
@@ -468,7 +347,7 @@ fifo_reset <= not Ready_i;
 i_DataFIFO : FIFO_DUALCLOCK_MACRO
    generic map (
       DEVICE => "7SERIES",            -- Target Device: "VIRTEX5", "VIRTEX6", "7SERIES" 
-      ALMOST_FULL_OFFSET => X"0008",  -- Sets almost full threshold
+      ALMOST_FULL_OFFSET => X"000a",  -- Sets almost full threshold
       ALMOST_EMPTY_OFFSET => X"0080", -- Sets the almost empty threshold
       DATA_WIDTH => 66,   -- Valid values are 1-72 (37-72 only valid when FIFO_SIZE="36Kb")
       FIFO_SIZE => "36Kb",            -- Target BRAM, "18Kb" or "36Kb" 
@@ -503,10 +382,20 @@ begin
 		else
 			EventCRC_d <= DataFIFO_do(63 downto 32);
 		end if;
-		if(DataFIFO_do(65) = '1' and DataFIFO_RdEn = '1')then
+		if(DataFIFO_do(65) = '1' and DataFIFO_RdEnp = '1')then
 			EventLength <= DataFIFO_do(19 downto 0);
 		end if;
-		if(DataFIFO_RdEn = '1')then
+		if(Ready_i = '0' or InitLink ='1')then
+			ChkEvtLen <= (others => '0');
+		elsif(DataFIFO_RdEnp = '1')then
+			if(DataFIFO_do(64) = '1' and ChkEvtLen(1) = '1')then
+				ChkEvtLen <= (others => '0');
+			else
+				ChkEvtLen(0) <= not ChkEvtLen(0);
+				ChkEvtLen(1) <= ChkEvtLen(1) or ChkEvtLen(0);
+			end if;
+		end if;
+		if(DataFIFO_RdEnp = '1')then
 			if(DataFIFO_do(65) = '1')then
 				EventWC <= x"00002";
 			else
@@ -514,12 +403,12 @@ begin
 			end if;
 		end if;
 		UnknownEventLength <= and_reduce(EventLength);
-		if(DataFIFO_RdEn = '1' and DataFIFO_do(64) = '1' and (EventWC /= DataFIFO_do(19 downto 0) or (UnknownEventLength = '0' and EventLength /= EventWC)))then
+		if(DataFIFO_RdEnp = '1' and DataFIFO_do(64) = '1' and (EventWC /= DataFIFO_do(19 downto 0) or (UnknownEventLength = '0' and EventLength /= EventWC)))then
 			bad_EventLength <= '1';
 		else
 			bad_EventLength <= '0';
 		end if;
-		Init_EventCRC <= not UsrClkDiv(1) and not UsrClkDiv(0) and DataFIFO_do(65);
+		Init_EventCRC <= not UsrClkDiv(1) and not UsrClkDiv(0) and DataFIFO_do(65) and not ChkEvtLen(1) and not ChkEvtLen(0) and not DataFIFO_EMPTY;
 		if(FIFO_en = '0' or InitLink = '1' or DataFIFO_EMPTY = '1')then
 			FillDataBuf <= '0';
 		elsif(UsrClkDiv = "00")then
@@ -530,10 +419,11 @@ begin
 			end if;
 		end if;
 		ce_EventCRC <= UsrClkDiv(0) and FillDataBuf;
-		DataFIFO_RdEn <= UsrClkDiv(1) and not UsrClkDiv(0) and FillDataBuf and FIFO_en;
+		DataFIFO_RdEn <= UsrClkDiv(1) and not UsrClkDiv(0) and FillDataBuf and (ChkEvtLen(1) or not DataFIFO_do(64));
+		DataFIFO_RdEnp <= UsrClkDiv(1) and not UsrClkDiv(0) and FillDataBuf and FIFO_en;
 		DataBuf_wrEn <= FillDataBuf;
 		BoE <= DataFIFO_do(65);
-		EoE <= DataFIFO_do(64);
+		EoE <= DataFIFO_do(64) and ChkEvtLen(1);
 		if(BoE = '1' and ce_EventCRC = '1')then
 			evnLSB <= EventCRC_d(7 downto 0);
 		end if;
@@ -603,12 +493,15 @@ end process;
 process(EventDataClk,reset,InitLink)
 begin
 	if(reset = '1' or InitLink = '1')then
+		ChkEvtLen_in <= (others => '0');
 		sample_sync <= (others => '0');
 		FIFO_ovf <= '0';
 		cntrc <= (others => '0');
 		cntrd <= (others => '0');
 		cntre <= (others => '0');
 		cntrf <= (others => '0');
+		cntr16 <= (others => '0');
+		short_event_cntr <= (others => '0');
 		input_word_cntr <= (others => '0');
 		input_header_cntr <= (others => '0');
 		input_trailer_cntr <= (others => '0');
@@ -632,8 +525,22 @@ begin
 				input_trailer_cntr <= input_trailer_cntr + 1;
 				input_evn <= input_evn + 1;
 			end if;
+			if(DataFIFO_di(64) = '1')then
+				ChkEvtLen_in <= (others => '0');
+			else
+				ChkEvtLen_in(0) <= not ChkEvtLen_in(0);
+				ChkEvtLen_in(1) <= ChkEvtLen_in(1) or ChkEvtLen_in(0);
+			end if;
+			if(DataFIFO_di(64) = '1')then
+				input_trailer_cntr <= input_trailer_cntr + 1;
+				input_evn <= input_evn + 1;
+				if(ChkEvtLen_in(1) = '0')then
+					short_event_cntr <= short_event_cntr + 1;
+				end if;
+			end if;
 		end if;
 		if(sample_sync(3) /= sample_sync(2))then -- update after Counters sent
+			cntr16 <= short_event_cntr;
 			cntrc <= input_word_cntr;
 			cntrd <= input_header_cntr;
 			cntre <= input_trailer_cntr;
@@ -883,7 +790,7 @@ begin
 				when WaitCRC => -- wait for CRC
 					TxState <= SendCRC;
 				when SendCntr => -- send counter data
-					if(packet_wc(4) = '1' and packet_wc(2 downto 0) = "111")then -- 16 counters and 8 status words sent 
+					if(packet_wc(4 downto 0) = "11111")then -- 32 counters sent, it has to be multiple of 4, i.e. packet_wc(1 downto 0) must always be "11"
 						TxState <= SendWC;
 					end if;
 				when SendData => -- send payload data
@@ -947,13 +854,15 @@ begin
 				when x"3" => cntrs <= "000000" & L1Ainfo_wa;
 				when x"4" => cntrs <= "000000" & info_ra;
 				when x"5" => cntrs <= "000000" & AMCinfo_wa;
---				when x"6" => cntrs <= "000000" & info_ra;
-				when x"7" => cntrs <= "0000000" & EventCnt & ReSendQue_a & AlmostFull_i & dataFIFO_Empty;
+				when x"6" => cntrs <= x"00" & version;
+				when x"7" => cntrs <= DataBuf_full & EventStatus_empty & EventData2Send & DataPipe_empty & "000" & EventCnt & ReSendQue_a & AlmostFull_i & dataFIFO_Empty;
 				when x"8" => cntrs <= cntr10;
 				when x"9" => cntrs <= cntr11;
 				when x"a" => cntrs <= cntr12;
 				when x"b" => cntrs <= cntr13;
 				when x"c" => cntrs <= cntr14;
+				when x"d" => cntrs <= cntr15;
+				when x"f" => cntrs <= cntr16; -- add more counter needs to update line if(packet_wc(4 downto 0) = "11110")then -- 16 counters and 13 status words sent
 				when others => cntrs <= (others => '0');
 			end case;
 		end if;
@@ -1039,14 +948,15 @@ begin
 			DataBuf_start <= DataBuf_start + packet_wc(14 downto 0);
 		end if;
 -- Comma ends a packet and after that, any D-word marks the beginning of a packet
+		if(RXCHARISCOMMA_q  = "11" or (L1Ainfo_wa(1 downto 0) = "11" and L1Ainfo_WrEn = '1'))then
+			L1Ainfo <= '0';
+		elsif(RXCHARISK_q = "00" and Header2 = '1' and Ready_i = '1' and TypeData = '1')then
+			L1Ainfo <= '1';
+		end if;
 		if(RXCHARISCOMMA_q  = "11")then
 			Receiving <= '0';
-			L1Ainfo <= '0';
 		elsif(RXCHARISK_q = "00")then
 			Receiving <= '1';
-			if(Header2 = '1' and Ready_i = '1' and TypeData = '1')then
-				L1Ainfo <= '1';
-			end if;
 		end if;
 -- first word of a packet is the packet sequence number
 		if(RXCHARISK_q = "00")then
@@ -1195,6 +1105,11 @@ begin
 			end if;
 		end if;
 		if(InitLink = '1')then
+			cntr15 <= (others => '0');
+		elsif(DataFIFO_RdEnp = '1' and DataFIFO_do(64) = '1' and ChkEvtLen(1) = '0')then
+			cntr15 <= cntr15 + 1;
+		end if;
+		if(InitLink = '1')then
 			cntr3 <= (others => '0');
 			cntr4 <= (others => '0');
 			cntr5 <= (others => '0');
@@ -1250,7 +1165,7 @@ begin
 		if(CntrSent = '1')then
 			CntrTimeout <= cntr_timer(8);
 		elsif(simulation)then
-			CntrTimeout <= cntr_timer(10);
+			CntrTimeout <= cntr_timer(8);
 		else
 			CntrTimeout <= cntr_timer(15);
 		end if;
@@ -1347,7 +1262,7 @@ begin
 		elsif(L1Ainfo_WrEn = '1')then
 			L1Ainfo_wa <= L1Ainfo_wa + 1;
 		end if;
-		if(L1Ainfo = '1' and RXCHARISK_q = "00")then
+		if(L1Ainfo = '1' and RXCHARISK_q = "00" and (L1Ainfo_wa(1 downto 0) /= "11" or L1Ainfo_WrEn = '0'))then
 			L1Ainfo_WrEn <= '1';
 		else
 			L1Ainfo_WrEn <= '0';
@@ -1373,8 +1288,10 @@ i_L1Ainfo : BRAM_SDP_MACRO
       WRCLK => UsrClk,   -- 1-bit input write clock
       WREN => L1Ainfo_WrEn      -- 1-bit input write port enable
    );
-i_TTS_TRIG_if: TTS_TRIG_if generic map(USE_TRIGGER_PORT => USE_TRIGGER_PORT) PORT MAP(
+i_TTS_TRIG_if: TTS_TRIG_if
+	PORT MAP(
 		reset => reset,
+		USE_TRIGGER_PORT => USE_TRIGGER_PORT,
 		UsrClk => UsrClk,
 		TTCclk => TTCclk,
 		BcntRes => BcntRes,
@@ -1423,12 +1340,13 @@ begin
 		end if;
 		we_EventStatus <= check_L1Ainfo_q and not check_L1Ainfo;
 		info_ra_q <= info_ra(1 downto 0);
+		info_ra_q2 <= info_ra_q;
 		if(check_L1Ainfo_q = '0')then
 			EventStatus_Di(2 downto 0) <= "111";
 		elsif(L1AinfoMM = '1')then
-			case info_ra_q is
-				when "01" => EventStatus_Di(2) <= '0'; -- BcN mismatch
-				when "00" => EventStatus_Di(1) <= '0'; -- OrN mismatch
+			case info_ra_q2 is
+				when "00" => EventStatus_Di(2) <= '0'; -- BcN mismatch
+				when "11" => EventStatus_Di(1) <= '0'; -- OrN mismatch
 				when others => EventStatus_Di(0) <= '0'; -- EvN mismatch
 			end case;
 		end if;
@@ -1467,122 +1385,49 @@ g_EventStatus : for i in 0 to 2 generate
 end generate;
 EventStatus(6 downto 3) <= (others => '0');
 EventStatus_ra <= RdEventCnt;
-i_DAQLINK_7S_init : DAQLINK_7S_init
-    generic map
-    (
-        EXAMPLE_SIM_GTRESET_SPEEDUP     =>      GTXRESET_SPEEDUP(simulation),
-        EXAMPLE_SIMULATION              =>      0,
-        STABLE_CLOCK_PERIOD             =>      SYSCLK_IN_period,
-        EXAMPLE_USE_CHIPSCOPE           =>      0,
-				F_REFCLK												=>			F_REFCLK
-    )
-    port map
-    (
-        SYSCLK_IN                       =>      SYSCLK_IN,
-        SOFT_RESET_IN                   =>      '0',
-        DONT_RESET_ON_DATA_ERROR_IN     =>      '0',
-        GT0_TX_FSM_RESET_DONE_OUT       =>      txfsmresetdone,
-        GT0_RX_FSM_RESET_DONE_OUT       =>      open,
-        GT0_DATA_VALID_IN               =>      DATA_VALID,
-
-  
- 
- 
- 
-        --_____________________________________________________________________
-        --_____________________________________________________________________
-        --GT0  (X1Y0)
-
-        --------------------------------- CPLL Ports -------------------------------
-        GT0_CPLLFBCLKLOST_OUT           =>      open,
-        GT0_CPLLLOCK_OUT                =>      cplllock,
-        GT0_CPLLLOCKDETCLK_IN           =>      SYSCLK_IN,
-        GT0_CPLLRESET_IN                =>      reset,
-        -------------------------- Channel - Clocking Ports ------------------------
-        GT0_GTREFCLK0_IN                =>      GTX_REFCLK,
-        ---------------------------- Channel - DRP Ports  --------------------------
-        GT0_DRPADDR_IN                  =>      (others => '0'),
-        GT0_DRPCLK_IN                   =>      SYSCLK_IN,
-        GT0_DRPDI_IN                    =>      (others => '0'),
-        GT0_DRPDO_OUT                   =>      open,
-        GT0_DRPEN_IN                    =>      '0',
-        GT0_DRPRDY_OUT                  =>      open,
-        GT0_DRPWE_IN                    =>      '0',
-        ------------------------------- Loopback Ports -----------------------------
-        GT0_LOOPBACK_IN                 =>      LOOPBACK,
-        --------------------- RX Initialization and Reset Ports --------------------
-        GT0_RXUSERRDY_IN                =>      '0',
-        -------------------------- RX Margin Analysis Ports ------------------------
-        GT0_EYESCANDATAERROR_OUT        =>      open,
-        ------------------------- Receive Ports - CDR Ports ------------------------
-        GT0_RXCDRLOCK_OUT               =>      open,
-        ------------------ Receive Ports - FPGA RX Interface Ports -----------------
-        GT0_RXUSRCLK_IN                 =>      UsRClk,
-        GT0_RXUSRCLK2_IN                =>      UsRClk,
-        ------------------ Receive Ports - FPGA RX interface Ports -----------------
-        GT0_RXDATA_OUT                  =>      RXDATA,
-        ------------------- Receive Ports - Pattern Checker Ports ------------------
-        GT0_RXPRBSERR_OUT               =>      open,
-        GT0_RXPRBSSEL_IN                =>      (others => '0'),
-        ------------------- Receive Ports - Pattern Checker ports ------------------
-        GT0_RXPRBSCNTRESET_IN           =>      '0',
-        ------------------ Receive Ports - RX 8B/10B Decoder Ports -----------------
-        GT0_RXDISPERR_OUT               =>      open,
-        GT0_RXNOTINTABLE_OUT            =>      RXNOTINTABLE,
-        --------------------------- Receive Ports - RX AFE -------------------------
-        GT0_GTXRXP_IN                   =>      GTX_RXP,
-        ------------------------ Receive Ports - RX AFE Ports ----------------------
-        GT0_GTXRXN_IN                   =>      GTX_RXN,
-        -------------- Receive Ports - RX Byte and Word Alignment Ports ------------
-        GT0_RXMCOMMAALIGNEN_IN          =>      reset_SyncRegs(3),
-        GT0_RXPCOMMAALIGNEN_IN          =>      reset_SyncRegs(3),
-        ------------- Receive Ports - RX Initialization and Reset Ports ------------
-        GT0_GTRXRESET_IN                =>      reset,
-        GT0_RXPMARESET_IN               =>      '0',
-        ------------------- Receive Ports - RX8B/10B Decoder Ports -----------------
-        GT0_RXCHARISCOMMA_OUT           =>      RXCHARISCOMMA,
-        GT0_RXCHARISK_OUT               =>      RXCHARISK,
-        -------------- Receive Ports -RX Initialization and Reset Ports ------------
-        GT0_RXRESETDONE_OUT             =>      RXRESETDONE,
-        --------------------- TX Initialization and Reset Ports --------------------
-        GT0_GTTXRESET_IN                =>      reset,
-        GT0_TXUSERRDY_IN                =>      '0',
-        ------------------ Transmit Ports - FPGA TX Interface Ports ----------------
-        GT0_TXUSRCLK_IN                 =>      UsRClk,
-        GT0_TXUSRCLK2_IN                =>      UsRClk,
-        --------------- Transmit Ports - TX Configurable Driver Ports --------------
-        GT0_TXDIFFCTRL_IN               =>      TXDIFFCTRL,
-        ------------------ Transmit Ports - TX Data Path interface -----------------
-        GT0_TXDATA_IN                   =>      TXDATA,
-        ---------------- Transmit Ports - TX Driver and OOB signaling --------------
-        GT0_GTXTXN_OUT                  =>      GTX_TXN,
-        GT0_GTXTXP_OUT                  =>      GTX_TXP,
-        ----------- Transmit Ports - TX Fabric Clock Output Control Ports ----------
-        GT0_TXOUTCLK_OUT                =>      TXOUTCLK,
-        GT0_TXOUTCLKFABRIC_OUT          =>      open,
-        GT0_TXOUTCLKPCS_OUT             =>      open,
-        --------------------- Transmit Ports - TX Gearbox Ports --------------------
-        GT0_TXCHARISK_IN                =>      TXCHARISK,
-        ------------- Transmit Ports - TX Initialization and Reset Ports -----------
-        GT0_TXRESETDONE_OUT             =>      open,
-        ------------------ Transmit Ports - pattern Generator Ports ----------------
-        GT0_TXPRBSSEL_IN                =>      "000",
-
-
-
-
-    --____________________________COMMON PORTS________________________________
-        ---------------------- Common Block  - Ref Clock Ports ---------------------
-        GT0_GTREFCLK0_COMMON_IN         =>      '0',
-        ------------------------- Common Block - QPLL Ports ------------------------
-        GT0_QPLLLOCK_OUT                =>      open,
-        GT0_QPLLLOCKDETCLK_IN           =>      '0',
-        GT0_QPLLRESET_IN                =>      '0'
-
-    );
-i_UsrClk : BUFG
+g_L1A_DATA: for i in 0 to 15 generate
+  i_L1Adata : RAM32X1D
    port map (
-      O => UsrClk,     -- Clock buffer output
-      I => TXOUTCLK      -- Clock buffer input
+      DPO => L1A_DATA_o(i),     -- Read-only 1-bit data output
+      SPO => open,     -- R/W 1-bit data output
+      A0 => L1Ainfo_wa(0),       -- R/W address[0] input bit
+      A1 => L1Ainfo_wa(1),       -- R/W address[1] input bit
+      A2 => L1Ainfo_wa(2),       -- R/W address[2] input bit
+      A3 => L1Ainfo_wa(3),       -- R/W address[3] input bit
+      A4 => L1Ainfo_wa(4),       -- R/W address[4] input bit
+      D => L1Ainfo_Di(i),         -- Write 1-bit data input
+      DPRA0 => L1A_DATA_ra(0), -- Read-only address[0] input bit
+      DPRA1 => L1A_DATA_ra(1), -- Read-only address[1] input bit
+      DPRA2 => L1A_DATA_ra(2), -- Read-only address[2] input bit
+      DPRA3 => L1A_DATA_ra(3), -- Read-only address[3] input bit
+      DPRA4 => L1A_DATA_ra(4), -- Read-only address[4] input bit
+      WCLK => UsrClk,   -- Write clock input
+      WE => L1Ainfo_WrEn        -- Write enable input
    );
+end generate;
+process(sysclk, InitLink)
+begin
+	if(InitLink = '1')then
+		L1A_DATA_ra <= (others => '0');
+		L1A_DATA_wa <= (others => '0');
+		OldL1Ainfo_wa0_SyncRegs <= (others => '0');
+		L1A_DATA_we <= '0';
+		L1A_DATA <= (others => '0');
+	elsif(sysclk'event and sysclk = '1')then
+		OldL1Ainfo_wa0_SyncRegs <= OldL1Ainfo_wa0_SyncRegs(2 downto 0) & OldL1Ainfo_wa(0);
+		if(OldL1Ainfo_wa0_SyncRegs(3) /= OldL1Ainfo_wa0_SyncRegs(2))then
+			L1A_DATA_wa <= L1A_DATA_wa + 1;
+		end if;
+		if(L1A_DATA_ra(1 downto 0) = "11")then
+			ce_L1A_DATA_ra <= '0';
+		elsif(L1A_DATA_wa /= L1A_DATA_ra(4 downto 2))then
+			ce_L1A_DATA_ra <= '1';
+		end if;
+		if(ce_L1A_DATA_ra = '1')then
+			L1A_DATA_ra <= L1A_DATA_ra + 1;
+		end if;
+		L1A_DATA_we <= ce_L1A_DATA_ra;
+		L1A_DATA <= L1A_DATA_o;
+	end if;
+end process;
 end Behavioral;
