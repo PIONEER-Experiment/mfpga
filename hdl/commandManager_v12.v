@@ -8,7 +8,7 @@ module commandManager (
   output reg [3:0] chan_tx_fifo_dest,
   output reg chan_tx_fifo_last,
   output reg chan_tx_fifo_valid,
-  output reg [63:0] daq_data,
+  (* mark_debug = "true" *) output reg [63:0] daq_data,
   output reg daq_header,
   output reg daq_trailer,
   output reg daq_valid,
@@ -402,7 +402,7 @@ module commandManager (
       state[STORE_CHAN_TAG_AND_FILLTYPE]: begin
         if (!sent_header) begin
           nextstate[SEND_AMC13_HEADER1] = 1'b1;
-          next_daq_data[63:0] = {{8'h00,trig_num_buf[23:0]},{12'h000,20'b11111111111111111111}};
+          next_daq_data[63:0] = {{8'h00,trig_num_buf[23:0]},{12'h000,(burst_count[19:0]*2+2+2)*(chan_en[0]+chan_en[1]+chan_en[2]+chan_en[3]+chan_en[4])+3}};
         end
         else begin
           nextstate[SEND_CHAN_HEADER] = 1'b1;
