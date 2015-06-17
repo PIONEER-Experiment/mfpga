@@ -8,7 +8,7 @@ module commandManager (
   output reg [3:0] chan_tx_fifo_dest,
   output reg chan_tx_fifo_last,
   output reg chan_tx_fifo_valid,
-  (* mark_debug = "true" *) output reg [63:0] daq_data,
+  output reg [63:0] daq_data,
   output reg daq_header,
   output reg daq_trailer,
   output reg daq_valid,
