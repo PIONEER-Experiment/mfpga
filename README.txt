@@ -12,6 +12,20 @@ several tasks:
    these FPGAs to the AMC13. This includes multiplexing the different channels
    and constructing the proper data format for the AMC13.
 
+Firmware Developers
+-------------------
+
+The firmware was developed by the following persons.  Feel free to contact any
+one of us with comments and/or questions.
+
+  Bjorkquist, Robin    | rb532 @cornell.edu
+  Chapelain,  Antoine  | atc93 @cornell.edu
+  Gibbons,    Lawrence | lkg5  @cornell.edu
+  Rider,      Nate     | ntr7  @cornell.edu
+  Strohman,   Charlie  | crs5  @cornell.edu
+  Sweigart,   David    | das556@cornell.edu
+
+
 Versions
 --------
 

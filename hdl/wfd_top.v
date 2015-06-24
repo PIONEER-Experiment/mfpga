@@ -372,7 +372,7 @@ module wfd_top(
         .out(ext_trig_sync)
     );
 
-    signal_stretch trigger_from_ipbus_stretch_module (
+    signal_stretch trigger_from_ipbus_stretch_module(
         .signal_in(trigger_from_ipbus),
         .clk(clk125),
         .n_extra_cycles(4'h4),
@@ -424,7 +424,6 @@ module wfd_top(
     wire[23:0] fifo_to_cm_tdata;
 
     // wire connecting the tm and the cm
-    wire cm_busy;
     wire chan_readout_done; // needed for the trig_arm signal
 
     // ======== wires for interface to channel serial link ========
@@ -433,7 +432,7 @@ module wfd_top(
     wire user_ipb_clk, user_ipb_strobe, user_ipb_write, user_ipb_ack;
 
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////
     // AXI4-Stream interface for communicating with serial link to channel FPGA
     // channel 0
     wire c0_axi_stream_to_cm_tvalid, c0_axi_stream_to_cm_tlast, c0_axi_stream_to_cm_tready;
@@ -475,7 +474,7 @@ module wfd_top(
     wire[0:3]  c4_axi_stream_to_channel_tdest;
 
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////
     // packaged up channel connections for the axis tx switch output
     wire[4:0]   c_axi_stream_to_channel_tvalid, c_axi_stream_to_channel_tlast, c_axi_stream_to_channel_tready;
     wire[19:0]  c_axi_stream_to_channel_tdest;
@@ -513,7 +512,7 @@ module wfd_top(
     wire[0:3]  axi_stream_to_channel_from_cm_tdest;
 
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////
     // packaged up channel connections for the axis rx switch input
     wire[4:0]   c_axi_stream_to_cm_tvalid, c_axi_stream_to_cm_tlast, c_axi_stream_to_cm_tready;
     wire[159:0] c_axi_stream_to_cm_tdata;
@@ -544,7 +543,7 @@ module wfd_top(
     wire[0:31] axi_stream_to_cm_from_channel_tdata;
 
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////
     // IPbus and command manager interface connections
     // connections from cm to ipbus
     wire axi_stream_to_ipbus_from_cm_tvalid, axi_stream_to_ipbus_from_cm_tlast, axi_stream_to_ipbus_from_cm_tready;
@@ -557,10 +556,11 @@ module wfd_top(
 
 
     // ======== Communication with the AMC13 DAQ Link ========
-    wire daq_valid, daq_header, daq_trailer;
-    wire[63:0] daq_data;
-    wire daq_ready;
+    wire daq_header, daq_trailer;
+    wire daq_valid, daq_ready;
     wire daq_almost_full;
+    wire[63:0] daq_data;
+    
 
     // ======== module instantiations ========
    
@@ -599,7 +599,7 @@ module wfd_top(
         .gtrefclk_out(gtrefclk0),
 
         // "user_ipb" interface
-        // Pass out the raw IPbus signals. They're handled in the Aurora block
+        // pass out the raw IPbus signals; they're handled in the Aurora block
         .user_ipb_clk(user_ipb_clk),           // programming clock
         .user_ipb_strobe(user_ipb_strobe),     // this ipb space is selected for an I/O operation
         .user_ipb_addr(user_ipb_addr[31:0]),   // slave address, memory or register
@@ -609,8 +609,8 @@ module wfd_top(
         .user_ipb_ack(user_ipb_ack),           // 'write' data has been stored, 'read' data is ready
         .user_ipb_err(1'b0),                   // '1' if error, '0' if OK? We never generate an error!
 
-        // Data interface to channel serial link
-        // connections from ipbus to cm
+        // data interface to channel serial link
+        // connections from IPbus to command manager
         .axi_stream_out_tvalid(axi_stream_to_cm_from_ipbus_tvalid),
         .axi_stream_out_tdata(axi_stream_to_cm_from_ipbus_tdata[0:31]),
         .axi_stream_out_tlast(axi_stream_to_cm_from_ipbus_tlast),
@@ -620,7 +620,7 @@ module wfd_top(
         .axi_stream_out_tkeep(),
         .axi_stream_out_tid(),
 
-        // connections from cm to ipbus
+        // connections from command manager to IPbus
         .axi_stream_in_tvalid(axi_stream_to_ipbus_from_cm_tvalid),
         .axi_stream_in_tdata(axi_stream_to_ipbus_from_cm_tdata),
         .axi_stream_in_tready(axi_stream_to_ipbus_from_cm_tready),
@@ -633,10 +633,10 @@ module wfd_top(
         // trigger via IPbus for now
         .trigger_out(trigger_from_ipbus),
 
-        // channel done to tm
+        // channel done to trigger manager
         .chan_done_out(),
 
-        // channel enable to cm
+        // channel enable to command manager
         .chan_en_out(chan_en),
 
         // signal to start programming sequence for channel FPGAs
@@ -670,7 +670,7 @@ module wfd_top(
         .flash_wbuf_addr(ipbus_to_flash_wbuf_addr),
         .flash_wbuf_data(ipbus_to_flash_wbuf_data),
         
-        // unused DAQ Link ports (produce warnings if not listed)
+        // unused DAQ link ports
         .daq_valid(),
         .daq_header(),
         .daq_trailer(),
@@ -702,104 +702,104 @@ module wfd_top(
         // channel 0 connections
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
-        .c0_s_axi_tx_tdata(c0_axi_stream_to_channel_tdata),   // note index order
-        .c0_s_axi_tx_tkeep({ 4 {c0_axi_stream_to_channel_tkeep} }),   // note index order
+        .c0_s_axi_tx_tdata(c0_axi_stream_to_channel_tdata),        // note index order
+        .c0_s_axi_tx_tkeep({ 4{c0_axi_stream_to_channel_tkeep} }), // note index order
         .c0_s_axi_tx_tvalid(c0_axi_stream_to_channel_tvalid),
         .c0_s_axi_tx_tlast(c0_axi_stream_to_channel_tlast),
         .c0_s_axi_tx_tready(c0_axi_stream_to_channel_tready),
         // RX Interface to master side of receive FIFO
-        .c0_m_axi_rx_tdata(c0_axi_stream_to_cm_tdata),        // note index order
-        .c0_m_axi_rx_tkeep(),                                 // note index order
+        .c0_m_axi_rx_tdata(c0_axi_stream_to_cm_tdata),             // note index order
+        .c0_m_axi_rx_tkeep(),                                      // note index order
         .c0_m_axi_rx_tvalid(c0_axi_stream_to_cm_tvalid),
         .c0_m_axi_rx_tlast(c0_axi_stream_to_cm_tlast),
-        .c0_m_axi_rx_tready(c0_axi_stream_to_cm_tready),      // input wire m_axis_tready
+        .c0_m_axi_rx_tready(c0_axi_stream_to_cm_tready),           // input wire m_axis_tready
         // serial I/O pins
-        .c0_rxp(c0_rx), .c0_rxn(c0_rx_N),                     // receive from channel 0 FPGA
-        .c0_txp(c0_tx), .c0_txn(c0_tx_N),                     // transmit to channel 0 FPGA
+        .c0_rxp(c0_rx), .c0_rxn(c0_rx_N),                          // receive from channel 0 FPGA
+        .c0_txp(c0_tx), .c0_txn(c0_tx_N),                          // transmit to channel 0 FPGA
         // PCB traces
-        .c0_readout_pause(acq_readout_pause[0]),                 // readout pause signal asserted when the Master receiving FIFO is almsot full
+        .c0_readout_pause(acq_readout_pause[0]),                   // readout pause signal asserted when the Aurora RX FIFO is almost full
 
         // channel 1 connections
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
-        .c1_s_axi_tx_tdata(c1_axi_stream_to_channel_tdata),   // note index order
-        .c1_s_axi_tx_tkeep({ 4 {c1_axi_stream_to_channel_tkeep} }),   // note index order
+        .c1_s_axi_tx_tdata(c1_axi_stream_to_channel_tdata),         // note index order
+        .c1_s_axi_tx_tkeep({ 4 {c1_axi_stream_to_channel_tkeep} }), // note index order
         .c1_s_axi_tx_tvalid(c1_axi_stream_to_channel_tvalid),
         .c1_s_axi_tx_tlast(c1_axi_stream_to_channel_tlast),
         .c1_s_axi_tx_tready(c1_axi_stream_to_channel_tready),
         // RX Interface to master side of receive FIFO
-        .c1_m_axi_rx_tdata(c1_axi_stream_to_cm_tdata),        // note index order
-        .c1_m_axi_rx_tkeep(),                                 // note index order
+        .c1_m_axi_rx_tdata(c1_axi_stream_to_cm_tdata),              // note index order
+        .c1_m_axi_rx_tkeep(),                                       // note index order
         .c1_m_axi_rx_tvalid(c1_axi_stream_to_cm_tvalid),
         .c1_m_axi_rx_tlast(c1_axi_stream_to_cm_tlast),
-        .c1_m_axi_rx_tready(c1_axi_stream_to_cm_tready),      // input wire m_axis_tready
+        .c1_m_axi_rx_tready(c1_axi_stream_to_cm_tready),            // input wire m_axis_tready
         // serial I/O pins
-        .c1_rxp(c1_rx), .c1_rxn(c1_rx_N),                     // receive from channel 0 FPGA
-        .c1_txp(c1_tx), .c1_txn(c1_tx_N),                     // transmit to channel 0 FPGA
+        .c1_rxp(c1_rx), .c1_rxn(c1_rx_N),                           // receive from channel 0 FPGA
+        .c1_txp(c1_tx), .c1_txn(c1_tx_N),                           // transmit to channel 0 FPGA
         // PCB traces
-        .c1_readout_pause(acq_readout_pause[1]),                 // readout pause signal asserted when the Master receiving FIFO is almsot full
+        .c1_readout_pause(acq_readout_pause[1]),                    // readout pause signal asserted when the Aurora RX FIFO is almost full
 
         // channel 2 connections
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
-        .c2_s_axi_tx_tdata(c2_axi_stream_to_channel_tdata),   // note index order
-        .c2_s_axi_tx_tkeep({ 4 {c2_axi_stream_to_channel_tkeep} }),   // note index order
+        .c2_s_axi_tx_tdata(c2_axi_stream_to_channel_tdata),         // note index order
+        .c2_s_axi_tx_tkeep({ 4 {c2_axi_stream_to_channel_tkeep} }), // note index order
         .c2_s_axi_tx_tvalid(c2_axi_stream_to_channel_tvalid),
         .c2_s_axi_tx_tlast(c2_axi_stream_to_channel_tlast),
         .c2_s_axi_tx_tready(c2_axi_stream_to_channel_tready),
         // RX Interface to master side of receive FIFO
-        .c2_m_axi_rx_tdata(c2_axi_stream_to_cm_tdata),        // note index order
-        .c2_m_axi_rx_tkeep(),                                 // note index order
+        .c2_m_axi_rx_tdata(c2_axi_stream_to_cm_tdata),              // note index order
+        .c2_m_axi_rx_tkeep(),                                       // note index order
         .c2_m_axi_rx_tvalid(c2_axi_stream_to_cm_tvalid),
         .c2_m_axi_rx_tlast(c2_axi_stream_to_cm_tlast),
-        .c2_m_axi_rx_tready(c2_axi_stream_to_cm_tready),      // input wire m_axis_tready
+        .c2_m_axi_rx_tready(c2_axi_stream_to_cm_tready),            // input wire m_axis_tready
         // serial I/O pins
-        .c2_rxp(c2_rx), .c2_rxn(c2_rx_N),                     // receive from channel 0 FPGA
-        .c2_txp(c2_tx), .c2_txn(c2_tx_N),                     // transmit to channel 0 FPGA
+        .c2_rxp(c2_rx), .c2_rxn(c2_rx_N),                           // receive from channel 0 FPGA
+        .c2_txp(c2_tx), .c2_txn(c2_tx_N),                           // transmit to channel 0 FPGA
         // PCB traces
-        .c2_readout_pause(acq_readout_pause[2]),                 // readout pause signal asserted when the Master receiving FIFO is almsot full
+        .c2_readout_pause(acq_readout_pause[2]),                    // readout pause signal asserted when the Aurora RX FIFO is almost full
 
         // channel 3 connections
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
-        .c3_s_axi_tx_tdata(c3_axi_stream_to_channel_tdata),   // note index order
-        .c3_s_axi_tx_tkeep({ 4 {c3_axi_stream_to_channel_tkeep} }),   // note index order
+        .c3_s_axi_tx_tdata(c3_axi_stream_to_channel_tdata),         // note index order
+        .c3_s_axi_tx_tkeep({ 4 {c3_axi_stream_to_channel_tkeep} }), // note index order
         .c3_s_axi_tx_tvalid(c3_axi_stream_to_channel_tvalid),
         .c3_s_axi_tx_tlast(c3_axi_stream_to_channel_tlast),
         .c3_s_axi_tx_tready(c3_axi_stream_to_channel_tready),
         // RX Interface to master side of receive FIFO
-        .c3_m_axi_rx_tdata(c3_axi_stream_to_cm_tdata),        // note index order
-        .c3_m_axi_rx_tkeep(),                                 // note index order
+        .c3_m_axi_rx_tdata(c3_axi_stream_to_cm_tdata),              // note index order
+        .c3_m_axi_rx_tkeep(),                                       // note index order
         .c3_m_axi_rx_tvalid(c3_axi_stream_to_cm_tvalid),
         .c3_m_axi_rx_tlast(c3_axi_stream_to_cm_tlast),
-        .c3_m_axi_rx_tready(c3_axi_stream_to_cm_tready),      // input wire m_axis_tready
+        .c3_m_axi_rx_tready(c3_axi_stream_to_cm_tready),            // input wire m_axis_tready
         // serial I/O pins
-        .c3_rxp(c3_rx), .c3_rxn(c3_rx_N),                     // receive from channel 0 FPGA
-        .c3_txp(c3_tx), .c3_txn(c3_tx_N),                     // transmit to channel 0 FPGA
+        .c3_rxp(c3_rx), .c3_rxn(c3_rx_N),                           // receive from channel 0 FPGA
+        .c3_txp(c3_tx), .c3_txn(c3_tx_N),                           // transmit to channel 0 FPGA
         // PCB traces
-        .c3_readout_pause(acq_readout_pause[3]),                 // readout pause signal asserted when the Master receiving FIFO is almsot full
+        .c3_readout_pause(acq_readout_pause[3]),                   // readout pause signal asserted when the Aurora RX FIFO is almost full
  
         // channel 4 connections
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
-        .c4_s_axi_tx_tdata(c4_axi_stream_to_channel_tdata),   // note index order
-        .c4_s_axi_tx_tkeep({ 4 {c4_axi_stream_to_channel_tkeep} }),   // note index order
+        .c4_s_axi_tx_tdata(c4_axi_stream_to_channel_tdata),         // note index order
+        .c4_s_axi_tx_tkeep({ 4 {c4_axi_stream_to_channel_tkeep} }), // note index order
         .c4_s_axi_tx_tvalid(c4_axi_stream_to_channel_tvalid),
         .c4_s_axi_tx_tlast(c4_axi_stream_to_channel_tlast),
         .c4_s_axi_tx_tready(c4_axi_stream_to_channel_tready),
         // RX Interface to master side of receive FIFO
-        .c4_m_axi_rx_tdata(c4_axi_stream_to_cm_tdata),        // note index order
-        .c4_m_axi_rx_tkeep(),                                 // note index order
+        .c4_m_axi_rx_tdata(c4_axi_stream_to_cm_tdata),              // note index order
+        .c4_m_axi_rx_tkeep(),                                       // note index order
         .c4_m_axi_rx_tvalid(c4_axi_stream_to_cm_tvalid),
         .c4_m_axi_rx_tlast(c4_axi_stream_to_cm_tlast),
-        .c4_m_axi_rx_tready(c4_axi_stream_to_cm_tready),      // input wire m_axis_tready
+        .c4_m_axi_rx_tready(c4_axi_stream_to_cm_tready),            // input wire m_axis_tready
         // serial I/O pins
-        .c4_rxp(c4_rx), .c4_rxn(c4_rx_N),                     // receive from channel 0 FPGA
-        .c4_txp(c4_tx), .c4_txn(c4_tx_N),                     // transmit to channel 0 FPGA
+        .c4_rxp(c4_rx), .c4_rxn(c4_rx_N),                           // receive from channel 0 FPGA
+        .c4_txp(c4_tx), .c4_txn(c4_tx_N),                           // transmit to channel 0 FPGA
         // PCB traces
-        .c4_readout_pause(acq_readout_pause[4]),                 // readout pause signal asserted when the Master receiving FIFO is almsot full
+        .c4_readout_pause(acq_readout_pause[4]),                   // readout pause signal asserted when the Aurora RX FIFO is almost full
 
-        //clock synthesizer connections
+        // clock synthesizer connections
         .adcclk_dclk(adcclk_dclk),
         .adcclk_ddat(adcclk_ddat),
         .adcclk_dlen(adcclk_dlen),
@@ -821,9 +821,9 @@ module wfd_top(
 
 
 
-// ===============================================================================================
-//      synchronize signals into 40 MHz TTC clock domain for use in trigger manager module 
-// ===============================================================================================
+// ==================================================================================
+// synchronize signals into 40 MHz TTC clock domain for use in trigger manager module 
+// ==================================================================================
 
 
     // chan_en: from IPbus, typically stable at a fixed value (don't need to stretch)
@@ -856,7 +856,7 @@ module wfd_top(
 
 
     // trigger manager module
-    triggerManager tm(
+    triggerManager trigger_manager(
         .clk(ttc_clk),
         .reset(reset40),
 
@@ -879,8 +879,8 @@ module wfd_top(
     );
 
 
-    // trigger number fifo
-    trig_num_axis_data_fifo trig_num_fifo (
+    // trigger number FIFO
+    trig_num_axis_data_fifo trig_num_fifo(
       .s_axis_aresetn(reset40_n),        // input wire s_axis_aresetn
       .m_axis_aresetn(rst_n),            // input wire m_axis_aresetn
       .s_axis_aclk(ttc_clk),             // input wire s_axis_aclk
@@ -898,53 +898,60 @@ module wfd_top(
       .axis_rd_data_count()
     );
 
+    
+    // create a DAQ ready signal to indicate that it's ready to receive data words, used by the command manager
+    // pull down DAQ link 'ready' whenever its 'almost_full' is asserted for the previous two clock cycles
+    wire daq_ready_for_data;
+    assign daq_ready_for_data = daq_ready & ~daq_almost_full;
 
     // command manager module
-    commandManager cm(
-        // interface to tx channel FIFO (through AXI4-Stream TX Switch)
-        .chan_tx_fifo_data(axi_stream_to_channel_from_cm_tdata),
-        .chan_tx_fifo_valid(axi_stream_to_channel_from_cm_tvalid),
-        .chan_tx_fifo_ready(axi_stream_to_channel_from_cm_tready),
-        .chan_tx_fifo_dest(axi_stream_to_channel_from_cm_tdest),
-        .chan_tx_fifo_last(axi_stream_to_channel_from_cm_tlast),
+    command_manager command_manager(
+        // user interface clock and reset
+        .clk(clk125),       // input
+        .rst(rst_from_ipb), // input
 
-        // interface to rx channel FIFO (through AXI4-Stream RX Switch)
-        .chan_rx_fifo_data(axi_stream_to_cm_from_channel_tdata),
-        .chan_rx_fifo_valid(axi_stream_to_cm_from_channel_tvalid),
-        .chan_rx_fifo_ready(axi_stream_to_cm_from_channel_tready),
-        .chan_rx_fifo_last(axi_stream_to_cm_from_channel_tlast),
+        // interface to TX channel FIFO (through AXI4-Stream TX Switch)
+        .chan_tx_fifo_ready(axi_stream_to_channel_from_cm_tready), // input
+        .chan_tx_fifo_valid(axi_stream_to_channel_from_cm_tvalid), // output
+        .chan_tx_fifo_last(axi_stream_to_channel_from_cm_tlast),   // output
+        .chan_tx_fifo_dest(axi_stream_to_channel_from_cm_tdest),   // output [ 3:0]
+        .chan_tx_fifo_data(axi_stream_to_channel_from_cm_tdata),   // output [31:0]
+
+        // interface to RX channel FIFO (through AXI4-Stream RX Switch)
+        .chan_rx_fifo_valid(axi_stream_to_cm_from_channel_tvalid), // input
+        .chan_rx_fifo_last(axi_stream_to_cm_from_channel_tlast),   // input
+        .chan_rx_fifo_data(axi_stream_to_cm_from_channel_tdata),   // input [31:0]
+        .chan_rx_fifo_ready(axi_stream_to_cm_from_channel_tready), // output
 
         // interface to IPbus AXI output
-        .ipbus_cmd_data(axi_stream_to_cm_from_ipbus_tdata),
-        .ipbus_cmd_valid(axi_stream_to_cm_from_ipbus_tvalid),
-        .ipbus_cmd_ready(axi_stream_to_cm_from_ipbus_tready),
-        .ipbus_cmd_dest(axi_stream_to_cm_from_ipbus_tdest),
-        .ipbus_cmd_last(axi_stream_to_cm_from_ipbus_tlast),
+        .ipbus_cmd_valid(axi_stream_to_cm_from_ipbus_tvalid), // input
+        .ipbus_cmd_last(axi_stream_to_cm_from_ipbus_tlast),   // input
+        .ipbus_cmd_dest(axi_stream_to_cm_from_ipbus_tdest),   // input [ 3:0]
+        .ipbus_cmd_data(axi_stream_to_cm_from_ipbus_tdata),   // input [31:0]
+        .ipbus_cmd_ready(axi_stream_to_cm_from_ipbus_tready), // output
 
         // interface to IPbus AXI input
-        .ipbus_res_data(axi_stream_to_ipbus_from_cm_tdata),
-        .ipbus_res_valid(axi_stream_to_ipbus_from_cm_tvalid),
-        .ipbus_res_ready(axi_stream_to_ipbus_from_cm_tready),
-        .ipbus_res_last(axi_stream_to_ipbus_from_cm_tlast),
+        .ipbus_res_ready(axi_stream_to_ipbus_from_cm_tready), // input
+        .ipbus_res_valid(axi_stream_to_ipbus_from_cm_tvalid), // output
+        .ipbus_res_last(axi_stream_to_ipbus_from_cm_tlast),   // output
+        .ipbus_res_data(axi_stream_to_ipbus_from_cm_tdata),   // output [31:0]
 
         // interface to AMC13 DAQ Link
-        .daq_valid(daq_valid),
-        .daq_header(daq_header),
-        .daq_trailer(daq_trailer),
-        .daq_data(daq_data),
-        .daq_ready(daq_ready),
+        .daq_ready(daq_ready_for_data),    // input
+        .daq_almost_full(daq_almost_full), // input
+        .daq_valid(daq_valid),             // output
+        .daq_header(daq_header),           // output
+        .daq_trailer(daq_trailer),         // output
+        .daq_data(daq_data),               // output [63:0]
 
         // interface to trigger number FIFO
-        .tm_fifo_ready(fifo_to_cm_tready),
-        .tm_fifo_valid(fifo_to_cm_tvalid),
-        .tm_fifo_data(fifo_to_cm_tdata),
+        .tm_fifo_valid(fifo_to_cm_tvalid), // input
+        .tm_fifo_data(fifo_to_cm_tdata),   // input [23:0]
+        .tm_fifo_ready(fifo_to_cm_tready), // output
 
         // other connections
-        .read_fill_done(chan_readout_done),
-        .chan_en(chan_en),                  // enabled channels from ipbus
-        .clk(clk125),
-        .rst(rst_from_ipb),
-        .busy(cm_busy)
+        .read_fill_done(chan_readout_done), // input [4:0]
+        .chan_en(chan_en)                   // output, enabled channels from IPbus
     );
 
 
@@ -965,17 +972,19 @@ module wfd_top(
 
         .TTCclk(clk125),
         .BcntRes(rst_from_ipb),
-        .trig({ 8 {trigger_from_ttc} }),
-        .TTSclk(1'b0),
-        .TTS(4'd0),
+        .trig({ 8{trigger_from_ttc} }),
+
+        .TTSclk(clk125),
+        .TTS(4'b1000), // always report a 'Ready' TTS state
 
         .EventDataClk(clk125),
         .EventData_valid(daq_valid),
-        .EventData_header(daq_header),
-        .EventData_trailer(daq_trailer),
-        .EventData(daq_data),
-        .AlmostFull(daq_almost_full),
-        .Ready(daq_ready)
+        .EventData_header(daq_header),   // flag to indicate first AMC13 header word
+        .EventData_trailer(daq_trailer), // flag to indicate AMC13 trailer word
+        .EventData(daq_data),            // 64-bit data words to send to AMC13
+        .AlmostFull(daq_almost_full),    // DAQ link buffer is almost full (space for only 10 additional words)
+        .Ready(daq_ready)                // flag to indicate link status during initialization
+                                         // Mr. Wu: "It goes low when initialization starts and goes up when initialization is done."
     );
 
 
@@ -985,18 +994,18 @@ module wfd_top(
         .aresetn(rst_n), // input wire aresetn
 
         // CM side
-        .s_axis_tvalid(axi_stream_to_channel_from_cm_tvalid), // input  wire [0 : 0]  s_axis_tvalid
-        .s_axis_tready(axi_stream_to_channel_from_cm_tready), // output wire [0 : 0]  s_axis_tready
+        .s_axis_tvalid(axi_stream_to_channel_from_cm_tvalid), // input  wire [ 0 : 0] s_axis_tvalid
+        .s_axis_tready(axi_stream_to_channel_from_cm_tready), // output wire [ 0 : 0] s_axis_tready
         .s_axis_tdata(axi_stream_to_channel_from_cm_tdata),   // input  wire [31 : 0] s_axis_tdata
-        .s_axis_tdest(axi_stream_to_channel_from_cm_tdest),   // input  wire [3 : 0]  s_axis_tdest
-        .s_axis_tlast(axi_stream_to_channel_from_cm_tlast),   // input  wire [0 : 0]  s_axis_tlast
+        .s_axis_tdest(axi_stream_to_channel_from_cm_tdest),   // input  wire [ 3 : 0] s_axis_tdest
+        .s_axis_tlast(axi_stream_to_channel_from_cm_tlast),   // input  wire [ 0 : 0] s_axis_tlast
 
         // channel FPGA side
-        .m_axis_tvalid(c_axi_stream_to_channel_tvalid), // output wire [4 : 0]   m_axis_tvalid
-        .m_axis_tready(c_axi_stream_to_channel_tready), // input  wire [4 : 0]   m_axis_tready
+        .m_axis_tvalid(c_axi_stream_to_channel_tvalid), // output wire [  4 : 0] m_axis_tvalid
+        .m_axis_tready(c_axi_stream_to_channel_tready), // input  wire [  4 : 0] m_axis_tready
         .m_axis_tdata(c_axi_stream_to_channel_tdata),   // output wire [159 : 0] m_axis_tdata
-        .m_axis_tdest(c_axi_stream_to_channel_tdest),   // output wire [19 : 0]  m_axis_tdest
-        .m_axis_tlast(c_axi_stream_to_channel_tlast),   // output wire [4 : 0]   m_axis_tlast
+        .m_axis_tdest(c_axi_stream_to_channel_tdest),   // output wire [ 19 : 0] m_axis_tdest
+        .m_axis_tlast(c_axi_stream_to_channel_tlast),   // output wire [  4 : 0] m_axis_tlast
         
         // unused output port
         .s_decode_err()
@@ -1011,20 +1020,19 @@ module wfd_top(
         .s_req_suppress(s_req_suppress), // input wire [4 : 0] s_req_suppress
 
         // channel FPGA side
-        .s_axis_tvalid(c_axi_stream_to_cm_tvalid), // input wire  [4 : 0]   s_axis_tvalid
-        .s_axis_tready(c_axi_stream_to_cm_tready), // output wire [4 : 0]   s_axis_tready
-        .s_axis_tlast(c_axi_stream_to_cm_tlast),   // input wire  [4 : 0]   s_axis_tlast
+        .s_axis_tvalid(c_axi_stream_to_cm_tvalid), // input wire  [  4 : 0] s_axis_tvalid
+        .s_axis_tready(c_axi_stream_to_cm_tready), // output wire [  4 : 0] s_axis_tready
+        .s_axis_tlast(c_axi_stream_to_cm_tlast),   // input wire  [  4 : 0] s_axis_tlast
         .s_axis_tdata(c_axi_stream_to_cm_tdata),   // input wire  [159 : 0] s_axis_tdata
 
         // CM side
-        .m_axis_tvalid(axi_stream_to_cm_from_channel_tvalid), // output wire [0 : 0]  m_axis_tvalid
-        .m_axis_tready(axi_stream_to_cm_from_channel_tready), // input  wire [0 : 0]  m_axis_tready
-        .m_axis_tlast(axi_stream_to_cm_from_channel_tlast),   // output wire [0 : 0]  m_axis_tlast
+        .m_axis_tvalid(axi_stream_to_cm_from_channel_tvalid), // output wire [ 0 : 0] m_axis_tvalid
+        .m_axis_tready(axi_stream_to_cm_from_channel_tready), // input  wire [ 0 : 0] m_axis_tready
+        .m_axis_tlast(axi_stream_to_cm_from_channel_tlast),   // output wire [ 0 : 0] m_axis_tlast
         .m_axis_tdata(axi_stream_to_cm_from_channel_tdata),   // output wire [31 : 0] m_axis_tdata
         
         // unused output port
         .s_decode_err()
     );
-
 
 endmodule
