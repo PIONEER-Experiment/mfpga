@@ -40,6 +40,11 @@ begin
 		if rising_edge(clk) then
 			if reset='1' then
 				reg <= (others=>(others=>'0'));
+				reg(0)(6)  <= '1'; -- Channel 0 enabled by default
+				reg(0)(7)  <= '1'; -- Channel 1 enabled by default
+				reg(0)(8)  <= '1'; -- Channel 2 enabled by default
+				reg(0)(9)  <= '1'; -- Channel 3 enabled by default
+				reg(0)(10) <= '1'; -- Channel 4 enabled by default
 			elsif ipbus_in.ipb_strobe='1' and ipbus_in.ipb_write='1' then
 				reg(sel) <= ipbus_in.ipb_wdata;
 			end if;

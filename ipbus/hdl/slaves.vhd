@@ -59,15 +59,15 @@ entity slaves is
         user_ipb_err    : in std_logic;			             -- '1' if error, '0' if OK?
 
 		-- counter input ports
-		frame_err: in std_logic  := '0';
-		hard_err: in std_logic  := '0';
-		soft_err: in std_logic  := '0';
-		channel_up: in std_logic  := '0';
-		lane_up: in std_logic  := '0';
-		pll_not_locked: in std_logic  := '0';
-		tx_resetdone_out: in std_logic  := '0';
-		rx_resetdone_out: in std_logic  := '0';
-		link_reset_out: in std_logic := '0';
+		frame_err        : in std_logic := '0';
+		hard_err         : in std_logic := '0';
+		soft_err         : in std_logic := '0';
+		channel_up       : in std_logic := '0';
+		lane_up          : in std_logic := '0';
+		pll_not_locked   : in std_logic := '0';
+		tx_resetdone_out : in std_logic := '0';
+		rx_resetdone_out : in std_logic := '0';
+		link_reset_out   : in std_logic := '0';
 
 		-- flash interface ports
 		flash_wr_nBytes   : out std_logic_vector(8 downto 0);

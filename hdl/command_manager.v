@@ -4,7 +4,7 @@
 // 1. Handle configuration via IPbus
 // 2. Handle ADC data readout to DAQ link
 //
-// Originally created by Fizzim
+// Originally created using Fizzim
 
 module command_manager (
   // user interface clock and reset
@@ -91,6 +91,7 @@ module command_manager (
 
   reg [28:0] state;             // state of finite state machine
   reg [31:0] burst_count;       // burst count for data acquisition, 1 burst count = 8 ADC samples
+                                // value obtained from received channel header from Aurora RX FIFO
   reg [31:0] chan_num_buf;      // channel number
   reg [31:0] chan_tag_filltype; // channel tag and fill type
   reg [31:0] csn;               // channel serial number
@@ -99,7 +100,7 @@ module command_manager (
   reg [31:0] ipbus_buf;         // buffer for IPbus data
   reg [2:0] num_chan_en;        // number of enabled channels
   reg sent_header;              // flag to indicate that the AMC13 header has been sent
-  reg [31:0] trig_num_buf;      // trigger number
+  reg [31:0] trig_num_buf;      // trigger number, starts at 1
   reg [31:0] timestamp;         // data readout timestamp
 
   // regs for channel checksum verification
@@ -347,7 +348,7 @@ module command_manager (
       // get trigger number from channel's header word #1
       state[READ_CHAN_TRIG_NUM] : begin
         if (chan_rx_fifo_valid) begin
-          next_trig_num_buf[31:0] = chan_rx_fifo_data[31:0] + 1'b1; // start trigger # from one, which is what the AMC13 does
+          next_trig_num_buf[31:0] = chan_rx_fifo_data[31:0];
           next_master_checksum[127:0] = {master_checksum[127:32],chan_rx_fifo_data[31:0]};
           nextstate[READ_CHAN_DDR3_START_ADDR] = 1'b1;
         end

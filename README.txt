@@ -12,6 +12,7 @@ several tasks:
    these FPGAs to the AMC13. This includes multiplexing the different channels
    and constructing the proper data format for the AMC13.
 
+
 Firmware Developers
 -------------------
 
@@ -47,12 +48,14 @@ will automatically run synthesis and/or implementation if required.  If successf
 the bitstream 'bitstreams/wfd_master.bit' will be generated along with the debug
 file 'debugs/debug_master.ltx' if set up.
 
+
 Intellectual Property (IP)
 --------------------------
 
 This repository stores only the XCI file for each IP in the 'ip' folder. It is
 unclear whether merging will be successful between IP versions. Therefore, any
 changes to the IPs should be coordinated between the firmware developers.
+
 
 Repository File Structure
 -------------------------

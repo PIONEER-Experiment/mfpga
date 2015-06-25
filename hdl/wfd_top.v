@@ -1,4 +1,4 @@
-// top-level module for g-2 WFD5 Master FPGA
+// Top-level module for g-2 WFD5 Master FPGA
 
 // as a useful reference, here's the syntax to mark signals for debug:
 // (* mark_debug = "true" *) 
@@ -416,18 +416,18 @@ module wfd_top(
     // enable signals to channels
     wire[4:0] chan_en;
 
-    // wires connecting the trig number fifo to the tm
+    // wires connecting the trigger number FIFO to the trigger manager
     wire tm_to_fifo_tvalid, tm_to_fifo_tready;
     wire[23:0] tm_to_fifo_tdata;
 
     wire fifo_to_cm_tvalid, fifo_to_cm_tready;
     wire[23:0] fifo_to_cm_tdata;
 
-    // wire connecting the tm and the cm
+    // wire connecting the trigger and command managers
     wire chan_readout_done; // needed for the trig_arm signal
 
     // ======== wires for interface to channel serial link ========
-    // User IPbus interface. Used by Charlie's Aurora block
+    // User IPbus interface. Used by Charlie's Aurora block.
     wire [31:0] user_ipb_addr, user_ipb_wdata, user_ipb_rdata;
     wire user_ipb_clk, user_ipb_strobe, user_ipb_write, user_ipb_ack;
 
@@ -856,7 +856,7 @@ module wfd_top(
 
 
     // trigger manager module
-    triggerManager trigger_manager(
+    trigger_manager trigger_manager(
         .clk(ttc_clk),
         .reset(reset40),
 
@@ -865,37 +865,40 @@ module wfd_top(
         .fifo_ready(tm_to_fifo_tready),
         .trig_num(tm_to_fifo_tdata),
 
-        // .trigger(trigger_from_ipbus_sync), // ipbus triggering
-        // .trigger(ext_trig_sync), // external triggering
-        .trigger(trigger_from_ttc), // ttc triggering
+        //.trigger(trigger_from_ipbus_sync), // ipbus triggering
+        //.trigger(ext_trig_sync),           // external triggering
+        .trigger(trigger_from_ttc),          // ttc triggering
 
         // connections to channel FPGAs
         .acq_trig(acq_trigs),
         .acq_done(acq_dones_sync),
         .acq_enable(acq_enable),
 
-        .chan_en(chan_en_sync), // enabled channels from ipbus
+        .chan_en(chan_en_sync), // enabled channels from IPbus
 	    .fill_type(2'b01)       // hardcoded for "Muon Fill" (later will be a register set by TTC commands)
     );
 
 
     // trigger number FIFO
     trig_num_axis_data_fifo trig_num_fifo(
-      .s_axis_aresetn(reset40_n),        // input wire s_axis_aresetn
-      .m_axis_aresetn(rst_n),            // input wire m_axis_aresetn
-      .s_axis_aclk(ttc_clk),             // input wire s_axis_aclk
-      .s_axis_tvalid(tm_to_fifo_tvalid), // input wire s_axis_tvalid
-      .s_axis_tready(tm_to_fifo_tready), // output wire s_axis_tready
-      .s_axis_tdata(tm_to_fifo_tdata),   // input wire [23 : 0] s_axis_tdata
-      .m_axis_aclk(clk125),              // input wire m_axis_aclk
-      .m_axis_tvalid(fifo_to_cm_tvalid), // output wire m_axis_tvalid
-      .m_axis_tready(fifo_to_cm_tready), // input wire m_axis_tready
-      .m_axis_tdata(fifo_to_cm_tdata),   // output wire [23 : 0] m_axis_tdata
+        // writing side
+        .s_axis_aresetn(reset40_n),        // input wire s_axis_aresetn
+        .s_axis_aclk(ttc_clk),             // input wire s_axis_aclk
+        .s_axis_tvalid(tm_to_fifo_tvalid), // input wire s_axis_tvalid
+        .s_axis_tready(tm_to_fifo_tready), // output wire s_axis_tready
+        .s_axis_tdata(tm_to_fifo_tdata),   // input wire [23 : 0] s_axis_tdata
+
+        // reading side
+        .m_axis_aresetn(rst_n),            // input wire m_axis_aresetn
+        .m_axis_aclk(clk125),              // input wire m_axis_aclk
+        .m_axis_tvalid(fifo_to_cm_tvalid), // output wire m_axis_tvalid
+        .m_axis_tready(fifo_to_cm_tready), // input wire m_axis_tready
+        .m_axis_tdata(fifo_to_cm_tdata),   // output wire [23 : 0] m_axis_tdata
       
-      // unused output ports
-      .axis_data_count(),
-      .axis_wr_data_count(),
-      .axis_rd_data_count()
+        // unused output ports
+        .axis_data_count(),
+        .axis_wr_data_count(),
+        .axis_rd_data_count()
     );
 
     
