@@ -4,6 +4,10 @@
 // 1. Handle configuration via IPbus
 // 2. Handle ADC data readout to DAQ link
 //
+// Notes:
+// 1. Nothing is done with the trigger number from FIFO
+// 2. No recovery implemented from failed channel condition
+//
 // Originally created using Fizzim
 
 module command_manager (
@@ -45,9 +49,9 @@ module command_manager (
   output reg daq_trailer,
   output reg [63:0] daq_data,
 
-  // interface to trigger number FIFO
+  // interface to trigger information FIFO
   input wire tm_fifo_valid,
-  input wire [23:0] tm_fifo_data,
+  input wire [63:0] tm_fifo_data,
   output reg tm_fifo_ready,
 
   // other connections
@@ -281,7 +285,7 @@ module command_manager (
       // event builder state logic
       // =========================
 
-      // get the trigger number from the trigger number FIFO
+      // get the trigger number from the trigger information FIFO
       state[GET_TRIG_NUM] : begin
         begin
           next_chan_tx_fifo_dest[3:0] = 0;

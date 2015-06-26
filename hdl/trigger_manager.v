@@ -19,14 +19,14 @@ module trigger_manager (
   input wire trigger,
   input wire [4:0] chan_en,
   input wire [1:0] fill_type,
-  output reg [23:0] trig_num,
+  output reg [63:0] trig_num,
 
   // interface to Channel FPGAs
   input wire [4:0] acq_done,
   output reg [9:0] acq_enable,
   output reg [4:0] acq_trig,
 
-  // interface to trigger number FIFO
+  // interface to trigger information FIFO
   input wire fifo_ready,
   output reg fifo_valid
 );
@@ -38,12 +38,12 @@ module trigger_manager (
   
   reg [2:0] state;
   reg [2:0] nextstate;
-  reg [23:0] next_trig_num;
+  reg [63:0] next_trig_num;
 
   // comb always block
   always @* begin
     nextstate = 3'd0;
-    next_trig_num[23:0] = trig_num[23:0];
+    next_trig_num[63:0] = trig_num[63:0];
 
     acq_enable[9:0] = 10'd0; // default
     acq_trig[4:0] = 5'd0;    // default
@@ -52,7 +52,7 @@ module trigger_manager (
       // idle state
       state[IDLE] : begin
         if (trigger) begin
-          next_trig_num[23:0] = trig_num[23:0]+1;
+          next_trig_num[63:0] = trig_num[63:0]+1;
           nextstate[FILL] = 1'b1;
         end
         else begin
@@ -88,11 +88,11 @@ module trigger_manager (
   always @(posedge clk) begin
     if (reset) begin
       state <= 3'b001 << IDLE;
-      trig_num[23:0] <= 24'd0;
+      trig_num[63:0] <= 64'd0;
       end
     else begin
       state <= nextstate;
-      trig_num[23:0] <= next_trig_num[23:0];
+      trig_num[63:0] <= next_trig_num[63:0];
       end
   end
   
