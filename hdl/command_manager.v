@@ -141,7 +141,6 @@ module command_manager (
 
   // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
   wire [19:0] event_size;
-
   // Explaination for 'event size' calculation:
   // (burst_count[19:0]*2              : 2 64-bit words per burst
   //                   +2              : 2 64-bit channel header words per channel data set
@@ -155,26 +154,26 @@ module command_manager (
   // comb always block
   always @* begin
     nextstate = 29'd0;
-    next_burst_count[31:0] = burst_count[31:0];
-    next_chan_num_buf[31:0] = chan_num_buf[31:0];
+    next_burst_count[31:0]       = burst_count[31:0];
+    next_chan_num_buf[31:0]      = chan_num_buf[31:0];
     next_chan_tag_filltype[31:0] = chan_tag_filltype[31:0];
-    next_csn[31:0] = csn[31:0];
-    next_data_count[31:0] = data_count[31:0];
-    next_ddr_start_addr[31:0] = ddr_start_addr[31:0];
-    next_ipbus_buf[31:0] = ipbus_buf[31:0];
-    next_num_chan_en[2:0] = num_chan_en[2:0];
-    next_sent_header = sent_header;
-    next_trig_num_buf[31:0] = trig_num_buf[31:0];
-    next_timestamp[31:0] = timestamp[31:0] + 1'b1;
+    next_csn[31:0]               = csn[31:0];
+    next_data_count[31:0]        = data_count[31:0];
+    next_ddr_start_addr[31:0]    = ddr_start_addr[31:0];
+    next_ipbus_buf[31:0]         = ipbus_buf[31:0];
+    next_num_chan_en[2:0]        = num_chan_en[2:0];
+    next_sent_header             = sent_header;
+    next_trig_num_buf[31:0]      = trig_num_buf[31:0];
+    next_timestamp[31:0]         = timestamp[31:0] + 1'b1;
 
-    next_update_mcs_lsb = update_mcs_lsb;
-    next_master_checksum[127:0] = master_checksum[127:0];
+    next_update_mcs_lsb          = update_mcs_lsb;
+    next_master_checksum[127:0]  = master_checksum[127:0];
     next_channel_checksum[127:0] = channel_checksum[127:0];
 
-    next_daq_data[63:0] = daq_data[63:0];
-    next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0];
-    next_chan_tx_fifo_last = chan_tx_fifo_last;
-    next_ipbus_res_last = ipbus_res_last;
+    next_daq_data[63:0]          = daq_data[63:0];
+    next_chan_tx_fifo_dest[3:0]  = chan_tx_fifo_dest[3:0];
+    next_chan_tx_fifo_last       = chan_tx_fifo_last;
+    next_ipbus_res_last          = ipbus_res_last;
     next_daq_valid = 0; // default
 
     chan_tx_fifo_data[31:0] = 0; // default
@@ -353,7 +352,7 @@ module command_manager (
       state[READ_CHAN_TRIG_NUM] : begin
         if (chan_rx_fifo_valid) begin
           next_trig_num_buf[31:0] = chan_rx_fifo_data[31:0];
-          next_master_checksum[127:0] = {master_checksum[127:32],chan_rx_fifo_data[31:0]};
+          next_master_checksum[127:0] = {master_checksum[127:32], chan_rx_fifo_data[31:0]};
           nextstate[READ_CHAN_DDR3_START_ADDR] = 1'b1;
         end
         else begin
@@ -364,7 +363,7 @@ module command_manager (
       state[READ_CHAN_DDR3_START_ADDR] : begin
         if (chan_rx_fifo_valid) begin
           next_ddr_start_addr[31:0] = chan_rx_fifo_data[31:0];
-          next_master_checksum[127:0] = {master_checksum[127:64],chan_rx_fifo_data[31:0],master_checksum[31:0]};
+          next_master_checksum[127:0] = {master_checksum[127:64], chan_rx_fifo_data[31:0], master_checksum[31:0]};
           nextstate[READ_CHAN_BURST_COUNT] = 1'b1;
         end
         else begin
@@ -375,7 +374,7 @@ module command_manager (
       state[READ_CHAN_BURST_COUNT] : begin
         if (chan_rx_fifo_valid) begin
           next_burst_count[31:0] = chan_rx_fifo_data[31:0];
-          next_master_checksum[127:0] = {master_checksum[127:96],chan_rx_fifo_data[31:0],master_checksum[63:0]};
+          next_master_checksum[127:0] = {master_checksum[127:96], chan_rx_fifo_data[31:0], master_checksum[63:0]};
           nextstate[READ_CHAN_TAG_AND_FILLTYPE] = 1'b1;
         end
         else begin
@@ -386,7 +385,7 @@ module command_manager (
       state[READ_CHAN_TAG_AND_FILLTYPE] : begin
         if (chan_rx_fifo_valid) begin
           next_chan_tag_filltype[31:0] = chan_rx_fifo_data[31:0];
-          next_master_checksum[127:0] = {chan_rx_fifo_data[31:0],master_checksum[95:0]};
+          next_master_checksum[127:0] = {chan_rx_fifo_data[31:0], master_checksum[95:0]};
           nextstate[STORE_CHAN_TAG_AND_FILLTYPE] = 1'b1;
         end
         else begin
@@ -397,12 +396,13 @@ module command_manager (
       state[STORE_CHAN_TAG_AND_FILLTYPE] : begin
         if (!sent_header) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {8'h00,trig_num_buf[23:0],12'h000,event_size[19:0]};
+          next_daq_data[63:0] = {8'h00, trig_num_buf[23:0], 12'h000, event_size[19:0]};
           nextstate[SEND_AMC13_HEADER1] = 1'b1;
         end
         else begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {2'b01,12'b0,chan_tag_filltype[17:0],11'b0,burst_count[20:0]};
+          next_daq_data[63:0] = {2'b01, 12'b0, chan_tag_filltype[17:0], 11'b0, burst_count[20:0]};
+          next_timestamp[31:0] = 0;
           nextstate[SEND_CHAN_HEADER1] = 1'b1;
         end
       end
@@ -422,7 +422,7 @@ module command_manager (
       state[SEND_AMC13_HEADER2] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {2'b01,12'b0,chan_tag_filltype[17:0],11'b0,burst_count[20:0]};
+          next_daq_data[63:0] = {2'b01, 12'b0, chan_tag_filltype[17:0], 11'b0, burst_count[20:0]};
           next_sent_header = 1'b1;
           next_timestamp[31:0] = 0;
           nextstate[SEND_CHAN_HEADER1] = 1'b1;
@@ -436,7 +436,7 @@ module command_manager (
       state[SEND_CHAN_HEADER1] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {6'b0,ddr_start_addr[25:3],3'b0,8'b0,trig_num_buf[23:0]};
+          next_daq_data[63:0] = {6'b0, ddr_start_addr[25:3], 3'b0, 8'b0, trig_num_buf[23:0]};
           nextstate[SEND_CHAN_HEADER2] = 1'b1;
         end
         else begin
@@ -460,7 +460,7 @@ module command_manager (
       state[READ_CHAN_DATA1] : begin
         // check if the Aurora RX FIFO has data for us
         if (chan_rx_fifo_valid) begin
-          next_daq_data[63:0] = {32'h00000000,chan_rx_fifo_data[31:0]};
+          next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
           next_data_count[31:0] = data_count[31:0]+1;
           nextstate[READ_CHAN_DATA2] = 1'b1;
         end
@@ -477,16 +477,17 @@ module command_manager (
         // DAQ link has flagged that its buffer is almost full
         // grab the Aurora RX FIFO's lastest word, and wait for DAQ link to recover before trying to send it
         if (~daq_ready) begin
-          next_daq_data[63:0] = {chan_rx_fifo_data[31:0],daq_data[31:0]};
+          next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
           next_data_count[31:0] = data_count[31:0]+1;
           next_update_mcs_lsb = ~update_mcs_lsb;
 
           // check whether this data word is the channel checksum
-          if (data_count[31:0] == (burst_count[31:0]*4+2)) begin
-            next_channel_checksum[127:0] = {64'd0,chan_rx_fifo_data[31:0],daq_data[31:0]};
+          if (data_count[31:0] == (burst_count[31:0]*4+1)) begin
+            next_channel_checksum[127:0] = {64'd0, chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
           else begin
-            next_master_checksum[127:0] = update_mcs_lsb ? {master_checksum[127:64],(master_checksum[63:0]^{chan_rx_fifo_data[31:0],daq_data[31:0]})} : {(master_checksum[127:64]^{chan_rx_fifo_data[31:0],daq_data[31:0]}),master_checksum[63:0]};
+            // update least- or most-significant 64-bits of checksum, use '~update_mcs_lsb' to determine the 'next' value
+            next_master_checksum[127:0] = ~update_mcs_lsb ? {master_checksum[127:64], (master_checksum[63:0]^{chan_rx_fifo_data[31:0], daq_data[31:0]})} : {(master_checksum[127:64]^{chan_rx_fifo_data[31:0], daq_data[31:0]}), master_checksum[63:0]};
           end
           nextstate[READ_CHAN_DATA_RESYNC] = 1'b1;
         end
@@ -494,25 +495,26 @@ module command_manager (
         // send it, and exit to send the timestamp next
         else if (daq_ready & chan_rx_fifo_valid & (data_count[31:0] == (burst_count[31:0]*4+3))) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {chan_rx_fifo_data[31:0],daq_data[31:0]};
+          next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
           next_data_count[31:0] = data_count[31:0]+1;
-          next_channel_checksum[127:0] = {chan_rx_fifo_data[31:0],daq_data[31:0],channel_checksum[63:0]};
+          next_channel_checksum[127:0] = {chan_rx_fifo_data[31:0], daq_data[31:0], channel_checksum[63:0]};
           nextstate[SEND_TIMESTAMP] = 1'b1;
         end
         // we've not received all the data
         // send current data, and continue the readout loop
         else if (daq_ready & chan_rx_fifo_valid) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {chan_rx_fifo_data[31:0],daq_data[31:0]};
+          next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
           next_data_count[31:0] = data_count[31:0]+1;
           next_update_mcs_lsb = ~update_mcs_lsb;
 
           // check whether this data word is the channel checksum
-          if (data_count[31:0] == (burst_count[31:0]*4+2)) begin
-            next_channel_checksum[127:0] = {64'd0,chan_rx_fifo_data[31:0],daq_data[31:0]};
+          if (data_count[31:0] == (burst_count[31:0]*4+1)) begin
+            next_channel_checksum[127:0] = {64'd0, chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
           else begin
-            next_master_checksum[127:0] = update_mcs_lsb ? {master_checksum[127:64],(master_checksum[63:0]^{chan_rx_fifo_data[31:0],daq_data[31:0]})} : {(master_checksum[127:64]^{chan_rx_fifo_data[31:0],daq_data[31:0]}),master_checksum[63:0]};
+            // update least- or most-significant 64-bits of checksum, use '~update_mcs_lsb' to determine the 'next' value
+            next_master_checksum[127:0] = ~update_mcs_lsb ? {master_checksum[127:64] ,(master_checksum[63:0]^{chan_rx_fifo_data[31:0], daq_data[31:0]})} : {(master_checksum[127:64]^{chan_rx_fifo_data[31:0], daq_data[31:0]}), master_checksum[63:0]};
           end
           nextstate[READ_CHAN_DATA1] = 1'b1;
         end
@@ -548,11 +550,11 @@ module command_manager (
           // check whether the checksums match
           // if they match, send '0000_0000' in MSB
           if (master_checksum[127:0] == channel_checksum[127:0]) begin
-            next_daq_data[63:0] = {32'hffff_ffff,timestamp[31:0]};
+            next_daq_data[63:0] = {32'h0000_0000, timestamp[31:0]};
           end
           // if they don't match, send 'baad_baad' in MSB
           else begin
-            next_daq_data[63:0] = {32'hbaad_baad,timestamp[31:0]};
+            next_daq_data[63:0] = {32'hbaad_baad, timestamp[31:0]};
           end
 
           next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0]+1;
@@ -568,7 +570,7 @@ module command_manager (
       state[READY_AMC13_TRAILER] : begin
         begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {32'h00000000,trig_num_buf[7:0],4'h0,event_size[19:0]};
+          next_daq_data[63:0] = {32'h00000000, trig_num_buf[7:0], 4'h0, event_size[19:0]};
           nextstate[SEND_AMC13_TRAILER] = 1'b1;
         end
       end
