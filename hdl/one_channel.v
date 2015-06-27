@@ -244,7 +244,7 @@ module one_channel(
   assign lane_up_reduce_i  = &lane_up_r2;
   assign rst_cc_module_i   = !lane_up_reduce_i;
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////
   // connect the programming interface
   chan_io_block io_block(
     // programming interface

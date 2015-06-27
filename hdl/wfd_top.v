@@ -84,6 +84,11 @@ module wfd_top(
     assign clk50 = clkin; // just to make the frequency explicit
 
 
+    // ======== error checking signals ========
+    wire [4:0] chan_error_rc;  // master received an error response code, one bit for each channel
+    wire [4:0] trig_num_error; // trigger numbers from channel header and trigger information FIFO aren't synchronized, one bit for each channel
+
+
     // ======== I/O lines to channel (for DDR3) ========
     wire [9:0] acq_enable;
     wire [4:0] acq_readout_pause;
@@ -102,13 +107,15 @@ module wfd_top(
 
 
     // ======== front panel LED ========
-
     led_status led_status(
         .clk(clk50),
         .red_led(led1),
         .green_led(led0),
+        // status input signals
         .adcclk_ld(adcclk_ld),
-        .TTCready(TTCready)
+        .TTCready(TTCready),
+        .chan_error_rc(chan_error_rc[4:0]),
+        .trig_num_error(trig_num_error[4:0])
     );
 
     // debug signals
@@ -120,7 +127,7 @@ module wfd_top(
     // dummy use of signals
     assign debug7 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & trigger_from_ipbus_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
 
-    // (active-high) reset signal to channels
+    // active-high reset signal to channels
     assign c0_io[3] = rst_from_ipb;
     assign c1_io[3] = rst_from_ipb;
     assign c2_io[3] = rst_from_ipb;
@@ -135,10 +142,10 @@ module wfd_top(
 
     assign bbus_scl = ext_trig ? mmc_io[0] : 1'bz;
     assign bbus_sda = ext_trig ? mmc_io[1] : 1'bz;
-    // assign adcclk_los0 = 1'b0;
-    // assign adcclk_los1 = 1'b0;
+    //assign adcclk_los0 = 1'b0;
+    //assign adcclk_los1 = 1'b0;
     assign daq_clk_sel = 1'b0;
-    assign daq_clk_en = 1'b1;
+    assign daq_clk_en  = 1'b1;
 
     OBUFDS ttc_tx_buf(.I(ttc_rx), .O(ttc_txp), .OB(ttc_txn)); 
 
@@ -170,35 +177,34 @@ module wfd_top(
     BUFG BUFG_clk125 (.I(clk_125), .O(clk125));
 
     // ======== ethernet status signals ========
-    reg sfp_los = 0;      // loss of signal for gigabit ethernet. Not used
-    wire eth_link_status; // link status of gigabit ethernet
+    reg sfp_los = 0;      // loss of signal for Gigabit ethernet. Not used.
+    wire eth_link_status; // link status of Gigabit ethernet
 
     // ======== reset signals ========
-    wire rst_from_ipb;        // active high reset from IPbus. Synchronous to IPbus clock
-    wire rst_n;               // active low reset
-    assign rst_n = ~rst_from_ipb;
+    wire rst_from_ipb, rst_from_ipb_n;  // active-high reset from IPbus. Synchronous to IPbus clock.
+    assign rst_from_ipb_n = ~rst_from_ipb;
+
 
     // Synchronize reset from IPbus clock domain to other domains
-    
-    wire rst_from_ipb_stretch;
-    signal_stretch ipb_rst_stretch (
+    wire ipb_rst_stretch;
+    signal_stretch reset_stretch (
         .signal_in(rst_from_ipb),
         .clk(clk125),
         .n_extra_cycles(4'h8), // add more than enough extra clock cycles for synchronization into 50 MHz and 40 MHz clock domains
-        .signal_out(rst_from_ipb_stretch)
+        .signal_out(ipb_rst_stretch)
     );
 
     wire clk50_reset;
     sync_2stage clk50_reset_sync (
         .clk(clk50),
-        .in(rst_from_ipb_stretch),
+        .in(ipb_rst_stretch),
         .out(clk50_reset)
     );
 
     wire reset40;
     sync_2stage reset40_sync (
         .clk(ttc_clk),
-        .in(rst_from_ipb_stretch),
+        .in(ipb_rst_stretch),
         .out(reset40)
     );
 
@@ -257,8 +263,8 @@ module wfd_top(
         .spi_miso(spi_miso),
         .spi_ss(spi_ss),
         .prog_chan_in_progress(prog_chan_in_progress), // signal from prog_channels
-        .read_bitstream(read_bitstream), // start signal from prog_channels
-        .end_bitstream(end_bitstream), // done signal to prog_channels
+        .read_bitstream(read_bitstream),               // start signal from prog_channels
+        .end_bitstream(end_bitstream),                 // done signal to prog_channels
         .ipb_flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
         .ipb_flash_rd_nBytes(ipbus_to_flash_rd_nBytes),
         .ipb_flash_cmd_strobe(ipbus_to_flash_cmd_strobe),
@@ -270,15 +276,15 @@ module wfd_top(
         .ipb_wbuf_data_in(ipbus_to_flash_wbuf_data),
         .pc_wbuf_wr_en(pc_to_flash_wbuf_en), // from prog_channels
         .pc_wbuf_wr_addr(7'b0000000),        // hardcode address 0
-        .pc_wbuf_data_in(32'h03CE0000)    // hardcode read command for channel bitstream
+        .pc_wbuf_data_in(32'h03CE0000)       // hardcode read command for channel bitstream
     );
 
     // ======== program channel FPGAs using bistream stored on SPI flash memory ========
 
     wire prog_chan_start_from_ipbus; // in 125 MHz clock domain
-    wire prog_chan_start; // in 50 MHz clock domain 
-             // don't have to worry about missing the faster signal -- stays high 
-             // until you use ipbus to set it low again
+    wire prog_chan_start;            // in 50 MHz clock domain 
+                                     // don't have to worry about missing the faster signal -- stays high 
+                                     // until you use ipbus to set it low again
     sync_2stage prog_chan_start_sync(
         .clk(clk50),
         .in(prog_chan_start_from_ipbus),
@@ -304,11 +310,11 @@ module wfd_top(
     // ======== module to reprogram FPGA from flash ========
 
     wire [1:0] reprog_trigger_from_ipbus; // in 125 MHz clock domain
-    wire [1:0] reprog_trigger; // in 50 MHz clock domain
-                               // don't have to worry about missing the faster signal
-                               // (stays high until you use ipbus to set it low again)
-    wire [1:0] reprog_trigger_delayed; // after passing through 32-bit shift register
-                                       // (to allow time for IPbus ack before reprogramming FPGA)
+    wire [1:0] reprog_trigger;            // in 50 MHz clock domain
+                                          // don't have to worry about missing the faster signal
+                                          // (stays high until you use ipbus to set it low again)
+    wire [1:0] reprog_trigger_delayed;    // after passing through 32-bit shift register
+                                          // (to allow time for IPbus ack before reprogramming FPGA)
 
     sync_2stage reprog_trigger_sync0(
         .clk(clk50),
@@ -563,7 +569,7 @@ module wfd_top(
     
 
     // ======== module instantiations ========
-   
+
     // TTC decoder module
     TTC_decoder ttc(
         .TTC_CLK_p(ttc_clkp),        // in  STD_LOGIC
@@ -583,7 +589,7 @@ module wfd_top(
     );
 
 
-    // IPBus module
+    // IPbus module
     ipbus_top ipb(
         .gt_clkp(gtx_clk0), .gt_clkn(gtx_clk0_N),
         .gt_txp(gige_tx),   .gt_txn(gige_tx_N),
@@ -591,7 +597,7 @@ module wfd_top(
         .sfp_los(sfp_los),
         .eth_link_status(eth_link_status),
         .rst_out(rst_from_ipb),
-        
+           
         // clocks
         .clk_200(clk200),
         .clk_125(),
@@ -685,12 +691,12 @@ module wfd_top(
         .clk50(clk50),
         .clk50_reset(clk50_reset), // FIXME
         .axis_clk(clk125),
-        .axis_clk_resetN(rst_n),
+        .axis_clk_resetN(rst_from_ipb_n),
         .gt_refclk(gtrefclk0),
 
         // IPbus inputs
         .ipb_clk(user_ipb_clk),           // programming clock
-        .ipb_reset(rst_from_ipb),
+        .ipb_reset(rst_from_ipb_n),
         .ipb_strobe(user_ipb_strobe),     // this ipb space is selected for an I/O operation
         .ipb_addr(user_ipb_addr[23:0]),   // slave address(), memory or register
         .ipb_write(user_ipb_write),       // this is a write operation
@@ -707,7 +713,7 @@ module wfd_top(
         .c0_s_axi_tx_tvalid(c0_axi_stream_to_channel_tvalid),
         .c0_s_axi_tx_tlast(c0_axi_stream_to_channel_tlast),
         .c0_s_axi_tx_tready(c0_axi_stream_to_channel_tready),
-        // RX Interface to master side of receive FIFO
+        // RX interface to master side of receive FIFO
         .c0_m_axi_rx_tdata(c0_axi_stream_to_cm_tdata),             // note index order
         .c0_m_axi_rx_tkeep(),                                      // note index order
         .c0_m_axi_rx_tvalid(c0_axi_stream_to_cm_tvalid),
@@ -727,7 +733,7 @@ module wfd_top(
         .c1_s_axi_tx_tvalid(c1_axi_stream_to_channel_tvalid),
         .c1_s_axi_tx_tlast(c1_axi_stream_to_channel_tlast),
         .c1_s_axi_tx_tready(c1_axi_stream_to_channel_tready),
-        // RX Interface to master side of receive FIFO
+        // RX interface to master side of receive FIFO
         .c1_m_axi_rx_tdata(c1_axi_stream_to_cm_tdata),              // note index order
         .c1_m_axi_rx_tkeep(),                                       // note index order
         .c1_m_axi_rx_tvalid(c1_axi_stream_to_cm_tvalid),
@@ -747,7 +753,7 @@ module wfd_top(
         .c2_s_axi_tx_tvalid(c2_axi_stream_to_channel_tvalid),
         .c2_s_axi_tx_tlast(c2_axi_stream_to_channel_tlast),
         .c2_s_axi_tx_tready(c2_axi_stream_to_channel_tready),
-        // RX Interface to master side of receive FIFO
+        // RX interface to master side of receive FIFO
         .c2_m_axi_rx_tdata(c2_axi_stream_to_cm_tdata),              // note index order
         .c2_m_axi_rx_tkeep(),                                       // note index order
         .c2_m_axi_rx_tvalid(c2_axi_stream_to_cm_tvalid),
@@ -767,7 +773,7 @@ module wfd_top(
         .c3_s_axi_tx_tvalid(c3_axi_stream_to_channel_tvalid),
         .c3_s_axi_tx_tlast(c3_axi_stream_to_channel_tlast),
         .c3_s_axi_tx_tready(c3_axi_stream_to_channel_tready),
-        // RX Interface to master side of receive FIFO
+        // RX interface to master side of receive FIFO
         .c3_m_axi_rx_tdata(c3_axi_stream_to_cm_tdata),              // note index order
         .c3_m_axi_rx_tkeep(),                                       // note index order
         .c3_m_axi_rx_tvalid(c3_axi_stream_to_cm_tvalid),
@@ -787,7 +793,7 @@ module wfd_top(
         .c4_s_axi_tx_tvalid(c4_axi_stream_to_channel_tvalid),
         .c4_s_axi_tx_tlast(c4_axi_stream_to_channel_tlast),
         .c4_s_axi_tx_tready(c4_axi_stream_to_channel_tready),
-        // RX Interface to master side of receive FIFO
+        // RX interface to master side of receive FIFO
         .c4_m_axi_rx_tdata(c4_axi_stream_to_cm_tdata),              // note index order
         .c4_m_axi_rx_tkeep(),                                       // note index order
         .c4_m_axi_rx_tvalid(c4_axi_stream_to_cm_tvalid),
@@ -821,9 +827,9 @@ module wfd_top(
 
 
 
-// ==================================================================================
-// synchronize signals into 40 MHz TTC clock domain for use in trigger manager module 
-// ==================================================================================
+    // ==================================================================================
+    // synchronize signals into 40 MHz TTC clock domain for use in trigger manager module 
+    // ==================================================================================
 
     // chan_en: from IPbus, typically stable at a fixed value (don't need to stretch)
     wire [4:0] chan_en_sync;
@@ -874,7 +880,7 @@ module wfd_top(
         .acq_enable(acq_enable),
 
         .chan_en(chan_en_sync), // enabled channels from IPbus
-	    .fill_type(2'b01)       // hardcoded for "Muon Fill" (later will be a register set by TTC commands)
+        .fill_type(2'b01)       // hardcoded for "Muon Fill" (later will be a register set by TTC commands)
     );
 
 
@@ -951,9 +957,11 @@ module wfd_top(
         .tm_fifo_data(fifo_to_cm_tdata),   // input [63:0]
         .tm_fifo_ready(fifo_to_cm_tready), // output
 
-        // other connections
-        .read_fill_done(chan_readout_done), // input [4:0]
-        .chan_en(chan_en)                   // output, enabled channels from IPbus
+        // status connections
+        .read_fill_done(chan_readout_done),   // input  [4:0]
+        .chan_error_rc(chan_error_rc[4:0]),   // output [4:0]
+        .trig_num_error(trig_num_error[4:0]), // output [4:0]
+        .chan_en(chan_en)                     // output, enabled channels from IPbus
     );
 
 
@@ -992,8 +1000,8 @@ module wfd_top(
 
     // AXIS TX Switch
     axis_switch_tx tx_switch (
-        .aclk(clk125),   // input
-        .aresetn(rst_n), // input
+        .aclk(clk125),            // input
+        .aresetn(rst_from_ipb_n), // input
 
         // CM side
         .s_axis_tvalid(axi_stream_to_channel_from_cm_tvalid), // input
@@ -1018,7 +1026,7 @@ module wfd_top(
     wire [4:0] s_req_suppress = 5'b0; // active-high skips next arbitration cycle
     axis_switch_rx rx_switch (
         .aclk(clk125),                   // input
-        .aresetn(rst_n),                 // input
+        .aresetn(rst_from_ipb_n),        // input
         .s_req_suppress(s_req_suppress), // input [4:0]
 
         // channel FPGA side
