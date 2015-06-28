@@ -22,7 +22,7 @@ create_clock -period 8.000 -name user_clk_chan4 [get_pins channels/chan4/clock_m
 #     the slower 50 MHz clock domain. We have ensured that these signals change slowly enough that this
 #     won't be a problem (there's no chance of missing a sharp pulse), and that it doesn't matter exactly
 #     when the signals arrive.
-set_false_path -from [get_cells ipb_rst_stretch/signal_out_reg*] -to [get_cells clk50_reset_sync/sync1_reg*]
+set_false_path -from [get_cells reset_stretch/signal_out_reg*] -to [get_cells clk50_reset_sync/sync1_reg*]
 set_false_path -from [get_cells ipb/slaves/slave7/flash_cmd_strobe_reg*] -to [get_cells spi_flash_intf/flash_cmd_sync/sync1_reg*]
 set_false_path -from [get_cells ipb/slaves/slave7/flash_wr_nBytes_reg*] -to [get_cells spi_flash_intf/flash_wr_nBytes_sync_reg*]
 set_false_path -from [get_cells ipb/slaves/slave7/flash_rd_nBytes_reg*] -to [get_cells spi_flash_intf/flash_rd_nBytes_sync_reg*]
