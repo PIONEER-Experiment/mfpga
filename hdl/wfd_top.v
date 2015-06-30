@@ -696,7 +696,7 @@ module wfd_top(
 
         // IPbus inputs
         .ipb_clk(user_ipb_clk),           // programming clock
-        .ipb_reset(rst_from_ipb_n),
+        .ipb_reset(rst_from_ipb),
         .ipb_strobe(user_ipb_strobe),     // this ipb space is selected for an I/O operation
         .ipb_addr(user_ipb_addr[23:0]),   // slave address(), memory or register
         .ipb_write(user_ipb_write),       // this is a write operation
