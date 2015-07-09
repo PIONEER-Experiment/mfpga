@@ -1,0 +1,51 @@
+4/11/2015 version 0x10
+fixed a bug which causes TTC-trigger data bit errors
+modules hamming.vhd and DAQ_LINK_7s.vhd changed
+4/10/2015 version 0xf
+fixed a bug which causes evn mismatche
+Only module DAQ_LINK_7s.vhd changed
+4/3/2015 version 0xe
+fixed a potential bug which can cause evn, bcn and ocn mismatches
+Only module DAQ_LINK_7s.vhd changed
+4/2/2015 version 0xd
+bug introduced in 0xc fixed
+modules DAQ_Link_V6.vhd and TTS_TRIG_IF.vhd changed
+4/1/2015 version 0xc
+CriticalTTS added to DAQ_Link_7s.vhd(bit 11-9 of reg 0x2e) 
+reset(Ready_i low) lengthened
+Only module DAQ_LINK_7s.vhd changed
+3/29/2015 version 0xb
+This new version fixed a bug in TTS_TRIG_if.vhd which can cause amc13 to
+amc connection difficulties.
+
+In module's declaration or its instantiation, set the
+generic parameter F_REFCLK as your design's frequency of the GTX reference
+clock
+If you are using amc13 firmware 0x4xxx, generic port USE_TRIGGER_PORT
+should be set to boolean value TRUE in your instantiation, otherwise
+set it to FALSE
+
+please include the following line in your xst file:
+
+create_clock -period 4.000 -name DAQ_usrclk [get_pins */i_DAQ_Link/i_UsrClk/o]
+
+where i_DAQ_Link is the instance name of the module DAQ_Link_Kintex
+in its upper level module.
+
+This zip file includes following files:
+
+DAQ_Link_kintex.vhd		top level module
+DAQ_Link_7s.vhd
+FIFO_rest_7S.vhd
+EthernetCRCD32.vhd
+CRC16D16.vhd
+TTS_TRIG_if.vhd
+RAM32x6Db.vhd
+Hamming.vhd
+DAQLINK_7s_init.vhd
+DAQLINK_7s.vhd
+DAQLINK_7s_gt.vhd
+DAQLINK_7s_sync_block.vhd
+DAQLINK_7s_tx_startup_fsm.vhd
+DAQLINK_7s_rx_startup_fsm.vhd
+ReleaseNote.txt		this file

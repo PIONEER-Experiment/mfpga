@@ -15,6 +15,7 @@ ip/*/**/
 !*.v
 !*.vhd
 !hdl/*.txt
+!DAQ_Link_7S/*.txt
 
 # IPs
 !ip/**/*.xci

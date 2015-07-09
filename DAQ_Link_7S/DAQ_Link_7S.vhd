@@ -118,7 +118,7 @@ COMPONENT FIFO_RESET_7S
 END COMPONENT;
 constant N : integer := 8;
 constant Acknowledge : std_logic_vector(7 downto 0) := x"12";
-constant version : std_logic_vector(7 downto 0) := x"0b";
+constant version : std_logic_vector(7 downto 0) := x"10";
 constant data : std_logic_vector(7 downto 0) := x"34";
 constant InitRqst : std_logic_vector(7 downto 0) := x"56";
 constant Counter : std_logic_vector(7 downto 0) := x"78";
@@ -334,6 +334,7 @@ signal L1A_DATA_ra : std_logic_vector(4 downto 0) := (others => '0');
 signal L1A_DATA_wa : std_logic_vector(2 downto 0) := (others => '0');
 signal OldL1Ainfo_wa0_SyncRegs : std_logic_vector(3 downto 0) := (others => '0');
 signal ce_L1A_DATA_ra : std_logic := '0';
+signal CriticalTTS : std_logic_vector(2 downto 0) := (others => '0');
 begin
 Ready <= fifo_en;
 AlmostFull <= AlmostFull_i;
@@ -409,7 +410,7 @@ begin
 			bad_EventLength <= '0';
 		end if;
 		Init_EventCRC <= not UsrClkDiv(1) and not UsrClkDiv(0) and DataFIFO_do(65) and not ChkEvtLen(1) and not ChkEvtLen(0) and not DataFIFO_EMPTY;
-		if(FIFO_en = '0' or InitLink = '1' or DataFIFO_EMPTY = '1')then
+		if(FIFO_en = '0' or Ready_i = '0' or InitLink = '1' or DataFIFO_EMPTY = '1')then
 			FillDataBuf <= '0';
 		elsif(UsrClkDiv = "00")then
 			if(DataBuf_full = '1' or EventCnt(4 downto 3) = "11")then
@@ -492,7 +493,7 @@ begin
 end process;
 process(EventDataClk,reset,InitLink)
 begin
-	if(reset = '1' or InitLink = '1')then
+	if(reset = '1' or Ready_i = '0')then
 		ChkEvtLen_in <= (others => '0');
 		sample_sync <= (others => '0');
 		FIFO_ovf <= '0';
@@ -551,62 +552,128 @@ end process;
 process(UsrClk)
 begin
 	if(UsrClk'event and UsrClk = '1')then
-		if(InitLink = '1')then
+		if(Ready_i = '0' or InitLink = '1')then
 			DataBuf_wa <= (others => '0');
-		elsif(DataBuf_wrEn = '1')then
-			DataBuf_wa <= DataBuf_wa + 1;
-		end if;
-		if(InitLink = '1')then
 			ReSendQueOut_q <= (others => '0');
-		elsif(ReSendQue_a /= "11")then
-			ReSendQueOut_q <= ReSendQueOut(14 downto 0);
-		end if;
-		DataBuf_used <= DataBuf_wa - ReSendQueOut_q;
-		DataBuf_wc <= DataBuf_wa - DataBuf_ra;
-		ec_DataBuf_ra_q <= ec_DataBuf_ra and not Resend;
-		if(or_reduce(DataBuf_wc(14 downto 2)) = '0' and (DataBuf_wc(1 downto 0) = "00" or ec_DataBuf_ra = '1' or ec_DataBuf_ra_q = '1'))then
+			DataBuf_used <= (others => '0');
+			DataBuf_wc <= (others => '0');
+			ec_DataBuf_ra_q <= '0';
 			ec_DataBuf_ra <= '0';
-		else
-			ec_DataBuf_ra <= not DataPipe_full and not Resend;
-		end if;
-		DataBuf_full <= and_reduce(DataBuf_used(14 downto 3));
-		we_DataPipe <= ec_DataBuf_ra_q and not Resend;
-		if(InitLink = '1' or Resend = '1')then
+			DataBuf_full <= '0';
+			we_DataPipe <= '0';
 			DataPipe_a <= (others => '1');
-		elsif(we_DataPipe = '1' and (TxFIFO_full = '1' or TxState /= SendData))then
-			DataPipe_a <= DataPipe_a + 1;
-		elsif(we_DataPipe = '0' and TxFIFO_full = '0' and TxState = SendData)then
-			DataPipe_a <= DataPipe_a - 1;
-		end if;
-		if(DataPipe_a = x"f" or Resend = '1' or (DataPipe_a = x"0" and TxFIFO_full = '0' and TxState = SendData))then
 			DataPipe_empty <= '1';
-		else
-			DataPipe_empty <= '0';
-		end if;
-		case DataPipe_a is
-			when x"e" | x"d" | x"c"  | x"b" | x"a"  | x"9" | x"8" => DataPipe_full <= '1';
-			when others => DataPipe_full <= '0';
-		end case;
-		if(Ready_i = '0' or InitLink = '1')then
-			WrEventCnt <= (others => '0');
-		elsif(DataBuf_Din(16) = '1' and DataBuf_wrEn = '1')then
-			WrEventCnt <= WrEventCnt + 1;
-		end if;
-		if(Ready_i = '0' or InitLink = '1')then
+			DataPipe_full <= '0';
 			RdEventCnt <= (others => '0');
-		elsif(ReSend = '1')then
-			RdEventCnt <= ReSendQueOut(27 downto 23);
-		elsif(TxState = SendEOF and TxFIFO_full = '0')then
-			RdEventCnt <= RdEventCnt + 1;
-		end if;
-		if((WrEventCnt = RdEventCnt and DataBuf_wc(14 downto 12) = "000") or InitLink = '1')then
+			WrEventCnt <= (others => '0');
 			EventData2Send <= '0';
+			EventCnt <= (others => '0');
+			ReSendQue_a <= (others => '1');
+			we_ReSendQue <= '0';
+			ReSendQue_empty <= '1';
+			timer <= (others => '0');
+			DataBuf_start <= (others => '0');
+			DataBuf_ra <= (others => '0');
 		else
-			EventData2Send <= '1';
+			if(DataBuf_wrEn = '1')then
+				DataBuf_wa <= DataBuf_wa + 1;
+			end if;
+			if(ReSendQue_a /= "11")then
+				ReSendQueOut_q <= ReSendQueOut(14 downto 0);
+			end if;
+			DataBuf_used <= DataBuf_wa - ReSendQueOut_q;
+			DataBuf_wc <= DataBuf_wa - DataBuf_ra;
+			if(or_reduce(DataBuf_wc(14 downto 2)) = '0' and (DataBuf_wc(1 downto 0) = "00" or ec_DataBuf_ra = '1' or ec_DataBuf_ra_q = '1'))then
+				ec_DataBuf_ra <= '0';
+			else
+				ec_DataBuf_ra <= not DataPipe_full and not Resend;
+			end if;
+			ec_DataBuf_ra_q <= ec_DataBuf_ra and not Resend;
+			DataBuf_full <= and_reduce(DataBuf_used(14 downto 3));
+			we_DataPipe <= ec_DataBuf_ra_q and not Resend;
+			if(Resend = '1')then
+				DataPipe_a <= (others => '1');
+			elsif(we_DataPipe = '1' and (TxFIFO_full = '1' or TxState /= SendData))then
+				DataPipe_a <= DataPipe_a + 1;
+			elsif(we_DataPipe = '0' and TxFIFO_full = '0' and TxState = SendData)then
+				DataPipe_a <= DataPipe_a - 1;
+			end if;
+			if(DataPipe_a = x"f" or Resend = '1' or (DataPipe_a = x"0" and TxFIFO_full = '0' and TxState = SendData))then
+				DataPipe_empty <= '1';
+			else
+				DataPipe_empty <= '0';
+			end if;
+			case DataPipe_a is
+				when x"e" | x"d" | x"c"  | x"b" | x"a"  | x"9" | x"8" => DataPipe_full <= '1';
+				when others => DataPipe_full <= '0';
+			end case;
+			if(DataBuf_Din(16) = '1' and DataBuf_wrEn = '1')then
+				WrEventCnt <= WrEventCnt + 1;
+			end if;
+			if(ReSend = '1')then
+				RdEventCnt <= ReSendQueOut(27 downto 23);
+			elsif(TxState = SendEOF and TxFIFO_full = '0')then
+				RdEventCnt <= RdEventCnt + 1;
+			end if;
+			if(WrEventCnt = RdEventCnt and DataBuf_wc(14 downto 12) = "000")then
+				EventData2Send <= '0';
+			else
+				EventData2Send <= '1';
+			end if;
+			EventCnt <= WrEventCnt - RdEventCnt;
+			if(ReSend = '1')then
+				ReSendQue_a <= (others => '1');
+			elsif(we_ReSendQue = '1' and ACK = '0')then
+				ReSendQue_a <= ReSendQue_a + 1;
+			elsif(we_ReSendQue = '0' and ACK = '1' and ReSendQue_a /= "11")then
+				ReSendQue_a <= ReSendQue_a - 1;
+			end if;
+			if(TxState = SendWC and TxFIFO_full = '0' and IsData = '1' and ReSend = '0')then
+				we_ReSendQue <= '1';
+			else
+				we_ReSendQue <= '0';
+			end if;
+			if(ReSend = '1')then
+				ReSendQue_empty <= '1';
+			elsif(we_ReSendQue = '1')then
+				ReSendQue_empty <= '0';
+			elsif(ACK = '1' and ReSendQue_a = "00")then
+				ReSendQue_empty <= '1';
+			end if;
+			if(timer(N) = '1' or ACK = '1' or ReSendQue_empty = '1')then
+				timer <= (others => '0');
+			else
+				timer <= timer + 1;
+			end if;
+			if(Resend = '1')then
+				DataBuf_start <= ReSendQueOut_q;
+			elsif(we_ReSendQue = '1')then
+				DataBuf_start <= DataBuf_start + packet_wc(14 downto 0);
+			end if;
+			if(ReSend = '1' and ReSendQue_empty = '0')then
+				DataBuf_ra <= ReSendQueOut_q;
+			elsif(ec_DataBuf_ra = '1')then
+				DataBuf_ra <= DataBuf_ra + 1;
+			end if;
 		end if;
-		EventCnt <= WrEventCnt - RdEventCnt;
 	end if;
 end process;
+-- ReSendQueue holds the starting address of the oldest unacknowledged packet
+g_ReSendQueue : for i in 0 to 27 generate
+   i_ReSendQueue : SRL16E
+   port map (
+      Q => ReSendQueOut(i),       -- SRL data output
+      A0 => ReSendQue_a(0),     -- Select[0] input
+      A1 => ReSendQue_a(1),     -- Select[1] input
+      A2 => '0',     -- Select[2] input
+      A3 => '0',     -- Select[3] input
+      CE => we_ReSendQue,     -- Clock enable input
+      CLK => UsrClk,   -- Clock input
+      D => ReSendQueIn(i)        -- SRL data input
+   );
+end generate;
+ReSendQueIn <= RdEventCnt & SEQNUM & DataBuf_start;
+ReSend <= timer(N);
 g_DataBufPipe: for i in 0 to 16 generate
    i_DataBuf : BRAM_SDP_MACRO
    generic map (
@@ -702,27 +769,8 @@ begin
 		end if;
 		if(reset_SyncRegs(3) = '1' or InitLink = '1')then
 			Ready_i <= '0';
-		elsif(InitACK = '1')then
+		elsif(InitACK = '1' and TxState = SendCRC and TxType = InitRqst)then
 			Ready_i <= '1';
-		end if;
-		if(reset_SyncRegs(3) = '1' or ReSend = '1' or InitLink = '1')then
-			ReSendQue_a <= (others => '1');
-		elsif(we_ReSendQue = '1' and ACK = '0')then
-			ReSendQue_a <= ReSendQue_a + 1;
-		elsif(we_ReSendQue = '0' and ACK = '1' and ReSendQue_a /= "11")then
-			ReSendQue_a <= ReSendQue_a - 1;
-		end if;
-		if(TxState = SendWC and TxFIFO_full = '0' and IsData = '1' and ReSend = '0')then
-			we_ReSendQue <= '1';
-		else
-			we_ReSendQue <= '0';
-		end if;
-		if(reset_SyncRegs(3) = '1' or ReSend = '1' or InitLink = '1')then
-			ReSendQue_empty <= '1';
-		elsif(we_ReSendQue = '1')then
-			ReSendQue_empty <= '0';
-		elsif(ACK = '1' and ReSendQue_a = "00")then
-			ReSendQue_empty <= '1';
 		end if;
 		if(InitLink = '1')then
 			SEQNUM <= x"00";
@@ -733,7 +781,7 @@ begin
 		end if;
 		if(InitLink = '1')then
 			InitACK <= '1';
-		elsif(TxState = SendType)then
+		elsif(TxState = SendCRC and TxType = InitRqst)then
 			InitACK <= '0';
 		end if;
 		if(InitACK = '1')then
@@ -855,7 +903,7 @@ begin
 				when x"4" => cntrs <= "000000" & info_ra;
 				when x"5" => cntrs <= "000000" & AMCinfo_wa;
 				when x"6" => cntrs <= x"00" & version;
-				when x"7" => cntrs <= DataBuf_full & EventStatus_empty & EventData2Send & DataPipe_empty & "000" & EventCnt & ReSendQue_a & AlmostFull_i & dataFIFO_Empty;
+				when x"7" => cntrs <= DataBuf_full & EventStatus_empty & EventData2Send & DataPipe_empty & CriticalTTS & EventCnt & ReSendQue_a & AlmostFull_i & dataFIFO_Empty;
 				when x"8" => cntrs <= cntr10;
 				when x"9" => cntrs <= cntr11;
 				when x"a" => cntrs <= cntr12;
@@ -883,13 +931,6 @@ begin
 		else
 			sel_cntr <= '0';
 		end if;
-		if(InitLink = '1')then
-			DataBuf_ra <= (others => '0');
-		elsif(ReSend = '1' and ReSendQue_empty = '0')then
-			DataBuf_ra <= ReSendQueOut_q;
-		elsif(ec_DataBuf_ra = '1')then
-			DataBuf_ra <= DataBuf_ra + 1;
-		end if;
 		if(TxState = SendK)then 
 			packet_wc(11 downto 0) <= x"000";
 		elsif(TxFIFO_full = '0' and (TxState = SendData or TxState = SendCntr))then
@@ -915,38 +956,10 @@ i_TxCRC: crc16D16 PORT MAP(
 		crc => TxCRC
 	);
 we_TxCRC <= not TxFIFO_Di(16) and we_TxFIFO;
--- ReSendQueue holds the starting address of the oldest unacknowledged packet
-g_ReSendQueue : for i in 0 to 27 generate
-   i_ReSendQueue : SRL16E
-   port map (
-      Q => ReSendQueOut(i),       -- SRL data output
-      A0 => ReSendQue_a(0),     -- Select[0] input
-      A1 => ReSendQue_a(1),     -- Select[1] input
-      A2 => '0',     -- Select[2] input
-      A3 => '0',     -- Select[3] input
-      CE => we_ReSendQue,     -- Clock enable input
-      CLK => UsrClk,   -- Clock input
-      D => ReSendQueIn(i)        -- SRL data input
-   );
-end generate;
-ReSendQueIn <= RdEventCnt & SEQNUM & DataBuf_start;
 -- received data processing starts here
-ReSend <= timer(N);
 process(UsrClk)
 begin
 	if(UsrClk'event and UsrClk = '1')then
-		if(timer(N) = '1' or ACK = '1' or ReSendQue_empty = '1')then
-			timer <= (others => '0');
-		else
-			timer <= timer + 1;
-		end if;
-		if(InitLink = '1')then
-			DataBuf_start <= (others => '0');
-		elsif(Resend = '1')then
-			DataBuf_start <= ReSendQueOut_q;
-		elsif(we_ReSendQue = '1')then
-			DataBuf_start <= DataBuf_start + packet_wc(14 downto 0);
-		end if;
 -- Comma ends a packet and after that, any D-word marks the beginning of a packet
 		if(RXCHARISCOMMA_q  = "11" or (L1Ainfo_wa(1 downto 0) = "11" and L1Ainfo_WrEn = '1'))then
 			L1Ainfo <= '0';
@@ -1211,7 +1224,7 @@ begin
 				when others => AMCinfo_sel <= "000";
 			end case;
 		end if;
-		AMCinfo_WrEn <= FillDataBuf and AMCinfo_sel(2);
+		AMCinfo_WrEn <= DataBuf_WrEn and AMCinfo_sel(2);
 		case AMCinfo_sel(1 downto 0) is
 			when "00" => AMCinfo_Di <= DataBuf_Din(15 downto 4) & x"0";-- BX
 			when "01" => AMCinfo_Di <= DataBuf_Din(15 downto 0);--evn(15 downto 0)
@@ -1288,6 +1301,24 @@ i_L1Ainfo : BRAM_SDP_MACRO
       WRCLK => UsrClk,   -- 1-bit input write clock
       WREN => L1Ainfo_WrEn      -- 1-bit input write port enable
    );
+process(TTSclk)
+begin
+	if(TTSclk'event and TTSclk = '1')then
+		if(InitLink = '1')then
+			CriticalTTS <= "000";
+		else
+			if(TTS = x"0" or TTS = x"f")then
+				CriticalTTS(2) <= '1';
+			end if;
+			if(TTS = x"c")then
+				CriticalTTS(1) <= '1';
+			end if;
+			if(TTS = x"2")then
+				CriticalTTS(0) <= '1';
+			end if;
+		end if;
+	end if;
+end process;
 i_TTS_TRIG_if: TTS_TRIG_if
 	PORT MAP(
 		reset => reset,
@@ -1306,7 +1337,7 @@ i_TTS_TRIG_if: TTS_TRIG_if
 process(UsrClk)
 begin
 	if(UsrClk'event and UsrClk = '1')then
-		if(info_ra(9 downto 2) = L1Ainfo_wa(9 downto 2) or check_L1Ainfo = '1')then
+		if(info_ra(9 downto 2) = OldL1Ainfo_wa or check_L1Ainfo = '1')then
 			L1Ainfo_empty <= '1';
 		elsif(RxL1Ainfo = '0')then
 			L1Ainfo_empty <= '0';

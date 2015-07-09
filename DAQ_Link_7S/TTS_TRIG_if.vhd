@@ -179,15 +179,27 @@ i_TTS_FIFO: RAM32x6Db PORT MAP(
 	);
 TTS_FIFO_di(3 downto 0) <= TTS;
 TTS_FIFO_ra <= "00" & TTS_FIFO_wa_sync3;
-process(UsrClk)
+process(UsrClk,reset)
 begin
-	if(UsrClk'event and UsrClk = '1')then
+	if(reset = '1')then
+		TTC_FIFO_wa_sync <= (others => '0');
+		TTC_FIFO_wa_sync2 <= (others => '0');
+		TTC_FIFO_wa_sync3 <= (others => '0');
+		TTS_FIFO_wa_sync <= (others => '0');
+		TTS_FIFO_wa_sync2 <= (others => '0');
+		TTS_FIFO_wa_sync3 <= (others => '0');
+	elsif(UsrClk'event and UsrClk = '1')then
 		TTC_FIFO_wa_sync <= TTC_FIFO_wa(1 downto 0);
 		TTC_FIFO_wa_sync2 <= TTC_FIFO_wa_sync;
 		TTC_FIFO_wa_sync3 <= TTC_FIFO_wa_sync2;
 		TTS_FIFO_wa_sync <= TTS_FIFO_wa(2 downto 0);
 		TTS_FIFO_wa_sync2 <= TTS_FIFO_wa_sync;
 		TTS_FIFO_wa_sync3 <= TTS_FIFO_wa_sync2;
+	end if;
+end process;
+process(UsrClk)
+begin
+	if(UsrClk'event and UsrClk = '1')then
 		if(sel_TTC(1) = '1')then
 			sel_TTC <= "00";
 		elsif(TTC_FIFO_wa_sync3 /= TTC_FIFO_ra)then

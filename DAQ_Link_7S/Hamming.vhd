@@ -12,14 +12,16 @@ end Hamming;
 
 architecture my_arch of Hamming is
 signal c: std_logic_vector(6 downto 1) := (others =>'0');
+signal dinh_dl: std_logic_vector(9 downto 0) := (others =>'0');
 begin
 process(clk)
 begin
   if(clk'event and clk = '1')then
+		dinh_dl <= din(17 downto 8);
 		if(sel_TTC = '0')then
 			dout <= "01" & din(7 downto 0) & x"bc";
 		else
-			dout <= "00" & c & din(17 downto 8);
+			dout <= "00" & c & dinh_dl;
 		end if;
 		c(1) <= din(0) xor din(1) xor din(3) xor din(4) xor din(6) xor din(8) xor
 						 din(10) xor din(11) xor din(13) xor din(15) xor din(17);

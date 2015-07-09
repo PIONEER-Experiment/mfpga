@@ -965,7 +965,7 @@ module wfd_top(
     );
 
 
-    // DAQ Link to AMC13
+    // DAQ Link to AMC13, version 0x10
     DAQ_LINK_Kintex #(
         .F_REFCLK(125),
         .SYSCLK_IN_period(8),
@@ -974,10 +974,10 @@ module wfd_top(
         .reset(rst_from_ipb),
 
         .GTX_REFCLK(gtrefclk0),
-        .GTX_RXP(daq_rx),
         .GTX_RXN(daq_rx_N),
-        .GTX_TXP(daq_tx),
+        .GTX_RXP(daq_rx),
         .GTX_TXN(daq_tx_N),
+        .GTX_TXP(daq_tx),
         .SYSCLK_IN(clk125),
 
         .TTCclk(clk125),
