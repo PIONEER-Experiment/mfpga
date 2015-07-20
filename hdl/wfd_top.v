@@ -43,11 +43,11 @@ module wfd_top(
     output [3:0] c4_io,               // utility signals to channel 4
     input [5:0] mezzb,                // MB[5..0] on schematic
     input mmc_reset_m,                // reset line 
-    input adcclk_ld,                  // clock synth lock detect
-    output adcclk_goe,                //
+    input adcclk_stat_ld,             // clock synth status
+    input adcclk_stat,                // clock synth status
+    input adcclk_clkin0_stat,         // clock synth status
+    input adcclk_clkin1_stat,         // clock synth status
     output adcclk_sync,               //
-    // output adcclk_los0,            //
-    // output adcclk_los1,            //
     output adcclk_dlen,               //
     output adcclk_ddat,               //
     output adcclk_dclk,               //
@@ -112,7 +112,7 @@ module wfd_top(
         .red_led(led1),
         .green_led(led0),
         // status input signals
-        .adcclk_ld(adcclk_ld),
+        .adcclk_ld(adcclk_stat_ld),
         .TTCready(TTCready),
         .chan_error_rc(chan_error_rc[4:0]),
         .trig_num_error(trig_num_error[4:0])
@@ -142,8 +142,6 @@ module wfd_top(
 
     assign bbus_scl = ext_trig ? mmc_io[0] : 1'bz;
     assign bbus_sda = ext_trig ? mmc_io[1] : 1'bz;
-    //assign adcclk_los0 = 1'b0;
-    //assign adcclk_los1 = 1'b0;
     assign daq_clk_sel = 1'b0;
     assign daq_clk_en  = 1'b1;
 
@@ -806,10 +804,11 @@ module wfd_top(
         .c4_readout_pause(acq_readout_pause[4]),                    // readout pause signal asserted when the Aurora RX FIFO is almost full
 
         // clock synthesizer connections
+        
+        
         .adcclk_dclk(adcclk_dclk),
         .adcclk_ddat(adcclk_ddat),
         .adcclk_dlen(adcclk_dlen),
-        .adcclk_goe(adcclk_goe),
         .adcclk_sync(adcclk_sync),
         .debug(),
 

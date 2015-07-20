@@ -139,7 +139,6 @@ module all_channels(
   output adcclk_dclk,
   output adcclk_ddat,
   output adcclk_dlen,
-  output adcclk_goe,
   output adcclk_sync
 );
 
@@ -528,7 +527,6 @@ module all_channels(
     .dclk(adcclk_dclk),
     .ddat(adcclk_ddat),
     .dlen(adcclk_dlen),
-    .goe(adcclk_goe),
     .sync(adcclk_sync),
     .debug(debug[2:0]) 
   );

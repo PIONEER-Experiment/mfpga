@@ -1,4 +1,4 @@
-// Registers values for clock synthesizer (LMK04011) configurations
+// Registers values for clock synthesizer (LMK04906) configurations
 
 // Be sure to use [ `include "clk_synth_regs.txt" ] whenever any of these constants are needed.
 // Also, be sure to use the backtic [ ` ] when the constant is actually used.
@@ -10,25 +10,36 @@
 	// Define 32-bit register values for clock synthesizer
 
 	// ===========================================
-	// Default register values (750 MHz)
+	// Default register values (800 MHz)
 	// ===========================================
-	`define	CS_DEF_REG07_INIT   32'h00000017	// Initial chip reset
+	`define	CS_DEF_REG00_INIT       32'h00160060	// Initial chip reset
 	
-	`define	CS_DEF_REG00		32'h01010000	// Channel 0 output enabled, LVPECL (800 mVpp), no delay
-	`define	CS_DEF_REG01		32'h01010001	// Channel 1 output enabled, LVPECL (800 mVpp), no delay
-	`define	CS_DEF_REG02		32'h01010002	// Channel 2 output enabled, LVPECL (800 mVpp), no delay
-	`define	CS_DEF_REG03		32'h01010003	// Channel 3 output enabled, LVPECL (800 mVpp), no delay
-	`define	CS_DEF_REG04		32'h01010004	// Channel 4 output enabled, LVPECL (800 mVpp), no delay
-	`define	CS_DEF_REG05		32'h00000005	// RESERVED
-	`define	CS_DEF_REG06		32'h08000076	// RESERVED
-	`define CS_DEF_REG07        32'h00000007    // RESERVED
-	`define	CS_DEF_REG08		32'h00000008	// RESERVED
-	`define	CS_DEF_REG09		32'h00a22a09	// RESERVED
-	`define	CS_DEF_REG10		32'h0150000a	// PLL2 VCO tuning algorithm runs immediately after any PLL2_N counter update, despite the state of PLL1 Digital Lock Detect
-	`define	CS_DEF_REG11		32'h006500cb	// BJT Differential CLKin0 input
-	`define	CS_DEF_REG12		32'ha00200ac	//
-	`define	CS_DEF_REG13		32'h0a04000d	//
-	`define	CS_DEF_REG14		32'h1917004e	// PLL1 and PLL2 Digital Lock Detect (active high)
-	`define	CS_DEF_REG15		32'h108000ff	//
+	`define	CS_DEF_REG00		32'h00140060	// 
+	`define	CS_DEF_REG01		32'h00140061	// 
+	`define	CS_DEF_REG02		32'h00140062	// 
+	`define	CS_DEF_REG03		32'h00140063	// 
+	`define	CS_DEF_REG04		32'h00140064	// 
+	`define	CS_DEF_REG05		32'h00140065	// 
+	`define	CS_DEF_REG06		32'h03300006	// 
+	`define CS_DEF_REG07            32'h01300007    // 
+	`define	CS_DEF_REG08		32'h03030008	// 
+	`define	CS_DEF_REG09		32'h55555549	// 
+	`define	CS_DEF_REG10		32'h1002410a	// 
+	`define	CS_DEF_REG11		32'h0401100b	// 
+	`define	CS_DEF_REG12		32'h1b0c006c	//
+	`define	CS_DEF_REG13		32'h0b02802d	//
+	`define	CS_DEF_REG14		32'h0200000e	// 
+	`define	CS_DEF_REG15		32'h8000800f	//
+	`define	CS_DEF_REG16		32'hc1550410	//
+	`define	CS_DEF_REG24		32'h000000d8	//
+	`define	CS_DEF_REG25		32'h02c0c419	//
+	`define	CS_DEF_REG26		32'hafa8001a	//
+	`define	CS_DEF_REG27		32'h1c00021b	//
+	`define	CS_DEF_REG28		32'h0010015c	//
+	`define	CS_DEF_REG29		32'h008000dd	//
+	`define	CS_DEF_REG30		32'h000000de	//
+	`define	CS_DEF_REG31		32'h001f001f	//
+
+
 
 `endif

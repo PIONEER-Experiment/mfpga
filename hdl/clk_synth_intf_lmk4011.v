@@ -1,10 +1,6 @@
 `timescale 1ns / 1ps
 `include "clk_synth_regs.txt"
 
-//*************************************************************************
-// NOTE:  Modified to support LMK04906 - 7/16/15
-//*************************************************************************
-
 module clk_synth_intf(
     input clk50,
     input clk50_reset,
@@ -27,6 +23,7 @@ module clk_synth_intf(
     output dclk,
     output ddat,
     output reg dlen,
+    output goe,
     output sync,
 
     output [2:0] debug 
@@ -37,6 +34,7 @@ module clk_synth_intf(
 // static assignments
 //*************************************************************************
 assign dclk = slow_clk_180;
+assign goe = 1'b1;
 
 
 //*************************************************************************
@@ -142,52 +140,36 @@ end
 // IPbus interface used to update register values
 //*************************************************************************
 //address decoding
-wire reg_wr_en, scntrlreg_sel, s31reg_sel, s30reg_sel, s29reg_sel, s28reg_sel, s27reg_sel, s26reg_sel, s25reg_sel, s24reg_sel,
-    //s23reg_sel, s22reg_sel, s21reg_sel, s20reg_sel, s19reg_sel, s18reg_sel, s17reg_sel,
-    s16reg_sel, s15reg_sel, s14reg_sel, s13reg_sel, s12reg_sel,    s11reg_sel, s10reg_sel, s09reg_sel, s08reg_sel, s07reg_sel, 
-    s06reg_sel, s05reg_sel, s04reg_sel, s03reg_sel, s02reg_sel, s01reg_sel, s00reg_sel;
+wire reg_wr_en, scntrlreg_sel, s16reg_sel, s15reg_sel, s14reg_sel, s13reg_sel, s12reg_sel, s11reg_sel, s10reg_sel, s09reg_sel, s08reg_sel, s07reg_sel, s06reg_sel, s05reg_sel, s04reg_sel, s03reg_sel, s02reg_sel, s01reg_sel, s00reg_sel;
 
 assign reg_wr_en  = io_sync & io_wr_en;
 
-assign scntrlreg_sel = io_sel && (io_addr[5:0] == 6'b100000);
-assign    s31reg_sel = io_sel && (io_addr[5:0] == 6'b011111);
-assign    s30reg_sel = io_sel && (io_addr[5:0] == 6'b011110);
-assign    s29reg_sel = io_sel && (io_addr[5:0] == 6'b011101);
-assign    s28reg_sel = io_sel && (io_addr[5:0] == 6'b011100);
-assign    s27reg_sel = io_sel && (io_addr[5:0] == 6'b011011);
-assign    s26reg_sel = io_sel && (io_addr[5:0] == 6'b011010);
-assign    s25reg_sel = io_sel && (io_addr[5:0] == 6'b011001);
-assign    s24reg_sel = io_sel && (io_addr[5:0] == 6'b011000);
-//not defined in datasheet
-//assign    s23reg_sel = io_sel && (io_addr[5:0] == 6'b010111);
-//assign    s22reg_sel = io_sel && (io_addr[5:0] == 6'b010110);
-//assign    s21reg_sel = io_sel && (io_addr[5:0] == 6'b010101);
-//assign    s20reg_sel = io_sel && (io_addr[5:0] == 6'b010100);
-//assign    s19reg_sel = io_sel && (io_addr[5:0] == 6'b010011);
-//assign    s18reg_sel = io_sel && (io_addr[5:0] == 6'b010010);
-//assign    s17reg_sel = io_sel && (io_addr[5:0] == 6'b010001);
-assign    s16reg_sel = io_sel && (io_addr[5:0] == 6'b010000);
-assign    s15reg_sel = io_sel && (io_addr[5:0] == 6'b001111);
-assign    s14reg_sel = io_sel && (io_addr[5:0] == 6'b001110);
-assign    s13reg_sel = io_sel && (io_addr[5:0] == 6'b001101);
-assign    s12reg_sel = io_sel && (io_addr[5:0] == 6'b001100);
-assign    s11reg_sel = io_sel && (io_addr[5:0] == 6'b001011);
-assign    s10reg_sel = io_sel && (io_addr[5:0] == 6'b001010);
-assign    s09reg_sel = io_sel && (io_addr[5:0] == 6'b001001);
-assign    s08reg_sel = io_sel && (io_addr[5:0] == 6'b001000);
-assign    s07reg_sel = io_sel && (io_addr[5:0] == 6'b000111);
-assign    s06reg_sel = io_sel && (io_addr[5:0] == 6'b000110);
-assign    s05reg_sel = io_sel && (io_addr[5:0] == 6'b000101);
-assign    s04reg_sel = io_sel && (io_addr[5:0] == 6'b000100);
-assign    s03reg_sel = io_sel && (io_addr[5:0] == 6'b000011);
-assign    s02reg_sel = io_sel && (io_addr[5:0] == 6'b000010);
-assign    s01reg_sel = io_sel && (io_addr[5:0] == 6'b000001);
-assign    s00reg_sel = io_sel && (io_addr[5:0] == 6'b000000);
+assign scntrlreg_sel = io_sel && (io_addr[4:0] == 5'b10001);
+assign    s16reg_sel = io_sel && (io_addr[4:0] == 5'b10000);
+assign    s15reg_sel = io_sel && (io_addr[4:0] == 5'b01111);
+assign    s14reg_sel = io_sel && (io_addr[4:0] == 5'b01110);
+assign    s13reg_sel = io_sel && (io_addr[4:0] == 5'b01101);
+assign    s12reg_sel = io_sel && (io_addr[4:0] == 5'b01100);
+assign    s11reg_sel = io_sel && (io_addr[4:0] == 5'b01011);
+assign    s10reg_sel = io_sel && (io_addr[4:0] == 5'b01010);
+assign    s09reg_sel = io_sel && (io_addr[4:0] == 5'b01001);
+assign    s08reg_sel = io_sel && (io_addr[4:0] == 5'b01000);
+assign    s07reg_sel = io_sel && (io_addr[4:0] == 5'b00111);
+assign    s06reg_sel = io_sel && (io_addr[4:0] == 5'b00110);
+assign    s05reg_sel = io_sel && (io_addr[4:0] == 5'b00101);
+assign    s04reg_sel = io_sel && (io_addr[4:0] == 5'b00100);
+assign    s03reg_sel = io_sel && (io_addr[4:0] == 5'b00011);
+assign    s02reg_sel = io_sel && (io_addr[4:0] == 5'b00010);
+assign    s01reg_sel = io_sel && (io_addr[4:0] == 5'b00001);
+assign    s00reg_sel = io_sel && (io_addr[4:0] == 5'b00000);
 
 
 // ====================================================================
 // Recommended programming sequence:
-//     R0 to R31
+//     R7 with RESET bit = 1
+//     R0-6
+//     R7 with RESET bit = 0
+//     R8-15
 //
 // Notes:
 //     s[#] notation indicates the order of data sent to the clk synth
@@ -198,16 +180,6 @@ wire [31:0] scntrl_reg_out; // LSB controls the strobe
 
 // s[#]_reg_out wires used to write to the clk synth
 // these wires are driven by the reg inside the reg32_ce2 blocks
-
-wire [31:0] s25_reg_out;    // clk synth reg 31
-wire [31:0] s24_reg_out;    // clk synth reg 30 
-wire [31:0] s23_reg_out;    // clk synth reg 29
-wire [31:0] s22_reg_out;    // clk synth reg 28
-wire [31:0] s21_reg_out;    // clk synth reg 27
-wire [31:0] s20_reg_out;    // clk synth reg 26
-wire [31:0] s19_reg_out;    // clk synth reg 25
-wire [31:0] s18_reg_out;    // clk synth reg 24
-wire [31:0] s17_reg_out;    // clk synth reg 16
 wire [31:0] s16_reg_out;    // clk synth reg 15
 wire [31:0] s15_reg_out;    // clk synth reg 14
 wire [31:0] s14_reg_out;    // clk synth reg 13
@@ -224,7 +196,7 @@ wire [31:0] s04_reg_out;    // clk synth reg 3
 wire [31:0] s03_reg_out;    // clk synth reg 2
 wire [31:0] s02_reg_out;    // clk synth reg 1
 wire [31:0] s01_reg_out;    // clk synth reg 0
-wire [31:0] s00_reg_out;    // clk synth reg 0
+wire [31:0] s00_reg_out;    // clk synth reg 7
 
 wire rst_reg;    // want the reg_out values to be set to default when IPbus reset or the startup reset is asserted
 wire rst_cntrl;    // want the cntrl_reg_out values to be set to default when IPbus reset or the startup reset is asserted
@@ -233,15 +205,6 @@ assign rst_cntrl = resetS | startup_rst_cntrl;
 
 reg32_ce2 scntrl_reg(.in(io_wr_data[31:0]), .reset(rst_cntrl), .def_value(32'h00000001), .out(scntrl_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(scntrlreg_sel));
 
-reg32_ce2 s_reg25(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG31),      .out(s25_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s25reg_sel));
-reg32_ce2 s_reg24(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG30),      .out(s24_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s24reg_sel));
-reg32_ce2 s_reg23(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG29),      .out(s23_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s23reg_sel));
-reg32_ce2 s_reg22(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG28),      .out(s22_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s22reg_sel));
-reg32_ce2 s_reg21(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG27),      .out(s21_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s21reg_sel));
-reg32_ce2 s_reg20(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG26),      .out(s20_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s20reg_sel));
-reg32_ce2 s_reg19(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG25),      .out(s19_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s19reg_sel));
-reg32_ce2 s_reg18(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG24),      .out(s18_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s18reg_sel));
-reg32_ce2 s_reg17(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG16),      .out(s17_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s17reg_sel));
 reg32_ce2 s16_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG15),      .out(s16_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s16reg_sel));
 reg32_ce2 s15_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG14),      .out(s15_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s15reg_sel));
 reg32_ce2 s14_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG13),      .out(s14_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s14reg_sel));
@@ -258,7 +221,7 @@ reg32_ce2 s04_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG
 reg32_ce2 s03_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG02),      .out(s03_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s03reg_sel));
 reg32_ce2 s02_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG01),      .out(s02_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s02reg_sel));
 reg32_ce2 s01_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG00),      .out(s01_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s01reg_sel));
-reg32_ce2 s00_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG00_INIT), .out(s00_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s00reg_sel));
+reg32_ce2 s00_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG07_INIT), .out(s00_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s00reg_sel));
 
 
 // use the LSB of the control register to generate a strobe which will be used
@@ -468,15 +431,6 @@ begin
         5'b01110 : synth_reg[31:0] = s14_reg_out[31:0];
         5'b01111 : synth_reg[31:0] = s15_reg_out[31:0];
         5'b10000 : synth_reg[31:0] = s16_reg_out[31:0];
-        5'b10001 : synth_reg[31:0] = s17_reg_out[31:0];
-        5'b10010 : synth_reg[31:0] = s18_reg_out[31:0];
-        5'b10011 : synth_reg[31:0] = s19_reg_out[31:0];
-        5'b10100 : synth_reg[31:0] = s20_reg_out[31:0];
-        5'b10101 : synth_reg[31:0] = s21_reg_out[31:0];
-        5'b10110 : synth_reg[31:0] = s22_reg_out[31:0];
-        5'b10111 : synth_reg[31:0] = s23_reg_out[31:0];
-        5'b11000 : synth_reg[31:0] = s24_reg_out[31:0];
-        5'b10001 : synth_reg[31:0] = s25_reg_out[31:0];
     endcase
 end
 
