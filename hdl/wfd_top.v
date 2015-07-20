@@ -24,14 +24,17 @@ module wfd_top(
     output wire debug0,               // debug header
     output wire debug1,               // debug header
     output wire debug2,               // debug header
-    input wire debug3,                // debug header (used for board id)
-    input wire debug4,                // debug header (used for board id)
-    input wire debug5,                // debug header (used for board id)
+    input wire debug3,                // debug header
+    input wire debug4,                // debug header
+    input wire debug5,                // debug header
     output wire debug6,               // debug header
     output wire debug7,               // debug header
     output wire[4:0] acq_trigs,       // triggers to channel FPGAs
     input [4:0] acq_dones,            // done signals from channel FPGAs
-    output wire led0, led1,           // front panel LEDs. led0 is green, led1 is red
+    output wire master_led0,          // front panel LEDs for master status, led0 is green
+    output wire master_led1,          // front panel LEDs for master status, led1 is red
+    output wire clksynth_led0,        // front panel LEDs for clk synth status, led0 is green
+    output wire clksynth_led1,        // front panel LEDs for clk synth status, led1 is red
     inout bbus_scl,                   // I2C bus clock, connected to Atmel Chip and to Channel FPGAs
     inout bbus_sda,                   // I2C bus data, connected to Atmel Chip and to Channel FPGAs
     input wire ext_trig,              // front panel trigger
@@ -43,7 +46,7 @@ module wfd_top(
     output [3:0] c4_io,               // utility signals to channel 4
     input [5:0] mezzb,                // MB[5..0] on schematic
     input mmc_reset_m,                // reset line 
-    input adcclk_stat_ld,             // clock synth status
+    input adcclk_stat_ld,             // clock synth status, PLL lock detect
     input adcclk_stat,                // clock synth status
     input adcclk_clkin0_stat,         // clock synth status
     input adcclk_clkin1_stat,         // clock synth status
@@ -106,16 +109,24 @@ module wfd_top(
     assign c4_io[2:1] = acq_enable[9:8];
 
 
-    // ======== front panel LED ========
-    led_status led_status(
+    // ======== front panel LED for master ========
+    led_master_status led_master_status(
         .clk(clk50),
-        .red_led(led1),
-        .green_led(led0),
+        .red_led(master_led1),
+        .green_led(master_led0),
         // status input signals
-        .adcclk_ld(adcclk_stat_ld),
         .TTCready(TTCready),
         .chan_error_rc(chan_error_rc[4:0]),
         .trig_num_error(trig_num_error[4:0])
+    );
+
+    // ======== front panel LED for clk synth ========
+    led_clksynth_status led_clksynth_status(
+        .clk(clk50),
+        .red_led(clksynth_led1),
+        .green_led(clksynth_led0),
+        // status input signals
+        .adcclk_ld(adcclk_stat_ld)
     );
 
     // debug signals
@@ -133,12 +144,6 @@ module wfd_top(
     assign c2_io[3] = rst_from_ipb;
     assign c3_io[3] = rst_from_ipb;
     assign c4_io[3] = rst_from_ipb;
-
-    // use three of the debug pins as inputs for unique board identification
-    wire [2:0] board_id;
-    assign board_id[2] = debug3;
-    assign board_id[1] = debug4;
-    assign board_id[0] = debug5;
 
     assign bbus_scl = ext_trig ? mmc_io[0] : 1'bz;
     assign bbus_sda = ext_trig ? mmc_io[1] : 1'bz;
@@ -661,7 +666,6 @@ module wfd_top(
         .link_reset_out(link_reset_out),
 
         .debug(),
-        .board_id(board_id),
 
         // flash interface ports
         .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),

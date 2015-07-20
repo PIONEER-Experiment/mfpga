@@ -75,8 +75,11 @@ set_property IOSTANDARD LVCMOS33 [get_ports debug2]
 set_property IOSTANDARD LVCMOS33 [get_ports debug1]
 set_property IOSTANDARD LVCMOS33 [get_ports debug0]
 
-set_property IOSTANDARD LVCMOS33 [get_ports led0]
-set_property IOSTANDARD LVCMOS33 [get_ports led1]
+set_property IOSTANDARD LVCMOS33 [get_ports master_led0]
+set_property IOSTANDARD LVCMOS33 [get_ports master_led1]
+
+set_property IOSTANDARD LVCMOS33 [get_ports clksynth_led0]
+set_property IOSTANDARD LVCMOS33 [get_ports clksynth_led1]
 
 set_property IOSTANDARD LVCMOS33 [get_ports {c4_io[3]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {c4_io[2]}]
@@ -213,8 +216,11 @@ set_property PACKAGE_PIN F14 [get_ports debug2]
 set_property PACKAGE_PIN F15 [get_ports debug1]
 set_property PACKAGE_PIN F17 [get_ports debug0]
 
-set_property PACKAGE_PIN V26 [get_ports led0]
-set_property PACKAGE_PIN U26 [get_ports led1]
+set_property PACKAGE_PIN V26 [get_ports master_led0]
+set_property PACKAGE_PIN U26 [get_ports master_led1]
+
+set_property PACKAGE_PIN AC21 [get_ports clksynth_led0]
+set_property PACKAGE_PIN AB21 [get_ports clksynth_led1]
 
 set_property PACKAGE_PIN G26 [get_ports {c4_io[3]}]
 set_property PACKAGE_PIN F25 [get_ports {c4_io[2]}]

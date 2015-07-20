@@ -500,7 +500,7 @@ module all_channels(
   );
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////
   // clock synth registers
   wire ipb_clk_synth_strobe, ipb_clk_synth_ack, ipb_clk_synth_err;
   wire [31:0] ipb_clk_synth_rdata;
@@ -523,7 +523,7 @@ module all_channels(
     .io_rd_data(clk_synth_io_rd_data[31:0]),       // data returned for read operations
     .io_rd_ack(clk_synth_io_rd_ack),               // 'write' data has been stored, 'read' data is ready
 
-    //physical clock synth connections
+    // physical clock synth connections
     .dclk(adcclk_dclk),
     .ddat(adcclk_ddat),
     .dlen(adcclk_dlen),

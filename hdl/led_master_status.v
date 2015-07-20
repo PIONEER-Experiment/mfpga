@@ -1,13 +1,13 @@
 `timescale 1ns / 1ps
 
 // Module to control front panel LED
+// for the Master FPGA status
 
-module led_status(
+module led_master_status(
   input clk,
   output red_led,
   output green_led,
   // status input signals
-  input adcclk_ld,
   input TTCready,
   input [4:0] chan_error_rc,
   input [4:0] trig_num_error
@@ -19,14 +19,13 @@ module led_status(
 
 // Assignments right now:
 //    green LED is on when TTC signal is ready                 AND
-//                         clock synthesizer PLLs are locked   AND
 //                         channel readout has been successful AND
 //                         trigger numbers are synchronized
 //              e.g., green means "ready"
 //    red LED is on otherwise
 //              e.g., red means "not ready" or "error"
 
-assign green_led = ~(TTCready & adcclk_ld & (chan_error_rc[4:0] == 5'd0) & (trig_num_error[4:0] == 5'd0));
+assign green_led = ~(TTCready & (chan_error_rc[4:0] == 5'd0) & (trig_num_error[4:0] == 5'd0));
 assign red_led = ~green_led;
 
 
