@@ -8,7 +8,8 @@ module led_clksynth_status(
   output red_led,
   output green_led,
   // status input signals
-  input adcclk_ld
+  input adcclk_ld,
+  input adcclk_stat
 );
 
 // the LEDs are active low:
@@ -20,7 +21,7 @@ module led_clksynth_status(
 //    red LED is on otherwise
 
 assign green_led = ~adcclk_ld;
-assign red_led = ~green_led;
+assign red_led = ~adcclk_stat;
 
 
 endmodule

@@ -24,9 +24,9 @@ module wfd_top(
     output wire debug0,               // debug header
     output wire debug1,               // debug header
     output wire debug2,               // debug header
-    input wire debug3,                // debug header
-    input wire debug4,                // debug header
-    input wire debug5,                // debug header
+    output wire debug3,               // debug header
+    output wire debug4,               // debug header
+    output wire debug5,               // debug header
     output wire debug6,               // debug header
     output wire debug7,               // debug header
     output wire[4:0] acq_trigs,       // triggers to channel FPGAs
@@ -54,6 +54,8 @@ module wfd_top(
     output adcclk_dlen,               //
     output adcclk_ddat,               //
     output adcclk_dclk,               //
+    output ext_clk_sel0,              //
+    output ext_clk_sel1,              //
     output daq_clk_sel,               //
     output daq_clk_en,                //
     // TTC connections
@@ -126,17 +128,22 @@ module wfd_top(
         .red_led(clksynth_led1),
         .green_led(clksynth_led0),
         // status input signals
-        .adcclk_ld(adcclk_stat_ld)
+        .adcclk_ld(adcclk_stat_ld),
+        .adcclk_stat(adcclk_stat)
     );
 
     // debug signals
-    assign debug0 = spi_clk;
-    assign debug1 = spi_mosi;
-    assign debug2 = spi_miso;
-    assign debug6 = spi_ss;
+    assign debug0 = adcclk_stat_ld;
+    assign debug1 = adcclk_stat;
+    assign debug2 = adcclk_clkin0_stat;
+    assign debug3 = adcclk_clkin1_stat;
+    assign debug4 = daq_clk_sel;
+    assign debug5 = daq_clk_en;
+    assign debug6 = ext_clk_sel0;
+    assign debug7 = ext_clk_sel1;
 
     // dummy use of signals
-    assign debug7 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & trigger_from_ipbus_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
+    assign debug7 = spi_ss & spi_clk & spi_mosi & spi_miso & prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & trigger_from_ipbus_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
 
     // active-high reset signal to channels
     assign c0_io[3] = rst_from_ipb;
@@ -147,6 +154,13 @@ module wfd_top(
 
     assign bbus_scl = ext_trig ? mmc_io[0] : 1'bz;
     assign bbus_sda = ext_trig ? mmc_io[1] : 1'bz;
+
+    // front panel clock: sel0 = 1'b1, sel1 = 1'b0
+    assign ext_clk_sel0 = 1'b1;
+    assign ext_clk_sel1 = 1'b0;
+
+    // uTCA backplane clock: daq_clk_sel = 1'b0
+    // front panel clock:    daq_clk_sel = 1'b1
     assign daq_clk_sel = 1'b0;
     assign daq_clk_en  = 1'b1;
 
@@ -808,8 +822,6 @@ module wfd_top(
         .c4_readout_pause(acq_readout_pause[4]),                    // readout pause signal asserted when the Aurora RX FIFO is almost full
 
         // clock synthesizer connections
-        
-        
         .adcclk_dclk(adcclk_dclk),
         .adcclk_ddat(adcclk_ddat),
         .adcclk_dlen(adcclk_dlen),
@@ -817,12 +829,12 @@ module wfd_top(
         .debug(),
 
         // counter ouputs
-        .frame_err(frame_err),              
-        .hard_err(hard_err),                
-        .soft_err(soft_err),                
-        .channel_up(channel_up),            
-        .lane_up(lane_up),                  
-        .pll_not_locked(pll_not_locked),    
+        .frame_err(frame_err),
+        .hard_err(hard_err),
+        .soft_err(soft_err),
+        .channel_up(channel_up),
+        .lane_up(lane_up),
+        .pll_not_locked(pll_not_locked),
         .tx_resetdone_out(tx_resetdone_out),
         .rx_resetdone_out(rx_resetdone_out),
         .link_reset_out(link_reset_out)

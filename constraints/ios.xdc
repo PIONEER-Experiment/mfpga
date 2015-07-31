@@ -124,6 +124,9 @@ set_property IOSTANDARD LVCMOS33 [get_ports adcclk_ddat]
 set_property IOSTANDARD LVCMOS33 [get_ports adcclk_dclk]
 set_property IOSTANDARD LVCMOS33 [get_ports adcclk_sync]
 
+set_property IOSTANDARD LVCMOS33 [get_ports ext_clk_sel0]
+set_property IOSTANDARD LVCMOS33 [get_ports ext_clk_sel1]
+
 set_property IOSTANDARD LVCMOS33 [get_ports daq_clk_sel]
 set_property IOSTANDARD LVCMOS33 [get_ports daq_clk_en]
 
@@ -265,6 +268,9 @@ set_property PACKAGE_PIN C22 [get_ports adcclk_ddat]
 set_property PACKAGE_PIN D23 [get_ports adcclk_dclk]
 
 set_property PACKAGE_PIN R25 [get_ports mmc_reset_m]
+
+set_property PACKAGE_PIN P26 [get_ports ext_clk_sel0]
+set_property PACKAGE_PIN M26 [get_ports ext_clk_sel1]
 
 set_property PACKAGE_PIN K23 [get_ports daq_clk_sel]
 set_property PACKAGE_PIN K26 [get_ports daq_clk_en]
