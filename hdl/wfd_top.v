@@ -883,7 +883,7 @@ module wfd_top(
         // interface to trig number FIFO
         .fifo_valid(tm_to_fifo_tvalid),
         .fifo_ready(tm_to_fifo_tready),
-        .trig_num(tm_to_fifo_tdata),
+        .data_to_fifo(tm_to_fifo_tdata),
 
         //.trigger(trigger_from_ipbus_sync), // IPbus triggering
         //.trigger(ext_trig_sync),           // external triggering

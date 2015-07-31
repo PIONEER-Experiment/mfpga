@@ -9,6 +9,11 @@
 // 2. Failed channel response code monitored. Abort readout from failed channel.
 //    Will produce event size mismatch errors in the AMC13 status registers!
 //
+// Notes:
+// 1. Time trigger received by trigger_manager is stored in the AMC13 Header
+//    The 12 most significant bits are in the 1st AMC13 header where the bunch crossing ID would go
+//    The 32 least significant bits are in the user-designated space in the second AMC13 header
+//
 // Originally created using Fizzim
 
 module command_manager (
@@ -74,29 +79,31 @@ module command_manager (
   parameter SEND_IPBUS_RES              = 7;
   // event builder state bits
   parameter GET_TRIG_NUM                = 8;
-  parameter CHECK_CHAN_EN               = 9;
-  parameter SEND_CHAN_CSN               = 10;
-  parameter SEND_CHAN_CC                = 11;
-  parameter READ_CHAN_RSN               = 12;
-  parameter READ_CHAN_RC                = 13;
-  parameter READ_CHAN_TRIG_NUM          = 14;
-  parameter READ_CHAN_DDR3_START_ADDR   = 15;
-  parameter READ_CHAN_BURST_COUNT       = 16;
-  parameter READ_CHAN_TAG_AND_FILLTYPE  = 17;
-  parameter STORE_CHAN_TAG_AND_FILLTYPE = 18;
-  parameter SEND_AMC13_HEADER1          = 19;
-  parameter SEND_AMC13_HEADER2          = 20;
-  parameter SEND_CHAN_HEADER1           = 21;
-  parameter SEND_CHAN_HEADER2           = 22;
-  parameter READ_CHAN_DATA1             = 23;
-  parameter READ_CHAN_DATA2             = 24;
-  parameter READ_CHAN_DATA_RESYNC       = 25;
-  parameter SEND_TIMESTAMP              = 26;
-  parameter READY_AMC13_TRAILER         = 27;
-  parameter SEND_AMC13_TRAILER          = 28;
+  parameter WAIT                        = 9;
+  parameter GET_TRIG_TIME               = 10;
+  parameter CHECK_CHAN_EN               = 11;
+  parameter SEND_CHAN_CSN               = 12;
+  parameter SEND_CHAN_CC                = 13;
+  parameter READ_CHAN_RSN               = 14;
+  parameter READ_CHAN_RC                = 15;
+  parameter READ_CHAN_TRIG_NUM          = 16;
+  parameter READ_CHAN_DDR3_START_ADDR   = 17;
+  parameter READ_CHAN_BURST_COUNT       = 18;
+  parameter READ_CHAN_TAG_AND_FILLTYPE  = 19;
+  parameter STORE_CHAN_TAG_AND_FILLTYPE = 20;
+  parameter SEND_AMC13_HEADER1          = 21;
+  parameter SEND_AMC13_HEADER2          = 22;
+  parameter SEND_CHAN_HEADER1           = 23;
+  parameter SEND_CHAN_HEADER2           = 24;
+  parameter READ_CHAN_DATA1             = 25;
+  parameter READ_CHAN_DATA2             = 26;
+  parameter READ_CHAN_DATA_RESYNC       = 27;
+  parameter SEND_TIMESTAMP              = 28;
+  parameter READY_AMC13_TRAILER         = 29;
+  parameter SEND_AMC13_TRAILER          = 30;
 
 
-  reg [28:0] state;             // state of finite state machine
+  reg [30:0] state;             // state of finite state machine
   reg [31:0] burst_count;       // burst count for data acquisition, 1 burst count = 8 ADC samples
                                 // value obtained from received channel header from Aurora RX FIFO
   reg [31:0] chan_num_buf;      // channel number
@@ -107,6 +114,7 @@ module command_manager (
   reg [31:0] ipbus_buf;         // buffer for IPbus data
   reg [31:0] trig_num_buf;      // trigger number from channel header, starts at 1
   reg [31:0] fifo_trig_num;     // trigger number from trigger information FIFO, starts at 1
+  reg [43:0] trig_time;         // time trigger is received by trigger_manager
   reg [31:0] timestamp;         // channel data readout timestamp
   reg [2:0] num_chan_en;        // number of enabled channels
   reg sent_amc13_header;        // flag to indicate that the AMC13 header has been sent
@@ -118,7 +126,7 @@ module command_manager (
   
 
   // for internal regs
-  reg [28:0] nextstate;
+  reg [30:0] nextstate;
   reg [31:0] next_burst_count;
   reg [31:0] next_chan_num_buf;
   reg [31:0] next_chan_tag_filltype;
@@ -128,6 +136,7 @@ module command_manager (
   reg [31:0] next_ipbus_buf;
   reg [31:0] next_trig_num_buf;
   reg [31:0] next_fifo_trig_num;
+  reg [43:0] next_trig_time;
   reg [31:0] next_timestamp;
   reg [2:0] next_num_chan_en;
   reg next_sent_amc13_header;
@@ -160,7 +169,7 @@ module command_manager (
 
   // comb always block
   always @* begin
-    nextstate = 29'd0;
+    nextstate = 31'd0;
     next_burst_count[31:0]       = burst_count[31:0];
     next_chan_num_buf[31:0]      = chan_num_buf[31:0];
     next_chan_tag_filltype[31:0] = chan_tag_filltype[31:0];
@@ -170,6 +179,7 @@ module command_manager (
     next_ipbus_buf[31:0]         = ipbus_buf[31:0];
     next_trig_num_buf[31:0]      = trig_num_buf[31:0];
     next_fifo_trig_num[31:0]     = fifo_trig_num[31:0];
+    next_trig_time[43:0]         = trig_time[43:0];
     next_timestamp[31:0]         = timestamp[31:0] + 1'b1; // increment timestamp on each clock cycle
     next_num_chan_en[2:0]        = num_chan_en[2:0];
     next_sent_amc13_header       = sent_amc13_header;
@@ -301,6 +311,23 @@ module command_manager (
       state[GET_TRIG_NUM] : begin
         begin
           next_chan_tx_fifo_dest[3:0] = 0;
+          nextstate[WAIT] = 1'b1;
+        end
+      end
+      // wait to ensure that fifo has received our ready signal
+      // and switched the output data to the trigger timestamp
+      state[WAIT] : begin
+        if (tm_fifo_valid && !tm_fifo_ready) begin
+          next_trig_time[43:0] = tm_fifo_data[43:0];
+          nextstate[GET_TRIG_TIME] = 1'b1;
+        end
+        else begin
+          nextstate[WAIT] = 1'b1;
+        end
+      end
+      // get trigger timestamp from trigger information FIFO
+      state[GET_TRIG_TIME] : begin
+        begin
           nextstate[CHECK_CHAN_EN] = 1'b1;
         end
       end
@@ -429,7 +456,7 @@ module command_manager (
       state[STORE_CHAN_TAG_AND_FILLTYPE] : begin
         if (!sent_amc13_header) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {8'h00, trig_num_buf[23:0], 12'h000, event_size[19:0]};
+          next_daq_data[63:0] = {8'h00, trig_num_buf[23:0], trig_time[43:32], event_size[19:0]};
           nextstate[SEND_AMC13_HEADER1] = 1'b1;
         end
         else begin
@@ -443,7 +470,7 @@ module command_manager (
       state[SEND_AMC13_HEADER1] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = 64'h0000000000000001;
+          next_daq_data[63:0] = {trig_time[31:0], 32'h00000001};
           nextstate[SEND_AMC13_HEADER2] = 1'b1;
         end
         else begin
@@ -632,7 +659,7 @@ module command_manager (
   always @(posedge clk) begin
     if (rst) begin
       // reset values
-      state <= 29'd1 << IDLE;
+      state <= 31'd1 << IDLE;
 
       burst_count[31:0]       <= 0;
       chan_num_buf[31:0]      <= 0;
@@ -649,6 +676,7 @@ module command_manager (
       sent_amc13_header       <= 0;
       trig_num_buf[31:0]      <= 0;
       fifo_trig_num[31:0]     <= 0;
+      trig_time[43:0]         <= 0;
       timestamp[31:0]         <= 0;
       chan_error_rc[4:0]      <= 0; // clear error upon reset
       trig_num_error[4:0]     <= 0; // clear error upon reset
@@ -676,6 +704,7 @@ module command_manager (
       sent_amc13_header       <= next_sent_amc13_header;
       trig_num_buf[31:0]      <= next_trig_num_buf[31:0];
       fifo_trig_num[31:0]     <= next_fifo_trig_num[31:0];
+      trig_time[43:0]         <= next_trig_time[43:0];    
       timestamp[31:0]         <= next_timestamp[31:0];
       chan_error_rc[4:0]      <= next_chan_error_rc[4:0];
       trig_num_error[4:0]     <= next_trig_num_error[4:0];
@@ -748,6 +777,12 @@ module command_manager (
         // ==============================
 
         nextstate[GET_TRIG_NUM]                : begin
+          tm_fifo_ready <= 1;
+        end
+        nextstate[WAIT]                        : begin
+          ;
+        end
+        nextstate[GET_TRIG_TIME]               : begin
           tm_fifo_ready <= 1;
         end
         nextstate[CHECK_CHAN_EN]               : begin
