@@ -9,6 +9,11 @@
   
     // Define 32-bit register values for clock synthesizer
 
+    // ======================
+    // LMK04906 chip settings
+    // ======================
+    `define CS_NUM_REGS          6'b011010      // Number of registers
+
     // ======================================================
     // Default register values (40 MHz input, 800 MHz output)
     // ======================================================

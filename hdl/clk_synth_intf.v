@@ -501,11 +501,11 @@ assign sync = (sync_level) ? 1'b1 : 1'b0;
 //************************************************
 // loop counter to clock out all registers
 //************************************************
-reg [5:0] loop_cnt = 6'b010001; // initialized to cnt_max so that the WRITE SM isn't automatically triggered
+reg [5:0] loop_cnt = `CS_NUM_REGS; // initialized to cnt_max so that the WRITE SM isn't automatically triggered
 reg loop_cnt_ena;
 
 wire loop_cnt_max;
-assign loop_cnt_max = (loop_cnt == 6'b010001) ? 1'b1 : 1'b0;
+assign loop_cnt_max = (loop_cnt == `CS_NUM_REGS) ? 1'b1 : 1'b0;
 
 always @ (posedge slow_clk)
 begin
