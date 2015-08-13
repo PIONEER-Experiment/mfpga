@@ -9,6 +9,8 @@
 // Notes:
 // 1. Trigger number starts at 1
 // 2. Trigger timestamp is number of clockticks since end of the last reset
+// 3. Resetting timestamp or trigger number does NOT return state machine to
+// IDLE.
 //
 // Originally created using Fizzim
 
@@ -17,11 +19,15 @@ module trigger_manager (
   input wire clk,
   input wire reset,
 
+  // TTC channel B resets
+  input wire reset_trig_timestamp,
+  input wire reset_trig_num,
+
   // trigger interface
   input wire trigger,
   input wire [4:0] chan_en,
   input wire [1:0] fill_type,
-  output reg [63:0] data_to_fifo, //data we send to the fifo
+  output reg [63:0] data_to_fifo, // data we send to the fifo
 
   // interface to Channel FPGAs
   input wire [4:0] acq_done,
@@ -41,17 +47,16 @@ module trigger_manager (
   
   reg [3:0] state;
   reg [3:0] nextstate;
-  reg [63:0] trig_num;
+  reg [63:0] trig_num; // Number of triggers received
   reg [63:0] next_trig_num;
-  reg [63:0] trig_time; //time last trigger is received
-  reg [63:0] next_trig_time;
-  reg [63:0] current_time; //clock ticks since last reset
-
+  reg [63:0] trig_timestamp; // Timestamp last trigger was received
+  reg [63:0] next_trig_timestamp;
+  reg [63:0] counter; // Clock ticks since last reset
   // comb always block
   always @* begin
     nextstate = 4'd0;
     next_trig_num[63:0] = trig_num[63:0];
-    next_trig_time[63:0] = trig_time[63:0];
+    next_trig_timestamp[63:0] = trig_timestamp[63:0];
 
     acq_enable[9:0] = 10'd0; // default
     acq_trig[4:0] = 5'd0;    // default
@@ -61,7 +66,7 @@ module trigger_manager (
       state[IDLE] : begin
         if (trigger) begin
           next_trig_num[63:0] = trig_num[63:0]+1;
-          next_trig_time[63:0] = current_time[63:0]; // save time latest trigger is received
+          next_trig_timestamp[63:0] = counter[63:0]; // Save timestamp latest trigger is received
           nextstate[FILL] = 1'b1;
         end
         else begin
@@ -104,29 +109,41 @@ module trigger_manager (
   
   // sequential always block
   always @(posedge clk) begin
-    if (reset) begin
-      state <= 4'b001 << IDLE;
-      trig_num[63:0] <= 64'd0;
-      current_time <= 64'd0; //set time to zero at reset
-      trig_time[63:0] <= 64'd0; //set time of last trigger to zero as well
-      end
+
+    if (reset) begin // Reset state machine
+      state <= 4'b0001 << IDLE;
+    end
     else begin
       state <= nextstate;
+    end
+  
+    if (reset || reset_trig_num) begin // Reset trigger number
+      trig_num[63:0] <= 64'd0;
+    end
+    else begin
       trig_num[63:0] <= next_trig_num[63:0];
-      current_time[63:0] <= current_time[63:0]+1; //increment time counter at each clock tick
-      trig_time[63:0] <= next_trig_time[63:0];
-      end
+    end
+    
+    if (reset || reset_trig_timestamp) begin // Reset stored trigger timestamp and counter
+      counter[63:0] <= 64'b0;
+      trig_timestamp[63:0] <= 64'b0;
+    end
+    else begin
+      counter[63:0] <= counter[63:0] +1;
+      trig_timestamp[63:0] <= next_trig_timestamp[63:0];
+    end
+
   end
   
   // datapath sequential always block
   always @(posedge clk) begin
     if (reset) begin
       fifo_valid <= 0;
-      data_to_fifo <= 64'd0; //reset data at the reset
+      data_to_fifo <= 64'd0; // reset data at the reset
     end
     else begin
-      // make case explicit for all possible states
-      // if this isn't done, implementation may assume that fifo_valid should be
+      // Make case explicit for all possible states
+      // If this isn't done, implementation may assume that fifo_valid should be
       // set to 1 for all cases, even if fifo_valid is set to
       // 0 ahead of case statement
       case (1'b1) // synopsys parallel_case full_case
@@ -155,7 +172,7 @@ module trigger_manager (
         nextstate[STORE_TRIGTIME]: begin
           begin
             fifo_valid <= 1;
-            data_to_fifo[63:0] <= trig_time[63:0];
+            data_to_fifo[63:0] <= trig_timestamp[63:0];
           end
         end
       endcase

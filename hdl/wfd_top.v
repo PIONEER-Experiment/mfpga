@@ -1,7 +1,12 @@
 // Top-level module for g-2 WFD5 Master FPGA
 
 // as a useful reference, here's the syntax to mark signals for debug:
-// (* mark_debug = "true" *) 
+// (* mark_debug = "true" *)
+//
+// Notes:
+// 1. To prevent issues related to the channel and master storing different
+// trigger numbers, I have hardwired the channels to reset whenever the TTC
+// trigger number reset command is given. 
 
 module wfd_top(
     input wire  clkin,                // 50 MHz clock
@@ -146,11 +151,11 @@ module wfd_top(
     assign debug7 = spi_ss & spi_clk & spi_mosi & spi_miso & prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & trigger_from_ipbus_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
 
     // active-high reset signal to channels
-    assign c0_io[3] = rst_from_ipb;
-    assign c1_io[3] = rst_from_ipb;
-    assign c2_io[3] = rst_from_ipb;
-    assign c3_io[3] = rst_from_ipb;
-    assign c4_io[3] = rst_from_ipb;
+    assign c0_io[3] = rst_from_ipb | rst_trigger_num;
+    assign c1_io[3] = rst_from_ipb | rst_trigger_num;
+    assign c2_io[3] = rst_from_ipb | rst_trigger_num;
+    assign c3_io[3] = rst_from_ipb | rst_trigger_num;
+    assign c4_io[3] = rst_from_ipb | rst_trigger_num;
 
     assign bbus_scl = ext_trig ? mmc_io[0] : 1'bz;
     assign bbus_sda = ext_trig ? mmc_io[1] : 1'bz;
@@ -228,6 +233,8 @@ module wfd_top(
     wire reset40_n;
     assign reset40_n = ~reset40;
 
+
+    
     // ================== communicate with SPI flash memory ==================
 
     // The startup block will give us access to the SPI clock pin (which is otherwise reserved for use during FPGA configuration)
@@ -583,26 +590,48 @@ module wfd_top(
     wire daq_valid, daq_ready;
     wire daq_almost_full;
     wire[63:0] daq_data;
-    
 
+
+    // ======== TTC channel B information ========
+    // signals related to channel B of the TTC
+    wire[5:0] ttc_chan_b_info;      
+    wire ttc_evt_reset;         
+    wire ttc_chan_b_valid;           
+    wire rst_trigger_num;
+    wire rst_trigger_timestamp;
+    wire[1:0] fill_type; 
+    
     // ======== module instantiations ========
 
     // TTC decoder module
     TTC_decoder ttc(
-        .TTC_CLK_p(ttc_clkp),        // in  STD_LOGIC
-        .TTC_CLK_n(ttc_clkn),        // in  STD_LOGIC
-        .TTC_rst(),                  // in  STD_LOGIC  asynchronous reset after TTC_CLK_p/TTC_CLK_n frequency changed
-        .TTC_data_p(ttc_rxp),        // in  STD_LOGIC
-        .TTC_data_n(ttc_rxn),        // in  STD_LOGIC
-        .TTC_CLK_out(ttc_clk),       // out  STD_LOGIC
-        .TTCready(TTCready),         // out  STD_LOGIC
-        .L1Accept(trigger_from_ttc), // out  STD_LOGIC
-        .BCntRes(),                  // out  STD_LOGIC
-        .EvCntRes(),                 // out  STD_LOGIC
-        .SinErrStr(),                // out  STD_LOGIC
-        .DbErrStr(),                 // out  STD_LOGIC
-        .BrcstStr(),                 // out  STD_LOGIC
-        .Brcst()                     // out  STD_LOGIC_VECTOR (7 downto 2)
+        .TTC_CLK_p(ttc_clkp),            // in  STD_LOGIC
+        .TTC_CLK_n(ttc_clkn),            // in  STD_LOGIC
+        .TTC_rst(),                      // in  STD_LOGIC  asynchronous reset after TTC_CLK_p/TTC_CLK_n frequency changed
+        .TTC_data_p(ttc_rxp),            // in  STD_LOGIC
+        .TTC_data_n(ttc_rxn),            // in  STD_LOGIC
+        .TTC_CLK_out(ttc_clk),           // out  STD_LOGIC
+        .TTCready(TTCready),             // out  STD_LOGIC
+        .L1Accept(trigger_from_ttc),     // out  STD_LOGIC
+        .BCntRes(),                      // out  STD_LOGIC
+        .EvCntRes(ttc_evt_reset),        // out  STD_LOGIC
+        .SinErrStr(),                    // out  STD_LOGIC
+        .DbErrStr(),                     // out  STD_LOGIC
+        .BrcstStr(ttc_chan_b_valid),     // out  STD_LOGIC
+        .Brcst(ttc_chan_b_info)          // out  STD_LOGIC_VECTOR (7 downto 2)
+    );
+
+
+    // receive information from channel B of the TTC
+    TTC_chanB_receiver chanb(
+        .clk(ttc_clk),
+        .reset(reset40),
+        .chan_b_info(ttc_chan_b_info),              
+        .evt_count_reset(ttc_evt_reset),          
+        .chan_b_valid(ttc_chan_b_valid),             
+        .fill_type(fill_type[1:0]),                
+        .reset_trig_num(rst_trigger_num),
+        .reset_trig_timestamp(rst_trigger_timestamp)
     );
 
 
@@ -879,23 +908,27 @@ module wfd_top(
     trigger_manager trigger_manager(
         .clk(ttc_clk),
         .reset(reset40),
-
+	.reset_trig_num(rst_trigger_num),
+	.reset_trig_timestamp(rst_trigger_timestamp),
         // interface to trig number FIFO
-        .fifo_valid(tm_to_fifo_tvalid),
-        .fifo_ready(tm_to_fifo_tready),
+        .trigger(trigger_from_ttc), // TTC triggering
+        .chan_en(chan_en_sync), // enabled channels from IPbus
         .data_to_fifo(tm_to_fifo_tdata),
+
 
         //.trigger(trigger_from_ipbus_sync), // IPbus triggering
         //.trigger(ext_trig_sync),           // external triggering
-        .trigger(trigger_from_ttc),          // TTC triggering
 
         // connections to channel FPGAs
-        .acq_trig(acq_trigs),
         .acq_done(acq_dones_sync),
         .acq_enable(acq_enable),
+        .acq_trig(acq_trigs),
+        .fifo_ready(tm_to_fifo_tready),
+        .fifo_valid(tm_to_fifo_tvalid),
 
-        .chan_en(chan_en_sync), // enabled channels from IPbus
-        .fill_type(2'b01)       // hardcoded for "Muon Fill" (later will be a register set by TTC commands)
+
+        //.fill_type(2'b01)       // hardcoded for "Muon Fill" (later will be a register set by TTC commands)
+	.fill_type(fill_type[1:0])
     );
 
 
