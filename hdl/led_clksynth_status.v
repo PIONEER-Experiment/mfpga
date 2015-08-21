@@ -8,8 +8,9 @@ module led_clksynth_status(
   output red_led,
   output green_led,
   // status input signals
-  input adcclk_ld,
-  input adcclk_stat
+  input adcclk_ld,         // PLL2 DLD, by default
+  input adcclk_stat,       // PLL1 DLD, by default
+  input adcclk_clkin0_stat // CLKin0 LOS, by default
 );
 
 // the LEDs are active low:
@@ -17,11 +18,12 @@ module led_clksynth_status(
 //    1 = LED off
 
 // Assignments right now:
-//    green LED is on when clock synthesizer PLLs are locked
+//    green LED is on when clock synthesizer PLLs are locked        AND
+//                         clock synthesizer input clock is present
 //    red LED is on otherwise
 
-assign green_led = ~adcclk_ld;
-assign red_led = ~adcclk_stat;
+assign green_led = ~(adcclk_ld & adcclk_stat) & adcclk_clkin0_stat;
+assign red_led = ~green_led;
 
 
 endmodule

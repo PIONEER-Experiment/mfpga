@@ -4,9 +4,7 @@
 // (* mark_debug = "true" *)
 //
 // Notes:
-// 1. To prevent issues related to the channel and master storing different
-// trigger numbers, I have hardwired the channels to reset whenever the TTC
-// trigger number reset command is given. 
+// 1. The channels are also reset with the TTC trigger number reset command.
 
 module wfd_top(
     input wire  clkin,                // 50 MHz clock
@@ -134,7 +132,8 @@ module wfd_top(
         .green_led(clksynth_led0),
         // status input signals
         .adcclk_ld(adcclk_stat_ld),
-        .adcclk_stat(adcclk_stat)
+        .adcclk_stat(adcclk_stat),
+        .adcclk_clkin0_stat(adcclk_clkin0_stat)
     );
 
     // debug signals
@@ -591,9 +590,7 @@ module wfd_top(
     wire daq_almost_full;
     wire[63:0] daq_data;
 
-
-    // ======== TTC channel B information ========
-    // signals related to channel B of the TTC
+    // ======== TTC Channel B information signals ========
     wire[5:0] ttc_chan_b_info;      
     wire ttc_evt_reset;         
     wire ttc_chan_b_valid;           
@@ -622,14 +619,16 @@ module wfd_top(
     );
 
 
-    // receive information from channel B of the TTC
+    // TTC Channel B information receiver
     TTC_chanB_receiver chanb(
         .clk(ttc_clk),
         .reset(reset40),
-        .chan_b_info(ttc_chan_b_info),              
-        .evt_count_reset(ttc_evt_reset),          
-        .chan_b_valid(ttc_chan_b_valid),             
-        .fill_type(fill_type[1:0]),                
+
+        .chan_b_info(ttc_chan_b_info),
+        .evt_count_reset(ttc_evt_reset),
+        .chan_b_valid(ttc_chan_b_valid),
+        .fill_type(fill_type[1:0]),
+
         .reset_trig_num(rst_trigger_num),
         .reset_trig_timestamp(rst_trigger_timestamp)
     );
@@ -906,29 +905,30 @@ module wfd_top(
 
     // trigger manager module
     trigger_manager trigger_manager(
+        // user interface clock and reset
         .clk(ttc_clk),
         .reset(reset40),
-	.reset_trig_num(rst_trigger_num),
-	.reset_trig_timestamp(rst_trigger_timestamp),
-        // interface to trig number FIFO
-        .trigger(trigger_from_ttc), // TTC triggering
-        .chan_en(chan_en_sync), // enabled channels from IPbus
-        .data_to_fifo(tm_to_fifo_tdata),
 
+        // TTC Channel B resets
+        .reset_trig_num(rst_trigger_num),
+        .reset_trig_timestamp(rst_trigger_timestamp),
 
+        // trigger interface
         //.trigger(trigger_from_ipbus_sync), // IPbus triggering
         //.trigger(ext_trig_sync),           // external triggering
+        .trigger(trigger_from_ttc),        // TTC triggering
+        .chan_en(chan_en_sync), // enabled channels from IPbus
+        .fill_type(fill_type[1:0]),
 
-        // connections to channel FPGAs
+        // interface to Channel FPGAs
         .acq_done(acq_dones_sync),
         .acq_enable(acq_enable),
         .acq_trig(acq_trigs),
-        .fifo_ready(tm_to_fifo_tready),
+
+        // interface to trigger information FIFO
         .fifo_valid(tm_to_fifo_tvalid),
-
-
-        //.fill_type(2'b01)       // hardcoded for "Muon Fill" (later will be a register set by TTC commands)
-	.fill_type(fill_type[1:0])
+        .fifo_ready(tm_to_fifo_tready),
+        .fifo_data(tm_to_fifo_tdata)
     );
 
 

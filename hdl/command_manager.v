@@ -10,9 +10,9 @@
 //    Will produce event size mismatch errors in the AMC13 status registers!
 //
 // Notes:
-// 1. Time trigger received by trigger_manager is stored in the AMC13 Header
-//    The 12 most significant bits are in the 1st AMC13 header where the bunch crossing ID would go
-//    The 32 least significant bits are in the user-designated space in the second AMC13 header
+// 1. Trigger timestamp from trigger info. FIFO is stored in the AMC13 header as follows:
+//    The 12 most significant bits are in the first AMC13 header, in place of the bunch crossing number
+//    The 32 least significant bits are in the second AMC13 header, in the user-designated space
 //
 // Originally created using Fizzim
 
@@ -81,7 +81,7 @@ module command_manager (
   // event builder state bits
   parameter GET_TRIG_NUM                = 8;
   parameter WAIT                        = 9;
-  parameter GET_TRIG_TIME               = 10;
+  parameter GET_TRIG_TIMESTAMP          = 10;
   parameter CHECK_CHAN_EN               = 11;
   parameter SEND_CHAN_CSN               = 12;
   parameter SEND_CHAN_CC                = 13;
@@ -99,7 +99,7 @@ module command_manager (
   parameter READ_CHAN_DATA1             = 25;
   parameter READ_CHAN_DATA2             = 26;
   parameter READ_CHAN_DATA_RESYNC       = 27;
-  parameter SEND_TIMESTAMP              = 28;
+  parameter SEND_READOUT_TIMESTAMP      = 28;
   parameter READY_AMC13_TRAILER         = 29;
   parameter SEND_AMC13_TRAILER          = 30;
 
@@ -115,7 +115,7 @@ module command_manager (
   reg [31:0] ipbus_buf;         // buffer for IPbus data
   reg [31:0] trig_num_buf;      // trigger number from channel header, starts at 1
   reg [31:0] fifo_trig_num;     // trigger number from trigger information FIFO, starts at 1
-  reg [43:0] trig_timestamp;    // timestamp when trigger is received by trigger_manager
+  reg [43:0] trig_timestamp;    // trigger timestamp, defined when trigger is received by trigger manager
   reg [31:0] readout_timestamp; // channel data readout timestamp
   reg [2:0] num_chan_en;        // number of enabled channels
   reg sent_amc13_header;        // flag to indicate that the AMC13 header has been sent
@@ -162,7 +162,7 @@ module command_manager (
   // (burst_count[19:0]*2              : 2 64-bit words per burst
   //                   +2              : 2 64-bit channel header words per channel data set
   //                   +2              : 2 64-bit channel checksum words per channel data set
-  //                   +1)             : 1 64-bit readout_timestamp per channel data set
+  //                   +1)             : 1 64-bit readout timestamp per channel data set
   //                      *num_chan_en : # channels that will send data
   //                      +3           : 3 (2 AMC13 header + 1 AMC13 trailer) 64-bit words per AMC13 data set
   assign event_size = (burst_count[19:0]*2+2+2+1)*(chan_en[0]+chan_en[1]+chan_en[2]+chan_en[3]+chan_en[4])+3;
@@ -181,7 +181,7 @@ module command_manager (
     next_trig_num_buf[31:0]      = trig_num_buf[31:0];
     next_fifo_trig_num[31:0]     = fifo_trig_num[31:0];
     next_trig_timestamp[43:0]    = trig_timestamp[43:0];
-    next_readout_timestamp[31:0] = readout_timestamp[31:0] + 1'b1; // increment readout_timestamp on each clock cycle
+    next_readout_timestamp[31:0] = readout_timestamp[31:0] + 1'b1; // increment readout timestamp on each clock cycle
     next_num_chan_en[2:0]        = num_chan_en[2:0];
     next_sent_amc13_header       = sent_amc13_header;
 
@@ -199,6 +199,7 @@ module command_manager (
     next_daq_valid          = 0; // default
     chan_tx_fifo_data[31:0] = 0; // default
     ipbus_res_data[31:0]    = 0; // default
+    
     case (1'b1) // synopsys parallel_case full_case
       // idle state
       state[IDLE] : begin
@@ -314,19 +315,19 @@ module command_manager (
           nextstate[WAIT] = 1'b1;
         end
       end
-      // wait to ensure that fifo has received our ready signal
-      // and switched the output data to the trigger timestamp
+      // wait to ensure that FIFO has received the ready signal,
+      // and the output data is presenting the trigger timestamp
       state[WAIT] : begin
         if (tm_fifo_valid && !tm_fifo_ready) begin
           next_trig_timestamp[43:0] = tm_fifo_data[43:0];
-          nextstate[GET_TRIG_TIME] = 1'b1;
+          nextstate[GET_TRIG_TIMESTAMP] = 1'b1;
         end
         else begin
           nextstate[WAIT] = 1'b1;
         end
       end
       // get trigger timestamp from trigger information FIFO
-      state[GET_TRIG_TIME] : begin
+      state[GET_TRIG_TIMESTAMP] : begin
         begin
           nextstate[CHECK_CHAN_EN] = 1'b1;
         end
@@ -546,19 +547,20 @@ module command_manager (
             next_channel_checksum[127:0] = {64'd0, chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
           else begin
-            // update least- or most-significant 64-bits of checksum, use '~update_mcs_lsb' to determine the 'next' value
+            // update least- or most-significant 64-bits of checksum
+            // use '~update_mcs_lsb' to determine the 'next' value
             next_master_checksum[127:0] = ~update_mcs_lsb ? {master_checksum[127:64], (master_checksum[63:0]^{chan_rx_fifo_data[31:0], daq_data[31:0]})} : {(master_checksum[127:64]^{chan_rx_fifo_data[31:0], daq_data[31:0]}), master_checksum[63:0]};
           end
           nextstate[READ_CHAN_DATA_RESYNC] = 1'b1;
         end
         // we're receiving the last data word
-        // send it, and exit to send the readout_timestamp next
+        // send it, and exit to send the readout timestamp next
         else if (daq_ready & chan_rx_fifo_valid & (data_count[31:0] == (burst_count[31:0]*4+3))) begin
           next_daq_valid = 1'b1;
           next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
           next_data_count[31:0] = data_count[31:0]+1;
           next_channel_checksum[127:0] = {chan_rx_fifo_data[31:0], daq_data[31:0], channel_checksum[63:0]};
-          nextstate[SEND_TIMESTAMP] = 1'b1;
+          nextstate[SEND_READOUT_TIMESTAMP] = 1'b1;
         end
         // we've not received all the data
         // send current data, and continue the readout loop
@@ -573,8 +575,9 @@ module command_manager (
             next_channel_checksum[127:0] = {64'd0, chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
           else begin
-            // update least- or most-significant 64-bits of checksum, use '~update_mcs_lsb' to determine the 'next' value
-            next_master_checksum[127:0] = ~update_mcs_lsb ? {master_checksum[127:64] ,(master_checksum[63:0]^{chan_rx_fifo_data[31:0], daq_data[31:0]})} : {(master_checksum[127:64]^{chan_rx_fifo_data[31:0], daq_data[31:0]}), master_checksum[63:0]};
+            // update least- or most-significant 64-bits of checksum
+            // use '~update_mcs_lsb' to determine the 'next' value
+            next_master_checksum[127:0] = ~update_mcs_lsb ? {master_checksum[127:64], (master_checksum[63:0]^{chan_rx_fifo_data[31:0], daq_data[31:0]})} : {(master_checksum[127:64]^{chan_rx_fifo_data[31:0], daq_data[31:0]}), master_checksum[63:0]};
           end
           nextstate[READ_CHAN_DATA1] = 1'b1;
         end
@@ -586,10 +589,10 @@ module command_manager (
       // pause until the DAQ link is ready for more data
       state[READ_CHAN_DATA_RESYNC] : begin
         // we've already received the last data word
-        // send it, and exit to send the readout_timestamp next
+        // send it, and exit to send the readout timestamp next
         if (daq_ready & (data_count[31:0] == (burst_count[31:0]*4+3))) begin
           next_daq_valid = 1'b1;
-          nextstate[SEND_TIMESTAMP] = 1'b1;
+          nextstate[SEND_READOUT_TIMESTAMP] = 1'b1;
         end
         // we've not received all the data
         // send current data, and continue readout loop
@@ -603,7 +606,7 @@ module command_manager (
         end
       end
       // send the channel readout's timestamp
-      state[SEND_TIMESTAMP] : begin
+      state[SEND_READOUT_TIMESTAMP] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
 
@@ -623,7 +626,7 @@ module command_manager (
         end
         else begin
           // DAQ link buffer is still almost full
-          nextstate[SEND_TIMESTAMP] = 1'b1;
+          nextstate[SEND_READOUT_TIMESTAMP] = 1'b1;
         end
       end
       // prepare the AMC13 trailer word
@@ -643,7 +646,7 @@ module command_manager (
           next_sent_amc13_header = 0;
           next_chan_num_buf[31:0] = 0;
           next_burst_count[31:0] = 0;
-          next_num_chan_en[2:0] = 0; // Reset the number of enabled channels for each new trigger
+          next_num_chan_en[2:0] = 0; // reset the number of enabled channels for each new trigger
           nextstate[IDLE] = 1'b1;
         end
         else begin
@@ -685,7 +688,7 @@ module command_manager (
       update_mcs_lsb          <= 0;
       master_checksum[127:0]  <= 0;
       channel_checksum[127:0] <= 0;
-      end
+    end
     else begin
       state <= nextstate;
 
@@ -713,7 +716,7 @@ module command_manager (
       update_mcs_lsb          <= next_update_mcs_lsb;
       master_checksum[127:0]  <= next_master_checksum[127:0];
       channel_checksum[127:0] <= next_channel_checksum[127:0];
-      end
+    end
   end
 
 
@@ -782,7 +785,7 @@ module command_manager (
         nextstate[WAIT]                        : begin
           ;
         end
-        nextstate[GET_TRIG_TIME]               : begin
+        nextstate[GET_TRIG_TIMESTAMP]          : begin
           tm_fifo_ready <= 1;
         end
         nextstate[CHECK_CHAN_EN]               : begin
@@ -836,7 +839,7 @@ module command_manager (
         nextstate[READ_CHAN_DATA_RESYNC]       : begin
           ;
         end
-        nextstate[SEND_TIMESTAMP]              : begin
+        nextstate[SEND_READOUT_TIMESTAMP]      : begin
           ;
         end
         nextstate[READY_AMC13_TRAILER]         : begin
