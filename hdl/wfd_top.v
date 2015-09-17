@@ -1,7 +1,7 @@
 // Top-level module for g-2 WFD5 Master FPGA
 
 // as a useful reference, here's the syntax to mark signals for debug:
-// (* mark_debug = "true" *)
+// (* mark_debug = "true" *) 
 //
 // Notes:
 // 1. The channels are also reset with the TTC trigger number reset command.
@@ -42,12 +42,17 @@ module wfd_top(
     inout bbus_sda,                   // I2C bus data, connected to Atmel Chip and to Channel FPGAs
     input wire ext_trig,              // front panel trigger
     input [3:0] mmc_io,               // controls to/from the Atmel
-    output [3:0] c0_io,               // utility signals to channel 0
-    output [3:0] c1_io,               // utility signals to channel 1
-    output [3:0] c2_io,               // utility signals to channel 2
-    output [3:0] c3_io,               // utility signals to channel 3
-    output [3:0] c4_io,               // utility signals to channel 4
-    input [5:0] mezzb,                // MB[5..0] on schematic
+    output [3:0] c0_io,               // utility signals to Channel 0
+    output [3:0] c1_io,               // utility signals to Channel 1
+    output [3:0] c2_io,               // utility signals to Channel 2
+    output [3:0] c3_io,               // utility signals to Channel 3
+    output [3:0] c4_io,               // utility signals to Channel 4
+    (* mark_debug = "true" *) output afe_dac_sclk,              // MB[0] on schematic, for AFE's DAC clock
+    (* mark_debug = "true" *) output afe_dac_sdi,               // MB[1] on schematic, for AFE's DAC data input
+    (* mark_debug = "true" *) output afe_dac_sync_n,            // MB[2] on schematic, for AFE's DAC \sync signal
+    input mezzb3,                     // MB[3] on schematic, unused
+    input mezzb4,                     // MB[4] on schematic, unused
+    input mezzb5,                     // MB[5] on schematic, unused
     input mmc_reset_m,                // reset line 
     input adcclk_stat_ld,             // clock synth status, PLL lock detect
     input adcclk_stat,                // clock synth status
@@ -147,7 +152,7 @@ module wfd_top(
     assign debug7 = ext_clk_sel1;
 
     // dummy use of signals
-    assign debug7 = spi_ss & spi_clk & spi_mosi & spi_miso & prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb[0] & mezzb[1] & mezzb[2] & mezzb[3] & mezzb[4] & mezzb[5] &  mmc_io[2] & mmc_io[3] & ext_trig_sync & trigger_from_ipbus_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
+    assign debug7 = spi_ss & spi_clk & spi_mosi & spi_miso & prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb3 & mezzb4 & mezzb5 & mmc_io[2] & mmc_io[3] & ext_trig_sync & trigger_from_ipbus_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
 
     // active-high reset signal to channels
     assign c0_io[3] = rst_from_ipb | rst_trigger_num;
@@ -193,7 +198,7 @@ module wfd_top(
         .CLKFBIN(clkfb)
     );
 
-    // Added BUFG object to deal with a warning message that caused implementation to fail - RB 4/25/2015
+    // Added BUFG object to deal with a warning message that caused implementation to fail
     // "Clock net clk125 is not driven by a Clock Buffer and has more than 2000 loads."
     BUFG BUFG_clk125 (.I(clk_125), .O(clk125));
 
@@ -245,19 +250,19 @@ module wfd_top(
         .SIM_CCLK_FREQ(0.0)  // Set the Configuration Clock Frequency(ns) for simulation.
     )
     STARTUPE2_inst (
-        .CFGCLK(),         // 1-bit output: Configuration main clock output
-        .CFGMCLK(),        // 1-bit output: Configuration internal oscillator clock output
-        .EOS(),            // 1-bit output: Active high output signal indicating the End Of Startup.
-        .PREQ(),           // 1-bit output: PROGRAM request to fabric output
-        .CLK(0),           // 1-bit input: User start-up clock input
-        .GSR(0),           // 1-bit input: Global Set/Reset input (GSR cannot be used for the port name)
-        .GTS(0),           // 1-bit input: Global 3-state input (GTS cannot be used for the port name)
-        .KEYCLEARB(0),     // 1-bit input: Clear AES Decrypter Key input from Battery-Backed RAM (BBRAM)
-        .PACK(0),          // 1-bit input: PROGRAM acknowledge input
-        .USRCCLKO(spi_clk),// 1-bit input: User CCLK input
-        .USRCCLKTS(0),     // 1-bit input: User CCLK 3-state enable input
-        .USRDONEO(0),      // 1-bit input: User DONE pin output control
-        .USRDONETS(0)      // 1-bit input: User DONE 3-state enable output
+        .CFGCLK(),          // 1-bit output: Configuration main clock output
+        .CFGMCLK(),         // 1-bit output: Configuration internal oscillator clock output
+        .EOS(),             // 1-bit output: Active high output signal indicating the End Of Startup.
+        .PREQ(),            // 1-bit output: PROGRAM request to fabric output
+        .CLK(0),            // 1-bit input: User start-up clock input
+        .GSR(0),            // 1-bit input: Global Set/Reset input (GSR cannot be used for the port name)
+        .GTS(0),            // 1-bit input: Global 3-state input (GTS cannot be used for the port name)
+        .KEYCLEARB(0),      // 1-bit input: Clear AES Decrypter Key input from Battery-Backed RAM (BBRAM)
+        .PACK(0),           // 1-bit input: PROGRAM acknowledge input
+        .USRCCLKO(spi_clk), // 1-bit input: User CCLK input
+        .USRCCLKTS(0),      // 1-bit input: User CCLK 3-state enable input
+        .USRDONEO(0),       // 1-bit input: User DONE pin output control
+        .USRDONETS(0)       // 1-bit input: User DONE 3-state enable output
     );
     //  End of STARTUPE2_inst instantiation
 
@@ -317,17 +322,17 @@ module wfd_top(
     prog_channels prog_channels(
         .clk(clk50),
         .reset(clk50_reset),
-        .prog_chan_start(prog_chan_start), // start signal from IPbus
-        .c_progb(c_progb),      // configuration signal to all five channels
-        .c_clk(c_clk),          // configuration clock to all five channels
-        .c_din(c_din),          // configuration bitstream to all five channels
-        .initb(initb),          // configuration signals from each channel
-        .prog_done(prog_done),  // configuration signals from each channel
-        .bitstream(spi_miso),   // bitstream from flash memory
+        .prog_chan_start(prog_chan_start),             // start signal from IPbus
+        .c_progb(c_progb),                             // configuration signal to all five channels
+        .c_clk(c_clk),                                 // configuration clock to all five channels
+        .c_din(c_din),                                 // configuration bitstream to all five channels
+        .initb(initb),                                 // configuration signals from each channel
+        .prog_done(prog_done),                         // configuration signals from each channel
+        .bitstream(spi_miso),                          // bitstream from flash memory
         .prog_chan_in_progress(prog_chan_in_progress), // signal to spi_flash_intf
-        .store_flash_command(pc_to_flash_wbuf_en), // signal to spi_flash_intf
-        .read_bitstream(read_bitstream), // start signal to spi_flash_intf
-        .end_bitstream(end_bitstream) // done signal from spi_flash_intf
+        .store_flash_command(pc_to_flash_wbuf_en),     // signal to spi_flash_intf
+        .read_bitstream(read_bitstream),               // start signal to spi_flash_intf
+        .end_bitstream(end_bitstream)                  // done signal from spi_flash_intf
     );
 
     // ======== module to reprogram FPGA from flash ========
@@ -854,7 +859,11 @@ module wfd_top(
         .adcclk_ddat(adcclk_ddat),
         .adcclk_dlen(adcclk_dlen),
         .adcclk_sync(adcclk_sync),
-        .debug(),
+
+        // AFE's DAC connections
+        .afe_dac_sclk(afe_dac_sclk),
+        .afe_dac_sdi(afe_dac_sdi),
+        .afe_dac_sync_n(afe_dac_sync_n),
 
         // counter ouputs
         .frame_err(frame_err),
@@ -865,7 +874,10 @@ module wfd_top(
         .pll_not_locked(pll_not_locked),
         .tx_resetdone_out(tx_resetdone_out),
         .rx_resetdone_out(rx_resetdone_out),
-        .link_reset_out(link_reset_out)
+        .link_reset_out(link_reset_out),
+
+        // debug outputs
+        .debug()
     );
 
 
