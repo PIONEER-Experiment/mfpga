@@ -1,5 +1,11 @@
 // Top-level module for g-2 WFD5 Master FPGA
 
+// this is the golden image
+// currently identical to master firmware (8/21/2015 version from WFD5_rev1 branch), except
+//     1. use of front panel LED: solid orange for golden image
+//     2. disconnected the trigger to prevent data collection
+// later on we will need to decide exactly what to have in the golden image
+
 // as a useful reference, here's the syntax to mark signals for debug:
 // (* mark_debug = "true" *)
 //
@@ -115,15 +121,9 @@ module wfd_top(
 
 
     // ======== front panel LED for master ========
-    led_master_status led_master_status(
-        .clk(clk50),
-        .red_led(master_led1),
-        .green_led(master_led0),
-        // status input signals
-        .TTCready(TTCready),
-        .chan_error_rc(chan_error_rc[4:0]),
-        .trig_num_error(trig_num_error[4:0])
-    );
+    // red & green LEDs are both on to indicate that this is the golden image
+    assign master_led0 = 1'b0;
+    assign master_led1 = 1'b0;
 
     // ======== front panel LED for clk synth ========
     led_clksynth_status led_clksynth_status(
@@ -916,7 +916,8 @@ module wfd_top(
         // trigger interface
         //.trigger(trigger_from_ipbus_sync), // IPbus triggering
         //.trigger(ext_trig_sync),           // external triggering
-        .trigger(trigger_from_ttc),        // TTC triggering
+        //.trigger(trigger_from_ttc),        // TTC triggering
+        .trigger(1'b0), // ##### disconnect trigger in golden image #####
         .chan_en(chan_en_sync), // enabled channels from IPbus
         .fill_type(fill_type[1:0]),
 
