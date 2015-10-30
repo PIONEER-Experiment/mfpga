@@ -537,7 +537,7 @@ module command_manager (
 
         // DAQ link has flagged that its buffer is almost full
         // grab the Aurora RX FIFO's lastest word, and wait for DAQ link to recover before trying to send it
-        if (~daq_ready) begin
+        if (~daq_ready & chan_rx_fifo_valid) begin
           next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
           next_data_count[31:0] = data_count[31:0]+1;
           next_update_mcs_lsb = ~update_mcs_lsb;
