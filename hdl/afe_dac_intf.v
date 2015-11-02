@@ -59,12 +59,12 @@ parameter STARTUP_RESET  = 3'b100;
 parameter STARTUP_STROBE = 3'b101;
 parameter STARTUP_DONE   = 3'b110;
 
-(* mark_debug = "true" *) reg [2:0] startup_state = STARTUP_IDLE;
+reg [2:0] startup_state = STARTUP_IDLE;
 
 reg [15:0] startup_cnt = 16'd0; // counter to wait >3 ms after power up
 reg startup_rst_level_cntrl;    // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for cntrl
 reg startup_rst_level_reg;      // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for regs
-(* mark_debug = "true" *) reg startup_done;               // flag to tell other state machines that the startup procedure is complete
+reg startup_done;               // flag to tell other state machines that the startup procedure is complete
 
 wire startup_rst_cntrl;
 wire startup_rst_reg;
@@ -186,29 +186,29 @@ assign  s06_3_reg_sel = io_sel && (io_addr[4:0] == 5'b10100);    // AFE DAC #3 C
 //          and not the AFE's DACs register number
 // ====================================================================
 
-(* mark_debug = "true" *) wire [31:0] scntrl_reg_out; // LSB controls the strobe
+wire [31:0] scntrl_reg_out; // LSB controls the strobe
 
 // s[#]_reg_out wires used to write to the AFE's DACs
 // these wires are driven by the reg inside the reg32_ce2 blocks
 
 // from IPbus
-(* mark_debug = "true" *) wire [31:0] s00_1_reg_out, s00_2_reg_out, s00_3_reg_out;    // AFE DAC MODE
-(* mark_debug = "true" *) wire [31:0] s01_1_reg_out, s01_2_reg_out, s01_3_reg_out;    // AFE DAC \LDAC
-(* mark_debug = "true" *) wire [31:0] s02_1_reg_out, s02_2_reg_out, s02_3_reg_out;    // AFE DAC DCEN
-(* mark_debug = "true" *) wire [31:0] s03_1_reg_out, s03_2_reg_out, s03_3_reg_out;    // AFE DAC Channel A
-(* mark_debug = "true" *) wire [31:0] s04_1_reg_out, s04_2_reg_out, s04_3_reg_out;    // AFE DAC Channel B
-(* mark_debug = "true" *) wire [31:0] s05_1_reg_out, s05_2_reg_out, s05_3_reg_out;    // AFE DAC Channel C
-(* mark_debug = "true" *) wire [31:0] s06_1_reg_out, s06_2_reg_out, s06_3_reg_out;    // AFE DAC Channel D
+wire [31:0] s00_1_reg_out, s00_2_reg_out, s00_3_reg_out;    // AFE DAC MODE
+wire [31:0] s01_1_reg_out, s01_2_reg_out, s01_3_reg_out;    // AFE DAC \LDAC
+wire [31:0] s02_1_reg_out, s02_2_reg_out, s02_3_reg_out;    // AFE DAC DCEN
+wire [31:0] s03_1_reg_out, s03_2_reg_out, s03_3_reg_out;    // AFE DAC Channel A
+wire [31:0] s04_1_reg_out, s04_2_reg_out, s04_3_reg_out;    // AFE DAC Channel B
+wire [31:0] s05_1_reg_out, s05_2_reg_out, s05_3_reg_out;    // AFE DAC Channel C
+wire [31:0] s06_1_reg_out, s06_2_reg_out, s06_3_reg_out;    // AFE DAC Channel D
 
 
 // to AFE's DACs
-(* mark_debug = "true" *) wire [95:0] s00_reg_out;    // AFE DAC MODE
-(* mark_debug = "true" *) wire [95:0] s01_reg_out;    // AFE DAC \LDAC
-(* mark_debug = "true" *) wire [95:0] s02_reg_out;    // AFE DAC DCEN
-(* mark_debug = "true" *) wire [95:0] s03_reg_out;    // AFE DAC Channel A
-(* mark_debug = "true" *) wire [95:0] s04_reg_out;    // AFE DAC Channel B
-(* mark_debug = "true" *) wire [95:0] s05_reg_out;    // AFE DAC Channel C
-(* mark_debug = "true" *) wire [95:0] s06_reg_out;    // AFE DAC Channel D
+wire [95:0] s00_reg_out;    // AFE DAC MODE
+wire [95:0] s01_reg_out;    // AFE DAC \LDAC
+wire [95:0] s02_reg_out;    // AFE DAC DCEN
+wire [95:0] s03_reg_out;    // AFE DAC Channel A
+wire [95:0] s04_reg_out;    // AFE DAC Channel B
+wire [95:0] s05_reg_out;    // AFE DAC Channel C
+wire [95:0] s06_reg_out;    // AFE DAC Channel D
 
 // format: {(DAC #3 REG), (DAC #2 REG), (DAC #1 REG)}
 assign s00_reg_out = {s00_1_reg_out, s00_2_reg_out, s00_3_reg_out};
@@ -274,8 +274,8 @@ parameter STROBE_IDLE = 3'b001;
 parameter STROBE_TRIG = 3'b010;
 parameter STROBE_DONE = 3'b100;
 
-(* mark_debug = "true" *) reg [2:0] strobe_state = STROBE_IDLE;
-(* mark_debug = "true" *) reg strobe;
+reg [2:0] strobe_state = STROBE_IDLE;
+reg strobe;
 
 always @ (posedge slow_clk)
 begin
@@ -338,31 +338,31 @@ assign slow_clk_180 = !slow_clk;
 // payload     - what will be shifted
 // sreg_ready  - active high status signal
 // ==========================================================
-(* mark_debug = "true" *) reg sreg_strobe;
-(* mark_debug = "true" *) reg [95:0] sreg;
-(* mark_debug = "true" *) reg [7:0] sreg_cnt = 8'b00000000;
-(* mark_debug = "true" *) reg sreg_ready;
+reg sreg_strobe;
+reg [95:0] sreg;
+reg [7:0] sreg_cnt = 8'b00000000;
+reg sreg_ready;
 
 parameter SHIFT_IDLE     = 2'b00;
 parameter SHIFT_LOAD     = 2'b01;
 parameter SHIFT_SHIFTING = 2'b10;
 
-(* mark_debug = "true" *) reg [1:0] shift_state = SHIFT_IDLE;
+reg [1:0] shift_state = SHIFT_IDLE;
 
 reg sreg_cnt_ena;
 reg sreg_cnt_reset;
 
 // flags for sending out 32, 64, and 96 bit register values
-(* mark_debug = "true" *) wire sreg_cnt_max_32, sreg_cnt_max_64, sreg_cnt_max_96;
+wire sreg_cnt_max_32, sreg_cnt_max_64, sreg_cnt_max_96;
 assign sreg_cnt_max_32 = (sreg_cnt == 8'd30) ? 1'b1 : 1'b0;
 assign sreg_cnt_max_64 = (sreg_cnt == 8'd62) ? 1'b1 : 1'b0;
 assign sreg_cnt_max_96 = (sreg_cnt == 8'd94) ? 1'b1 : 1'b0;
 
 // if addr is 0 or 1, use 32-bit value
-(* mark_debug = "true" *) wire sreg_cnt_max_init;
+wire sreg_cnt_max_init;
 assign sreg_cnt_max_init = (dac_reg_addr[4:0] <= 5'd1) ? sreg_cnt_max_32 : sreg_cnt_max_64;
 
-(* mark_debug = "true" *) wire sreg_cnt_max;
+wire sreg_cnt_max;
 assign sreg_cnt_max = (dac_reg_addr[4:0] >= 5'd4) ? sreg_cnt_max_96 : sreg_cnt_max_init;
 
 always @ (posedge slow_clk)
@@ -375,7 +375,7 @@ begin
         sreg_cnt[7:0] <= sreg_cnt[7:0];
 end
 
-(* mark_debug = "true" *) reg sreg_load;
+reg sreg_load;
 
 always @ (posedge slow_clk)
 begin
@@ -448,8 +448,8 @@ end
 // ==================
 // array of registers
 // ==================
-(* mark_debug = "true" *) reg [4:0] dac_reg_addr = 5'd0;
-(* mark_debug = "true" *) reg [95:0] dac_reg = 96'd0;
+reg [4:0] dac_reg_addr = 5'd0;
+reg [95:0] dac_reg = 96'd0;
 
 always @ (posedge slow_clk)
 begin
@@ -481,16 +481,16 @@ parameter WRITE_INCREMENT = 3'b100;
 parameter SYNC_LOW        = 3'b101;
 parameter SYNC_HIGH       = 3'b110;
 
-(* mark_debug = "true" *) reg [2:0] dac_state = WRITE_IDLE;
+reg [2:0] dac_state = WRITE_IDLE;
 
 
 // =======================================
 // loop counter to clock out all registers
 // =======================================
-(* mark_debug = "true" *) reg [5:0] loop_cnt = `DAC_NUM_REGS; // initialized to cnt_max so that the WRITE SM isn't automatically triggered
+reg [5:0] loop_cnt = `DAC_NUM_REGS; // initialized to cnt_max so that the WRITE SM isn't automatically triggered
 reg loop_cnt_ena;
 
-(* mark_debug = "true" *) wire loop_cnt_max;
+wire loop_cnt_max;
 assign loop_cnt_max = (loop_cnt == `DAC_NUM_REGS) ? 1'b1 : 1'b0;
 
 always @ (posedge slow_clk)

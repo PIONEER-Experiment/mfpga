@@ -47,9 +47,9 @@ module wfd_top(
     output [3:0] c2_io,               // utility signals to Channel 2
     output [3:0] c3_io,               // utility signals to Channel 3
     output [3:0] c4_io,               // utility signals to Channel 4
-    (* mark_debug = "true" *) output afe_dac_sclk,              // MB[0] on schematic, for AFE's DAC clock
-    (* mark_debug = "true" *) output afe_dac_sdi,               // MB[1] on schematic, for AFE's DAC data input
-    (* mark_debug = "true" *) output afe_dac_sync_n,            // MB[2] on schematic, for AFE's DAC \sync signal
+    output afe_dac_sclk,              // MB[0] on schematic, for AFE's DAC clock
+    output afe_dac_sdi,               // MB[1] on schematic, for AFE's DAC data input
+    output afe_dac_sync_n,            // MB[2] on schematic, for AFE's DAC \sync signal
     input mezzb3,                     // MB[3] on schematic, unused
     input mezzb4,                     // MB[4] on schematic, unused
     input mezzb5,                     // MB[5] on schematic, unused
