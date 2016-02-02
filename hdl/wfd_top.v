@@ -120,6 +120,9 @@ module wfd_top(
 
 
     // ======== front panel LED for master ========
+    
+    wire TTCready;
+    
     led_master_status led_master_status(
         .clk(clk50),
         .red_led(master_led1),
@@ -127,7 +130,8 @@ module wfd_top(
         // status input signals
         .TTCready(TTCready),
         .chan_error_rc(chan_error_rc[4:0]),
-        .trig_num_error(trig_num_error[4:0])
+        .trig_num_error(trig_num_error[4:0]),
+        .daq_almost_full(daq_almost_full)
     );
 
     // ======== front panel LED for clk synth ========
@@ -1023,7 +1027,7 @@ module wfd_top(
         .trig_num_error(trig_num_error[4:0]), // output [4:0]
         .chan_en(chan_en)                     // output, enabled channels from IPbus
     );
-
+    
 
     // DAQ Link to AMC13, version 0x10
     DAQ_LINK_Kintex #(
@@ -1047,6 +1051,7 @@ module wfd_top(
         .TTSclk(clk125),
         .TTS(4'b1000), // always report a 'Ready' TTS state
 
+	    .ReSyncAndEmpty(1'b0),              // Added input signal ReSyncAndEmpty for proper ReSync operation. Set to 0 because likely won't be used
         .EventDataClk(clk125),
         .EventData_valid(daq_valid),
         .EventData_header(daq_header),   // flag to indicate first AMC13 header word

@@ -474,10 +474,14 @@ module command_manager (
           next_daq_data[63:0] = {trig_timestamp[31:0], 32'h00000001};
           nextstate[SEND_AMC13_HEADER2] = 1'b1;
         end
-        else begin
+        else if (~daq_almost_full) begin
           next_daq_valid = 1'b1;
           nextstate[SEND_AMC13_HEADER1] = 1'b1;
         end
+        else begin
+          next_daq_valid = 1'b0;
+          nextstate[SEND_AMC13_HEADER1] = 1'b1;
+        end        
       end
       // send the second AMC13 header word
       state[SEND_AMC13_HEADER2] : begin
@@ -488,9 +492,13 @@ module command_manager (
           next_readout_timestamp[31:0] = 0;
           nextstate[SEND_CHAN_HEADER1] = 1'b1;
         end
-        else begin
+        else if (~daq_almost_full) begin
           next_daq_valid = 1'b1;
           nextstate[SEND_AMC13_HEADER2] = 1'b1;
+        end
+        else begin
+          next_daq_valid = 1'b0;
+          nextstate[SEND_AMC13_HEADER2] = 1'b1;        
         end
       end
       // send the first channel header word
@@ -649,9 +657,13 @@ module command_manager (
           next_num_chan_en[2:0] = 0; // reset the number of enabled channels for each new trigger
           nextstate[IDLE] = 1'b1;
         end
-        else begin
+        else if (~daq_almost_full) begin
           next_daq_valid = 1'b1;
           nextstate[SEND_AMC13_TRAILER] = 1'b1;
+        end
+        else begin
+          next_daq_valid = 1'b0;
+          nextstate[SEND_AMC13_TRAILER] = 1'b1;        
         end
       end
     endcase
@@ -660,6 +672,7 @@ module command_manager (
 
   // sequential always block
   always @(posedge clk) begin
+   
     if (rst) begin
       // reset values
       state <= 31'd1 << IDLE;

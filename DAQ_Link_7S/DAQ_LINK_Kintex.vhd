@@ -62,6 +62,7 @@ entity DAQ_LINK_Kintex is
 -- do not forget to specify its period in the generic port
            SYSCLK_IN : in  STD_LOGIC;
 -- Data port
+					 ReSyncAndEmpty : in  STD_LOGIC;
 					 EventDataClk : in  STD_LOGIC;
            EventData_valid : in  STD_LOGIC; -- used as data write enable
            EventData_header : in  STD_LOGIC; -- first data word
@@ -91,6 +92,7 @@ COMPONENT DAQ_Link_7S
 		trig : IN std_logic_vector(7 downto 0);
 		TTSclk : IN std_logic;
 		TTS : IN std_logic_vector(3 downto 0);
+		ReSyncAndEmpty : in  STD_LOGIC;
 		EventDataClk : IN std_logic;
 		EventData_valid : IN std_logic;
 		EventData_header : IN std_logic;
@@ -223,6 +225,7 @@ i_DAQ_Link_7S : DAQ_Link_7S
           trig => trig,
           TTSclk => TTSclk,
           TTS => TTS,
+					ReSyncAndEmpty => ReSyncAndEmpty,
           EventDataClk => EventDataClk,
           EventData_valid => EventData_valid,
           EventData_header => EventData_header,
