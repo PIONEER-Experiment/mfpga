@@ -130,8 +130,7 @@ module wfd_top(
         // status input signals
         .TTCready(TTCready),
         .chan_error_rc(chan_error_rc[4:0]),
-        .trig_num_error(trig_num_error[4:0]),
-        .daq_almost_full(daq_almost_full)
+        .trig_num_error(trig_num_error[4:0])
     );
 
     // ======== front panel LED for clk synth ========
