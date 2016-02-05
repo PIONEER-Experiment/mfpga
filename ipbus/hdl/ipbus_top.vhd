@@ -71,6 +71,9 @@ entity ipbus_top is port(
 
     -- signal to issue IPROG command to re-program FPGA from flash
     reprog_trigger_out : out std_logic_vector(1 downto 0);
+
+    -- tells trigger manager how long to wait before sending trigger to channels
+    delay_trig_out : out std_logic_vector(3 downto 0);
 	
 	-- clocks
 	clk_200: in std_logic;
@@ -250,6 +253,7 @@ begin
 	    chan_en_out => chan_en_out,
 	    prog_chan_out => prog_chan_out,
 	    reprog_trigger_out => reprog_trigger_out,
+            delay_trig_out => delay_trig_out,
 
 		-- counter input ports
 		frame_err => frame_err,

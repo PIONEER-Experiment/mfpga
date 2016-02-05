@@ -47,6 +47,7 @@ entity slaves is
 	    chan_en_out        : out std_logic_vector(4 downto 0);
 	    prog_chan_out      : out std_logic;
 	    reprog_trigger_out : out std_logic_vector(1 downto 0);
+            delay_trig_out     : out std_logic_vector(3 downto 0);
 
 	    -- "user_ipb" interface
         user_ipb_clk    : out std_logic;                     -- programming clock
@@ -149,6 +150,10 @@ begin
 		reprog_trigger_out(0) <= ctrl_reg(13);
 		reprog_trigger_out(1) <= ctrl_reg(14);
 
+                delay_trig_out(0) <= ctrl_reg(16);
+                delay_trig_out(1) <= ctrl_reg(17);
+                delay_trig_out(2) <= ctrl_reg(18);
+                delay_trig_out(3) <= ctrl_reg(19);
 -- Slave 2: 1kword RAM
 
 	slave2: entity work.ipbus_ram
