@@ -1,7 +1,7 @@
 // Finite state machine to handle triggering of Channel FPGA(s).
 // 
 // General FSM flow:
-// 1. Send trigger to Channel FPGAs after specified delay
+// 1. Send trigger to Channel FPGAs after a specified delay
 // 2. Wait for Channel FPGA(s) to report 'done'
 // 3. Put the trigger number in FIFO for command manager
 // 4. Put the trigger timestamp in FIFO for command manager
@@ -21,9 +21,10 @@ module trigger_manager (
   input wire reset_trig_timestamp,
 
   // trigger interface
-  input wire trigger,
-  input wire [4:0] chan_en,
-  input wire [1:0] fill_type,
+  input wire trigger,          // trigger signal
+  input wire [4:0] chan_en,    // which channels should receive the trigger
+  input wire [1:0] fill_type,  // trigger type (muon fill, laser, pedestal)
+  input wire [3:0] trig_delay, // delay between receiving trigger and passing it onto channels
 
   // interface to Channel FPGAs
   input wire [4:0] acq_done,
@@ -33,10 +34,7 @@ module trigger_manager (
   // interface to trigger information FIFO
   input wire fifo_ready,
   output reg fifo_valid,
-  output reg [63:0] fifo_data,
-
-
-  input wire [3:0] delay_trig // delay between receiving tigger and sending it to channels
+  output reg [63:0] fifo_data
 );
 
   // state bits
@@ -53,7 +51,8 @@ module trigger_manager (
   reg [63:0] trig_timestamp;      // trigger timestamp
   reg [63:0] next_trig_timestamp;
   reg [63:0] trig_timestamp_cnt;  // clock cycle count, since last reset
-  reg [63:0] delay_cnt;           // keep track of length of trigger delay 
+  reg [63:0] delay_cnt;           // counter to keep track of trigger delay 
+
   // comb always block
   always @* begin
     nextstate = 4'd0;
@@ -69,7 +68,8 @@ module trigger_manager (
         if (trigger) begin
           next_trig_num[63:0] = trig_num[63:0] + 1;
           next_trig_timestamp[63:0] = trig_timestamp_cnt[63:0];
-          if(delay_trig[3:0]) begin
+
+          if (trig_delay[3:0]) begin
             nextstate[DELAY] = 1'b1;
           end
           else begin
@@ -80,9 +80,9 @@ module trigger_manager (
           nextstate[IDLE] = 1'b1;
         end
       end
-      // wait before sending trigger signal to channels
+      // wait before passing trigger signal onto the channels
       state[DELAY] : begin
-        if (delay_trig[3:0]-delay_cnt[63:0]-1) begin
+        if (trig_delay[3:0] - delay_cnt[63:0] - 1) begin
           nextstate[DELAY] = 1'b1;
         end
         else begin
@@ -133,14 +133,13 @@ module trigger_manager (
       state <= nextstate;
     end
   
-    //reset delay counter
-      if (reset | trigger) begin
-        delay_cnt[63:0] <= 64'b0;
-      end
-      else begin
-        delay_cnt[63:0] <= delay_cnt[63:0] + 1;
-      end
-                                
+    // reset trigger delay counter
+    if (reset | trigger) begin
+      delay_cnt[63:0] <= 64'b0;
+    end
+    else begin
+      delay_cnt[63:0] <= delay_cnt[63:0] + 1;
+    end
 
     // reset trigger number
     if (reset | reset_trig_num) begin

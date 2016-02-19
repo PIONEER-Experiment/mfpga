@@ -65,7 +65,6 @@ module command_manager (
   output reg [4:0] chan_error_rc,  // master received an error response code, one bit for each channel
   output reg [4:0] trig_num_error, // trigger numbers from channel and master aren't synchronized, one bit for each channel
   output reg read_fill_done
-
 );
 
   // idle state bit

@@ -453,8 +453,8 @@ module wfd_top(
     // enable signals to channels
     wire[4:0] chan_en;
 
-   // delay before sending trigger to channels                                                                                                                                                   
-    wire[3:0] delay_trig;
+    // delay between receiving the trigger and passing it onto the channels                                                                                                                                                   
+    wire[3:0] trig_delay;
 
     // wires connecting the trigger information FIFO to the trigger manager
     wire tm_to_fifo_tvalid, tm_to_fifo_tready;
@@ -707,6 +707,9 @@ module wfd_top(
         // signal to issue IPROG command to re-program FPGA from flash
         .reprog_trigger_out(reprog_trigger_from_ipbus),
 
+        // set trigger delay in the trigger manager
+        .trig_delay_out(trig_delay[3:0]),
+
         // counter ouputs
         .frame_err(frame_err),              
         .hard_err(hard_err),                
@@ -737,10 +740,7 @@ module wfd_top(
         .daq_trailer(),
         .daq_data(),
         .daq_ready(),
-        .daq_almost_full(),
-   
-        // set trigger delay in trigger manager                                                                     
-        .delay_trig_out(delay_trig[3:0]) 
+        .daq_almost_full()
     );
 
  
@@ -937,9 +937,10 @@ module wfd_top(
         // trigger interface
         //.trigger(trigger_from_ipbus_sync), // IPbus triggering
         //.trigger(ext_trig_sync),           // external triggering
-        .trigger(trigger_from_ttc),        // TTC triggering
-        .chan_en(chan_en_sync), // enabled channels from IPbus
+        .trigger(trigger_from_ttc),          // TTC triggering
+        .chan_en(chan_en_sync),              // enabled channels from IPbus
         .fill_type(fill_type[1:0]),
+        .trig_delay(trig_delay[3:0]),        // trigger delay
 
         // interface to Channel FPGAs
         .acq_done(acq_dones_sync),
@@ -949,10 +950,7 @@ module wfd_top(
         // interface to trigger information FIFO
         .fifo_valid(tm_to_fifo_tvalid),
         .fifo_ready(tm_to_fifo_tready),
-        .fifo_data(tm_to_fifo_tdata),
-    
-        // trigger delay                                                                                            
-        .delay_trig(delay_trig[3:0])
+        .fifo_data(tm_to_fifo_tdata)
     );
 
 
