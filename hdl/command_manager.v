@@ -65,59 +65,67 @@ module command_manager (
   output reg [4:0] chan_error_rc,  // master received an error response code, one bit for each channel
   output reg [4:0] trig_num_error, // trigger numbers from channel and master aren't synchronized, one bit for each channel
   output reg read_fill_done
+
 );
 
   // idle state bit
   parameter IDLE                        = 0;
   // configuration manager state bits
-  parameter SEND_IPBUS_CSN              = 1;
-  parameter READ_IPBUS_CMD              = 2;
-  parameter CHECK_LAST                  = 3;
-  parameter SEND_IPBUS_CMD              = 4;
-  parameter READ_IPBUS_RSN              = 5;
-  parameter READ_IPBUS_RES              = 6;
-  parameter SEND_IPBUS_RES              = 7;
+  parameter SEND_IPBUS_CSN                  = 1;
+  parameter READ_IPBUS_CMD                  = 2;
+  parameter CHECK_LAST                      = 3;
+  parameter SEND_IPBUS_CMD                  = 4;
+  parameter READ_IPBUS_RSN                  = 5;
+  parameter READ_IPBUS_RES                  = 6;
+  parameter SEND_IPBUS_RES                  = 7;
   // event builder state bits
-  parameter GET_TRIG_NUM                = 8;
-  parameter WAIT                        = 9;
-  parameter GET_TRIG_TIMESTAMP          = 10;
-  parameter CHECK_CHAN_EN               = 11;
-  parameter SEND_CHAN_CSN               = 12;
-  parameter SEND_CHAN_CC                = 13;
-  parameter READ_CHAN_RSN               = 14;
-  parameter READ_CHAN_RC                = 15;
-  parameter READ_CHAN_TRIG_NUM          = 16;
-  parameter READ_CHAN_DDR3_START_ADDR   = 17;
-  parameter READ_CHAN_BURST_COUNT       = 18;
-  parameter READ_CHAN_TAG_AND_FILLTYPE  = 19;
-  parameter STORE_CHAN_TAG_AND_FILLTYPE = 20;
-  parameter SEND_AMC13_HEADER1          = 21;
-  parameter SEND_AMC13_HEADER2          = 22;
-  parameter SEND_CHAN_HEADER1           = 23;
-  parameter SEND_CHAN_HEADER2           = 24;
-  parameter READ_CHAN_DATA1             = 25;
-  parameter READ_CHAN_DATA2             = 26;
-  parameter READ_CHAN_DATA_RESYNC       = 27;
-  parameter SEND_READOUT_TIMESTAMP      = 28;
-  parameter READY_AMC13_TRAILER         = 29;
-  parameter SEND_AMC13_TRAILER          = 30;
+  parameter GET_TRIG_NUM                    = 8;
+  parameter WAIT                            = 9;
+  parameter GET_TRIG_TIMESTAMP              = 10;
+  parameter CHECK_CHAN_EN                   = 11;
+  parameter SEND_CHAN_CSN                   = 12;
+  parameter SEND_CHAN_CC                    = 13;
+  parameter READ_CHAN_RSN                   = 14;
+  parameter READ_CHAN_RC                    = 15;
+  parameter READ_CHAN_TRIG_NUM_AND_FILL_TYPE= 16;
+  parameter READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR       = 17;
+  parameter READ_CHAN_DDR3_START_ADDR_AND_WFM_COUNT           = 18;
+  parameter READ_CHAN_WFM_GAP_AND_TAG      = 19;
+  parameter STORE_CHAN_TAG_AND_FILLTYPE     = 20;
+  parameter SEND_AMC13_HEADER1              = 21;
+  parameter SEND_AMC13_HEADER2              = 22;
+  parameter SEND_CHAN_HEADER1               = 23;
+  parameter SEND_CHAN_HEADER2               = 24;
+  parameter READ_CHAN_DATA1                 = 25;
+  parameter READ_CHAN_DATA2                 = 26;
+  parameter READ_CHAN_DATA_RESYNC           = 27;
+  parameter SEND_READOUT_TIMESTAMP          = 28;
+  parameter READY_AMC13_TRAILER             = 29;
+  parameter SEND_AMC13_TRAILER              = 30;
 
 
   reg [30:0] state;             // state of finite state machine
-  reg [31:0] burst_count;       // burst count for data acquisition, 1 burst count = 8 ADC samples
-                                // value obtained from received channel header from Aurora RX FIFO
+  
+  // channel header regs sorted the way they will be used: first trig_num_buf, then fill_type...
+  reg [23:0] trig_num_buf;      // trigger number from channel header, starts at 1
+  reg  [2:0] fill_type;         // fill type: muon, laser, pedestal...
+  reg [22:0] burst_count;       // burst count for data acquisition, 1 burst count = 8 ADC samples
+      // value obtained from received channel header from Aurora RX FIFO  
+  reg [25:0] ddr3_start_addr;   // DDR3 start address (3 LSBs always zero)
+  reg [11:0] wfm_count;         // number of waveform to be acquired
+  reg [21:0] wfm_gap_length;    // gap in unit of 2.5 ns between two consecutive waveforms
+  reg [15:0] chan_tag;          // channel tag
+  
   reg [31:0] chan_num_buf;      // channel number
-  reg [31:0] chan_tag_filltype; // channel tag and fill type
   reg [31:0] csn;               // channel serial number
   reg [31:0] data_count;        // # of 32-bit data words received from Aurora
-  reg [31:0] ddr3_start_addr;   // DDR3 start address
   reg [31:0] ipbus_buf;         // buffer for IPbus data
-  reg [31:0] trig_num_buf;      // trigger number from channel header, starts at 1
-  reg [31:0] fifo_trig_num;     // trigger number from trigger information FIFO, starts at 1
+  reg [23:0] fifo_trig_num;     // trigger number from trigger information FIFO, starts at 1
   reg [43:0] trig_timestamp;    // trigger timestamp, defined when trigger is received by trigger manager
   reg [31:0] readout_timestamp; // channel data readout timestamp
   reg [2:0] num_chan_en;        // number of enabled channels
   reg sent_amc13_header;        // flag to indicate that the AMC13 header has been sent
+
 
   // regs for channel checksum verification
   reg update_mcs_lsb;           // flag to update the 64 LSBs of the 128-bit master checksum (mcs)
@@ -127,15 +135,19 @@ module command_manager (
 
   // for internal regs
   reg [30:0] nextstate;
-  reg [31:0] next_burst_count;
+  reg [22:0] next_burst_count;
   reg [31:0] next_chan_num_buf;
-  reg [31:0] next_chan_tag_filltype;
+  reg  [2:0] next_fill_type;
+  reg [11:0] next_wfm_count;
+  reg [21:0] next_wfm_gap_length;
+  reg [21:0] wfm_gap_length;
+  reg [15:0] next_chan_tag;
   reg [31:0] next_csn;
   reg [31:0] next_data_count;
-  reg [31:0] next_ddr3_start_addr;
+  reg [25:0] next_ddr3_start_addr;
   reg [31:0] next_ipbus_buf;
-  reg [31:0] next_trig_num_buf;
-  reg [31:0] next_fifo_trig_num;
+  reg [23:0] next_trig_num_buf;
+  reg [23:0] next_fifo_trig_num;
   reg [43:0] next_trig_timestamp;
   reg [31:0] next_readout_timestamp;
   reg [2:0] next_num_chan_en;
@@ -164,21 +176,24 @@ module command_manager (
   //                   +1)             : 1 64-bit readout timestamp per channel data set
   //                      *num_chan_en : # channels that will send data
   //                      +3           : 3 (2 AMC13 header + 1 AMC13 trailer) 64-bit words per AMC13 data set
-  assign event_size = (burst_count[19:0]*2+2+2+1)*(chan_en[0]+chan_en[1]+chan_en[2]+chan_en[3]+chan_en[4])+3;
+  assign event_size = (burst_count[19:0]*2+2+2+1)*(chan_en[0]+chan_en[1]+chan_en[2]+chan_en[3]+chan_en[4])+3; // TO MODIFY
 
 
   // comb always block
   always @* begin
     nextstate = 31'd0;
-    next_burst_count[31:0]       = burst_count[31:0];
+    next_burst_count[22:0]       = burst_count[22:0];
     next_chan_num_buf[31:0]      = chan_num_buf[31:0];
-    next_chan_tag_filltype[31:0] = chan_tag_filltype[31:0];
+    next_fill_type[2:0]          = fill_type[2:0];
+    next_wfm_count[11:0]         = wfm_count[11:0];
+    next_wfm_gap_length[21:0]    = wfm_gap_length[21:0];
+    next_chan_tag[15:0]          = chan_tag[15:0];
     next_csn[31:0]               = csn[31:0];
     next_data_count[31:0]        = data_count[31:0];
-    next_ddr3_start_addr[31:0]   = ddr3_start_addr[31:0];
+    next_ddr3_start_addr[25:0]   = ddr3_start_addr[25:0];
     next_ipbus_buf[31:0]         = ipbus_buf[31:0];
-    next_trig_num_buf[31:0]      = trig_num_buf[31:0];
-    next_fifo_trig_num[31:0]     = fifo_trig_num[31:0];
+    next_trig_num_buf[23:0]      = trig_num_buf[23:0];
+    next_fifo_trig_num[23:0]     = fifo_trig_num[23:0];
     next_trig_timestamp[43:0]    = trig_timestamp[43:0];
     next_readout_timestamp[31:0] = readout_timestamp[31:0] + 1'b1; // increment readout timestamp on each clock cycle
     next_num_chan_en[2:0]        = num_chan_en[2:0];
@@ -210,7 +225,7 @@ module command_manager (
         end
         // watch for unread fill events
         else if (tm_fifo_valid) begin
-          next_fifo_trig_num[31:0] = tm_fifo_data[31:0];
+          next_fifo_trig_num[23:0] = tm_fifo_data[31:0];
           nextstate[GET_TRIG_NUM] = 1'b1;
         end
         else begin
@@ -385,7 +400,7 @@ module command_manager (
           // check that the channel didn't report any errors
           if (chan_rx_fifo_data[31:0] == 32'h8) begin
             // everything is good
-            nextstate[READ_CHAN_TRIG_NUM] = 1'b1;
+            nextstate[READ_CHAN_TRIG_NUM_AND_FILL_TYPE] = 1'b1;
           end
           else begin
             // an error occured, update status register, and report error to front panel LED
@@ -402,54 +417,60 @@ module command_manager (
         end
       end
       // get trigger number from channel's header word #1
-      state[READ_CHAN_TRIG_NUM] : begin
+      state[READ_CHAN_TRIG_NUM_AND_FILL_TYPE] : begin
         if (chan_rx_fifo_valid) begin
           // check that the trigger number from channel header and trigger information FIFO match
-          if (fifo_trig_num[31:0] != chan_rx_fifo_data[31:0]) begin
+          if (fifo_trig_num[23:0] != chan_rx_fifo_data[23:0]) begin
             // trigger numbers aren't synchronized
             // RAISE THE ERROR FLAG
             next_trig_num_error[chan_tx_fifo_dest] = 1'b1;
           end
 
-          next_trig_num_buf[31:0] = chan_rx_fifo_data[31:0];
+          next_trig_num_buf[23:0]     = chan_rx_fifo_data[23:0];
+          next_fill_type[2:0]         = chan_rx_fifo_data[26:24];
+          next_burst_count[4:0]       = chan_rx_fifo_data[31:27]; // read 5 first bits of the burst count
           next_master_checksum[127:0] = {master_checksum[127:32], chan_rx_fifo_data[31:0]};
-          nextstate[READ_CHAN_DDR3_START_ADDR] = 1'b1;
+          nextstate[READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR] = 1'b1;
         end
         else begin
-          nextstate[READ_CHAN_TRIG_NUM] = 1'b1;
-        end
-      end
-      // get DDR3 start address from channel's header word #2
-      state[READ_CHAN_DDR3_START_ADDR] : begin
-        if (chan_rx_fifo_valid) begin
-          next_ddr3_start_addr[31:0] = chan_rx_fifo_data[31:0];
-          next_master_checksum[127:0] = {master_checksum[127:64], chan_rx_fifo_data[31:0], master_checksum[31:0]};
-          nextstate[READ_CHAN_BURST_COUNT] = 1'b1;
-        end
-        else begin
-          nextstate[READ_CHAN_DDR3_START_ADDR] = 1'b1;
+          nextstate[READ_CHAN_TRIG_NUM_AND_FILL_TYPE] = 1'b1;
         end
       end
       // get burst count from channel's header word #3
-      state[READ_CHAN_BURST_COUNT] : begin
+      state[READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR] : begin
         if (chan_rx_fifo_valid) begin
-          next_burst_count[31:0] = chan_rx_fifo_data[31:0];
+          next_burst_count[22:5]      = chan_rx_fifo_data[17:0];
+          next_ddr3_start_addr[13:0]  = chan_rx_fifo_data[31:18];
           next_master_checksum[127:0] = {master_checksum[127:96], chan_rx_fifo_data[31:0], master_checksum[63:0]};
-          nextstate[READ_CHAN_TAG_AND_FILLTYPE] = 1'b1;
+          nextstate[READ_CHAN_DDR3_START_ADDR_AND_WFM_COUNT] = 1'b1;
         end
         else begin
-          nextstate[READ_CHAN_BURST_COUNT] = 1'b1;
+          nextstate[READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR] = 1'b1;
+        end
+      end
+      // get DDR3 start address from channel's header word #2
+      state[READ_CHAN_DDR3_START_ADDR_AND_WFM_COUNT] : begin
+        if (chan_rx_fifo_valid) begin
+          next_ddr3_start_addr[25:14] = chan_rx_fifo_data[11:0];
+          next_wfm_count[11:0]        = chan_rx_fifo_data[23:12];
+          next_wfm_gap_length[8:0]    = chan_rx_fifo_data[31:24];
+          next_master_checksum[127:0] = {master_checksum[127:64], chan_rx_fifo_data[31:0], master_checksum[31:0]};
+          nextstate[READ_CHAN_WFM_GAP_AND_TAG] = 1'b1;
+        end
+        else begin
+          nextstate[READ_CHAN_DDR3_START_ADDR_AND_WFM_COUNT] = 1'b1;
         end
       end
       // get tag and fill type from channel's header word #4
-      state[READ_CHAN_TAG_AND_FILLTYPE] : begin
+      state[READ_CHAN_WFM_GAP_AND_TAG] : begin
         if (chan_rx_fifo_valid) begin
-          next_chan_tag_filltype[31:0] = chan_rx_fifo_data[31:0];
+          next_wfm_gap_length[21:9] = chan_rx_fifo_data[13:0];
+          next_chan_tag[15:0]       = chan_rx_fifo_data[29:14];
           next_master_checksum[127:0] = {chan_rx_fifo_data[31:0], master_checksum[95:0]};
           nextstate[STORE_CHAN_TAG_AND_FILLTYPE] = 1'b1;
         end
         else begin
-          nextstate[READ_CHAN_TAG_AND_FILLTYPE] = 1'b1;
+          nextstate[READ_CHAN_WFM_GAP_AND_TAG] = 1'b1;
         end
       end
       // pause to store the channel's tag and fill type
@@ -461,7 +482,7 @@ module command_manager (
         end
         else begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {2'b01, 12'b0, chan_tag_filltype[17:0], 11'b0, burst_count[20:0]};
+          next_daq_data[63:0] = {2'b01, 12'b0, fill_type[2:0], chan_tag[15:0], 11'b0, burst_count[19:0]};
           next_readout_timestamp[31:0] = 0;
           nextstate[SEND_CHAN_HEADER1] = 1'b1;
         end
@@ -480,13 +501,13 @@ module command_manager (
         else begin
           next_daq_valid = 1'b0;
           nextstate[SEND_AMC13_HEADER1] = 1'b1;
-        end        
+        end
       end
       // send the second AMC13 header word
-      state[SEND_AMC13_HEADER2] : begin
+      state[SEND_AMC13_HEADER2] : begin      
         if (daq_ready) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {2'b01, 12'b0, chan_tag_filltype[17:0], 11'b0, burst_count[20:0]};
+          next_daq_data[63:0] = {2'b01, 12'b0, fill_type[2:0], chan_tag[15:0], 10'b0, burst_count[20:0]};
           next_sent_amc13_header = 1'b1;
           next_readout_timestamp[31:0] = 0;
           nextstate[SEND_CHAN_HEADER1] = 1'b1;
@@ -497,9 +518,9 @@ module command_manager (
         end
         else begin
           next_daq_valid = 1'b0;
-          nextstate[SEND_AMC13_HEADER2] = 1'b1;        
+          nextstate[SEND_AMC13_HEADER2] = 1'b1;
         end
-      end
+      end      
       // send the first channel header word
       state[SEND_CHAN_HEADER1] : begin
         if (daq_ready) begin
@@ -550,7 +571,7 @@ module command_manager (
           next_update_mcs_lsb = ~update_mcs_lsb;
 
           // check whether this data word is the channel checksum
-          if (data_count[31:0] == (burst_count[31:0]*4+1)) begin
+          if (data_count[31:0] == ((burst_count[22:0]*4+4))*wfm_count[11:0]+1) begin
             next_channel_checksum[127:0] = {64'd0, chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
           else begin
@@ -562,7 +583,7 @@ module command_manager (
         end
         // we're receiving the last data word
         // send it, and exit to send the readout timestamp next
-        else if (daq_ready & chan_rx_fifo_valid & (data_count[31:0] == (burst_count[31:0]*4+3))) begin
+        else if (daq_ready & chan_rx_fifo_valid & (data_count[31:0] == ((burst_count[22:0]*4+4)*wfm_count[11:0]+3))) begin
           next_daq_valid = 1'b1;
           next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
           next_data_count[31:0] = data_count[31:0]+1;
@@ -578,7 +599,7 @@ module command_manager (
           next_update_mcs_lsb = ~update_mcs_lsb;
 
           // check whether this data word is the channel checksum
-          if (data_count[31:0] == (burst_count[31:0]*4+1)) begin
+          if (data_count[31:0] == (burst_count[22:0]*4+4)*wfm_count[11:0]+1) begin
             next_channel_checksum[127:0] = {64'd0, chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
           else begin
@@ -597,7 +618,7 @@ module command_manager (
       state[READ_CHAN_DATA_RESYNC] : begin
         // we've already received the last data word
         // send it, and exit to send the readout timestamp next
-        if (daq_ready & (data_count[31:0] == (burst_count[31:0]*4+3))) begin
+        if (daq_ready & (data_count[31:0] == ((burst_count[22:0]*4+4)*wfm_count[11:0]+3))) begin
           next_daq_valid = 1'b1;
           nextstate[SEND_READOUT_TIMESTAMP] = 1'b1;
         end
@@ -647,12 +668,12 @@ module command_manager (
       // send the AMC13 trailer
       state[SEND_AMC13_TRAILER] : begin
         if (daq_ready) begin
-          next_trig_num_buf[31:0] = 0;
+          next_trig_num_buf[23:0] = 0;
           next_csn[31:0] = csn[31:0]+1;
           next_daq_data[63:0] = 0;
           next_sent_amc13_header = 0;
           next_chan_num_buf[31:0] = 0;
-          next_burst_count[31:0] = 0;
+          next_burst_count[22:0] = 0;
           next_num_chan_en[2:0] = 0; // reset the number of enabled channels for each new trigger
           nextstate[IDLE] = 1'b1;
         end
@@ -662,7 +683,7 @@ module command_manager (
         end
         else begin
           next_daq_valid = 1'b0;
-          nextstate[SEND_AMC13_TRAILER] = 1'b1;        
+          nextstate[SEND_AMC13_TRAILER] = 1'b1;
         end
       end
     endcase
@@ -671,26 +692,28 @@ module command_manager (
 
   // sequential always block
   always @(posedge clk) begin
-   
     if (rst) begin
       // reset values
       state <= 31'd1 << IDLE;
 
-      burst_count[31:0]       <= 0;
+      burst_count[22:0]       <= 0;
       chan_num_buf[31:0]      <= 0;
-      chan_tag_filltype[31:0] <= 0;
+      chan_tag[15:0]          <= 0;
+      fill_type[2:0]          <= 0;
+      wfm_count[11:0]         <= 0;
+      wfm_gap_length[21:0]    <= 0;
       chan_tx_fifo_dest[3:0]  <= 0;
       chan_tx_fifo_last       <= 0;
       csn[31:0]               <= 0;
       daq_data[63:0]          <= 0;
       data_count[31:0]        <= 0;
-      ddr3_start_addr[31:0]   <= 0;
+      ddr3_start_addr[25:0]   <= 0;
       ipbus_buf[31:0]         <= 0;
       ipbus_res_last          <= 0;
       num_chan_en[2:0]        <= 0;
       sent_amc13_header       <= 0;
-      trig_num_buf[31:0]      <= 0;
-      fifo_trig_num[31:0]     <= 0;
+      trig_num_buf[23:0]      <= 0;
+      fifo_trig_num[23:0]     <= 0;
       trig_timestamp[43:0]    <= 0;
       readout_timestamp[31:0] <= 0;
       chan_error_rc[4:0]      <= 0; // clear error upon reset
@@ -704,21 +727,24 @@ module command_manager (
     else begin
       state <= nextstate;
 
-      burst_count[31:0]       <= next_burst_count[31:0];
+      burst_count[22:0]       <= next_burst_count[22:0];
       chan_num_buf[31:0]      <= next_chan_num_buf[31:0];
-      chan_tag_filltype[31:0] <= next_chan_tag_filltype[31:0];
+      chan_tag[15:0]          <= next_chan_tag[15:0];
+      fill_type[2:0]          <= next_fill_type[2:0];
+      wfm_count[11:0]         <= next_wfm_count[11:0];
+      wfm_gap_length[21:0]    <= next_wfm_gap_length[21:0];
       chan_tx_fifo_dest[3:0]  <= next_chan_tx_fifo_dest[3:0];
       chan_tx_fifo_last       <= next_chan_tx_fifo_last;
       csn[31:0]               <= next_csn[31:0];
       daq_data[63:0]          <= next_daq_data[63:0];
       data_count[31:0]        <= next_data_count[31:0];
-      ddr3_start_addr[31:0]   <= next_ddr3_start_addr[31:0];
+      ddr3_start_addr[25:0]   <= next_ddr3_start_addr[25:0];
       ipbus_buf[31:0]         <= next_ipbus_buf[31:0];
       ipbus_res_last          <= next_ipbus_res_last;
       num_chan_en[2:0]        <= next_num_chan_en[2:0];
       sent_amc13_header       <= next_sent_amc13_header;
-      trig_num_buf[31:0]      <= next_trig_num_buf[31:0];
-      fifo_trig_num[31:0]     <= next_fifo_trig_num[31:0];
+      trig_num_buf[23:0]      <= next_trig_num_buf[23:0];
+      fifo_trig_num[23:0]     <= next_fifo_trig_num[23:0];
       trig_timestamp[43:0]    <= next_trig_timestamp[43:0];    
       readout_timestamp[31:0] <= next_readout_timestamp[31:0];
       chan_error_rc[4:0]      <= next_chan_error_rc[4:0];
@@ -815,16 +841,16 @@ module command_manager (
         nextstate[READ_CHAN_RC]                : begin
           chan_rx_fifo_ready <= 1;
         end
-        nextstate[READ_CHAN_TRIG_NUM]          : begin
+        nextstate[READ_CHAN_TRIG_NUM_AND_FILL_TYPE]          : begin
           chan_rx_fifo_ready <= 1;
         end
-        nextstate[READ_CHAN_DDR3_START_ADDR]   : begin
+        nextstate[READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR]   : begin
           chan_rx_fifo_ready <= 1;
         end
-        nextstate[READ_CHAN_BURST_COUNT]       : begin
+        nextstate[READ_CHAN_DDR3_START_ADDR_AND_WFM_COUNT]       : begin
           chan_rx_fifo_ready <= 1;
         end
-        nextstate[READ_CHAN_TAG_AND_FILLTYPE]  : begin
+        nextstate[READ_CHAN_WFM_GAP_AND_TAG]  : begin
           chan_rx_fifo_ready <= 1;
         end
         nextstate[STORE_CHAN_TAG_AND_FILLTYPE] : begin
