@@ -19,7 +19,6 @@ ip/*/**/
 
 # IPs
 !ip/**/*.xci
-
 ip/**/*.v
 ip/**/*.vhd
 
@@ -30,3 +29,6 @@ ip/**/*.vhd
 !fizzim/README.txt
 !fizzim/**/*.fzm
 !fizzim/**/*.v
+
+# IPbus
+!ipbus/ipbus_core/scripts/addr_dec/*
