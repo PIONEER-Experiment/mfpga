@@ -16,7 +16,7 @@
 //
 // Originally created using Fizzim
 
-module command_manager (
+module command_manager(
   // user interface clock and reset
   input wire clk,
   input wire rst,
@@ -65,11 +65,10 @@ module command_manager (
   output reg [4:0] chan_error_rc,  // master received an error response code, one bit for each channel
   output reg [4:0] trig_num_error, // trigger numbers from channel and master aren't synchronized, one bit for each channel
   output reg read_fill_done
-
 );
 
   // idle state bit
-  parameter IDLE                        = 0;
+  parameter IDLE                            = 0;
   // configuration manager state bits
   parameter SEND_IPBUS_CSN                  = 1;
   parameter READ_IPBUS_CMD                  = 2;
@@ -88,9 +87,9 @@ module command_manager (
   parameter READ_CHAN_RSN                   = 14;
   parameter READ_CHAN_RC                    = 15;
   parameter READ_CHAN_TRIG_NUM_AND_FILL_TYPE= 16;
-  parameter READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR       = 17;
-  parameter READ_CHAN_DDR3_START_ADDR_AND_WFM_COUNT           = 18;
-  parameter READ_CHAN_WFM_GAP_AND_TAG      = 19;
+  parameter READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR= 17;
+  parameter READ_CHAN_DDR3_START_ADDR_AND_WFM_COUNT  = 18;
+  parameter READ_CHAN_WFM_GAP_AND_TAG       = 19;
   parameter STORE_CHAN_TAG_AND_FILLTYPE     = 20;
   parameter SEND_AMC13_HEADER1              = 21;
   parameter SEND_AMC13_HEADER2              = 22;
@@ -110,7 +109,7 @@ module command_manager (
   reg [23:0] trig_num_buf;      // trigger number from channel header, starts at 1
   reg  [2:0] fill_type;         // fill type: muon, laser, pedestal...
   reg [22:0] burst_count;       // burst count for data acquisition, 1 burst count = 8 ADC samples
-      // value obtained from received channel header from Aurora RX FIFO  
+                                // value obtained from received channel header from Aurora RX FIFO  
   reg [25:0] ddr3_start_addr;   // DDR3 start address (3 LSBs always zero)
   reg [11:0] wfm_count;         // number of waveform to be acquired
   reg [21:0] wfm_gap_length;    // gap in unit of 2.5 ns between two consecutive waveforms
@@ -118,7 +117,8 @@ module command_manager (
   
   reg [31:0] chan_num_buf;      // channel number
   reg [31:0] csn;               // channel serial number
-  reg [31:0] data_count;        // # of 32-bit data words received from Aurora
+  reg [31:0] data_count;        // # of 32-bit data words received from Aurora, per waveform
+  reg [11:0] data_wfm_count;    // # of waveforms received from Aurora
   reg [31:0] ipbus_buf;         // buffer for IPbus data
   reg [23:0] fifo_trig_num;     // trigger number from trigger information FIFO, starts at 1
   reg [43:0] trig_timestamp;    // trigger timestamp, defined when trigger is received by trigger manager
@@ -140,10 +140,10 @@ module command_manager (
   reg  [2:0] next_fill_type;
   reg [11:0] next_wfm_count;
   reg [21:0] next_wfm_gap_length;
-  reg [21:0] wfm_gap_length;
   reg [15:0] next_chan_tag;
   reg [31:0] next_csn;
   reg [31:0] next_data_count;
+  reg [11:0] next_data_wfm_count;
   reg [25:0] next_ddr3_start_addr;
   reg [31:0] next_ipbus_buf;
   reg [23:0] next_trig_num_buf;
@@ -190,6 +190,7 @@ module command_manager (
     next_chan_tag[15:0]          = chan_tag[15:0];
     next_csn[31:0]               = csn[31:0];
     next_data_count[31:0]        = data_count[31:0];
+    next_data_wfm_count[11:0]    = data_wfm_count[11:0];
     next_ddr3_start_addr[25:0]   = ddr3_start_addr[25:0];
     next_ipbus_buf[31:0]         = ipbus_buf[31:0];
     next_trig_num_buf[23:0]      = trig_num_buf[23:0];
@@ -428,7 +429,7 @@ module command_manager (
 
           next_trig_num_buf[23:0]     = chan_rx_fifo_data[23:0];
           next_fill_type[2:0]         = chan_rx_fifo_data[26:24];
-          next_burst_count[4:0]       = chan_rx_fifo_data[31:27]; // read 5 first bits of the burst count
+          next_burst_count[22:0]      = {18'd0, chan_rx_fifo_data[31:27]};
           next_master_checksum[127:0] = {master_checksum[127:32], chan_rx_fifo_data[31:0]};
           nextstate[READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR] = 1'b1;
         end
@@ -439,7 +440,7 @@ module command_manager (
       // get burst count from channel's header word #3
       state[READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR] : begin
         if (chan_rx_fifo_valid) begin
-          next_burst_count[22:5]      = chan_rx_fifo_data[17:0];
+          next_burst_count[22:0]      = {chan_rx_fifo_data[17:0], burst_count[4:0]};
           next_ddr3_start_addr[13:0]  = chan_rx_fifo_data[31:18];
           next_master_checksum[127:0] = {master_checksum[127:96], chan_rx_fifo_data[31:0], master_checksum[63:0]};
           nextstate[READ_CHAN_DDR3_START_ADDR_AND_WFM_COUNT] = 1'b1;
@@ -537,6 +538,7 @@ module command_manager (
       state[SEND_CHAN_HEADER2] : begin
         if (daq_ready) begin
           next_data_count[31:0] = 0;
+          next_data_wfm_count[11:0] = 0;
           next_update_mcs_lsb = 0;
           nextstate[READ_CHAN_DATA1] = 1'b1;
         end
@@ -567,11 +569,12 @@ module command_manager (
         // grab the Aurora RX FIFO's lastest word, and wait for DAQ link to recover before trying to send it
         if (~daq_ready & chan_rx_fifo_valid) begin
           next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
-          next_data_count[31:0] = data_count[31:0]+1;
+          next_data_count[31:0]     = (data_count[31:0] < burst_count[22:0]*4+3) ? data_count[31:0]+1   : 32'b0;
+          next_data_wfm_count[11:0] = (data_count[31:0] < burst_count[22:0]*4+3) ? data_wfm_count[11:0] : data_wfm_count[11:0]+1;
           next_update_mcs_lsb = ~update_mcs_lsb;
 
           // check whether this data word is the channel checksum
-          if (data_count[31:0] == ((burst_count[22:0]*4+4))*wfm_count[11:0]+1) begin
+          if ((data_count[31:0] == 1) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
             next_channel_checksum[127:0] = {64'd0, chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
           else begin
@@ -583,10 +586,11 @@ module command_manager (
         end
         // we're receiving the last data word
         // send it, and exit to send the readout timestamp next
-        else if (daq_ready & chan_rx_fifo_valid & (data_count[31:0] == ((burst_count[22:0]*4+4)*wfm_count[11:0]+3))) begin
+        else if (daq_ready & chan_rx_fifo_valid & (data_count[31:0] == 3) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
           next_daq_valid = 1'b1;
           next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
-          next_data_count[31:0] = data_count[31:0]+1;
+          next_data_count[31:0]     = (data_count[31:0] < burst_count[22:0]*4+3) ? data_count[31:0]+1   : 32'b0;
+          next_data_wfm_count[11:0] = (data_count[31:0] < burst_count[22:0]*4+3) ? data_wfm_count[11:0] : data_wfm_count[11:0]+1;
           next_channel_checksum[127:0] = {chan_rx_fifo_data[31:0], daq_data[31:0], channel_checksum[63:0]};
           nextstate[SEND_READOUT_TIMESTAMP] = 1'b1;
         end
@@ -595,11 +599,12 @@ module command_manager (
         else if (daq_ready & chan_rx_fifo_valid) begin
           next_daq_valid = 1'b1;
           next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
-          next_data_count[31:0] = data_count[31:0]+1;
+          next_data_count[31:0]     = (data_count[31:0] < burst_count[22:0]*4+3) ? data_count[31:0]+1   : 32'b0;
+          next_data_wfm_count[11:0] = (data_count[31:0] < burst_count[22:0]*4+3) ? data_wfm_count[11:0] : data_wfm_count[11:0]+1;
           next_update_mcs_lsb = ~update_mcs_lsb;
 
           // check whether this data word is the channel checksum
-          if (data_count[31:0] == (burst_count[22:0]*4+4)*wfm_count[11:0]+1) begin
+          if ((data_count[31:0] == 1) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
             next_channel_checksum[127:0] = {64'd0, chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
           else begin
@@ -618,7 +623,7 @@ module command_manager (
       state[READ_CHAN_DATA_RESYNC] : begin
         // we've already received the last data word
         // send it, and exit to send the readout timestamp next
-        if (daq_ready & (data_count[31:0] == ((burst_count[22:0]*4+4)*wfm_count[11:0]+3))) begin
+        if (daq_ready & (data_count[31:0] == 3) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
           next_daq_valid = 1'b1;
           nextstate[SEND_READOUT_TIMESTAMP] = 1'b1;
         end
@@ -707,6 +712,7 @@ module command_manager (
       csn[31:0]               <= 0;
       daq_data[63:0]          <= 0;
       data_count[31:0]        <= 0;
+      data_wfm_count[11:0]    <= 0;
       ddr3_start_addr[25:0]   <= 0;
       ipbus_buf[31:0]         <= 0;
       ipbus_res_last          <= 0;
@@ -738,6 +744,7 @@ module command_manager (
       csn[31:0]               <= next_csn[31:0];
       daq_data[63:0]          <= next_daq_data[63:0];
       data_count[31:0]        <= next_data_count[31:0];
+      data_wfm_count[11:0]    <= next_data_wfm_count[11:0];
       ddr3_start_addr[25:0]   <= next_ddr3_start_addr[25:0];
       ipbus_buf[31:0]         <= next_ipbus_buf[31:0];
       ipbus_res_last          <= next_ipbus_res_last;
