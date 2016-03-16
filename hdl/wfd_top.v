@@ -81,7 +81,8 @@ module wfd_top(
     input test,                       //
     input spi_miso,                   // serial data from SPI flash memory
     output spi_mosi,                  // serial data (commands) to SPI flash memory
-    output spi_ss                     // SPI flash memory chip select
+    output spi_ss,                    // SPI flash memory chip select
+    input fp_sw_master                // front panel switch
 );
 
     // ======== clock signals ========
@@ -385,10 +386,15 @@ module wfd_top(
         .D(reprog_trigger[1])          // SRL data input
     );
 
+    // reprog_trigger_mux[0] for golden image
+    // reprog_trigger_mux[1] for master image
+    wire [1:0] reprog_trigger_mux; // combine ipbus and front panel triggers
+    assign reprog_trigger_mux = (~fp_sw_master) ? 2'b01 : reprog_trigger_delayed;
+
     reprog reprog(
         .clk(clk50),
         .reset(clk50_reset),
-        .trigger(reprog_trigger_delayed)
+        .trigger(reprog_trigger_mux)
     );
    
 

@@ -163,13 +163,14 @@ set_property IOSTANDARD LVCMOS33 [get_ports spi_miso]
 set_property IOSTANDARD LVCMOS33 [get_ports spi_mosi]
 set_property IOSTANDARD LVCMOS33 [get_ports spi_ss]
 
+set_property IOSTANDARD LVCMOS33 [get_ports fp_sw_master]
+
 
 #################
 # pin assignments
 #################
 
 set_property PACKAGE_PIN P1 [get_ports gige_tx_N]
-
 
 set_property PACKAGE_PIN M1 [get_ports daq_tx_N]
 
@@ -303,3 +304,5 @@ set_property PACKAGE_PIN A9 [get_ports {initb[0]}]
 set_property PACKAGE_PIN A25 [get_ports spi_miso]
 set_property PACKAGE_PIN B24 [get_ports spi_mosi]
 set_property PACKAGE_PIN C23 [get_ports spi_ss]
+
+set_property PACKAGE_PIN J21 [get_ports fp_sw_master]
