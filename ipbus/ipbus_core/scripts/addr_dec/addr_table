@@ -2,7 +2,7 @@
 #
 # num	name		base	addr_width
 
-0	status_reg		0x0		    0
+0	status_reg		0x100		5
 1	ctrl_reg		0x1		    0
 2	ram	     		0x1000		10
 3	write_only_reg	0x2000		1

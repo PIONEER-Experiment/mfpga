@@ -3,7 +3,6 @@
 // chan_io_block
 //
 // This module provides the programmable I/O interface for one channel.
-//
 
 module chan_io_block(
   // programming interface

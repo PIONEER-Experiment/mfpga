@@ -62,6 +62,7 @@ module command_manager(
 
   // status connections
   input wire [4:0] chan_en,        // enabled channels, one bit for each channel
+  output reg [30:0] state,         // state of finite state machine
   output reg [4:0] chan_error_rc,  // master received an error response code, one bit for each channel
   output reg [4:0] trig_num_error, // trigger numbers from channel and master aren't synchronized, one bit for each channel
   output reg read_fill_done
@@ -103,8 +104,6 @@ module command_manager(
   parameter SEND_AMC13_TRAILER              = 30;
 
 
-  reg [30:0] state;             // state of finite state machine
-  
   // channel header regs sorted the way they will be used: first trig_num_buf, then fill_type...
   reg [23:0] trig_num_buf;      // trigger number from channel header, starts at 1
   reg  [2:0] fill_type;         // fill type: muon, laser, pedestal...

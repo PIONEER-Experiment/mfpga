@@ -12,8 +12,6 @@
 //
 // To re-program, first reset the master FPGA with IPbus address CTRL.RST
 // (that will restore the prog_channels state machine to its initial IDLE state)
-//
-// Robin Bjorkquist, February 2015
 
 module prog_channels(
 	input clk,

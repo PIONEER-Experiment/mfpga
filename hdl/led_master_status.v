@@ -4,13 +4,13 @@
 // for the Master FPGA status
 
 module led_master_status(
-  input clk,
-  output red_led,
-  output green_led,
+  input wire clk,
+  output wire red_led,
+  output wire green_led,
   // status input signals
-  input TTCready,
-  input [4:0] chan_error_rc,
-  input [4:0] trig_num_error
+  input wire ttc_ready,
+  input wire [4:0] chan_error_rc,
+  input wire [4:0] trig_num_error
 );
 
 // the LEDs are active low:
@@ -25,7 +25,7 @@ module led_master_status(
 //    red LED is on otherwise
 //              e.g., red means "not ready" or "error"
 
-assign green_led = ~(TTCready & (chan_error_rc[4:0] == 5'd0) & (trig_num_error[4:0] == 5'd0));
+assign green_led = ~(ttc_ready & (chan_error_rc[4:0] == 5'd0) & (trig_num_error[4:0] == 5'd0));
 assign red_led = ~green_led;
 
 

@@ -118,17 +118,17 @@ module wfd_top(
     assign c3_io[2:1] = acq_enable[7:6];
     assign c4_io[2:1] = acq_enable[9:8];
 
+    // ======== TTC signals ========
+    wire ttc_ready;
+
 
     // ======== front panel LED for master ========
-    
-    wire TTCready;
-    
     led_master_status led_master_status(
         .clk(clk50),
         .red_led(master_led1),
         .green_led(master_led0),
         // status input signals
-        .TTCready(TTCready),
+        .ttc_ready(ttc_ready),
         .chan_error_rc(chan_error_rc[4:0]),
         .trig_num_error(trig_num_error[4:0])
     );
@@ -206,7 +206,7 @@ module wfd_top(
     BUFG BUFG_clk125 (.I(clk_125), .O(clk125));
 
     // ======== ethernet status signals ========
-    reg sfp_los = 0;      // loss of signal for Gigabit ethernet. Not used.
+    reg sfp_los = 0;      // loss of signal for Gigabit ethernet (not used)
     wire eth_link_status; // link status of Gigabit ethernet
 
     // ======== reset signals ========
@@ -595,7 +595,7 @@ module wfd_top(
     wire[0:3] axi_stream_to_cm_from_ipbus_tdest;
 
 
-    // ======== Communication with the AMC13 DAQ Link ========
+    // ======== communication with the AMC13 DAQ link ========
     wire daq_header, daq_trailer;
     wire daq_valid, daq_ready;
     wire daq_almost_full;
@@ -607,7 +607,22 @@ module wfd_top(
     wire ttc_chan_b_valid;           
     wire rst_trigger_num;
     wire rst_trigger_timestamp;
-    wire[1:0] fill_type; 
+    wire[1:0] fill_type;
+
+    // ======== TTS signals ========
+    wire[3:0] tts_state;
+    
+    // ======== status register signals ========
+    wire[31:0] status_reg0, status_reg1, status_reg2, status_reg3, status_reg4, status_reg5, status_reg6, status_reg7, status_reg8, status_reg9, status_reg10, status_reg11, status_reg12;
+
+    // ======== finite state machine states ========
+    wire[30:0] cm_state;
+    wire[4:0] tm_state;
+
+    // ======== trigger information signals ========
+    wire[63:0] trig_num;
+    wire[63:0] trig_timestamp;
+
     
     // ======== module instantiations ========
 
@@ -619,7 +634,7 @@ module wfd_top(
         .TTC_data_p(ttc_rxp),            // in  STD_LOGIC
         .TTC_data_n(ttc_rxn),            // in  STD_LOGIC
         .TTC_CLK_out(ttc_clk),           // out  STD_LOGIC
-        .TTCready(TTCready),             // out  STD_LOGIC
+        .TTCready(ttc_ready),            // out  STD_LOGIC
         .L1Accept(trigger_from_ttc),     // out  STD_LOGIC
         .BCntRes(),                      // out  STD_LOGIC
         .EvCntRes(ttc_evt_reset),        // out  STD_LOGIC
@@ -638,7 +653,7 @@ module wfd_top(
         .chan_b_info(ttc_chan_b_info),
         .evt_count_reset(ttc_evt_reset),
         .chan_b_valid(ttc_chan_b_valid),
-        .fill_type(fill_type[1:0]),
+        .fill_type(fill_type[1:0]),      // output [1:0]
 
         .reset_trig_num(rst_trigger_num),
         .reset_trig_timestamp(rst_trigger_timestamp)
@@ -692,23 +707,27 @@ module wfd_top(
         .axi_stream_in_tid(),
         .axi_stream_in_tdest(),
 
-        // trigger via IPbus for now
-        .trigger_out(trigger_from_ipbus),
+        .trigger_out(trigger_from_ipbus),               // IPbus trigger
+        .chan_done_out(),                               // channel done to trigger manager
+        .chan_en_out(chan_en),                          // channel enable to command manager
+        .prog_chan_out(prog_chan_start_from_ipbus),     // signal to start programming sequence for channel FPGAs
+        .reprog_trigger_out(reprog_trigger_from_ipbus), // signal to issue IPROG command to re-program FPGA from flash
+        .trig_delay_out(trig_delay[3:0]),               // set trigger delay in the trigger manager
 
-        // channel done to trigger manager
-        .chan_done_out(),
-
-        // channel enable to command manager
-        .chan_en_out(chan_en),
-
-        // signal to start programming sequence for channel FPGAs
-        .prog_chan_out(prog_chan_start_from_ipbus),
-
-        // signal to issue IPROG command to re-program FPGA from flash
-        .reprog_trigger_out(reprog_trigger_from_ipbus),
-
-        // set trigger delay in the trigger manager
-        .trig_delay_out(trig_delay[3:0]),
+        // status registers
+        .status_reg0(status_reg0),
+        .status_reg1(status_reg1),
+        .status_reg2(status_reg2),
+        .status_reg3(status_reg3),
+        .status_reg4(status_reg4),
+        .status_reg5(status_reg5),
+        .status_reg6(status_reg6),
+        .status_reg7(status_reg7),
+        .status_reg8(status_reg8),
+        .status_reg9(status_reg9),
+        .status_reg10(status_reg10),
+        .status_reg11(status_reg11),
+        .status_reg12(status_reg12),
 
         // counter ouputs
         .frame_err(frame_err),              
@@ -734,7 +753,7 @@ module wfd_top(
         .flash_wbuf_addr(ipbus_to_flash_wbuf_addr),
         .flash_wbuf_data(ipbus_to_flash_wbuf_data),
         
-        // unused DAQ link ports
+        // DAQ link ports
         .daq_valid(),
         .daq_header(),
         .daq_trailer(),
@@ -890,12 +909,11 @@ module wfd_top(
     );
 
 
-
     // ==================================================================================
     // synchronize signals into 40 MHz TTC clock domain for use in trigger manager module 
     // ==================================================================================
 
-    // chan_en: from IPbus, typically stable at a fixed value (don't need to stretch)
+    // from IPbus, typically stable at a fixed value (don't need to stretch)
     wire [4:0] chan_en_sync;
     sync_2stage chan_en_sync0(
         .clk(ttc_clk),
@@ -921,6 +939,135 @@ module wfd_top(
         .clk(ttc_clk),
         .in(chan_en[4]),
         .out(chan_en_sync[4])
+    );
+
+
+    // =====================================================================================
+    // synchronize signals into 125 MHz clock domain for use in status register block module 
+    // =====================================================================================
+
+    // synchronize ttc_ready
+    wire ttc_ready_clk125;
+    sync_2stage ttc_ready_sync0(
+        .clk(clk125),
+        .in(ttc_ready),
+        .out(ttc_ready_clk125)
+    );
+
+    // synchronize ttc_chan_b_info
+    wire[5:0] ttc_chan_b_info_clk125;
+    sync_2stage ttc_chan_b_info_sync0(
+        .clk(clk125),
+        .in(ttc_chan_b_info[0]),
+        .out(ttc_chan_b_info_clk125[0])
+    );
+    sync_2stage ttc_chan_b_info_sync1(
+        .clk(clk125),
+        .in(ttc_chan_b_info[1]),
+        .out(ttc_chan_b_info_clk125[1])
+    );    
+    sync_2stage ttc_chan_b_info_sync2(
+        .clk(clk125),
+        .in(ttc_chan_b_info[2]),
+        .out(ttc_chan_b_info_clk125[2])
+    );
+    sync_2stage ttc_chan_b_info_sync3(
+        .clk(clk125),
+        .in(ttc_chan_b_info[3]),
+        .out(ttc_chan_b_info_clk125[3])
+    );
+    sync_2stage ttc_chan_b_info_sync4(
+        .clk(clk125),
+        .in(ttc_chan_b_info[4]),
+        .out(ttc_chan_b_info_clk125[4])
+    );
+    sync_2stage ttc_chan_b_info_sync5(
+        .clk(clk125),
+        .in(ttc_chan_b_info[5]),
+        .out(ttc_chan_b_info_clk125[5])
+    );
+
+    // synchronize tm_state
+    wire tm_state_clk125;
+    sync_2stage tm_state_sync0(
+        .clk(clk125),
+        .in(tm_state),
+        .out(tm_state_clk125)
+    );
+
+    // synchronize fill_type
+    wire[1:0] fill_type_clk125;
+    sync_2stage fill_type_sync0(
+        .clk(clk125),
+        .in(fill_type[0]),
+        .out(fill_type_clk125[0])
+    );
+    sync_2stage fill_type_sync1(
+        .clk(clk125),
+        .in(fill_type[1]),
+        .out(fill_type_clk125[1])
+    );
+
+    // synchronize trig_num
+    wire[63:0] trig_num_clk125;
+    sync_2stage_64bit trig_num_sync0(
+        .clk(clk125),
+        .in(trig_num),
+        .out(trig_num_clk125)
+    );
+
+    // synchronize trig_timestamp
+    wire[63:0] trig_timestamp_clk125;
+    sync_2stage_64bit trig_timestamp_sync0(
+        .clk(clk125),
+        .in(trig_timestamp),
+        .out(trig_timestamp_clk125)
+    );
+
+
+    // status register assembly
+    status_reg_block status_reg_block(
+        .clk(clk125),
+        .reset(rst_from_ipb),
+
+        // status inputs
+        .trig_num_error(trig_num_error),
+        .chan_error_rc(chan_error_rc),
+        .daq_clk_sel(daq_clk_sel),
+        .daq_clk_en(daq_clk_en),
+        .adcclk_clkin0_stat(adcclk_clkin0_stat),
+        .adcclk_clkin1_stat(adcclk_clkin1_stat),
+        .adcclk_stat_ld(adcclk_stat_ld),
+        .adcclk_stat(adcclk_stat),
+        .daq_almost_full(daq_almost_full),
+        .daq_ready(daq_ready),
+        .tts_state(tts_state),
+        .ttc_chan_b_info(ttc_chan_b_info_clk125),
+        .ttc_ready(ttc_ready_clk125),
+        .cm_state(cm_state),
+        .tm_state(tm_state_clk125),
+        .acq_readout_pause(acq_readout_pause),
+        .fill_type(fill_type_clk125),
+        .chan_en(chan_en),
+        .trig_info_fifo_full(trig_info_fifo_full),
+        .trig_delay(trig_delay),
+        .trig_num(trig_num_clk125),
+        .trig_timestamp(trig_timestamp_clk125),
+
+        // status register outputs
+        .status_reg0(status_reg0),
+        .status_reg1(status_reg1),
+        .status_reg2(status_reg2),
+        .status_reg3(status_reg3),
+        .status_reg4(status_reg4),
+        .status_reg5(status_reg5),
+        .status_reg6(status_reg6),
+        .status_reg7(status_reg7),
+        .status_reg8(status_reg8),
+        .status_reg9(status_reg9),
+        .status_reg10(status_reg10),
+        .status_reg11(status_reg11),
+        .status_reg12(status_reg12)
     );
 
 
@@ -950,7 +1097,12 @@ module wfd_top(
         // interface to trigger information FIFO
         .fifo_valid(tm_to_fifo_tvalid),
         .fifo_ready(tm_to_fifo_tready),
-        .fifo_data(tm_to_fifo_tdata)
+        .fifo_data(tm_to_fifo_tdata),
+
+        // status connections, output
+        .state(tm_state),
+        .trig_num(trig_num),
+        .trig_timestamp(trig_timestamp)
     );
 
 
@@ -960,20 +1112,20 @@ module wfd_top(
     // data width is 64-bits, needed to accommodate future 44-bit trigger timestamp
     trig_info_axis_data_fifo trig_info_fifo(
         // writing side
-        .s_aclk(ttc_clk),                  // input
-        .s_aresetn(reset40_n),             // input
-        .s_axis_tvalid(tm_to_fifo_tvalid), // input
-        .s_axis_tready(tm_to_fifo_tready), // output
-        .s_axis_tdata(tm_to_fifo_tdata),   // input [63:0]
+        .s_aclk(ttc_clk),                   // input
+        .s_aresetn(reset40_n),              // input
+        .s_axis_tvalid(tm_to_fifo_tvalid),  // input
+        .s_axis_tready(tm_to_fifo_tready),  // output
+        .s_axis_tdata(tm_to_fifo_tdata),    // input  [63:0]
 
         // reading side
-        .m_aclk(clk125),                   // input
-        .m_axis_tvalid(fifo_to_cm_tvalid), // output
-        .m_axis_tready(fifo_to_cm_tready), // input
-        .m_axis_tdata(fifo_to_cm_tdata),   // output [63:0]
+        .m_aclk(clk125),                    // input
+        .m_axis_tvalid(fifo_to_cm_tvalid),  // output
+        .m_axis_tready(fifo_to_cm_tready),  // input
+        .m_axis_tdata(fifo_to_cm_tdata),    // output [63:0]
       
         // "FIFO almost full" port, WHAT DO WE DO?
-        .axis_prog_full()                  // output
+        .axis_prog_full(trig_info_fifo_full) // output
     );
 
     
@@ -1028,12 +1180,26 @@ module wfd_top(
         .tm_fifo_ready(fifo_to_cm_tready), // output
 
         // status connections
-        .read_fill_done(chan_readout_done),   // input  [4:0]
-        .chan_error_rc(chan_error_rc[4:0]),   // output [4:0]
-        .trig_num_error(trig_num_error[4:0]), // output [4:0]
+        .read_fill_done(chan_readout_done),   // input  [ 4:0]
+        .state(cm_state),                     // output [30:0]
+        .chan_error_rc(chan_error_rc[4:0]),   // output [ 4:0]
+        .trig_num_error(trig_num_error[4:0]), // output [ 4:0]
         .chan_en(chan_en)                     // output, enabled channels from IPbus
     );
     
+
+    // TTS state reported to DAQ link
+    TTS_reporter tts_reporter(
+        .clk(clk125),
+        .reset(rst_from_ipb),
+
+        // status registers, input
+        .status_reg0(status_reg0), // error
+
+        // TTS state, output
+        .tts_state(tts_state)
+    );
+
 
     // DAQ Link to AMC13, version 0x10
     DAQ_LINK_Kintex #(
@@ -1055,9 +1221,9 @@ module wfd_top(
         .trig({ 8{trigger_from_ttc} }),
 
         .TTSclk(clk125),
-        .TTS(4'b1000), // always report a 'Ready' TTS state
+        .TTS(tts_state),
 
-	    .ReSyncAndEmpty(1'b0),              // Added input signal ReSyncAndEmpty for proper ReSync operation. Set to 0 because likely won't be used
+	    .ReSyncAndEmpty(1'b0),           // added input signal ReSyncAndEmpty for proper ReSync operation; set to 0 because likely won't be used
         .EventDataClk(clk125),
         .EventData_valid(daq_valid),
         .EventData_header(daq_header),   // flag to indicate first AMC13 header word
@@ -1070,7 +1236,7 @@ module wfd_top(
 
 
     // AXIS TX Switch
-    axis_switch_tx tx_switch (
+    axis_switch_tx tx_switch(
         .aclk(clk125),            // input
         .aresetn(rst_from_ipb_n), // input
 
@@ -1095,7 +1261,7 @@ module wfd_top(
 
     // AXIS RX Switch
     wire [4:0] s_req_suppress = 5'b0; // active-high skips next arbitration cycle
-    axis_switch_rx rx_switch (
+    axis_switch_rx rx_switch(
         .aclk(clk125),                   // input
         .aresetn(rst_from_ipb_n),        // input
         .s_req_suppress(s_req_suppress), // input [4:0]

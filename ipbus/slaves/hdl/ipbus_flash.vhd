@@ -12,8 +12,6 @@
 --            "NNN" is the number of bytes that will be sent from WBUF to the flash
 --            "MMM" is the number of response bytes to store in RBUF from the flash
 --            both NNN and MMM are limited to 9 bits
---
--- Robin Bjorkquist, February 2015
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;

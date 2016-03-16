@@ -11,11 +11,11 @@ use work.axi.all;
 
 entity slaves is
 	port(
-		ipb_clk: in std_logic;
-		ipb_rst: in std_logic;
-		ipb_in: in ipb_wbus;
-		ipb_out: out ipb_rbus;
-		rst_out: out std_logic;
+		ipb_clk : in  std_logic;
+		ipb_rst : in  std_logic;
+		ipb_in  : in  ipb_wbus;
+		ipb_out : out ipb_rbus;
+		rst_out : out std_logic;
 
 		debug: out std_logic_vector(7 downto 0);
 
@@ -39,8 +39,8 @@ entity slaves is
 	    daq_header      : out std_logic;
 	    daq_trailer     : out std_logic;
 	    daq_data        : out std_logic_vector(63 downto 0);
-	    daq_ready       : in std_logic;
-	    daq_almost_full : in std_logic;
+	    daq_ready       : in  std_logic;
+	    daq_almost_full : in  std_logic;
 
 	    trigger_out        : out std_logic;
 	    chan_done_out      : out std_logic_vector(4 downto 0);
@@ -49,15 +49,30 @@ entity slaves is
 	    reprog_trigger_out : out std_logic_vector(1 downto 0);
         trig_delay_out     : out std_logic_vector(3 downto 0);
 
-	    -- "user_ipb" interface
+	    -- channel user interface
         user_ipb_clk    : out std_logic;                     -- programming clock
         user_ipb_strobe : out std_logic;                     -- this ipb space is selected for an I/O operation 
         user_ipb_addr   : out std_logic_vector(31 downto 0); -- slave address, memory or register
         user_ipb_write  : out std_logic;		             -- this is a write operation
         user_ipb_wdata  : out std_logic_vector(31 downto 0); -- data to write for write operations
-        user_ipb_rdata  : in std_logic_vector(31 downto 0);	 -- data returned for read operations
-        user_ipb_ack    : in std_logic;			             -- 'write' data has been stored, 'read' data is ready
-        user_ipb_err    : in std_logic;			             -- '1' if error, '0' if OK?
+        user_ipb_rdata  : in  std_logic_vector(31 downto 0); -- data returned for read operations
+        user_ipb_ack    : in  std_logic;			         -- 'write' data has been stored, 'read' data is ready
+        user_ipb_err    : in  std_logic;			         -- '1' if error, '0' if OK?
+
+		-- status registers
+		status_reg0  : in std_logic_vector(31 downto 0);
+		status_reg1  : in std_logic_vector(31 downto 0);
+		status_reg2  : in std_logic_vector(31 downto 0);
+		status_reg3  : in std_logic_vector(31 downto 0);
+		status_reg4  : in std_logic_vector(31 downto 0);
+		status_reg5  : in std_logic_vector(31 downto 0);
+		status_reg6  : in std_logic_vector(31 downto 0);
+		status_reg7  : in std_logic_vector(31 downto 0);
+		status_reg8  : in std_logic_vector(31 downto 0);
+		status_reg9  : in std_logic_vector(31 downto 0);
+		status_reg10 : in std_logic_vector(31 downto 0);
+		status_reg11 : in std_logic_vector(31 downto 0);
+		status_reg12 : in std_logic_vector(31 downto 0);
 
 		-- counter input ports
 		frame_err        : in std_logic := '0';
@@ -71,15 +86,15 @@ entity slaves is
 		link_reset_out   : in std_logic := '0';
 
 		-- flash interface ports
-		flash_wr_nBytes   : out std_logic_vector(8 downto 0);
-		flash_rd_nBytes   : out std_logic_vector(8 downto 0);
-		flash_cmd_strobe  : out std_logic;
-		flash_rbuf_en     : out std_logic;
-		flash_rbuf_addr   : out std_logic_vector(6 downto 0);
-		flash_rbuf_data   : in  std_logic_vector(31 downto 0);
-		flash_wbuf_en     : out std_logic;
-		flash_wbuf_addr   : out std_logic_vector(6 downto 0);
-		flash_wbuf_data   : out std_logic_vector(31 downto 0)
+		flash_wr_nBytes  : out std_logic_vector(8 downto 0);
+		flash_rd_nBytes  : out std_logic_vector(8 downto 0);
+		flash_cmd_strobe : out std_logic;
+		flash_rbuf_en    : out std_logic;
+		flash_rbuf_addr  : out std_logic_vector(6 downto 0);
+		flash_rbuf_data  : in  std_logic_vector(31 downto 0);
+		flash_wbuf_en    : out std_logic;
+		flash_wbuf_addr  : out std_logic_vector(6 downto 0);
+		flash_wbuf_data  : out std_logic_vector(31 downto 0)
 	);
 
 end slaves;
@@ -90,7 +105,6 @@ architecture rtl of slaves is
 	signal ipbw: ipb_wbus_array(NSLV-1 downto 0);
 	signal ipbr, ipbr_d: ipb_rbus_array(NSLV-1 downto 0);
 	signal ctrl_reg: std_logic_vector(31 downto 0);
-	signal stat_reg: std_logic_vector(31 downto 0);
 	signal wo_reg: std_logic_vector(31 downto 0);
 	signal count: std_logic_vector(15 downto 0);
 	signal trigger: std_logic;
@@ -109,16 +123,27 @@ begin
 -- Slave 0: status register
 
 	slave0: entity work.ipbus_status_reg
-		generic map(addr_width => 0)
+		generic map(addr_width => 5)
 		port map(
 			clk => ipb_clk,
 			reset => ipb_rst,
 			ipbus_in => ipbw(0),
 			ipbus_out => ipbr(0),
-			d => stat_reg
+			-- status registers
+			reg0 => status_reg0,
+			reg1 => status_reg1,
+			reg2 => status_reg2,
+			reg3 => status_reg3,
+			reg4 => status_reg4,
+			reg5 => status_reg5,
+			reg6 => status_reg6,
+			reg7 => status_reg7,
+			reg8 => status_reg8,
+			reg9 => status_reg9,
+			reg10 => status_reg10,
+			reg11 => status_reg11,
+			reg12 => status_reg12
 		);
-
-		stat_reg <= X"DEADBEEF";
 		
 -- Slave 1: register
 
@@ -275,17 +300,15 @@ begin
 			reset => ipb_rst,
 			ipbus_in => ipbw(8),
             ipbus_out => ipbr(8),
-			-- "user_ipb" interface
-            user_ipb_clk => user_ipb_clk,           -- programming clock
-            user_ipb_strobe => user_ipb_strobe,     -- this ipb space is selected for an I/O operation 
-            user_ipb_addr => user_ipb_addr,         -- slave address, memory or register
-            user_ipb_write => user_ipb_write,       -- this is a write operation
-            user_ipb_wdata => user_ipb_wdata,       -- data to write for write operations
-            user_ipb_rdata => user_ipb_rdata,       -- data returned for read operations
-            user_ipb_ack => user_ipb_ack,           -- 'write' data has been stored, 'read' data is ready
-            user_ipb_err => user_ipb_err            -- '1' if error, '0' if OK?
+			-- user interface
+            user_ipb_clk => user_ipb_clk,       -- programming clock
+            user_ipb_strobe => user_ipb_strobe, -- this ipb space is selected for an I/O operation 
+            user_ipb_addr => user_ipb_addr,     -- slave address, memory or register
+            user_ipb_write => user_ipb_write,   -- this is a write operation
+            user_ipb_wdata => user_ipb_wdata,   -- data to write for write operations
+            user_ipb_rdata => user_ipb_rdata,   -- data returned for read operations
+            user_ipb_ack => user_ipb_ack,       -- 'write' data has been stored, 'read' data is ready
+            user_ipb_err => user_ipb_err        -- '1' if error, '0' if OK?
 		);
-
-
 
 end rtl;

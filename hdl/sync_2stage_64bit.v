@@ -1,15 +1,15 @@
 `timescale 1ns / 1ps
 
 // Classic 2-stage synchronizer to bring asynchronous signals into a clock domain
-// for a 1-bit signal
+// for a 64-bit signal
 
-module sync_2stage(
+module sync_2stage_64bit(
     input wire clk,
-    input wire in,
-    output wire out
+    input wire [63:0] in,
+    output wire [63:0] out
 );
     
-    reg sync1, sync2;
+    reg [63:0] sync1, sync2;
     
     always @ (posedge clk) begin
         sync1 <= in;

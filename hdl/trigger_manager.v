@@ -34,7 +34,12 @@ module trigger_manager (
   // interface to trigger information FIFO
   input wire fifo_ready,
   output reg fifo_valid,
-  output reg [63:0] fifo_data
+  output reg [63:0] fifo_data,
+
+  // status connections
+  output reg [4:0] state,          // state of finite state machine
+  output reg [63:0] trig_num,      // number of received triggers
+  output reg [63:0] trig_timestamp // trigger timestamp
 );
 
   // state bits
@@ -44,18 +49,17 @@ module trigger_manager (
   parameter STORE_FILLNUM  = 3;
   parameter STORE_TRIGTIME = 4;
   
-  reg [4:0] state;
+
   reg [4:0] nextstate;
-  reg [63:0] trig_num;            // number of received triggers
   reg [63:0] next_trig_num;
-  reg [63:0] trig_timestamp;      // trigger timestamp
   reg [63:0] next_trig_timestamp;
+  
   reg [63:0] trig_timestamp_cnt;  // clock cycle count, since last reset
   reg [63:0] delay_cnt;           // counter to keep track of trigger delay 
 
   // comb always block
   always @* begin
-    nextstate = 4'd0;
+    nextstate = 5'd0;
     next_trig_num[63:0] = trig_num[63:0];
     next_trig_timestamp[63:0] = trig_timestamp[63:0];
 
