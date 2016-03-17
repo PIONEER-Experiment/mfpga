@@ -482,7 +482,7 @@ module command_manager(
         end
         else begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {2'b01, 12'b0, fill_type[2:0], chan_tag[15:0], 11'b0, burst_count[19:0]};
+          next_daq_data[63:0] = {2'b01, chan_tag[15:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
           next_readout_timestamp[31:0] = 0;
           nextstate[SEND_CHAN_HEADER1] = 1'b1;
         end
@@ -491,7 +491,7 @@ module command_manager(
       state[SEND_AMC13_HEADER1] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {trig_timestamp[31:0], 32'h00000001};
+          next_daq_data[63:0] = {16'd0, trig_timestamp[31:0], 16'd1};
           nextstate[SEND_AMC13_HEADER2] = 1'b1;
         end
         else if (~daq_almost_full) begin
@@ -507,7 +507,7 @@ module command_manager(
       state[SEND_AMC13_HEADER2] : begin      
         if (daq_ready) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {2'b01, 12'b0, fill_type[2:0], chan_tag[15:0], 10'b0, burst_count[20:0]};
+          next_daq_data[63:0] = {2'b01, chan_tag[15:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
           next_sent_amc13_header = 1'b1;
           next_readout_timestamp[31:0] = 0;
           nextstate[SEND_CHAN_HEADER1] = 1'b1;
@@ -525,7 +525,7 @@ module command_manager(
       state[SEND_CHAN_HEADER1] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {6'b0, ddr3_start_addr[25:3], 3'b0, 8'b0, trig_num_buf[23:0]};
+          next_daq_data[63:0] = {ddr3_start_addr[13:0], burst_count[22:0]*8, fill_type[2:0], trig_num_buf[23:0]};
           nextstate[SEND_CHAN_HEADER2] = 1'b1;
         end
         else begin
