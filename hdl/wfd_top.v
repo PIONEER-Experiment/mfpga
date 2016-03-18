@@ -1000,11 +1000,31 @@ module wfd_top(
     );
 
     // synchronize tm_state
-    wire tm_state_clk125;
+    wire[4:0] tm_state_clk125;
     sync_2stage tm_state_sync0(
         .clk(clk125),
-        .in(tm_state),
-        .out(tm_state_clk125)
+        .in(tm_state[0]),
+        .out(tm_state_clk125[0])
+    );
+    sync_2stage tm_state_sync1(
+        .clk(clk125),
+        .in(tm_state[1]),
+        .out(tm_state_clk125[1])
+    );
+    sync_2stage tm_state_sync2(
+        .clk(clk125),
+        .in(tm_state[2]),
+        .out(tm_state_clk125[2])
+    );
+    sync_2stage tm_state_sync3(
+        .clk(clk125),
+        .in(tm_state[3]),
+        .out(tm_state_clk125[3])
+    );
+    sync_2stage tm_state_sync4(
+        .clk(clk125),
+        .in(tm_state[4]),
+        .out(tm_state_clk125[4])
     );
 
     // synchronize fill_type
