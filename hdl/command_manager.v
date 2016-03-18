@@ -553,7 +553,7 @@ module command_manager(
         if (chan_rx_fifo_valid) begin
           if (endianness_sel) begin
             // little-endian
-            next_daq_data[63:0] = {chan_rx_fifo_data[3:0], chan_rx_fifo_data[7:4], chan_rx_fifo_data[11:8], chan_rx_fifo_data[15:12], chan_rx_fifo_data[19:16], chan_rx_fifo_data[23:20], chan_rx_fifo_data[27:24], chan_rx_fifo_data[31:28], 32'h00000000};
+            next_daq_data[63:0] = {chan_rx_fifo_data[7:0], chan_rx_fifo_data[15:8], chan_rx_fifo_data[23:16], chan_rx_fifo_data[31:24], 32'h00000000};
           end
           else begin
             // big-endian, default
@@ -578,7 +578,7 @@ module command_manager(
         if (~daq_ready & chan_rx_fifo_valid) begin
           if (endianness_sel) begin
             // little-endian
-            next_daq_data[63:0] = {daq_data[63:32], chan_rx_fifo_data[3:0], chan_rx_fifo_data[7:4], chan_rx_fifo_data[11:8], chan_rx_fifo_data[15:12], chan_rx_fifo_data[19:16], chan_rx_fifo_data[23:20], chan_rx_fifo_data[27:24], chan_rx_fifo_data[31:28]};
+            next_daq_data[63:0] = {daq_data[63:32], chan_rx_fifo_data[7:0], chan_rx_fifo_data[15:8], chan_rx_fifo_data[23:16], chan_rx_fifo_data[31:24]};
           end
           else begin
             // big-endian, default
@@ -606,7 +606,7 @@ module command_manager(
           next_daq_valid = 1'b1;
           if (endianness_sel) begin
             // little-endian
-            next_daq_data[63:0] = {daq_data[63:32], chan_rx_fifo_data[3:0], chan_rx_fifo_data[7:4], chan_rx_fifo_data[11:8], chan_rx_fifo_data[15:12], chan_rx_fifo_data[19:16], chan_rx_fifo_data[23:20], chan_rx_fifo_data[27:24], chan_rx_fifo_data[31:28]};
+            next_daq_data[63:0] = {daq_data[63:32], chan_rx_fifo_data[7:0], chan_rx_fifo_data[15:8], chan_rx_fifo_data[23:16], chan_rx_fifo_data[31:24]};
           end
           else begin
             // big-endian, default
@@ -624,7 +624,7 @@ module command_manager(
           next_daq_valid = 1'b1;
           if (endianness_sel) begin
             // little-endian
-            next_daq_data[63:0] = {daq_data[63:32], chan_rx_fifo_data[3:0], chan_rx_fifo_data[7:4], chan_rx_fifo_data[11:8], chan_rx_fifo_data[15:12], chan_rx_fifo_data[19:16], chan_rx_fifo_data[23:20], chan_rx_fifo_data[27:24], chan_rx_fifo_data[31:28]};
+            next_daq_data[63:0] = {daq_data[63:32], chan_rx_fifo_data[7:0], chan_rx_fifo_data[15:8], chan_rx_fifo_data[23:16], chan_rx_fifo_data[31:24]};
           end
           else begin
             // big-endian, default
