@@ -456,6 +456,11 @@ module wfd_top(
         .out(acq_dones_sync[4])
     );
 
+    // select bit for the endianness of ADC data
+    //   0 = big-endian (default)
+    //   1 = little-endian
+    wire endianness_sel;
+
     // enable signals to channels
     wire[4:0] chan_en;
 
@@ -681,7 +686,7 @@ module wfd_top(
         .ipb_clk(clk125),
         .gtrefclk_out(gtrefclk0),
 
-        // "user_ipb" interface
+        // user space interface
         // pass out the raw IPbus signals; they're handled in the Aurora block
         .user_ipb_clk(user_ipb_clk),           // programming clock
         .user_ipb_strobe(user_ipb_strobe),     // this ipb space is selected for an I/O operation
@@ -719,6 +724,7 @@ module wfd_top(
         .prog_chan_out(prog_chan_start_from_ipbus),     // signal to start programming sequence for channel FPGAs
         .reprog_trigger_out(reprog_trigger_from_ipbus), // signal to issue IPROG command to re-program FPGA from flash
         .trig_delay_out(trig_delay[3:0]),               // set trigger delay in the trigger manager
+        .endianness_out(endianness_sel),                // select signal for the ADC data's endianness
 
         // status registers
         .status_reg0(status_reg0),
@@ -1055,6 +1061,7 @@ module wfd_top(
         .acq_readout_pause(acq_readout_pause),
         .fill_type(fill_type_clk125),
         .chan_en(chan_en),
+        .endianness_sel(endianness_sel),
         .trig_info_fifo_full(trig_info_fifo_full),
         .trig_delay(trig_delay),
         .trig_num(trig_num_clk125),
@@ -1186,11 +1193,12 @@ module wfd_top(
         .tm_fifo_ready(fifo_to_cm_tready), // output
 
         // status connections
-        .read_fill_done(chan_readout_done),   // input  [ 4:0]
+        .chan_en(chan_en),                    // input  [ 4:0], enabled channels from IPbus
+        .endianness_sel(endianness_sel),      // input from IPbus
         .state(cm_state),                     // output [30:0]
         .chan_error_rc(chan_error_rc[4:0]),   // output [ 4:0]
         .trig_num_error(trig_num_error[4:0]), // output [ 4:0]
-        .chan_en(chan_en)                     // output, enabled channels from IPbus
+        .read_fill_done(chan_readout_done)    // output
     );
     
 

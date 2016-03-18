@@ -48,6 +48,7 @@ entity slaves is
 	    prog_chan_out      : out std_logic;
 	    reprog_trigger_out : out std_logic_vector(1 downto 0);
         trig_delay_out     : out std_logic_vector(3 downto 0);
+        endianness_out     : out std_logic;
 
 	    -- channel user interface
         user_ipb_clk    : out std_logic;                     -- programming clock
@@ -179,6 +180,8 @@ begin
         trig_delay_out(1) <= ctrl_reg(17);
         trig_delay_out(2) <= ctrl_reg(18);
         trig_delay_out(3) <= ctrl_reg(19);
+
+        endianness_out <= ctrl_reg(20);
 
 -- Slave 2: 1kword RAM
 

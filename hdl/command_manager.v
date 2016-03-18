@@ -62,6 +62,7 @@ module command_manager(
 
   // status connections
   input wire [4:0] chan_en,        // enabled channels, one bit for each channel
+  input wire endianness_sel,       // select bit for the endianness of ADC data
   output reg [30:0] state,         // state of finite state machine
   output reg [4:0] chan_error_rc,  // master received an error response code, one bit for each channel
   output reg [4:0] trig_num_error, // trigger numbers from channel and master aren't synchronized, one bit for each channel
@@ -69,39 +70,39 @@ module command_manager(
 );
 
   // idle state bit
-  parameter IDLE                            = 0;
+  parameter IDLE                             = 0;
   // configuration manager state bits
-  parameter SEND_IPBUS_CSN                  = 1;
-  parameter READ_IPBUS_CMD                  = 2;
-  parameter CHECK_LAST                      = 3;
-  parameter SEND_IPBUS_CMD                  = 4;
-  parameter READ_IPBUS_RSN                  = 5;
-  parameter READ_IPBUS_RES                  = 6;
-  parameter SEND_IPBUS_RES                  = 7;
+  parameter SEND_IPBUS_CSN                   = 1;
+  parameter READ_IPBUS_CMD                   = 2;
+  parameter CHECK_LAST                       = 3;
+  parameter SEND_IPBUS_CMD                   = 4;
+  parameter READ_IPBUS_RSN                   = 5;
+  parameter READ_IPBUS_RES                   = 6;
+  parameter SEND_IPBUS_RES                   = 7;
   // event builder state bits
-  parameter GET_TRIG_NUM                    = 8;
-  parameter WAIT                            = 9;
-  parameter GET_TRIG_TIMESTAMP              = 10;
-  parameter CHECK_CHAN_EN                   = 11;
-  parameter SEND_CHAN_CSN                   = 12;
-  parameter SEND_CHAN_CC                    = 13;
-  parameter READ_CHAN_RSN                   = 14;
-  parameter READ_CHAN_RC                    = 15;
-  parameter READ_CHAN_TRIG_NUM_AND_FILL_TYPE= 16;
-  parameter READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR= 17;
-  parameter READ_CHAN_DDR3_START_ADDR_AND_WFM_COUNT  = 18;
-  parameter READ_CHAN_WFM_GAP_AND_TAG       = 19;
-  parameter STORE_CHAN_TAG_AND_FILLTYPE     = 20;
-  parameter SEND_AMC13_HEADER1              = 21;
-  parameter SEND_AMC13_HEADER2              = 22;
-  parameter SEND_CHAN_HEADER1               = 23;
-  parameter SEND_CHAN_HEADER2               = 24;
-  parameter READ_CHAN_DATA1                 = 25;
-  parameter READ_CHAN_DATA2                 = 26;
-  parameter READ_CHAN_DATA_RESYNC           = 27;
-  parameter SEND_READOUT_TIMESTAMP          = 28;
-  parameter READY_AMC13_TRAILER             = 29;
-  parameter SEND_AMC13_TRAILER              = 30;
+  parameter GET_TRIG_NUM                     = 8;
+  parameter WAIT                             = 9;
+  parameter GET_TRIG_TIMESTAMP               = 10;
+  parameter CHECK_CHAN_EN                    = 11;
+  parameter SEND_CHAN_CSN                    = 12;
+  parameter SEND_CHAN_CC                     = 13;
+  parameter READ_CHAN_RSN                    = 14;
+  parameter READ_CHAN_RC                     = 15;
+  parameter READ_CHAN_TRIG_NUM_AND_FILL_TYPE = 16;
+  parameter READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR = 17;
+  parameter READ_CHAN_DDR3_START_ADDR_AND_WFM_COUNT   = 18;
+  parameter READ_CHAN_WFM_GAP_AND_TAG        = 19;
+  parameter STORE_CHAN_TAG_AND_FILLTYPE      = 20;
+  parameter SEND_AMC13_HEADER1               = 21;
+  parameter SEND_AMC13_HEADER2               = 22;
+  parameter SEND_CHAN_HEADER1                = 23;
+  parameter SEND_CHAN_HEADER2                = 24;
+  parameter READ_CHAN_DATA1                  = 25;
+  parameter READ_CHAN_DATA2                  = 26;
+  parameter READ_CHAN_DATA_RESYNC            = 27;
+  parameter SEND_READOUT_TIMESTAMP           = 28;
+  parameter READY_AMC13_TRAILER              = 29;
+  parameter SEND_AMC13_TRAILER               = 30;
 
 
   // channel header regs sorted the way they will be used: first trig_num_buf, then fill_type...
@@ -491,7 +492,7 @@ module command_manager(
       state[SEND_AMC13_HEADER1] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {16'd0, trig_timestamp[31:0], 16'd1};
+          next_daq_data[63:0] = {12'd0, endianness_sel, fill_type[2:0], trig_timestamp[31:0], 16'd1};
           nextstate[SEND_AMC13_HEADER2] = 1'b1;
         end
         else if (~daq_almost_full) begin
@@ -550,7 +551,15 @@ module command_manager(
       state[READ_CHAN_DATA1] : begin
         // check if the Aurora RX FIFO has data for us
         if (chan_rx_fifo_valid) begin
-          next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+          if (endianness_sel) begin
+            // little-endian
+            next_daq_data[63:0] = {chan_rx_fifo_data[3:0], chan_rx_fifo_data[7:4], chan_rx_fifo_data[11:8], chan_rx_fifo_data[15:12], chan_rx_fifo_data[19:16], chan_rx_fifo_data[23:20], chan_rx_fifo_data[27:24], chan_rx_fifo_data[31:28], 32'h00000000};
+          end
+          else begin
+            // big-endian, default
+            next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+          end
+
           next_data_count[31:0] = data_count[31:0]+1;
           nextstate[READ_CHAN_DATA2] = 1'b1;
         end
@@ -567,7 +576,15 @@ module command_manager(
         // DAQ link has flagged that its buffer is almost full
         // grab the Aurora RX FIFO's lastest word, and wait for DAQ link to recover before trying to send it
         if (~daq_ready & chan_rx_fifo_valid) begin
-          next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+          if (endianness_sel) begin
+            // little-endian
+            next_daq_data[63:0] = {daq_data[63:32], chan_rx_fifo_data[3:0], chan_rx_fifo_data[7:4], chan_rx_fifo_data[11:8], chan_rx_fifo_data[15:12], chan_rx_fifo_data[19:16], chan_rx_fifo_data[23:20], chan_rx_fifo_data[27:24], chan_rx_fifo_data[31:28]};
+          end
+          else begin
+            // big-endian, default
+            next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+          end
+
           next_data_count[31:0]     = (data_count[31:0] < burst_count[22:0]*4+3) ? data_count[31:0]+1   : 32'b0;
           next_data_wfm_count[11:0] = (data_count[31:0] < burst_count[22:0]*4+3) ? data_wfm_count[11:0] : data_wfm_count[11:0]+1;
           next_update_mcs_lsb = ~update_mcs_lsb;
@@ -587,7 +604,15 @@ module command_manager(
         // send it, and exit to send the readout timestamp next
         else if (daq_ready & chan_rx_fifo_valid & (data_count[31:0] == 3) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+          if (endianness_sel) begin
+            // little-endian
+            next_daq_data[63:0] = {daq_data[63:32], chan_rx_fifo_data[3:0], chan_rx_fifo_data[7:4], chan_rx_fifo_data[11:8], chan_rx_fifo_data[15:12], chan_rx_fifo_data[19:16], chan_rx_fifo_data[23:20], chan_rx_fifo_data[27:24], chan_rx_fifo_data[31:28]};
+          end
+          else begin
+            // big-endian, default
+            next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+          end
+
           next_data_count[31:0]     = (data_count[31:0] < burst_count[22:0]*4+3) ? data_count[31:0]+1   : 32'b0;
           next_data_wfm_count[11:0] = (data_count[31:0] < burst_count[22:0]*4+3) ? data_wfm_count[11:0] : data_wfm_count[11:0]+1;
           next_channel_checksum[127:0] = {chan_rx_fifo_data[31:0], daq_data[31:0], channel_checksum[63:0]};
@@ -597,7 +622,15 @@ module command_manager(
         // send current data, and continue the readout loop
         else if (daq_ready & chan_rx_fifo_valid) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+          if (endianness_sel) begin
+            // little-endian
+            next_daq_data[63:0] = {daq_data[63:32], chan_rx_fifo_data[3:0], chan_rx_fifo_data[7:4], chan_rx_fifo_data[11:8], chan_rx_fifo_data[15:12], chan_rx_fifo_data[19:16], chan_rx_fifo_data[23:20], chan_rx_fifo_data[27:24], chan_rx_fifo_data[31:28]};
+          end
+          else begin
+            // big-endian, default
+            next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+          end
+
           next_data_count[31:0]     = (data_count[31:0] < burst_count[22:0]*4+3) ? data_count[31:0]+1   : 32'b0;
           next_data_wfm_count[11:0] = (data_count[31:0] < burst_count[22:0]*4+3) ? data_wfm_count[11:0] : data_wfm_count[11:0]+1;
           next_update_mcs_lsb = ~update_mcs_lsb;

@@ -36,6 +36,7 @@ module status_reg_block (
   input wire [4:0] acq_readout_pause,
   input wire [1:0] fill_type,
   input wire [4:0] chan_en,
+  input wire endianness_sel,
 
   // trigger
   input wire trig_info_fifo_full,
@@ -81,7 +82,7 @@ assign status_reg5  = {1'd0, cm_state[30:0]};
 assign status_reg6  = {27'd0, tm_state[4:0]};
 
 // Register 07: Acquisition
-assign status_reg7  = {20'd0, acq_readout_pause[4:0], fill_type[1:0], chan_en[4:0]};
+assign status_reg7  = {19'd0, endianness_sel, acq_readout_pause[4:0], fill_type[1:0], chan_en[4:0]};
 
 // Register 08: Trigger information
 assign status_reg8  = {27'd0, trig_info_fifo_full, trig_delay[3:0]};
