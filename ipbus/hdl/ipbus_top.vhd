@@ -65,6 +65,7 @@ entity ipbus_top is port(
     trig_delay_out     : out std_logic_vector(3 downto 0); -- tells trigger manager how long to wait before passing the trigger onto channels
 	endianness_out     : out std_logic;                    -- indicates the endianness of the ADC data sent to the DAQ
 	trig_settings_out  : out std_logic_vector(7 downto 0); -- indicates whether or not to respond to a given trigger type
+	trig_sel_out       : out std_logic_vector(1 downto 0); -- select signal for the trigger (TTC, IPbus, or front panel)
 
 	-- clocks
 	clk_200      : in  std_logic;
@@ -85,7 +86,6 @@ entity ipbus_top is port(
 	status_reg9  : in std_logic_vector(31 downto 0);
 	status_reg10 : in std_logic_vector(31 downto 0);
 	status_reg11 : in std_logic_vector(31 downto 0);
-	status_reg12 : in std_logic_vector(31 downto 0);
 
 	-- counter input ports
 	frame_err : in std_logic;
@@ -263,6 +263,7 @@ begin
         trig_delay_out     => trig_delay_out,
         endianness_out     => endianness_out,
         trig_settings_out  => trig_settings_out,
+        trig_sel_out       => trig_sel_out,
 
         -- status registers
 		status_reg0  => status_reg0,
@@ -277,7 +278,6 @@ begin
 		status_reg9  => status_reg9,
 		status_reg10 => status_reg10,
 		status_reg11 => status_reg11,
-		status_reg12 => status_reg12,
 
 		-- counter input ports
 		frame_err        => frame_err,

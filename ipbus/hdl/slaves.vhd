@@ -50,6 +50,7 @@ entity slaves is
         trig_delay_out     : out std_logic_vector(3 downto 0);
         endianness_out     : out std_logic;
         trig_settings_out  : out std_logic_vector(7 downto 0);
+        trig_sel_out       : out std_logic_vector(1 downto 0);
 
 	    -- channel user interface
         user_ipb_clk    : out std_logic;                     -- programming clock
@@ -74,7 +75,6 @@ entity slaves is
 		status_reg9  : in std_logic_vector(31 downto 0);
 		status_reg10 : in std_logic_vector(31 downto 0);
 		status_reg11 : in std_logic_vector(31 downto 0);
-		status_reg12 : in std_logic_vector(31 downto 0);
 
 		-- counter input ports
 		frame_err        : in std_logic := '0';
@@ -143,8 +143,7 @@ begin
 			reg8 => status_reg8,
 			reg9 => status_reg9,
 			reg10 => status_reg10,
-			reg11 => status_reg11,
-			reg12 => status_reg12
+			reg11 => status_reg11
 		);
 		
 -- Slave 1: register
@@ -192,6 +191,9 @@ begin
         trig_settings_out(5) <= ctrl_reg(24);
         trig_settings_out(6) <= ctrl_reg(25);
         trig_settings_out(7) <= ctrl_reg(26);
+
+        trig_sel_out(0) <= ctrl_reg(27);
+        trig_sel_out(1) <= ctrl_reg(28);
 
 -- Slave 2: 1kword RAM
 

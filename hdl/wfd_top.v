@@ -103,7 +103,7 @@ module wfd_top(
     wire [4:0] trig_num_error; // trigger numbers from channel header and trigger information FIFO aren't synchronized, one bit for each channel
 
 
-    // ======== I/O lines to channel (for DDR3) ========
+    // ======== I/O lines to channel ========
     wire [9:0] acq_enable;
     wire [4:0] acq_readout_pause;
 
@@ -622,7 +622,7 @@ module wfd_top(
     wire[3:0] tts_state;
     
     // ======== status register signals ========
-    wire[31:0] status_reg0, status_reg1, status_reg2, status_reg3, status_reg4, status_reg5, status_reg6, status_reg7, status_reg8, status_reg9, status_reg10, status_reg11, status_reg12;
+    wire[31:0] status_reg0, status_reg1, status_reg2, status_reg3, status_reg4, status_reg5, status_reg6, status_reg7, status_reg8, status_reg9, status_reg10, status_reg11;
 
     // ======== finite state machine states ========
     wire[ 2:0] ttr_state;
@@ -631,6 +631,7 @@ module wfd_top(
     wire[27:0] cm_state;
 
     // ======== trigger information signals ========
+    wire[ 1:0] trig_sel;
     wire[ 7:0] trig_settings;
     wire[23:0] ttc_event_num;
     wire[23:0] ttc_trig_num;
@@ -734,6 +735,7 @@ module wfd_top(
         .trig_delay_out(trig_delay[3:0]),               // set trigger delay in the trigger manager
         .endianness_out(endianness_sel),                // select signal for the ADC data's endianness
         .trig_settings_out(trig_settings),              // select which trigger types are enabled
+        .trig_sel_out(trig_sel),                        // select which input is the trigger (TTC, IPbus, front panel)
 
         // status registers
         .status_reg0(status_reg0),
@@ -748,7 +750,6 @@ module wfd_top(
         .status_reg9(status_reg9),
         .status_reg10(status_reg10),
         .status_reg11(status_reg11),
-        .status_reg12(status_reg12),
 
         // counter ouputs
         .frame_err(frame_err),              
@@ -1128,6 +1129,9 @@ module wfd_top(
     );
 
 
+    wire trigger_mux; // selected trigger source
+    assign trigger_mux = (trig_sel[1:0] == 2'b01) ? trigger_from_ipbus_sync : (trig_sel[1:0] == 2'b10) ? ext_trig_sync : trigger_from_ttc;
+
     // trigger top module
     trigger_top trigger_top(
         // clocks
@@ -1143,9 +1147,7 @@ module wfd_top(
         .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
 
         // trigger interface
-        //.trigger(trigger_from_ipbus_sync), // IPbus triggering
-        //.trigger(ext_trig_sync),           // external triggering
-        .trigger(trigger_from_ttc),    // TTC triggering
+        .trigger(trigger_mux),         // trigger signal
         .trig_type(fill_type),         // trigger type (muon fill, laser, pedestal)
         .trig_settings(trig_settings), // trigger settings
         .chan_en(chan_en),             // enabled channels
