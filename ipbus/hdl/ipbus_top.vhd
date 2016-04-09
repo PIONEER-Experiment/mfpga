@@ -64,6 +64,7 @@ entity ipbus_top is port(
     reprog_trigger_out : out std_logic_vector(1 downto 0); -- signal to issue IPROG command to re-program FPGA from flash
     trig_delay_out     : out std_logic_vector(3 downto 0); -- tells trigger manager how long to wait before passing the trigger onto channels
 	endianness_out     : out std_logic;                    -- indicates the endianness of the ADC data sent to the DAQ
+	trig_settings_out  : out std_logic_vector(7 downto 0); -- indicates whether or not to respond to a given trigger type
 
 	-- clocks
 	clk_200      : in  std_logic;
@@ -261,6 +262,7 @@ begin
 	    reprog_trigger_out => reprog_trigger_out,
         trig_delay_out     => trig_delay_out,
         endianness_out     => endianness_out,
+        trig_settings_out  => trig_settings_out,
 
         -- status registers
 		status_reg0  => status_reg0,

@@ -456,6 +456,7 @@ module wfd_top(
         .out(acq_dones_sync[4])
     );
 
+
     // select bit for the endianness of ADC data
     //   0 = big-endian (default)
     //   1 = little-endian
@@ -467,16 +468,6 @@ module wfd_top(
     // delay between receiving the trigger and passing it onto the channels                                                                                                                                                   
     wire[3:0] trig_delay;
 
-    // wires connecting the trigger information FIFO to the trigger manager
-    wire tm_to_fifo_tvalid, tm_to_fifo_tready;
-    wire[63:0] tm_to_fifo_tdata;
-
-    wire fifo_to_cm_tvalid, fifo_to_cm_tready;
-    wire[63:0] fifo_to_cm_tdata;
-
-    // wire connecting the trigger and command managers
-    wire chan_readout_done; // needed for the trig_arm signal
-
     // ======== wires for interface to channel serial link ========
     // User IPbus interface. Used by Charlie's Aurora block.
     wire [31:0] user_ipb_addr, user_ipb_wdata, user_ipb_rdata;
@@ -485,14 +476,14 @@ module wfd_top(
 
     ///////////////////////////////////////////////////////////////////////////
     // AXI4-Stream interface for communicating with serial link to channel FPGA
-    // channel 0
+    // Channel 0
     wire c0_axi_stream_to_cm_tvalid, c0_axi_stream_to_cm_tlast, c0_axi_stream_to_cm_tready;
     wire[0:31] c0_axi_stream_to_cm_tdata;
 
     wire c0_axi_stream_to_channel_tvalid, c0_axi_stream_to_channel_tlast, c0_axi_stream_to_channel_tready;
     wire[0:31] c0_axi_stream_to_channel_tdata;
 
-    // channel 1
+    // Channel 1
     wire c1_axi_stream_to_cm_tvalid, c1_axi_stream_to_cm_tlast, c1_axi_stream_to_cm_tready;
     wire[0:31] c1_axi_stream_to_cm_tdata;
 
@@ -500,7 +491,7 @@ module wfd_top(
     wire[0:31] c1_axi_stream_to_channel_tdata;
     wire[0:3]  c1_axi_stream_to_channel_tdest;
 
-    // channel 2
+    // Channel 2
     wire c2_axi_stream_to_cm_tvalid, c2_axi_stream_to_cm_tlast, c2_axi_stream_to_cm_tready;
     wire[0:31] c2_axi_stream_to_cm_tdata;
 
@@ -508,7 +499,7 @@ module wfd_top(
     wire[0:31] c2_axi_stream_to_channel_tdata;
     wire[0:3]  c2_axi_stream_to_channel_tdest;
 
-    // channel 3
+    // Channel 3
     wire c3_axi_stream_to_cm_tvalid, c3_axi_stream_to_cm_tlast, c3_axi_stream_to_cm_tready;
     wire[0:31] c3_axi_stream_to_cm_tdata;
 
@@ -516,7 +507,7 @@ module wfd_top(
     wire[0:31] c3_axi_stream_to_channel_tdata;
     wire[0:3]  c3_axi_stream_to_channel_tdest;
 
-    // channel 4
+    // Channel 4
     wire c4_axi_stream_to_cm_tvalid, c4_axi_stream_to_cm_tlast, c4_axi_stream_to_cm_tready;
     wire[0:31] c4_axi_stream_to_cm_tdata;
 
@@ -606,6 +597,13 @@ module wfd_top(
     wire[0:3] axi_stream_to_cm_from_ipbus_tdest;
 
 
+    ////////////////////////////////////////////////////////
+    // trigger top and command manager interface connections
+    wire readout_ready, readout_done;
+    wire send_empty_event;
+    wire initiate_readout;
+
+
     // ======== communication with the AMC13 DAQ link ========
     wire daq_header, daq_trailer;
     wire daq_valid, daq_ready;
@@ -627,12 +625,22 @@ module wfd_top(
     wire[31:0] status_reg0, status_reg1, status_reg2, status_reg3, status_reg4, status_reg5, status_reg6, status_reg7, status_reg8, status_reg9, status_reg10, status_reg11, status_reg12;
 
     // ======== finite state machine states ========
-    wire[30:0] cm_state;
-    wire[4:0] tm_state;
+    wire[ 2:0] ttr_state;
+    wire[ 3:0] cac_state;
+    wire[ 4:0] tp_state;
+    wire[27:0] cm_state;
 
     // ======== trigger information signals ========
-    wire[63:0] trig_num;
-    wire[63:0] trig_timestamp;
+    wire[ 7:0] trig_settings;
+    wire[23:0] ttc_event_num;
+    wire[23:0] ttc_trig_num;
+    wire[43:0] ttc_trig_timestamp;
+    wire[23:0] trig_num;
+    wire[43:0] trig_timestamp;
+
+    // ======== FIFO signals ========
+    wire trig_fifo_full;
+    wire acq_fifo_full;
 
     
     // ======== module instantiations ========
@@ -671,7 +679,7 @@ module wfd_top(
     );
 
 
-    // IPbus module
+    // IPbus top module
     ipbus_top ipb(
         .gt_clkp(gtx_clk0), .gt_clkn(gtx_clk0_N),
         .gt_txp(gige_tx),   .gt_txn(gige_tx_N),
@@ -725,6 +733,7 @@ module wfd_top(
         .reprog_trigger_out(reprog_trigger_from_ipbus), // signal to issue IPROG command to re-program FPGA from flash
         .trig_delay_out(trig_delay[3:0]),               // set trigger delay in the trigger manager
         .endianness_out(endianness_sel),                // select signal for the ADC data's endianness
+        .trig_settings_out(trig_settings),              // select which trigger types are enabled
 
         // status registers
         .status_reg0(status_reg0),
@@ -900,7 +909,7 @@ module wfd_top(
         .adcclk_dlen(adcclk_dlen),
         .adcclk_sync(adcclk_sync),
 
-        // AFE's DAC connections
+        // analog front-end DAC connections
         .afe_dac_sclk(afe_dac_sclk),
         .afe_dac_sdi(afe_dac_sdi),
         .afe_dac_sync_n(afe_dac_sync_n),
@@ -999,32 +1008,45 @@ module wfd_top(
         .out(ttc_chan_b_info_clk125[5])
     );
 
-    // synchronize tm_state
-    wire[4:0] tm_state_clk125;
-    sync_2stage tm_state_sync0(
+    // synchronize ttr_state
+    wire[2:0] ttr_state_clk125;
+    sync_2stage ttr_state_sync0(
         .clk(clk125),
-        .in(tm_state[0]),
-        .out(tm_state_clk125[0])
+        .in(ttr_state[0]),
+        .out(ttr_state_clk125[0])
     );
-    sync_2stage tm_state_sync1(
+    sync_2stage ttr_state_sync1(
         .clk(clk125),
-        .in(tm_state[1]),
-        .out(tm_state_clk125[1])
+        .in(ttr_state[1]),
+        .out(ttr_state_clk125[1])
     );
-    sync_2stage tm_state_sync2(
+    sync_2stage ttr_state_sync2(
         .clk(clk125),
-        .in(tm_state[2]),
-        .out(tm_state_clk125[2])
+        .in(ttr_state[2]),
+        .out(ttr_state_clk125[2])
     );
-    sync_2stage tm_state_sync3(
+
+    // synchronize cac_state
+    wire[3:0] cac_state_clk125;
+    sync_2stage cac_state_sync0(
         .clk(clk125),
-        .in(tm_state[3]),
-        .out(tm_state_clk125[3])
+        .in(cac_state[0]),
+        .out(cac_state_clk125[0])
     );
-    sync_2stage tm_state_sync4(
+    sync_2stage cac_state_sync1(
         .clk(clk125),
-        .in(tm_state[4]),
-        .out(tm_state_clk125[4])
+        .in(cac_state[1]),
+        .out(cac_state_clk125[1])
+    );
+    sync_2stage cac_state_sync2(
+        .clk(clk125),
+        .in(cac_state[2]),
+        .out(cac_state_clk125[2])
+    );
+    sync_2stage cac_state_sync3(
+        .clk(clk125),
+        .in(cac_state[3]),
+        .out(cac_state_clk125[3])
     );
 
     // synchronize fill_type
@@ -1044,7 +1066,7 @@ module wfd_top(
     wire[63:0] trig_num_clk125;
     sync_2stage_64bit trig_num_sync0(
         .clk(clk125),
-        .in(trig_num),
+        .in({40'd0, trig_num[23:0]}),
         .out(trig_num_clk125)
     );
 
@@ -1052,7 +1074,7 @@ module wfd_top(
     wire[63:0] trig_timestamp_clk125;
     sync_2stage_64bit trig_timestamp_sync0(
         .clk(clk125),
-        .in(trig_timestamp),
+        .in({20'd0, trig_timestamp[43:0]}),
         .out(trig_timestamp_clk125)
     );
 
@@ -1077,15 +1099,18 @@ module wfd_top(
         .ttc_chan_b_info(ttc_chan_b_info_clk125),
         .ttc_ready(ttc_ready_clk125),
         .cm_state(cm_state),
-        .tm_state(tm_state_clk125),
+        .ttr_state(ttr_state_clk125),
+        .cac_state(cac_state_clk125),
+        .tp_state(tp_state),
         .acq_readout_pause(acq_readout_pause),
         .fill_type(fill_type_clk125),
         .chan_en(chan_en),
         .endianness_sel(endianness_sel),
-        .trig_info_fifo_full(trig_info_fifo_full),
+        .trig_fifo_full(trig_fifo_full),
+        .acq_fifo_full(acq_fifo_full),
         .trig_delay(trig_delay),
-        .trig_num(trig_num_clk125),
-        .trig_timestamp(trig_timestamp_clk125),
+        .trig_num(trig_num_clk125[23:0]),
+        .trig_timestamp(trig_timestamp_clk125[43:0]),
 
         // status register outputs
         .status_reg0(status_reg0),
@@ -1099,66 +1124,56 @@ module wfd_top(
         .status_reg8(status_reg8),
         .status_reg9(status_reg9),
         .status_reg10(status_reg10),
-        .status_reg11(status_reg11),
-        .status_reg12(status_reg12)
+        .status_reg11(status_reg11)
     );
 
 
-    // trigger manager module
-    trigger_manager trigger_manager(
-        // user interface clock and reset
-        .clk(ttc_clk),
-        .reset(reset40),
+    // trigger top module
+    trigger_top trigger_top(
+        // clocks
+        .ttc_clk(ttc_clk), //  40 MHz
+        .clk125(clk125),   // 125 MHz
 
-        // TTC Channel B resets
-        .reset_trig_num(rst_trigger_num),
-        .reset_trig_timestamp(rst_trigger_timestamp),
+        // resets
+        .reset40(reset40),           // in  40 MHz clock domain
+        .reset40_n(reset40_n),       // in  40 MHz clock domain
+        .rst_from_ipb(rst_from_ipb), // in 125 MHz clock domain
+
+        .rst_trigger_num(rst_trigger_num),             // from TTC Channel B
+        .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
 
         // trigger interface
         //.trigger(trigger_from_ipbus_sync), // IPbus triggering
         //.trigger(ext_trig_sync),           // external triggering
-        .trigger(trigger_from_ttc),          // TTC triggering
-        .chan_en(chan_en_sync),              // enabled channels from IPbus
-        .fill_type(fill_type[1:0]),
-        .trig_delay(trig_delay[3:0]),        // trigger delay
+        .trigger(trigger_from_ttc),    // TTC triggering
+        .trig_type(fill_type),         // trigger type (muon fill, laser, pedestal)
+        .trig_settings(trig_settings), // trigger settings
+        .chan_en(chan_en),             // enabled channels
+        .trig_delay(trig_delay),       // trigger delay
 
-        // interface to Channel FPGAs
-        .acq_done(acq_dones_sync),
-        .acq_enable(acq_enable),
-        .acq_trig(acq_trigs),
+        // channel interface
+        .chan_done(acq_dones_sync),
+        .chan_enable(acq_enable),
+        .chan_trig(acq_trigs),
 
-        // interface to trigger information FIFO
-        .fifo_valid(tm_to_fifo_tvalid),
-        .fifo_ready(tm_to_fifo_tready),
-        .fifo_data(tm_to_fifo_tdata),
+        // command manager interface
+        .readout_ready(readout_ready),       // command manager is idle
+        .readout_done(readout_done),         // initiated readout has finished
+        .send_empty_event(send_empty_event), // request an empty event
+        .initiate_readout(initiate_readout), // request for the channels to be read out
 
-        // status connections, output
-        .state(tm_state),
-        .trig_num(trig_num),
-        .trig_timestamp(trig_timestamp)
-    );
+        .ttc_event_num(ttc_event_num),           // channel's trigger number
+        .ttc_trig_num(ttc_trig_num),             // global trigger number
+        .ttc_trig_timestamp(ttc_trig_timestamp), // trigger timestamp
 
-
-    // trigger information FIFO : 1024 depth, 512 almost full threshold
-    //  -- currently holds trigger number of collected triggers
-    //  -- will also hold 44-bit trigger timestamp in the future
-    // data width is 64-bits, needed to accommodate future 44-bit trigger timestamp
-    trig_info_axis_data_fifo trig_info_fifo(
-        // writing side
-        .s_aclk(ttc_clk),                   // input
-        .s_aresetn(reset40_n),              // input
-        .s_axis_tvalid(tm_to_fifo_tvalid),  // input
-        .s_axis_tready(tm_to_fifo_tready),  // output
-        .s_axis_tdata(tm_to_fifo_tdata),    // input  [63:0]
-
-        // reading side
-        .m_aclk(clk125),                    // input
-        .m_axis_tvalid(fifo_to_cm_tvalid),  // output
-        .m_axis_tready(fifo_to_cm_tready),  // input
-        .m_axis_tdata(fifo_to_cm_tdata),    // output [63:0]
-      
-        // "FIFO almost full" port, WHAT DO WE DO?
-        .axis_prog_full(trig_info_fifo_full) // output
+        // status connections
+        .ttr_state(ttr_state),           // TTC trigger receiver state
+        .cac_state(cac_state),           // channel acquisition controller state
+        .tp_state(tp_state),             // trigger processor state
+        .trig_num(trig_num),             // global trigger number
+        .trig_timestamp(trig_timestamp), // timestamp for latest trigger received
+        .trig_fifo_full(trig_fifo_full), // TTC trigger FIFO is almost full
+        .acq_fifo_full(acq_fifo_full)    // acquisition event FIFO is almost full
     );
 
     
@@ -1207,18 +1222,21 @@ module wfd_top(
         .daq_trailer(daq_trailer),         // output
         .daq_data(daq_data),               // output [63:0]
 
-        // interface to trigger information FIFO
-        .tm_fifo_valid(fifo_to_cm_tvalid), // input
-        .tm_fifo_data(fifo_to_cm_tdata),   // input [63:0]
-        .tm_fifo_ready(fifo_to_cm_tready), // output
+        // interface to trigger processor
+        .send_empty_event(send_empty_event), // request to send an empty event
+        .initiate_readout(initiate_readout), // request for the channels to be read out
+        .event_num(ttc_event_num),           // channel's trigger number
+        .trig_num(ttc_trig_num),             // global trigger number, starts at 1
+        .trig_timestamp(ttc_trig_timestamp), // trigger timestamp, defined by when trigger is received by trigger receiver module
+        .readout_ready(readout_ready),       // ready to readout data, i.e., when in idle state
+        .readout_done(readout_done),         // finished readout flag
 
         // status connections
         .chan_en(chan_en),                    // input  [ 4:0], enabled channels from IPbus
         .endianness_sel(endianness_sel),      // input from IPbus
         .state(cm_state),                     // output [30:0]
         .chan_error_rc(chan_error_rc[4:0]),   // output [ 4:0]
-        .trig_num_error(trig_num_error[4:0]), // output [ 4:0]
-        .read_fill_done(chan_readout_done)    // output
+        .trig_num_error(trig_num_error[4:0])  // output [ 4:0]
     );
     
 
