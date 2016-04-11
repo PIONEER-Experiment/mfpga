@@ -688,14 +688,17 @@ module wfd_top(
         .sfp_los(sfp_los),
         .eth_link_status(eth_link_status),
         .rst_out(rst_from_ipb),
-           
+        
+        // debug ports
+        .debug(),
+
         // clocks
         .clk_200(clk200),
         .clk_125(),
         .ipb_clk(clk125),
         .gtrefclk_out(gtrefclk0),
 
-        // user space interface
+        // channel user space interface
         // pass out the raw IPbus signals; they're handled in the Aurora block
         .user_ipb_clk(user_ipb_clk),           // programming clock
         .user_ipb_strobe(user_ipb_strobe),     // this ipb space is selected for an I/O operation
@@ -727,6 +730,7 @@ module wfd_top(
         .axi_stream_in_tid(),
         .axi_stream_in_tdest(),
 
+        // control signals
         .trigger_out(trigger_from_ipbus),               // IPbus trigger
         .chan_done_out(),                               // channel done to trigger manager
         .chan_en_out(chan_en),                          // channel enable to command manager
@@ -751,19 +755,6 @@ module wfd_top(
         .status_reg10(status_reg10),
         .status_reg11(status_reg11),
 
-        // counter ouputs
-        .frame_err(frame_err),              
-        .hard_err(hard_err),                
-        .soft_err(soft_err),                
-        .channel_up(channel_up),            
-        .lane_up(lane_up),                  
-        .pll_not_locked(pll_not_locked),    
-        .tx_resetdone_out(tx_resetdone_out),
-        .rx_resetdone_out(rx_resetdone_out),
-        .link_reset_out(link_reset_out),
-
-        .debug(),
-
         // flash interface ports
         .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
         .flash_rd_nBytes(ipbus_to_flash_rd_nBytes),
@@ -773,15 +764,7 @@ module wfd_top(
         .flash_rbuf_data(flash_rbuf_to_ipbus_data),
         .flash_wbuf_en(ipbus_to_flash_wbuf_en),
         .flash_wbuf_addr(ipbus_to_flash_wbuf_addr),
-        .flash_wbuf_data(ipbus_to_flash_wbuf_data),
-        
-        // DAQ link ports
-        .daq_valid(),
-        .daq_header(),
-        .daq_trailer(),
-        .daq_data(),
-        .daq_ready(),
-        .daq_almost_full()
+        .flash_wbuf_data(ipbus_to_flash_wbuf_data)
     );
 
  

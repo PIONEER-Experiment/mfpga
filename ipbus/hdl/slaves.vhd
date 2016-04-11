@@ -17,31 +17,16 @@ entity slaves is
 		ipb_out : out ipb_rbus;
 		rst_out : out std_logic;
 
-		debug: out std_logic_vector(7 downto 0);
+		-- debug ports
+		debug : out std_logic_vector(7 downto 0);
 
-		-- counters
-		pkt_rx: in std_logic := '0';
-		pkt_tx: in std_logic := '0';
-		eth_phy_rudi_invalid: in std_logic := '0';
-		eth_phy_rxdisperr: in std_logic := '0';
-		eth_phy_rxnotintable: in std_logic := '0';
-		amc13_almost_full: in std_logic := '0';
+		-- AXI4-stream interface
+	    axi_stream_in         : in  axi_stream;
+	    axi_stream_in_tready  : out std_logic;
+	    axi_stream_out        : out axi_stream;
+	    axi_stream_out_tready : in  std_logic;
 
-		-- status registers
-	    axi_stream_in: in axi_stream;
-	    axi_stream_in_tready: out std_logic;
-
-	    axi_stream_out: out axi_stream;
-	    axi_stream_out_tready: in std_logic;
-
-	    -- DAQ Link
-	    daq_valid       : out std_logic;
-	    daq_header      : out std_logic;
-	    daq_trailer     : out std_logic;
-	    daq_data        : out std_logic_vector(63 downto 0);
-	    daq_ready       : in  std_logic;
-	    daq_almost_full : in  std_logic;
-
+	    -- control signals
 	    trigger_out        : out std_logic;
 	    chan_done_out      : out std_logic_vector(4 downto 0);
 	    chan_en_out        : out std_logic_vector(4 downto 0);
@@ -52,7 +37,7 @@ entity slaves is
         trig_settings_out  : out std_logic_vector(7 downto 0);
         trig_sel_out       : out std_logic_vector(1 downto 0);
 
-	    -- channel user interface
+	    -- channel user space interface
         user_ipb_clk    : out std_logic;                     -- programming clock
         user_ipb_strobe : out std_logic;                     -- this ipb space is selected for an I/O operation 
         user_ipb_addr   : out std_logic_vector(31 downto 0); -- slave address, memory or register
@@ -76,17 +61,6 @@ entity slaves is
 		status_reg10 : in std_logic_vector(31 downto 0);
 		status_reg11 : in std_logic_vector(31 downto 0);
 
-		-- counter input ports
-		frame_err        : in std_logic := '0';
-		hard_err         : in std_logic := '0';
-		soft_err         : in std_logic := '0';
-		channel_up       : in std_logic := '0';
-		lane_up          : in std_logic := '0';
-		pll_not_locked   : in std_logic := '0';
-		tx_resetdone_out : in std_logic := '0';
-		rx_resetdone_out : in std_logic := '0';
-		link_reset_out   : in std_logic := '0';
-
 		-- flash interface ports
 		flash_wr_nBytes  : out std_logic_vector(8 downto 0);
 		flash_rd_nBytes  : out std_logic_vector(8 downto 0);
@@ -108,7 +82,6 @@ architecture rtl of slaves is
 	signal ipbr, ipbr_d: ipb_rbus_array(NSLV-1 downto 0);
 	signal ctrl_reg: std_logic_vector(31 downto 0);
 	signal wo_reg: std_logic_vector(31 downto 0);
-	signal count: std_logic_vector(15 downto 0);
 	signal trigger: std_logic;
 
 begin
@@ -122,7 +95,7 @@ begin
       ipb_from_slaves => ipbr
     );
 
--- Slave 0: status register
+-- Slave 0: Status register
 
 	slave0: entity work.ipbus_status_reg
 		generic map(addr_width => 5)
@@ -146,7 +119,7 @@ begin
 			reg11 => status_reg11
 		);
 		
--- Slave 1: register
+-- Slave 1: Control register
 
 	slave1: entity work.ipbus_reg
 		generic map(addr_width => 0)
@@ -195,20 +168,9 @@ begin
         trig_sel_out(0) <= ctrl_reg(27);
         trig_sel_out(1) <= ctrl_reg(28);
 
--- Slave 2: 1kword RAM
+-- Slave 2: Write-only register
 
-	slave2: entity work.ipbus_ram
-		generic map(addr_width => 10)
-		port map(
-			clk => ipb_clk,
-			reset => ipb_rst,
-			ipbus_in => ipbw(2),
-			ipbus_out => ipbr(2)
-		);
-
--- Slave 3: Write-only register
-
-	slave3: entity work.ipbus_write_only_reg
+	slave2: entity work.ipbus_write_only_reg
 		generic map(addr_width => 0)
 		port map(
 			clk => ipb_clk,
@@ -221,38 +183,9 @@ begin
 		trigger <= wo_reg(0);
 		trigger_out <= trigger;
 
--- Slave 4: packet counters
+-- Slave 3: AXI4-stream interface to Aurora IP
 
-	slave4: entity work.ipbus_counters
-		generic map(addr_width => 4)
-		port map(
-			clk => ipb_clk,
-			reset => ipb_rst,
-			ipbus_in => ipbw(4),
-			ipbus_out => ipbr(4),
-			count => count
-		);
-
-		count(0) <= pkt_tx;
-		count(1) <= pkt_rx;
-		count(2) <= eth_phy_rudi_invalid;
-		count(3) <= eth_phy_rxdisperr;
-		count(4) <= eth_phy_rxnotintable;
-		count(5) <= daq_almost_full;
-		count(6) <= trigger;
-		count(7) <= frame_err;
-		count(8) <= hard_err;
-		count(9) <= soft_err;
-		count(10) <= channel_up;
-		count(11) <= lane_up;
-		count(12) <= pll_not_locked;
-		count(13) <= tx_resetdone_out;
-		count(14) <= rx_resetdone_out;
-		count(15) <= link_reset_out;
-
--- Slave 5: AXI4-stream interface to Aurora IP
-
-	  slave5: entity work.ipbus_axi_stream
+	  slave3: entity work.ipbus_axi_stream
 	  generic map(
 	    id => 0,
 	    addr_width => 4
@@ -270,25 +203,9 @@ begin
 	    axi_str_out_tready => axi_stream_out_tready
 	  );
 
--- Slave 6
+-- Slave 4: Flash
 
-    slave6: entity work.ipbus_amc13_daq_link
-	  port map(
-	    clk => ipb_clk,
-	    reset => ipb_rst,
-	    ipbus_in => ipbw(6),
-	    ipbus_out => ipbr(6),
-	    daq_valid => daq_valid,
-	    daq_header => daq_header,
-	    daq_trailer => daq_trailer,
-	    daq_data => daq_data,
-	    daq_ready => daq_ready,
-	    debug => debug
-	  );
-
--- Slave 7: flash
-
-	slave7: entity work.ipbus_flash
+	slave4: entity work.ipbus_flash
 		generic map(addr_width => 9)
 		port map(
 			clk => ipb_clk,
@@ -306,9 +223,9 @@ begin
 			flash_wbuf_data => flash_wbuf_data
 		);
 
--- Slave 8: 24 Mbyte user space
+-- Slave 5: 24-MB user space
 
-	slave8: entity work.ipbus_user
+	slave5: entity work.ipbus_user
 		generic map(addr_width => 24)
 		port map(
 			clk => ipb_clk,
