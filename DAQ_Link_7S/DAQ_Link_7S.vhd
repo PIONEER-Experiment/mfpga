@@ -125,10 +125,10 @@ function boolean_to_int_u(biu : boolean) return integer is
      return 7;
    end if;
 end function;
+constant version : std_logic_vector(7 downto 0) := x"14";
 constant N : integer := 8;
 constant u : integer := boolean_to_int_u(simulation);
 constant Acknowledge : std_logic_vector(7 downto 0) := x"12";
-constant version : std_logic_vector(7 downto 0) := x"13";
 constant data : std_logic_vector(7 downto 0) := x"34";
 constant InitRqst : std_logic_vector(7 downto 0) := x"56";
 constant Counter : std_logic_vector(7 downto 0) := x"78";
@@ -623,13 +623,21 @@ begin
 		DataBuf_wrEn <= FillDataBuf;
 		BoE <= DataFIFO_do(65) and not DataFIFO_EMPTY;
 		EoE <= DataFIFO_do(64) and not DataFIFO_EMPTY and ChkEvtLen(1);
-		if(BoE = '1' and ce_EventCRC = '1')then
-			evnLSB <= EventCRC_d(7 downto 0);
+--		if(BoE = '1' and ce_EventCRC = '1')then
+--			evnLSB <= EventCRC_d(7 downto 0);
+--		end if;
+--		if(EventCRC_d(31 downto 24) = evnLSB)then
+--			bad_ID <= '0';
+--		else
+--			bad_ID <= '1';
+--		end if;
+		if(DataFIFO_do(65) = '1' and DataFIFO_RdEn = '1')then
+			evnLSB <= DataFIFO_do(39 downto 32);
 		end if;
-		if(EventCRC_d(31 downto 24) = evnLSB)then
-			bad_ID <= '0';
-		else
+		if(DataFIFO_do(64) = '1' and DataFIFO_RdEn = '1' and DataFIFO_do(31 downto 24) /= evnLSB)then
 			bad_ID <= '1';
+		else
+			bad_ID <= '0';
 		end if;
 		if(UsrClkDiv(0) = '1')then
 			if(EoE = '1' and UsrClkDiv(1) = '1')then
@@ -1385,7 +1393,8 @@ begin
 		end if;
 		if(InitLink = '1')then
 			cntra <= (others => '0');
-		elsif(EoE = '1' and UsrClkDiv(1) = '1' and bad_ID = '1')then
+--		elsif(EoE = '1' and UsrClkDiv = "11" and bad_ID = '1')then
+		elsif(bad_ID = '1')then
 			cntra <= cntra + 1;
 		end if;
 --		AlmostFull_sync <= AlmostFull_sync(1 downto 0) & AlmostFull_i;
