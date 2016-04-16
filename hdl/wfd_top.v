@@ -1293,7 +1293,7 @@ module wfd_top(
         .TTSclk(clk125),
         .TTS(tts_state),
 
-	    .ReSyncAndEmpty(1'b0),           // added input signal ReSyncAndEmpty for proper ReSync operation; set to 0 because likely won't be used
+	    //.ReSyncAndEmpty(1'b0),           // added input signal ReSyncAndEmpty for proper ReSync operation; set to 0 because likely won't be used
         .EventDataClk(clk125),
         .EventData_valid(daq_valid),
         .EventData_header(daq_header),   // flag to indicate first AMC13 header word
