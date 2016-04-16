@@ -1,0 +1,15 @@
+// Collection of constants for the g-2 Master FPGA firmware
+
+// Be sure to use [ `include "constants.txt" ] whenever any of these constants are needed.
+// Also, be sure to use the backtic [ ` ] when the constant is actually used.
+
+// Only define these constants once.
+`ifndef CONSTANTS_INCLUDED
+  	`define CONSTANTS_INCLUDED
+
+	// Define 8-bit constants to hold info about code version and functionality
+	`define	MAJOR_REV		8'd1	// major revision
+	`define	MINOR_REV		8'd0	// minor revision
+	`define BUG_FIX_REV		8'd0	// bug fix revision
+
+`endif

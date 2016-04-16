@@ -69,6 +69,11 @@ entity ipbus_top is port(
 	trig_settings_out  : out std_logic_vector(7 downto 0); -- indicates whether or not to respond to a given trigger type
 	trig_sel_out       : out std_logic_vector(1 downto 0); -- select signal for the trigger (TTC, IPbus, or front panel)
 
+    -- threshold registers
+    thres_data_corrupt  : out std_logic_vector(31 downto 0); -- data corruption
+    thres_unknown_ttc   : out std_logic_vector(31 downto 0); -- unknown TTC broadcast command
+    thres_ddr3_overflow : out std_logic_vector(31 downto 0); -- DDR3 overflow
+
 	-- status registers
 	status_reg0  : in std_logic_vector(31 downto 0);
 	status_reg1  : in std_logic_vector(31 downto 0);
@@ -229,6 +234,11 @@ begin
         endianness_out     => endianness_out,
         trig_settings_out  => trig_settings_out,
         trig_sel_out       => trig_sel_out,
+
+        -- threshold register ports
+        thres_data_corrupt  => thres_data_corrupt,
+        thres_unknown_ttc   => thres_unknown_ttc,
+        thres_ddr3_overflow => thres_ddr3_overflow,
 
 		-- channel user space interface
         user_ipb_clk    => user_ipb_clk,    -- programming clock

@@ -13,9 +13,10 @@ module channel_acq_controller(
   (* mark_debug = "true" *) input wire trigger,          // trigger signal
   (* mark_debug = "true" *) input wire [ 1:0] trig_type, // trigger type (muon fill, laser, pedestal)
   (* mark_debug = "true" *) input wire [23:0] trig_num,  // trigger number
+  (* mark_debug = "true" *) output wire acq_ready,       // channels are ready to acquire data
 
   // interface to Channel FPGAs
-  (* mark_debug = "true" *) input wire [4:0] acq_done,
+  (* mark_debug = "true" *) input wire [4:0] acq_dones,
   (* mark_debug = "true" *) output reg [9:0] acq_enable,
   (* mark_debug = "true" *) output reg [4:0] acq_trig,
 
@@ -88,7 +89,7 @@ module channel_acq_controller(
         acq_enable[9:0] = { 5{acq_trig_type[1:0]} };
         acq_trig  [4:0] = chan_en[4:0];
 
-        if (acq_done[4:0] == acq_trig[4:0]) begin
+        if (acq_dones[4:0] == acq_trig[4:0]) begin
           nextstate[STORE_ACQ_INFO] = 1'b1;
         end
         else begin
@@ -163,5 +164,8 @@ module channel_acq_controller(
       endcase
     end
   end
+
+  // outputs based on states
+  assign acq_ready = (state[IDLE] == 1'b1);
 
 endmodule

@@ -37,6 +37,11 @@ entity slaves is
         trig_settings_out  : out std_logic_vector(7 downto 0);
         trig_sel_out       : out std_logic_vector(1 downto 0);
 
+        -- threshold registers
+        thres_data_corrupt  : out std_logic_vector(31 downto 0); -- data corruption
+        thres_unknown_ttc   : out std_logic_vector(31 downto 0); -- unknown TTC broadcast command
+        thres_ddr3_overflow : out std_logic_vector(31 downto 0); -- DDR3 overflow
+
 	    -- channel user space interface
         user_ipb_clk    : out std_logic;                     -- programming clock
         user_ipb_strobe : out std_logic;                     -- this ipb space is selected for an I/O operation 
@@ -122,51 +127,49 @@ begin
 -- Slave 1: Control register
 
 	slave1: entity work.ipbus_reg
-		generic map(addr_width => 0)
+		generic map(addr_width => 4)
 		port map(
 			clk => ipb_clk,
 			reset => ipb_rst,
 			ipbus_in => ipbw(1),
 			ipbus_out => ipbr(1),
-			q => ctrl_reg
+			-- output registers
+			reg0 => ctrl_reg,
+			reg1 => thres_data_corrupt,
+			reg2 => thres_unknown_ttc,
+			reg3 => thres_ddr3_overflow
 		);
 
-		rst_out <= ctrl_reg(0);
-
-		chan_done_out(0) <= ctrl_reg(1);
-		chan_done_out(1) <= ctrl_reg(2);
-		chan_done_out(2) <= ctrl_reg(3);
-		chan_done_out(3) <= ctrl_reg(4);
-		chan_done_out(4) <= ctrl_reg(5);
-
-		chan_en_out(0) <= ctrl_reg(6);
-		chan_en_out(1) <= ctrl_reg(7);
-		chan_en_out(2) <= ctrl_reg(8);
-		chan_en_out(3) <= ctrl_reg(9);
-		chan_en_out(4) <= ctrl_reg(10);
-
-		prog_chan_out <= ctrl_reg(11);
+		-- control register
+		rst_out               <= ctrl_reg(0);
+		chan_done_out(0)      <= ctrl_reg(1);
+		chan_done_out(1)      <= ctrl_reg(2);
+		chan_done_out(2)      <= ctrl_reg(3);
+		chan_done_out(3)      <= ctrl_reg(4);
+		chan_done_out(4)      <= ctrl_reg(5);
+		chan_en_out(0)        <= ctrl_reg(6);
+		chan_en_out(1)        <= ctrl_reg(7);
+		chan_en_out(2)        <= ctrl_reg(8);
+		chan_en_out(3)        <= ctrl_reg(9);
+		chan_en_out(4)        <= ctrl_reg(10);
+		prog_chan_out         <= ctrl_reg(11);
 		reprog_trigger_out(0) <= ctrl_reg(12);
 		reprog_trigger_out(1) <= ctrl_reg(13);
-
-        trig_delay_out(0) <= ctrl_reg(14);
-        trig_delay_out(1) <= ctrl_reg(15);
-        trig_delay_out(2) <= ctrl_reg(16);
-        trig_delay_out(3) <= ctrl_reg(17);
-
-        endianness_out <= ctrl_reg(18);
-
-        trig_settings_out(0) <= ctrl_reg(19);
-        trig_settings_out(1) <= ctrl_reg(20);
-        trig_settings_out(2) <= ctrl_reg(21);
-        trig_settings_out(3) <= ctrl_reg(22);
-        trig_settings_out(4) <= ctrl_reg(23);
-        trig_settings_out(5) <= ctrl_reg(24);
-        trig_settings_out(6) <= ctrl_reg(25);
-        trig_settings_out(7) <= ctrl_reg(26);
-
-        trig_sel_out(0) <= ctrl_reg(27);
-        trig_sel_out(1) <= ctrl_reg(28);
+        trig_delay_out(0)     <= ctrl_reg(14);
+        trig_delay_out(1)     <= ctrl_reg(15);
+        trig_delay_out(2)     <= ctrl_reg(16);
+        trig_delay_out(3)     <= ctrl_reg(17);
+        endianness_out        <= ctrl_reg(18);
+        trig_settings_out(0)  <= ctrl_reg(19);
+        trig_settings_out(1)  <= ctrl_reg(20);
+        trig_settings_out(2)  <= ctrl_reg(21);
+        trig_settings_out(3)  <= ctrl_reg(22);
+        trig_settings_out(4)  <= ctrl_reg(23);
+        trig_settings_out(5)  <= ctrl_reg(24);
+        trig_settings_out(6)  <= ctrl_reg(25);
+        trig_settings_out(7)  <= ctrl_reg(26);
+        trig_sel_out(0)       <= ctrl_reg(27);
+        trig_sel_out(1)       <= ctrl_reg(28);
 
 -- Slave 2: Write-only register
 
@@ -175,8 +178,8 @@ begin
 		port map(
 			clk => ipb_clk,
 			reset => ipb_rst,
-			ipbus_in => ipbw(3),
-			ipbus_out => ipbr(3),
+			ipbus_in => ipbw(2),
+			ipbus_out => ipbr(2),
 			q => wo_reg
 		);
 
@@ -195,8 +198,8 @@ begin
 	  port map(
 	    clk => ipb_clk,
 	    reset => ipb_rst,
-	    ipbus_in => ipbw(5),
-	    ipbus_out => ipbr(5),
+	    ipbus_in => ipbw(3),
+	    ipbus_out => ipbr(3),
 	    axi_str_in => axi_stream_in,
 	    axi_str_in_tready => axi_stream_in_tready,
 	    axi_str_out => axi_stream_out,
@@ -210,8 +213,9 @@ begin
 		port map(
 			clk => ipb_clk,
 			reset => ipb_rst,
-			ipbus_in => ipbw(7),
-			ipbus_out => ipbr(7),
+			ipbus_in => ipbw(4),
+			ipbus_out => ipbr(4),
+			-- flash interface
 			flash_wr_nBytes => flash_wr_nBytes,
 			flash_rd_nBytes => flash_rd_nBytes,
 			flash_cmd_strobe => flash_cmd_strobe,
@@ -230,8 +234,8 @@ begin
 		port map(
 			clk => ipb_clk,
 			reset => ipb_rst,
-			ipbus_in => ipbw(8),
-            ipbus_out => ipbr(8),
+			ipbus_in => ipbw(5),
+            ipbus_out => ipbr(5),
 			-- user interface
             user_ipb_clk => user_ipb_clk,       -- programming clock
             user_ipb_strobe => user_ipb_strobe, -- this ipb space is selected for an I/O operation 

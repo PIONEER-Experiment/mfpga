@@ -23,10 +23,13 @@ module trigger_processor(
 
   (* mark_debug = "true" *) output reg [23:0] ttc_event_num,      // channel's trigger number
   (* mark_debug = "true" *) output reg [23:0] ttc_trig_num,       // global trigger number
+  (* mark_debug = "true" *) output reg [ 1:0] ttc_trig_type,      // trigger type
   (* mark_debug = "true" *) output reg [43:0] ttc_trig_timestamp, // trigger timestamp
 
   // status connections
-  (* mark_debug = "true" *) output reg [4:0] state // state of finite state machine
+  (* mark_debug = "true" *) output reg [6:0] state,     // state of finite state machine
+  output wire error_trig_num, // trigger number mismatch between FIFOs
+  output wire error_trig_type // trigger type mismatch between FIFOs
 );
 
   // state bits
@@ -35,18 +38,19 @@ module trigger_processor(
   parameter SEND_EMPTY_EVENT = 2;
   parameter READ_ACQ_FIFO    = 3;
   parameter READOUT          = 4;
+  parameter ERROR_TRIG_NUM   = 5;
+  parameter ERROR_TRIG_TYPE  = 6;
   
 
   // latched data from TTC Trigger FIFO
-  (* mark_debug = "true" *) reg        ttc_empty_event;
-  (* mark_debug = "true" *) reg [ 1:0] ttc_trig_type;
+  (* mark_debug = "true" *) reg ttc_empty_event;
 
   // latched data from Acquisition Event FIFO
   (* mark_debug = "true" *) reg [ 1:0] acq_trig_type;
   (* mark_debug = "true" *) reg [23:0] acq_trig_num;
 
   // 'next' signals
-  (* mark_debug = "true" *) reg [ 4:0] nextstate;
+  reg [ 6:0] nextstate;
   reg        next_ttc_empty_event;
   reg [ 1:0] next_ttc_trig_type;
   reg [23:0] next_ttc_event_num;
@@ -58,7 +62,7 @@ module trigger_processor(
 
   // comb always block
   always @* begin
-    nextstate = 5'd0;
+    nextstate = 7'd0;
 
     next_ttc_empty_event          = ttc_empty_event;
     next_ttc_trig_type     [ 1:0] = ttc_trig_type     [ 1:0];
@@ -99,7 +103,6 @@ module trigger_processor(
         if (ttc_empty_event & readout_ready) begin
           send_empty_event = 1'b1;
           initiate_readout = 1'b1;
-
           nextstate[SEND_EMPTY_EVENT] = 1'b1;
         end
         // watch for unread acquisitions
@@ -128,9 +131,7 @@ module trigger_processor(
       state[READ_ACQ_FIFO] : begin
         // check if we're ready for a readout
         if (readout_ready) begin
-          send_empty_event = 1'b1;
           initiate_readout = 1'b1;
-
           nextstate[READOUT] = 1'b1;
         end
         else begin
@@ -147,6 +148,14 @@ module trigger_processor(
           nextstate[READOUT] = 1'b1;
         end
       end
+      // trigger number mismatch between FIFOs
+      state[ERROR_TRIG_NUM] : begin
+        nextstate[ERROR_TRIG_NUM] = 1'b1; // hard error, stay here
+      end
+      // trigger type mismatch between FIFOs
+      state[ERROR_TRIG_TYPE] : begin
+        nextstate[ERROR_TRIG_TYPE] = 1'b1; // hard error, stay here
+      end
     endcase
   end
   
@@ -155,7 +164,7 @@ module trigger_processor(
   always @(posedge clk) begin
     // reset state machine
     if (reset) begin
-      state <= 4'd1 << IDLE;
+      state <= 7'd1 << IDLE;
 
       ttc_empty_event          <=  1'd0;
       ttc_trig_type     [ 1:0] <=  2'd0;
@@ -179,5 +188,9 @@ module trigger_processor(
       acq_trig_num [23:0] <= next_acq_trig_num [23:0];
     end
   end
+
+  // outputs based on states
+  assign error_trig_num = (state[ERROR_TRIG_NUM] == 1'b1);
+  assign error_trig_type = (state[ERROR_TRIG_TYPE] == 1'b1);
 
 endmodule

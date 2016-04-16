@@ -3,11 +3,8 @@
 # num	name		base	addr_width
 
 0	status_reg		0x100		5
-1	ctrl_reg		0x1		    0
-2	ram	     		0x1000		10
-3	write_only_reg	0x2000		1
-4	counters		0x3000		4
-5	channel			0x4000		4
-6	daq_link		0x5000  	2
-7	ipbus_flash		0x6000		9
-8	ipbus_user		0x1000000	24
+1	ctrl_reg		0x10	    4
+2	write_only_reg	0x2000		1
+3	channel			0x4000		4
+4	ipbus_flash		0x6000		9
+5	ipbus_user		0x1000000	24

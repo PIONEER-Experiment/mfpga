@@ -9,8 +9,7 @@ module led_master_status(
   output wire green_led,
   // status input signals
   input wire ttc_ready,
-  input wire [4:0] chan_error_rc,
-  input wire [4:0] trig_num_error
+  input wire [4:0] chan_error_rc
 );
 
 // the LEDs are active low:
@@ -19,13 +18,12 @@ module led_master_status(
 
 // Assignments right now:
 //    green LED is on when TTC signal is ready                 AND
-//                         channel readout has been successful AND
-//                         trigger numbers are synchronized
+//                         channel readout has been successful
 //              e.g., green means "ready"
 //    red LED is on otherwise
 //              e.g., red means "not ready" or "error"
 
-assign green_led = ~(ttc_ready & (chan_error_rc[4:0] == 5'd0) & (trig_num_error[4:0] == 5'd0));
+assign green_led = ~(ttc_ready & (chan_error_rc[4:0] == 5'd0));
 assign red_led = ~green_led;
 
 

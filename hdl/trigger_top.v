@@ -14,35 +14,57 @@ module trigger_top(
     input wire rst_trigger_timestamp, // from TTC Channel B
 
     // trigger interface
-    input wire trigger,             // trigger signal
-    input wire [1:0] trig_type,     // trigger type (muon fill, laser, pedestal)
-    input wire [7:0] trig_settings, // trigger settings
-    input wire [4:0] chan_en,       // enabled channels
-    input wire [3:0] trig_delay,    // trigger delay
+    input wire trigger,                    // trigger signal
+    input wire [ 1:0] trig_type,           // trigger type (muon fill, laser, pedestal)
+    input wire [ 7:0] trig_settings,       // trigger settings
+    input wire [ 4:0] chan_en,             // enabled channels
+    input wire [ 3:0] trig_delay,          // trigger delay
+    input wire [31:0] thres_ddr3_overflow, // DDR3 overflow threshold
 
     // channel interface
-    input wire [4:0] chan_done,
+    input  wire [4:0] chan_dones,
     output wire [9:0] chan_enable,
     output wire [4:0] chan_trig,
 
     // command manager interface
-    input wire readout_ready,     // command manager is idle
-    input wire readout_done,      // initiated readout has finished
-    output wire send_empty_event, // request an empty event
-    output wire initiate_readout, // request for the channels to be read out
+    input  wire readout_ready,       // command manager is idle
+    input  wire readout_done,        // initiated readout has finished
+    input  wire [21:0] readout_size, // burst count of readout event
+    output wire send_empty_event,    // request an empty event
+    output wire initiate_readout,    // request for the channels to be read out
 
     output wire [23:0] ttc_event_num,      // channel's trigger number
     output wire [23:0] ttc_trig_num,       // global trigger number
+    output wire [ 1:0] ttc_trig_type,      // trigger type
     output wire [43:0] ttc_trig_timestamp, // trigger timestamp
 
+    input wire [22:0] burst_count_chan0, // burst count set for Channel 0
+    input wire [22:0] burst_count_chan1, // burst count set for Channel 1
+    input wire [22:0] burst_count_chan2, // burst count set for Channel 2
+    input wire [22:0] burst_count_chan3, // burst count set for Channel 3
+    input wire [22:0] burst_count_chan4, // burst count set for Channel 4
+
+    input wire [11:0] wfm_count_chan0, // waveform count set for Channel 0
+    input wire [11:0] wfm_count_chan1, // waveform count set for Channel 1
+    input wire [11:0] wfm_count_chan2, // waveform count set for Channel 2
+    input wire [11:0] wfm_count_chan3, // waveform count set for Channel 3
+    input wire [11:0] wfm_count_chan4, // waveform count set for Channel 4
+
     // status connections
-    output wire [ 2:0] ttr_state,      // TTC trigger receiver state
+    output wire [ 3:0] ttr_state,      // TTC trigger receiver state
     output wire [ 3:0] cac_state,      // channel acquisition controller state
-    output wire [ 4:0] tp_state,       // trigger processor state
+    output wire [ 6:0] tp_state,       // trigger processor state
     output wire [23:0] trig_num,       // global trigger number
     output wire [43:0] trig_timestamp, // timestamp for latest trigger received
     (* mark_debug = "true" *) output wire trig_fifo_full,        // TTC trigger FIFO is almost full
-    (* mark_debug = "true" *) output wire acq_fifo_full          // acquisition event FIFO is almost full
+    (* mark_debug = "true" *) output wire acq_fifo_full,         // acquisition event FIFO is almost full
+
+    // error connections
+    output wire [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
+    output wire ddr3_overflow_warning,      // DDR3 overflow warning
+    output wire error_trig_rate,            // trigger rate error
+    output wire error_trig_num,             // trigger number error
+    output wire error_trig_type             // trigger type error
 );
 
     // -------------------
@@ -50,6 +72,7 @@ module trigger_top(
     // -------------------
 
     // signals between TTC Trigger Receiver and Channel Acquisition Controller
+    wire acq_ready;
     wire acq_trigger;
     wire [1:0] acq_trig_type;
     wire [23:0] acq_trig_num;
@@ -73,6 +96,85 @@ module trigger_top(
     wire [31:0] m_acq_fifo_tdata;
 
     // ----------------
+    // synchronizations
+    // ----------------
+
+    // synchronize chan_dones
+    wire [4:0] chan_dones_sync;
+    sync_2stage chan_dones_sync0(
+        .clk(ttc_clk),
+        .in(chan_dones[0]),
+        .out(chan_dones_sync[0])
+    );
+    sync_2stage chan_dones_sync1(
+        .clk(ttc_clk),
+        .in(chan_dones[1]),
+        .out(chan_dones_sync[1])
+    );
+    sync_2stage chan_dones_sync2(
+        .clk(ttc_clk),
+        .in(chan_dones[2]),
+        .out(chan_dones_sync[2])
+    );
+    sync_2stage chan_dones_sync3(
+        .clk(ttc_clk),
+        .in(chan_dones[3]),
+        .out(chan_dones_sync[3])
+    );
+    sync_2stage chan_dones_sync4(
+        .clk(ttc_clk),
+        .in(chan_dones[4]),
+        .out(chan_dones_sync[4])
+    );
+
+    // synchronize chan_en
+    wire [4:0] chan_en_sync;
+    sync_2stage chan_en_sync0(
+        .clk(ttc_clk),
+        .in(chan_en[0]),
+        .out(chan_en_sync[0])
+    );
+    sync_2stage chan_en_sync1(
+        .clk(ttc_clk),
+        .in(chan_en[1]),
+        .out(chan_en_sync[1])
+    );    
+    sync_2stage chan_en_sync2(
+        .clk(ttc_clk),
+        .in(chan_en[2]),
+        .out(chan_en_sync[2])
+    );
+    sync_2stage chan_en_sync3(
+        .clk(ttc_clk),
+        .in(chan_en[3]),
+        .out(chan_en_sync[3])
+    );
+    sync_2stage chan_en_sync4(
+        .clk(ttc_clk),
+        .in(chan_en[4]),
+        .out(chan_en_sync[4])
+    );
+
+    // toggle synchronize readout_done
+    (* mark_debug = "true" *) wire readout_done_sync;
+    toggle_sync_2stage readout_done_sync0(
+        .clk_in(clk125),
+        .clk_out(ttc_clk),
+        .in(readout_done),
+        .out(readout_done_sync)
+    );
+
+    // synchronize readout_size
+    (* mark_debug = "true" *) wire [63:0] readout_size_sync;
+    wire [63:0] readout_size_in;
+    assign readout_size_in = {42'd0, readout_size[21:0]};
+    sync_2stage_64bit readout_size_sync0(
+        .clk(ttc_clk),
+        .in(readout_size_in),
+        .out(readout_size_sync)
+    );
+
+    // ----------------
     // module instances
     // ----------------
 
@@ -87,11 +189,30 @@ module trigger_top(
         .reset_trig_timestamp(rst_trigger_timestamp),
 
         // trigger interface
-        .trigger(trigger),             // trigger signal
-        .trig_type(trig_type),         // trigger type (muon fill, laser, pedestal)
-        .trig_settings(trig_settings), // trigger settings
+        .trigger(trigger),                         // trigger signal
+        .trig_type(trig_type),                     // trigger type (muon fill, laser, pedestal)
+        .trig_settings(trig_settings),             // trigger settings
+        .thres_ddr3_overflow(thres_ddr3_overflow), // DDR3 overflow threshold
+        .chan_en(chan_en_sync),                    // enabled channels
+
+        // command manager interface
+        .readout_done(readout_done_sync), // a readout has completed
+        .readout_size(readout_size_sync[21:0]), // burst count of readout event
+
+        .burst_count_chan0(burst_count_chan0), // burst count set for Channel 0
+        .burst_count_chan1(burst_count_chan1), // burst count set for Channel 1
+        .burst_count_chan2(burst_count_chan2), // burst count set for Channel 2
+        .burst_count_chan3(burst_count_chan3), // burst count set for Channel 3
+        .burst_count_chan4(burst_count_chan4), // burst count set for Channel 4
+
+        .wfm_count_chan0(wfm_count_chan0), // waveform count set for Channel 0
+        .wfm_count_chan1(wfm_count_chan1), // waveform count set for Channel 1
+        .wfm_count_chan2(wfm_count_chan2), // waveform count set for Channel 2
+        .wfm_count_chan3(wfm_count_chan3), // waveform count set for Channel 3
+        .wfm_count_chan4(wfm_count_chan4), // waveform count set for Channel 4
 
         // channel acquisition controller interface
+        .acq_ready(acq_ready),         // channels are ready to acquire data
         .acq_trigger(acq_trigger),     // trigger signal
         .acq_trig_type(acq_trig_type), // trigger type (muon fill, laser, pedestal)
         .acq_trig_num(acq_trig_num),   // trigger number, starts at 1
@@ -102,9 +223,14 @@ module trigger_top(
         .fifo_data(s_trig_fifo_tdata),
 
         // status connections, output
-        .state(ttr_state),              // state of finite state machine
-        .trig_num(trig_num),            // global trigger number
-        .trig_timestamp(trig_timestamp) // global trigger timestamp
+        .state(ttr_state),                // state of finite state machine
+        .trig_num(trig_num),              // global trigger number
+        .trig_timestamp(trig_timestamp),  // global trigger timestamp
+
+        // error connections
+        .ddr3_overflow_count(ddr3_overflow_count),     // number of triggers received that would overflow DDR3
+        .ddr3_overflow_warning(ddr3_overflow_warning), // DDR3 overflow warning
+        .error_trig_rate(error_trig_rate)              // trigger rate error
     );
 
     
@@ -122,9 +248,10 @@ module trigger_top(
         .trigger(acq_trigger),     // trigger signal
         .trig_type(acq_trig_type), // trigger type (muon fill, laser, pedestal)
         .trig_num(acq_trig_num),   // trigger number
+        .acq_ready(acq_ready),     // channels are ready to acquire data
 
         // interface to Channel FPGAs
-        .acq_done(chan_done),
+        .acq_dones(chan_dones_sync),
         .acq_enable(chan_enable),
         .acq_trig(chan_trig),
 
@@ -162,10 +289,13 @@ module trigger_top(
 
         .ttc_event_num(ttc_event_num),           // channel's trigger number
         .ttc_trig_num(ttc_trig_num),             // global trigger number
+        .ttc_trig_type(ttc_trig_type),           // trigger type
         .ttc_trig_timestamp(ttc_trig_timestamp), // trigger timestamp
 
         // status connections
-        .state(tp_state) // state of finite state machine
+        .state(tp_state),                 // state of finite state machine
+        .error_trig_num(error_trig_num),  // trigger number mismatch between FIFOs
+        .error_trig_type(error_trig_type) // trigger type mismatch between FIFOs
     );
 
 

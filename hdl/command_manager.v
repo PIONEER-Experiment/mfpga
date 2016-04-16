@@ -35,11 +35,11 @@ module command_manager(
   output reg chan_rx_fifo_ready,
 
   // interface to IPbus AXI output
-  input wire ipbus_cmd_valid,
-  input wire ipbus_cmd_last,
-  input wire [3:0] ipbus_cmd_dest,
-  input wire [31:0] ipbus_cmd_data,
-  output reg ipbus_cmd_ready,
+  (* mark_debug = "true" *) input wire ipbus_cmd_valid,
+  (* mark_debug = "true" *) input wire ipbus_cmd_last,
+  (* mark_debug = "true" *) input wire [3:0] ipbus_cmd_dest,
+  (* mark_debug = "true" *) input wire [31:0] ipbus_cmd_data,
+  (* mark_debug = "true" *) output reg ipbus_cmd_ready,
 
   // interface to IPbus AXI input
   input wire ipbus_res_ready,
@@ -60,68 +60,89 @@ module command_manager(
   input wire initiate_readout,      // request for the channels to be read out
   input wire [23:0] event_num,      // channel's trigger number
   input wire [23:0] trig_num,       // global trigger number, starts at 1
+  input wire [ 1:0] trig_type,      // trigger type
   input wire [43:0] trig_timestamp, // trigger timestamp, defined by when trigger is received by trigger receiver module
-  output wire readout_ready,        // ready to readout data, i.e., when in idle state
-  output reg readout_done,          // finished readout flag
+  (* mark_debug = "true" *) output wire readout_ready,        // ready to readout data, i.e., when in idle state
+  (* mark_debug = "true" *) output reg readout_done,          // finished readout flag
+  (* mark_debug = "true" *) output wire [21:0] readout_size,  // burst count of readout event
+
+  (* mark_debug = "true" *) output wire [22:0] burst_count_chan0,
+  (* mark_debug = "true" *) output wire [22:0] burst_count_chan1,
+  (* mark_debug = "true" *) output wire [22:0] burst_count_chan2,
+  (* mark_debug = "true" *) output wire [22:0] burst_count_chan3,
+  (* mark_debug = "true" *) output wire [22:0] burst_count_chan4,
+
+  (* mark_debug = "true" *) output wire [11:0] wfm_count_chan0,
+  (* mark_debug = "true" *) output wire [11:0] wfm_count_chan1,
+  (* mark_debug = "true" *) output wire [11:0] wfm_count_chan2,
+  (* mark_debug = "true" *) output wire [11:0] wfm_count_chan3,
+  (* mark_debug = "true" *) output wire [11:0] wfm_count_chan4,
 
   // status connections
-  input wire [4:0] chan_en,        // enabled channels, one bit for each channel
-  input wire endianness_sel,       // select bit for the endianness of ADC data
-  (* mark_debug = "true" *) output reg [27:0] state,         // state of finite state machine
-  output reg [4:0] chan_error_rc,  // master received an error response code, one bit for each channel
-  output reg [4:0] trig_num_error  // trigger numbers from channel and master aren't synchronized, one bit for each channel
+  input wire [4:0] chan_en,             // enabled channels, one bit for each channel
+  input wire endianness_sel,            // select bit for the endianness of ADC data
+  input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
+  (* mark_debug = "true" *) output reg [30:0] state,              // state of finite state machine
+
+  // error connections
+  output reg [31:0] cs_mismatch_count, // number of checksum mismatches
+  output reg error_data_corrupt,       // data corruption error
+  output reg error_trig_num,           // trigger number mismatch between channel and master
+  output reg error_trig_type,          // trigger type mismatch between channel and master
+  output reg [4:0] chan_error_rc       // master received an error response code, one bit for each channel
 );
 
   // idle state bit
-  parameter IDLE                             = 0;
+  parameter IDLE                   = 0;
   // configuration manager state bits
-  parameter SEND_IPBUS_CSN                   = 1;
-  parameter READ_IPBUS_CMD                   = 2;
-  parameter CHECK_LAST                       = 3;
-  parameter SEND_IPBUS_CMD                   = 4;
-  parameter READ_IPBUS_RSN                   = 5;
-  parameter READ_IPBUS_RES                   = 6;
-  parameter SEND_IPBUS_RES                   = 7;
+  parameter SEND_IPBUS_CSN         = 1;
+  parameter READ_IPBUS_CMD         = 2;
+  parameter CHECK_LAST             = 3;
+  parameter SEND_IPBUS_CMD         = 4;
+  parameter READ_IPBUS_RSN         = 5;
+  parameter READ_IPBUS_RES         = 6;
+  parameter SEND_IPBUS_RES         = 7;
   // event builder state bits
-  parameter CHECK_CHAN_EN                    = 8;
-  parameter SEND_CHAN_CSN                    = 9;
-  parameter SEND_CHAN_CC                     = 10;
-  parameter READ_CHAN_RSN                    = 11;
-  parameter READ_CHAN_RC                     = 12;
-  parameter READ_CHAN_TRIG_NUM_AND_FILL_TYPE = 13;
-  parameter READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR = 14;
-  parameter READ_CHAN_DDR3_START_ADDR_AND_WFM_COUNT   = 15;
-  parameter READ_CHAN_WFM_GAP_AND_TAG        = 16;
-  parameter STORE_CHAN_TAG_AND_FILLTYPE      = 17;
-  parameter SEND_AMC13_HEADER1               = 18;
-  parameter SEND_AMC13_HEADER2               = 19;
-  parameter SEND_CHAN_HEADER1                = 20;
-  parameter SEND_CHAN_HEADER2                = 21;
-  parameter READ_CHAN_DATA1                  = 22;
-  parameter READ_CHAN_DATA2                  = 23;
-  parameter READ_CHAN_DATA_RESYNC            = 24;
-  parameter SEND_READOUT_TIMESTAMP           = 25;
-  parameter READY_AMC13_TRAILER              = 26;
-  parameter SEND_AMC13_TRAILER               = 27;
+  parameter CHECK_CHAN_EN          = 8;
+  parameter SEND_CHAN_CSN          = 9;
+  parameter SEND_CHAN_CC           = 10;
+  parameter READ_CHAN_RSN          = 11;
+  parameter READ_CHAN_RC           = 12;
+  parameter READ_CHAN_INFO1        = 13;
+  parameter READ_CHAN_INFO2        = 14;
+  parameter READ_CHAN_INFO3        = 15;
+  parameter READ_CHAN_INFO4        = 16;
+  parameter READY_AMC13_HEADER1    = 17;
+  parameter SEND_AMC13_HEADER1     = 18;
+  parameter SEND_AMC13_HEADER2     = 19;
+  parameter SEND_CHAN_HEADER1      = 20;
+  parameter SEND_CHAN_HEADER2      = 21;
+  parameter READ_CHAN_DATA1        = 22;
+  parameter READ_CHAN_DATA2        = 23;
+  parameter READ_CHAN_DATA_RESYNC  = 24;
+  parameter SEND_READOUT_TIMESTAMP = 25;
+  parameter READY_AMC13_TRAILER    = 26;
+  parameter SEND_AMC13_TRAILER     = 27;
+  parameter ERROR_DATA_CORRUPTION  = 28;
+  parameter ERROR_TRIG_NUM         = 29;
+  parameter ERROR_TRIG_TYPE        = 30;
 
 
-  // channel header regs sorted the way they will be used: first chan_trig_num, then fill_type...
+  // channel header regs sorted the way they will be used: first chan_trig_num, then fill_type, ...
   reg [23:0] chan_trig_num;     // trigger number from channel header, starts at 1
-  reg  [2:0] fill_type;         // fill type: muon, laser, pedestal...
-  reg [22:0] burst_count;       // burst count for data acquisition, 1 burst count = 8 ADC samples
-                                // value obtained from received channel header from Aurora RX FIFO  
+  (* mark_debug = "true" *) reg [ 2:0] fill_type;         // fill type: muon, laser, pedestal, ...
+  (* mark_debug = "true" *) reg [22:0] burst_count;       // burst count for data acquisition, 1 burst count = 8 ADC samples
   reg [25:0] ddr3_start_addr;   // DDR3 start address (3 LSBs always zero)
   reg [11:0] wfm_count;         // number of waveform to be acquired
   reg [21:0] wfm_gap_length;    // gap in unit of 2.5 ns between two consecutive waveforms
   reg [15:0] chan_tag;          // channel tag
-  
   reg [31:0] chan_num_buf;      // channel number
   reg [31:0] csn;               // channel serial number
   reg [31:0] data_count;        // # of 32-bit data words received from Aurora, per waveform
   reg [11:0] data_wfm_count;    // # of waveforms received from Aurora
-  reg [31:0] ipbus_buf;         // buffer for IPbus data
+  (* mark_debug = "true" *) reg [31:0] ipbus_buf;         // buffer for IPbus data
   reg [31:0] readout_timestamp; // channel data readout timestamp
-  reg [2:0] num_chan_en;        // number of enabled channels
+  reg [ 2:0] num_chan_en;       // number of enabled channels
   reg sent_amc13_header;        // flag to indicate that the AMC13 header has been sent
 
   // regs for channel checksum verification
@@ -130,14 +151,32 @@ module command_manager(
   reg [127:0] channel_checksum; // checksum from received channel data
 
   // other internal regs
-  reg empty_event; // flag to indicate if this should be an empty event
+  reg empty_event;                   // flag to indicate if this should be an empty event
+  reg [22:0] chan_burst_count [4:0]; // two-dimentional memory for the configured burst counts
+  reg [11:0] chan_wfm_count [4:0];   // two-dimentional memory for the configured waveform counts
+  (* mark_debug = "true" *) reg [31:0] ipbus_chan_cmd;         // buffer for issued channel command
+  (* mark_debug = "true" *) reg [31:0] ipbus_chan_reg;         // buffer for issued channel register
+
+
+  // break out the channel signals
+  assign burst_count_chan0 = chan_burst_count[0];
+  assign burst_count_chan1 = chan_burst_count[1];
+  assign burst_count_chan2 = chan_burst_count[2];
+  assign burst_count_chan3 = chan_burst_count[3];
+  assign burst_count_chan4 = chan_burst_count[4];
+
+  assign wfm_count_chan0 = chan_wfm_count[0];
+  assign wfm_count_chan1 = chan_wfm_count[1];
+  assign wfm_count_chan2 = chan_wfm_count[2];
+  assign wfm_count_chan3 = chan_wfm_count[3];
+  assign wfm_count_chan4 = chan_wfm_count[4];
   
 
   // for internal regs
-  reg [27:0] nextstate;
+  (* mark_debug = "true" *) reg [30:0] nextstate;
   reg [22:0] next_burst_count;
   reg [31:0] next_chan_num_buf;
-  reg  [2:0] next_fill_type;
+  reg [ 2:0] next_fill_type;
   reg [11:0] next_wfm_count;
   reg [21:0] next_wfm_gap_length;
   reg [15:0] next_chan_tag;
@@ -148,21 +187,25 @@ module command_manager(
   reg [31:0] next_ipbus_buf;
   reg [23:0] next_chan_trig_num;
   reg [31:0] next_readout_timestamp;
-  reg [2:0] next_num_chan_en;
+  reg [ 2:0] next_num_chan_en;
   reg next_sent_amc13_header;
   reg next_update_mcs_lsb;
   reg [127:0] next_master_checksum;
   reg [127:0] next_channel_checksum;
   reg next_empty_event;
+  reg [31:0] next_cs_mismatch_count;
+  reg [31:0] next_ipbus_chan_cmd;
+  reg [31:0] next_ipbus_chan_reg;
 
   // for external regs
   reg [63:0] next_daq_data;
-  reg [4:0] next_chan_error_rc;
-  reg [4:0] next_trig_num_error;
-  reg [3:0] next_chan_tx_fifo_dest;
+  reg [ 4:0] next_chan_error_rc;
+  reg [ 3:0] next_chan_tx_fifo_dest;
   reg next_chan_tx_fifo_last;
   reg next_ipbus_res_last;
   reg next_daq_valid;
+  reg [22:0] next_chan_burst_count [4:0];
+  reg [11:0] next_chan_wfm_count [4:0];
 
 
   // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
@@ -176,11 +219,19 @@ module command_manager(
   //                      +3           : 3 (2 AMC13 header + 1 AMC13 trailer) 64-bit words per AMC13 data set
   assign event_size = (burst_count[19:0]*2+2+2+1)*(chan_en[0]+chan_en[1]+chan_en[2]+chan_en[3]+chan_en[4])+3; // TO MODIFY
 
+  // number of 128-bit bursts read out of DDR3
+  // Explaination for 'readout_size' calculation:
+  // (burst_count[19:0]                    : # bursts per waveform
+  //                   +1)                 : 1 waveform header per waveform
+  //                      *wfm_count[11:0] : # waveforms per readout event
+  //                      +2               : (1 channel header + 1 channel checksum) per readout event
+  assign readout_size = (burst_count[19:0]+1)*wfm_count[11:0]+2;
+
 
   // comb always block
   always @* begin
     // internal regs
-    nextstate = 28'd0;
+    nextstate = 31'd0;
     next_burst_count[22:0]       = burst_count[22:0];
     next_chan_num_buf[31:0]      = chan_num_buf[31:0];
     next_fill_type[2:0]          = fill_type[2:0];
@@ -200,14 +251,26 @@ module command_manager(
     next_master_checksum[127:0]  = master_checksum[127:0];
     next_channel_checksum[127:0] = channel_checksum[127:0];
     next_empty_event             = empty_event;
+    next_cs_mismatch_count[31:0] = cs_mismatch_count[31:0];
+    next_ipbus_chan_cmd[31:0]    = ipbus_chan_cmd[31:0];
+    next_ipbus_chan_reg[31:0]    = ipbus_chan_reg[31:0];
 
     // external regs
-    next_daq_data[63:0]          = daq_data[63:0];
-    next_chan_error_rc[4:0]      = chan_error_rc[4:0];
-    next_trig_num_error[4:0]     = trig_num_error[4:0];
-    next_chan_tx_fifo_dest[3:0]  = chan_tx_fifo_dest[3:0];
-    next_chan_tx_fifo_last       = chan_tx_fifo_last;
-    next_ipbus_res_last          = ipbus_res_last;
+    next_daq_data[63:0]         = daq_data[63:0];
+    next_chan_error_rc[4:0]     = chan_error_rc[4:0];
+    next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0];
+    next_chan_tx_fifo_last      = chan_tx_fifo_last;
+    next_ipbus_res_last         = ipbus_res_last;
+    next_chan_burst_count[0]    = chan_burst_count[0];
+    next_chan_burst_count[1]    = chan_burst_count[1];
+    next_chan_burst_count[2]    = chan_burst_count[2];
+    next_chan_burst_count[3]    = chan_burst_count[3];
+    next_chan_burst_count[4]    = chan_burst_count[4];
+    next_chan_wfm_count[0]      = chan_wfm_count[0];
+    next_chan_wfm_count[1]      = chan_wfm_count[1];
+    next_chan_wfm_count[2]      = chan_wfm_count[2];
+    next_chan_wfm_count[3]      = chan_wfm_count[3];
+    next_chan_wfm_count[4]      = chan_wfm_count[4];
 
     next_daq_valid          = 0; // default
     chan_tx_fifo_data[31:0] = 0; // default
@@ -251,6 +314,8 @@ module command_manager(
 
         // check that the Aurora TX FIFO is ready
         if (chan_tx_fifo_ready) begin
+          next_ipbus_chan_cmd[31:0] = 32'd0; // reset buffer
+          next_ipbus_chan_reg[31:0] = 32'd0; // reset buffer
           nextstate[READ_IPBUS_CMD] = 1'b1;
         end
         else begin
@@ -262,6 +327,17 @@ module command_manager(
         // check that IPbus has data for us
         if (ipbus_cmd_valid) begin
           next_ipbus_buf[31:0] = ipbus_cmd_data[31:0];
+          next_ipbus_chan_cmd[31:0] = ipbus_chan_reg[31:0];
+          next_ipbus_chan_reg[31:0] = ipbus_cmd_data[31:0];
+
+          // watch for write register commands
+          if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0002)) begin
+            next_chan_burst_count[chan_tx_fifo_dest] = ipbus_cmd_data[22:0]; // burst count value
+          end
+          else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_000e)) begin
+            next_chan_wfm_count[chan_tx_fifo_dest] = ipbus_cmd_data[11:0]; // waveform count value
+          end
+
           nextstate[CHECK_LAST] = 1'b1;
         end
         else begin
@@ -270,10 +346,8 @@ module command_manager(
       end
       // check if this is the last IPbus command word
       state[CHECK_LAST] : begin
-        begin
-          next_chan_tx_fifo_last = ipbus_cmd_last;
-          nextstate[SEND_IPBUS_CMD] = 1'b1;
-        end
+        next_chan_tx_fifo_last = ipbus_cmd_last;
+        nextstate[SEND_IPBUS_CMD] = 1'b1;
       end
       // send IPbus command to channel
       state[SEND_IPBUS_CMD] : begin
@@ -332,7 +406,10 @@ module command_manager(
 
       // check whether this channel number is enabled
       state[CHECK_CHAN_EN] : begin
-        if (chan_en[chan_tx_fifo_dest] == 1) begin
+        if (cs_mismatch_count > thres_data_corrupt) begin
+          nextstate[ERROR_DATA_CORRUPTION] = 1'b1;
+        end
+        else if (chan_en[chan_tx_fifo_dest] == 1) begin
           next_num_chan_en[2:0] = num_chan_en[2:0] + 1;
           next_chan_tx_fifo_last = 0;
           nextstate[SEND_CHAN_CSN] = 1'b1;
@@ -384,7 +461,7 @@ module command_manager(
           // check that the channel didn't report any errors
           if (chan_rx_fifo_data[31:0] == 32'h8) begin
             // everything is good
-            nextstate[READ_CHAN_TRIG_NUM_AND_FILL_TYPE] = 1'b1;
+            nextstate[READ_CHAN_INFO1] = 1'b1;
           end
           else begin
             // an error occured, update status register, and report error to front panel LED
@@ -401,64 +478,69 @@ module command_manager(
         end
       end
       // get trigger number from channel's header word #1
-      state[READ_CHAN_TRIG_NUM_AND_FILL_TYPE] : begin
+      state[READ_CHAN_INFO1] : begin
         if (chan_rx_fifo_valid) begin
-          // check that the trigger number from channel header and trigger information FIFO match
-          if (trig_num[23:0] != chan_rx_fifo_data[23:0]) begin
-            // trigger numbers aren't synchronized
-            // RAISE THE ERROR FLAG
-            next_trig_num_error[chan_tx_fifo_dest] = 1'b1;
+          // check that trigger number from channel header and trigger logic match
+          if (event_num[23:0] != chan_rx_fifo_data[23:0]) begin
+            // trigger numbers aren't synchronized; throw an error
+            nextstate[ERROR_TRIG_NUM] = 1'b1;
           end
-
-          next_chan_trig_num[23:0]    = chan_rx_fifo_data[23:0];
-          next_fill_type[2:0]         = chan_rx_fifo_data[26:24];
-          next_burst_count[22:0]      = {18'd0, chan_rx_fifo_data[31:27]};
-          next_master_checksum[127:0] = {master_checksum[127:32], chan_rx_fifo_data[31:0]};
-          nextstate[READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR] = 1'b1;
+          // check that trigger type from channel header and trigger logic match
+          else if (trig_type[1:0] != chan_rx_fifo_data[25:24]) begin
+            // trigger types aren't synchronized; throw an error
+            nextstate[ERROR_TRIG_TYPE] = 1'b1;
+          end
+          else begin
+            next_chan_trig_num[23:0]    = chan_rx_fifo_data[23:0];
+            next_fill_type[2:0]         = chan_rx_fifo_data[26:24];
+            next_burst_count[22:0]      = {18'd0, chan_rx_fifo_data[31:27]};
+            next_master_checksum[127:0] = {master_checksum[127:32], chan_rx_fifo_data[31:0]};
+            nextstate[READ_CHAN_INFO2] = 1'b1;
+          end
         end
         else begin
-          nextstate[READ_CHAN_TRIG_NUM_AND_FILL_TYPE] = 1'b1;
+          nextstate[READ_CHAN_INFO1] = 1'b1;
         end
       end
-      // get burst count from channel's header word #3
-      state[READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR] : begin
+      // get burst count from channel's header word #2
+      state[READ_CHAN_INFO2] : begin
         if (chan_rx_fifo_valid) begin
           next_burst_count[22:0]      = {chan_rx_fifo_data[17:0], burst_count[4:0]};
           next_ddr3_start_addr[13:0]  = chan_rx_fifo_data[31:18];
-          next_master_checksum[127:0] = {master_checksum[127:96], chan_rx_fifo_data[31:0], master_checksum[63:0]};
-          nextstate[READ_CHAN_DDR3_START_ADDR_AND_WFM_COUNT] = 1'b1;
+          next_master_checksum[127:0] = {master_checksum[127:64], chan_rx_fifo_data[31:0], master_checksum[31:0]};
+          nextstate[READ_CHAN_INFO3] = 1'b1;
         end
         else begin
-          nextstate[READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR] = 1'b1;
+          nextstate[READ_CHAN_INFO2] = 1'b1;
         end
       end
-      // get DDR3 start address from channel's header word #2
-      state[READ_CHAN_DDR3_START_ADDR_AND_WFM_COUNT] : begin
+      // get DDR3 start address from channel's header word #3
+      state[READ_CHAN_INFO3] : begin
         if (chan_rx_fifo_valid) begin
           next_ddr3_start_addr[25:14] = chan_rx_fifo_data[11:0];
           next_wfm_count[11:0]        = chan_rx_fifo_data[23:12];
           next_wfm_gap_length[8:0]    = chan_rx_fifo_data[31:24];
-          next_master_checksum[127:0] = {master_checksum[127:64], chan_rx_fifo_data[31:0], master_checksum[31:0]};
-          nextstate[READ_CHAN_WFM_GAP_AND_TAG] = 1'b1;
+          next_master_checksum[127:0] = {master_checksum[127:96], chan_rx_fifo_data[31:0], master_checksum[63:0]};
+          nextstate[READ_CHAN_INFO4] = 1'b1;
         end
         else begin
-          nextstate[READ_CHAN_DDR3_START_ADDR_AND_WFM_COUNT] = 1'b1;
+          nextstate[READ_CHAN_INFO3] = 1'b1;
         end
       end
       // get tag and fill type from channel's header word #4
-      state[READ_CHAN_WFM_GAP_AND_TAG] : begin
+      state[READ_CHAN_INFO4] : begin
         if (chan_rx_fifo_valid) begin
           next_wfm_gap_length[21:9] = chan_rx_fifo_data[13:0];
           next_chan_tag[15:0]       = chan_rx_fifo_data[29:14];
           next_master_checksum[127:0] = {chan_rx_fifo_data[31:0], master_checksum[95:0]};
-          nextstate[STORE_CHAN_TAG_AND_FILLTYPE] = 1'b1;
+          nextstate[READY_AMC13_HEADER1] = 1'b1;
         end
         else begin
-          nextstate[READ_CHAN_WFM_GAP_AND_TAG] = 1'b1;
+          nextstate[READ_CHAN_INFO4] = 1'b1;
         end
       end
       // pause to store the channel's tag and fill type
-      state[STORE_CHAN_TAG_AND_FILLTYPE] : begin
+      state[READY_AMC13_HEADER1] : begin
         if (!sent_amc13_header) begin
           next_daq_valid = 1'b1;
           next_daq_data[63:0] = {8'd0, trig_num[23:0], trig_timestamp[43:32], event_size[19:0]};
@@ -660,6 +742,8 @@ module command_manager(
       state[SEND_READOUT_TIMESTAMP] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
+          next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0]+1;
+          next_csn[31:0] = csn[31:0]+1;
 
           // check whether the checksums match
           // if they match, send '0000_0000' in MSB
@@ -669,10 +753,9 @@ module command_manager(
           // if they don't match, send 'baad_baad' in MSB
           else begin
             next_daq_data[63:0] = {32'hbaad_baad, readout_timestamp[31:0]};
+            next_cs_mismatch_count[31:0] = cs_mismatch_count[31:0] + 1; // increment mismatch count
           end
 
-          next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0]+1;
-          next_csn[31:0] = csn[31:0]+1;
           nextstate[CHECK_CHAN_EN] = 1'b1;
         end
         else begin
@@ -699,7 +782,6 @@ module command_manager(
           next_daq_data[63:0]      = 0;
           next_sent_amc13_header   = 0;
           next_chan_num_buf[31:0]  = 0;
-          next_burst_count[22:0]   = 0;
           next_num_chan_en[2:0]    = 0; // reset the number of enabled channels for each new trigger
           next_empty_event         = 0;
 
@@ -714,6 +796,23 @@ module command_manager(
           nextstate[SEND_AMC13_TRAILER] = 1'b1;
         end
       end
+
+      // =================
+      // error state logic
+      // =================
+
+      // data corruption error detected
+      state[ERROR_DATA_CORRUPTION] : begin
+        nextstate[ERROR_DATA_CORRUPTION] = 1'b1; // hard error, stay here
+      end
+      // trigger number mismatch error detected
+      state[ERROR_TRIG_NUM] : begin
+        nextstate[ERROR_TRIG_NUM] = 1'b1; // hard error, stay here
+      end
+      // trigger type mismatch error detected
+      state[ERROR_TRIG_TYPE] : begin
+        nextstate[ERROR_TRIG_TYPE] = 1'b1; // hard error, stay here
+      end
     endcase
   end
 
@@ -722,7 +821,7 @@ module command_manager(
   always @(posedge clk) begin
     if (rst) begin
       // reset values
-      state <= 28'd1 << IDLE;
+      state <= 31'd1 << IDLE;
 
       burst_count[22:0]       <= 0;
       chan_num_buf[31:0]      <= 0;
@@ -744,13 +843,24 @@ module command_manager(
       chan_trig_num[23:0]     <= 0;
       readout_timestamp[31:0] <= 0;
       chan_error_rc[4:0]      <= 0; // clear error upon reset
-      trig_num_error[4:0]     <= 0; // clear error upon reset
       daq_valid               <= 0;
-      empty_event             <= 0;
-
       update_mcs_lsb          <= 0;
       master_checksum[127:0]  <= 0;
       channel_checksum[127:0] <= 0;
+      empty_event             <= 0;
+      cs_mismatch_count[31:0] <= 0; // clear soft error count upon reset
+      chan_burst_count[0]     <= 23'd70000; // channel default is 70,000
+      chan_burst_count[1]     <= 23'd70000; // channel default is 70,000
+      chan_burst_count[2]     <= 23'd70000; // channel default is 70,000
+      chan_burst_count[3]     <= 23'd70000; // channel default is 70,000
+      chan_burst_count[4]     <= 23'd70000; // channel default is 70,000
+      chan_wfm_count[0]       <= 12'd1;     // channel default is 1
+      chan_wfm_count[1]       <= 12'd1;     // channel default is 1
+      chan_wfm_count[2]       <= 12'd1;     // channel default is 1
+      chan_wfm_count[3]       <= 12'd1;     // channel default is 1
+      chan_wfm_count[4]       <= 12'd1;     // channel default is 1
+      ipbus_chan_cmd[31:0]    <= 0;
+      ipbus_chan_reg[31:0]    <= 0;
     end
     else begin
       state <= nextstate;
@@ -775,13 +885,24 @@ module command_manager(
       chan_trig_num[23:0]     <= next_chan_trig_num[23:0];   
       readout_timestamp[31:0] <= next_readout_timestamp[31:0];
       chan_error_rc[4:0]      <= next_chan_error_rc[4:0];
-      trig_num_error[4:0]     <= next_trig_num_error[4:0];
       daq_valid               <= next_daq_valid;
-      empty_event             <= next_empty_event;
-
       update_mcs_lsb          <= next_update_mcs_lsb;
       master_checksum[127:0]  <= next_master_checksum[127:0];
       channel_checksum[127:0] <= next_channel_checksum[127:0];
+      empty_event             <= next_empty_event;
+      cs_mismatch_count[31:0] <= next_cs_mismatch_count[31:0];
+      chan_burst_count[0]     <= next_chan_burst_count[0];
+      chan_burst_count[1]     <= next_chan_burst_count[1];
+      chan_burst_count[2]     <= next_chan_burst_count[2];
+      chan_burst_count[3]     <= next_chan_burst_count[3];
+      chan_burst_count[4]     <= next_chan_burst_count[4];
+      chan_wfm_count[0]       <= next_chan_wfm_count[0];
+      chan_wfm_count[1]       <= next_chan_wfm_count[1];
+      chan_wfm_count[2]       <= next_chan_wfm_count[2];
+      chan_wfm_count[3]       <= next_chan_wfm_count[3];
+      chan_wfm_count[4]       <= next_chan_wfm_count[4];
+      ipbus_chan_cmd[31:0]    <= next_ipbus_chan_cmd[31:0];
+      ipbus_chan_reg[31:0]    <= next_ipbus_chan_reg[31:0];
     end
   end
 
@@ -797,6 +918,9 @@ module command_manager(
       ipbus_cmd_ready    <= 0;
       ipbus_res_valid    <= 0;
       readout_done       <= 0;
+      error_data_corrupt <= 0;
+      error_trig_num     <= 0;
+      error_trig_type    <= 0;
     end
     else begin
       // default values
@@ -807,9 +931,12 @@ module command_manager(
       ipbus_cmd_ready    <= 0;
       ipbus_res_valid    <= 0;
       readout_done       <= 0;
+      error_data_corrupt <= 0;
+      error_trig_num     <= 0;
+      error_trig_type    <= 0;
 
       case (1'b1) // synopsys parallel_case full_case
-        nextstate[IDLE]                        : begin
+        nextstate[IDLE] : begin
           ;
         end
 
@@ -817,25 +944,25 @@ module command_manager(
         // configuration manager next state logic
         // ======================================
 
-        nextstate[SEND_IPBUS_CSN]              : begin
+        nextstate[SEND_IPBUS_CSN] : begin
           chan_tx_fifo_valid <= 1;
         end
-        nextstate[READ_IPBUS_CMD]              : begin
+        nextstate[READ_IPBUS_CMD] : begin
           ipbus_cmd_ready <= 1;
         end
-        nextstate[CHECK_LAST]                  : begin
+        nextstate[CHECK_LAST]     : begin
           ;
         end
-        nextstate[SEND_IPBUS_CMD]              : begin
+        nextstate[SEND_IPBUS_CMD] : begin
           chan_tx_fifo_valid <= 1;
         end
-        nextstate[READ_IPBUS_RSN]              : begin
+        nextstate[READ_IPBUS_RSN] : begin
           chan_rx_fifo_ready <= 1;
         end
-        nextstate[READ_IPBUS_RES]              : begin
+        nextstate[READ_IPBUS_RES] : begin
           chan_rx_fifo_ready <= 1;
         end
-        nextstate[SEND_IPBUS_RES]              : begin
+        nextstate[SEND_IPBUS_RES] : begin
           ipbus_res_valid <= 1;
         end
 
@@ -843,71 +970,84 @@ module command_manager(
         // event builder next state logic
         // ==============================
 
-        nextstate[CHECK_CHAN_EN]               : begin
+        nextstate[CHECK_CHAN_EN]          : begin
           ;
         end
-        nextstate[SEND_CHAN_CSN]               : begin
+        nextstate[SEND_CHAN_CSN]          : begin
           chan_tx_fifo_valid <= 1;
         end
-        nextstate[SEND_CHAN_CC]                : begin
+        nextstate[SEND_CHAN_CC]           : begin
           chan_tx_fifo_valid <= 1;
         end
-        nextstate[READ_CHAN_RSN]               : begin
+        nextstate[READ_CHAN_RSN]          : begin
           chan_rx_fifo_ready <= 1;
         end
-        nextstate[READ_CHAN_RC]                : begin
+        nextstate[READ_CHAN_RC]           : begin
           chan_rx_fifo_ready <= 1;
         end
-        nextstate[READ_CHAN_TRIG_NUM_AND_FILL_TYPE]          : begin
+        nextstate[READ_CHAN_INFO1]        : begin
           chan_rx_fifo_ready <= 1;
         end
-        nextstate[READ_CHAN_BURST_COUNT_AND_DDR3_START_ADDR] : begin
+        nextstate[READ_CHAN_INFO2]        : begin
           chan_rx_fifo_ready <= 1;
         end
-        nextstate[READ_CHAN_DDR3_START_ADDR_AND_WFM_COUNT]   : begin
+        nextstate[READ_CHAN_INFO3]        : begin
           chan_rx_fifo_ready <= 1;
         end
-        nextstate[READ_CHAN_WFM_GAP_AND_TAG]   : begin
+        nextstate[READ_CHAN_INFO4]        : begin
           chan_rx_fifo_ready <= 1;
         end
-        nextstate[STORE_CHAN_TAG_AND_FILLTYPE] : begin
+        nextstate[READY_AMC13_HEADER1]    : begin
           ;
         end
-        nextstate[SEND_AMC13_HEADER1]          : begin
+        nextstate[SEND_AMC13_HEADER1]     : begin
           daq_header <= 1;
         end
-        nextstate[SEND_AMC13_HEADER2]          : begin
+        nextstate[SEND_AMC13_HEADER2]     : begin
           ;
         end
-        nextstate[SEND_CHAN_HEADER1]           : begin
+        nextstate[SEND_CHAN_HEADER1]      : begin
           ;
         end
-        nextstate[SEND_CHAN_HEADER2]           : begin
+        nextstate[SEND_CHAN_HEADER2]      : begin
           ;
         end
-        nextstate[READ_CHAN_DATA1]             : begin
+        nextstate[READ_CHAN_DATA1]        : begin
           chan_rx_fifo_ready <= 1;
         end
-        nextstate[READ_CHAN_DATA2]             : begin
+        nextstate[READ_CHAN_DATA2]        : begin
           chan_rx_fifo_ready <= 1;
         end
-        nextstate[READ_CHAN_DATA_RESYNC]       : begin
+        nextstate[READ_CHAN_DATA_RESYNC]  : begin
           ;
         end
-        nextstate[SEND_READOUT_TIMESTAMP]      : begin
+        nextstate[SEND_READOUT_TIMESTAMP] : begin
           ;
         end
-        nextstate[READY_AMC13_TRAILER]         : begin
+        nextstate[READY_AMC13_TRAILER]    : begin
           ;
         end
-        nextstate[SEND_AMC13_TRAILER]          : begin
+        nextstate[SEND_AMC13_TRAILER]     : begin
           daq_trailer <= 1;
           readout_done <= 1;
+        end
+
+        // ======================
+        // error next state logic
+        // ======================
+
+        nextstate[ERROR_DATA_CORRUPTION] : begin
+          error_data_corrupt <= 1;
+        end
+        nextstate[ERROR_TRIG_NUM]        : begin
+          error_trig_num <= 1;
+        end
+        nextstate[ERROR_TRIG_TYPE]       : begin
+          error_trig_type <= 1;
         end
       endcase
     end
   end
-
 
   // outputs based on states
   assign readout_ready = (state[IDLE] == 1'b1);

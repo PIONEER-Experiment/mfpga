@@ -98,10 +98,34 @@ module wfd_top(
     assign clk50 = clkin; // just to make the frequency explicit
 
 
-    // ======== error checking signals ========
-    wire [4:0] chan_error_rc;  // master received an error response code, one bit for each channel
-    wire [4:0] trig_num_error; // trigger numbers from channel header and trigger information FIFO aren't synchronized, one bit for each channel
+    // ======== error signals ========
+    // thresholds
+    (* mark_debug = "true" *) wire [31:0] thres_data_corrupt;  // data corruption
+    (* mark_debug = "true" *) wire [31:0] thres_unknown_ttc;   // unknown TTC broadcast command
+    (* mark_debug = "true" *) wire [31:0] thres_ddr3_overflow; // DDR3 overflow
 
+    // soft error counts
+    (* mark_debug = "true" *) wire [31:0] unknown_cmd_count;
+    (* mark_debug = "true" *) wire [31:0] ddr3_overflow_count;
+    (* mark_debug = "true" *) wire [31:0] cs_mismatch_count;
+
+    // hard errors
+    (* mark_debug = "true" *) wire error_data_corrupt;
+    (* mark_debug = "true" *) wire error_trig_num_from_tt;
+    (* mark_debug = "true" *) wire error_trig_type_from_tt;
+    (* mark_debug = "true" *) wire error_trig_num_from_cm;
+    (* mark_debug = "true" *) wire error_trig_type_from_cm;
+    (* mark_debug = "true" *) wire error_pll_unlock;
+    (* mark_debug = "true" *) wire error_trig_rate;
+    (* mark_debug = "true" *) wire error_unknown_ttc;
+
+    // warnings
+    (* mark_debug = "true" *) wire ddr3_overflow_warning;
+
+    // throw error if either PLL is unlocked for there is a loss-of-signal
+    assign error_pll_unlock = ~adcclk_stat_ld | ~adcclk_stat | adcclk_clkin0_stat;
+
+    wire [4:0] chan_error_rc;  // master received an error response code, one bit for each channel
 
     // ======== I/O lines to channel ========
     wire [9:0] acq_enable;
@@ -130,8 +154,7 @@ module wfd_top(
         .green_led(master_led0),
         // status input signals
         .ttc_ready(ttc_ready),
-        .chan_error_rc(chan_error_rc[4:0]),
-        .trig_num_error(trig_num_error[4:0])
+        .chan_error_rc(chan_error_rc[4:0])
     );
 
     // ======== front panel LED for clk synth ========
@@ -211,7 +234,7 @@ module wfd_top(
     wire eth_link_status; // link status of Gigabit ethernet
 
     // ======== reset signals ========
-    wire rst_from_ipb, rst_from_ipb_n;  // active-high reset from IPbus. Synchronous to IPbus clock.
+    wire rst_from_ipb, rst_from_ipb_n;  // active-high reset from IPbus; synchronous to IPbus clock
     assign rst_from_ipb_n = ~rst_from_ipb;
 
 
@@ -426,34 +449,6 @@ module wfd_top(
         .clk(ttc_clk),
         .in(trigger_from_ipbus_stretch),
         .out(trigger_from_ipbus_sync)
-    );    
-
-    // done signals from channels
-    wire[4:0] acq_dones_sync;
-    sync_2stage acq_dones_sync0(
-        .clk(ttc_clk),
-        .in(acq_dones[0]),
-        .out(acq_dones_sync[0])
-    );
-    sync_2stage acq_dones_sync1(
-        .clk(ttc_clk),
-        .in(acq_dones[1]),
-        .out(acq_dones_sync[1])
-    );
-    sync_2stage acq_dones_sync2(
-        .clk(ttc_clk),
-        .in(acq_dones[2]),
-        .out(acq_dones_sync[2])
-    );
-    sync_2stage acq_dones_sync3(
-        .clk(ttc_clk),
-        .in(acq_dones[3]),
-        .out(acq_dones_sync[3])
-    );
-    sync_2stage acq_dones_sync4(
-        .clk(ttc_clk),
-        .in(acq_dones[4]),
-        .out(acq_dones_sync[4])
     );
 
 
@@ -600,9 +595,21 @@ module wfd_top(
     ////////////////////////////////////////////////////////
     // trigger top and command manager interface connections
     wire readout_ready, readout_done;
+    wire [21:0] readout_size;
     wire send_empty_event;
     wire initiate_readout;
 
+    wire [22:0] burst_count_chan0;
+    wire [22:0] burst_count_chan1;
+    wire [22:0] burst_count_chan2;
+    wire [22:0] burst_count_chan3;
+    wire [22:0] burst_count_chan4;
+
+    wire [11:0] wfm_count_chan0;
+    wire [11:0] wfm_count_chan1;
+    wire [11:0] wfm_count_chan2;
+    wire [11:0] wfm_count_chan3;
+    wire [11:0] wfm_count_chan4;
 
     // ======== communication with the AMC13 DAQ link ========
     wire daq_header, daq_trailer;
@@ -625,16 +632,17 @@ module wfd_top(
     wire[31:0] status_reg0, status_reg1, status_reg2, status_reg3, status_reg4, status_reg5, status_reg6, status_reg7, status_reg8, status_reg9, status_reg10, status_reg11;
 
     // ======== finite state machine states ========
-    wire[ 2:0] ttr_state;
+    wire[ 3:0] ttr_state;
     wire[ 3:0] cac_state;
-    wire[ 4:0] tp_state;
-    wire[27:0] cm_state;
+    wire[ 6:0] tp_state;
+    (* mark_debug = "true" *) wire[30:0] cm_state;
 
     // ======== trigger information signals ========
-    wire[ 1:0] trig_sel;
+    (* mark_debug = "true" *) wire[ 1:0] trig_sel;
     wire[ 7:0] trig_settings;
     wire[23:0] ttc_event_num;
     wire[23:0] ttc_trig_num;
+    wire[ 1:0] ttc_trig_type;
     wire[43:0] ttc_trig_timestamp;
     wire[23:0] trig_num;
     wire[43:0] trig_timestamp;
@@ -653,15 +661,15 @@ module wfd_top(
         .TTC_rst(),                      // in  STD_LOGIC  asynchronous reset after TTC_CLK_p/TTC_CLK_n frequency changed
         .TTC_data_p(ttc_rxp),            // in  STD_LOGIC
         .TTC_data_n(ttc_rxn),            // in  STD_LOGIC
-        .TTC_CLK_out(ttc_clk),           // out  STD_LOGIC
-        .TTCready(ttc_ready),            // out  STD_LOGIC
-        .L1Accept(trigger_from_ttc),     // out  STD_LOGIC
-        .BCntRes(),                      // out  STD_LOGIC
-        .EvCntRes(ttc_evt_reset),        // out  STD_LOGIC
-        .SinErrStr(),                    // out  STD_LOGIC
-        .DbErrStr(),                     // out  STD_LOGIC
-        .BrcstStr(ttc_chan_b_valid),     // out  STD_LOGIC
-        .Brcst(ttc_chan_b_info)          // out  STD_LOGIC_VECTOR (7 downto 2)
+        .TTC_CLK_out(ttc_clk),           // out STD_LOGIC
+        .TTCready(ttc_ready),            // out STD_LOGIC
+        .L1Accept(trigger_from_ttc),     // out STD_LOGIC
+        .BCntRes(),                      // out STD_LOGIC
+        .EvCntRes(ttc_evt_reset),        // out STD_LOGIC
+        .SinErrStr(),                    // out STD_LOGIC
+        .DbErrStr(),                     // out STD_LOGIC
+        .BrcstStr(ttc_chan_b_valid),     // out STD_LOGIC
+        .Brcst(ttc_chan_b_info)          // out STD_LOGIC_VECTOR (7 downto 2)
     );
 
 
@@ -670,13 +678,20 @@ module wfd_top(
         .clk(ttc_clk),
         .reset(reset40),
 
+        // TTC Channel B information
         .chan_b_info(ttc_chan_b_info),
         .evt_count_reset(ttc_evt_reset),
         .chan_b_valid(ttc_chan_b_valid),
-        .fill_type(fill_type[1:0]),      // output [1:0]
 
+        // outputs to trigger logic
+        .fill_type(fill_type[1:0]), // output [1:0]
         .reset_trig_num(rst_trigger_num),
-        .reset_trig_timestamp(rst_trigger_timestamp)
+        .reset_trig_timestamp(rst_trigger_timestamp),
+
+        // status information
+        .thres_unknown_ttc(thres_unknown_ttc), // threshold for unknown TTC broadcast command instances
+        .unknown_cmd_count(unknown_cmd_count), // number of unknown TTC broadcast commands
+        .error_unknown_ttc(error_unknown_ttc)  // hard error flag for unknown TTC broadcast commands
     );
 
 
@@ -740,6 +755,11 @@ module wfd_top(
         .endianness_out(endianness_sel),                // select signal for the ADC data's endianness
         .trig_settings_out(trig_settings),              // select which trigger types are enabled
         .trig_sel_out(trig_sel),                        // select which input is the trigger (TTC, IPbus, front panel)
+
+        // threshold registers
+        .thres_data_corrupt(thres_data_corrupt),   // data corruption
+        .thres_unknown_ttc(thres_unknown_ttc),     // unknown TTC broadcast command
+        .thres_ddr3_overflow(thres_ddr3_overflow), // DDR3 overflow
 
         // status registers
         .status_reg0(status_reg0),
@@ -914,39 +934,6 @@ module wfd_top(
     );
 
 
-    // ==================================================================================
-    // synchronize signals into 40 MHz TTC clock domain for use in trigger manager module 
-    // ==================================================================================
-
-    // from IPbus, typically stable at a fixed value (don't need to stretch)
-    wire [4:0] chan_en_sync;
-    sync_2stage chan_en_sync0(
-        .clk(ttc_clk),
-        .in(chan_en[0]),
-        .out(chan_en_sync[0])
-    );
-    sync_2stage chan_en_sync1(
-        .clk(ttc_clk),
-        .in(chan_en[1]),
-        .out(chan_en_sync[1])
-    );    
-    sync_2stage chan_en_sync2(
-        .clk(ttc_clk),
-        .in(chan_en[2]),
-        .out(chan_en_sync[2])
-    );
-    sync_2stage chan_en_sync3(
-        .clk(ttc_clk),
-        .in(chan_en[3]),
-        .out(chan_en_sync[3])
-    );
-    sync_2stage chan_en_sync4(
-        .clk(ttc_clk),
-        .in(chan_en[4]),
-        .out(chan_en_sync[4])
-    );
-
-
     // =====================================================================================
     // synchronize signals into 125 MHz clock domain for use in status register block module 
     // =====================================================================================
@@ -993,7 +980,7 @@ module wfd_top(
     );
 
     // synchronize ttr_state
-    wire[2:0] ttr_state_clk125;
+    wire[3:0] ttr_state_clk125;
     sync_2stage ttr_state_sync0(
         .clk(clk125),
         .in(ttr_state[0]),
@@ -1008,6 +995,11 @@ module wfd_top(
         .clk(clk125),
         .in(ttr_state[2]),
         .out(ttr_state_clk125[2])
+    );
+    sync_2stage ttr_state_sync3(
+        .clk(clk125),
+        .in(ttr_state[3]),
+        .out(ttr_state_clk125[3])
     );
 
     // synchronize cac_state
@@ -1069,7 +1061,6 @@ module wfd_top(
         .reset(rst_from_ipb),
 
         // status inputs
-        .trig_num_error(trig_num_error),
         .chan_error_rc(chan_error_rc),
         .daq_clk_sel(daq_clk_sel),
         .daq_clk_en(daq_clk_en),
@@ -1112,7 +1103,7 @@ module wfd_top(
     );
 
 
-    wire trigger_mux; // selected trigger source
+    (* mark_debug = "true" *) wire trigger_mux; // selected trigger source
     assign trigger_mux = (trig_sel[1:0] == 2'b01) ? trigger_from_ipbus_sync : (trig_sel[1:0] == 2'b10) ? ext_trig_sync : trigger_from_ttc;
 
     // trigger top module
@@ -1130,26 +1121,41 @@ module wfd_top(
         .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
 
         // trigger interface
-        .trigger(trigger_mux),         // trigger signal
-        .trig_type(fill_type),         // trigger type (muon fill, laser, pedestal)
-        .trig_settings(trig_settings), // trigger settings
-        .chan_en(chan_en),             // enabled channels
-        .trig_delay(trig_delay),       // trigger delay
+        .trigger(trigger_mux),                     // trigger signal
+        .trig_type(fill_type),                     // trigger type (muon fill, laser, pedestal)
+        .trig_settings(trig_settings),             // trigger settings
+        .chan_en(chan_en),                         // enabled channels
+        .trig_delay(trig_delay),                   // trigger delay
+        .thres_ddr3_overflow(thres_ddr3_overflow), // DDR3 overflow threshold
 
         // channel interface
-        .chan_done(acq_dones_sync),
+        .chan_dones(acq_dones),
         .chan_enable(acq_enable),
         .chan_trig(acq_trigs),
 
         // command manager interface
         .readout_ready(readout_ready),       // command manager is idle
         .readout_done(readout_done),         // initiated readout has finished
+        .readout_size(readout_size),         // burst count of readout event
         .send_empty_event(send_empty_event), // request an empty event
         .initiate_readout(initiate_readout), // request for the channels to be read out
 
         .ttc_event_num(ttc_event_num),           // channel's trigger number
         .ttc_trig_num(ttc_trig_num),             // global trigger number
+        .ttc_trig_type(ttc_trig_type),           // trigger type
         .ttc_trig_timestamp(ttc_trig_timestamp), // trigger timestamp
+
+        .burst_count_chan0(burst_count_chan0), // burst count set for Channel 0
+        .burst_count_chan1(burst_count_chan1), // burst count set for Channel 1
+        .burst_count_chan2(burst_count_chan2), // burst count set for Channel 2
+        .burst_count_chan3(burst_count_chan3), // burst count set for Channel 3
+        .burst_count_chan4(burst_count_chan4), // burst count set for Channel 4
+
+        .wfm_count_chan0(wfm_count_chan0), // waveform count set for Channel 0
+        .wfm_count_chan1(wfm_count_chan1), // waveform count set for Channel 1
+        .wfm_count_chan2(wfm_count_chan2), // waveform count set for Channel 2
+        .wfm_count_chan3(wfm_count_chan3), // waveform count set for Channel 3
+        .wfm_count_chan4(wfm_count_chan4), // waveform count set for Channel 4
 
         // status connections
         .ttr_state(ttr_state),           // TTC trigger receiver state
@@ -1158,7 +1164,14 @@ module wfd_top(
         .trig_num(trig_num),             // global trigger number
         .trig_timestamp(trig_timestamp), // timestamp for latest trigger received
         .trig_fifo_full(trig_fifo_full), // TTC trigger FIFO is almost full
-        .acq_fifo_full(acq_fifo_full)    // acquisition event FIFO is almost full
+        .acq_fifo_full(acq_fifo_full),   // acquisition event FIFO is almost full
+
+        // error connections
+        .ddr3_overflow_count(ddr3_overflow_count),     // number of triggers received that would overflow DDR3
+        .ddr3_overflow_warning(ddr3_overflow_warning), // DDR3 overflow warning
+        .error_trig_rate(error_trig_rate),             // trigger rate error
+        .error_trig_num(error_trig_num_from_tt),       // trigger number error
+        .error_trig_type(error_trig_type_from_tt)      // trigger type error
     );
 
     
@@ -1212,16 +1225,36 @@ module wfd_top(
         .initiate_readout(initiate_readout), // request for the channels to be read out
         .event_num(ttc_event_num),           // channel's trigger number
         .trig_num(ttc_trig_num),             // global trigger number, starts at 1
+        .trig_type(ttc_trig_type),           // trigger type
         .trig_timestamp(ttc_trig_timestamp), // trigger timestamp, defined by when trigger is received by trigger receiver module
         .readout_ready(readout_ready),       // ready to readout data, i.e., when in idle state
         .readout_done(readout_done),         // finished readout flag
+        .readout_size(readout_size),         // burst count of readout event
+
+        .burst_count_chan0(burst_count_chan0), // burst count set for Channel 0
+        .burst_count_chan1(burst_count_chan1), // burst count set for Channel 1
+        .burst_count_chan2(burst_count_chan2), // burst count set for Channel 2
+        .burst_count_chan3(burst_count_chan3), // burst count set for Channel 3
+        .burst_count_chan4(burst_count_chan4), // burst count set for Channel 4
+
+        .wfm_count_chan0(wfm_count_chan0), // waveform count set for Channel 0
+        .wfm_count_chan1(wfm_count_chan1), // waveform count set for Channel 1
+        .wfm_count_chan2(wfm_count_chan2), // waveform count set for Channel 2
+        .wfm_count_chan3(wfm_count_chan3), // waveform count set for Channel 3
+        .wfm_count_chan4(wfm_count_chan4), // waveform count set for Channel 4
 
         // status connections
-        .chan_en(chan_en),                    // input  [ 4:0], enabled channels from IPbus
-        .endianness_sel(endianness_sel),      // input from IPbus
-        .state(cm_state),                     // output [30:0]
-        .chan_error_rc(chan_error_rc[4:0]),   // output [ 4:0]
-        .trig_num_error(trig_num_error[4:0])  // output [ 4:0]
+        .chan_en(chan_en),                       // input  [ 4:0], enabled channels from IPbus
+        .endianness_sel(endianness_sel),         // input, from IPbus
+        .thres_data_corrupt(thres_data_corrupt), // input  [31:0], from IPbus
+        .state(cm_state),                        // output [30:0]
+
+        // error connections
+        .cs_mismatch_count(cs_mismatch_count),     // number of checksum mismatches
+        .error_data_corrupt(error_data_corrupt),   // output, data corruption error
+        .error_trig_num(error_trig_num_from_cm),   // output, trigger number mismatch between channel and master
+        .error_trig_type(error_trig_type_from_cm), // output, trigger type mismatch between channel and master
+        .chan_error_rc(chan_error_rc[4:0])         // output [ 4:0]
     );
     
 
