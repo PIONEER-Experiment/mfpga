@@ -11,6 +11,7 @@ module TTC_chanB_receiver (
   input wire [5:0] chan_b_info, // Brcst from TTC decoder, Brcst[7:2] = chan_b_info [5:0]
   input wire evt_count_reset,
   input wire chan_b_valid,      // BrcstStr from TTC_decoder
+  input wire ttc_loopback,
 
   // outputs to trigger logic
   output reg [1:0] fill_type,
@@ -34,7 +35,7 @@ module TTC_chanB_receiver (
 
   always @* begin
     // reset
-    if (reset) begin
+    if (reset | ttc_loopback) begin
       next_fill_type[1:0] <= 2'b01; // default to muon fill
       next_unknown_cmd_count[31:0] <= 32'd0;
     end
@@ -58,7 +59,7 @@ module TTC_chanB_receiver (
 
 
   always @(posedge clk) begin
-    if (reset) begin
+    if (reset | ttc_loopback) begin
       fill_type[1:0] <= 2'b01; // default to muon fill
       unknown_cmd_count[31:0] <= 32'd0;
     end

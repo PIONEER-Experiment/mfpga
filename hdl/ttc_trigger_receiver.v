@@ -1,6 +1,6 @@
 // Finite state machine to handle incoming TTC triggers
 
-module ttc_trigger_receiver(
+module ttc_trigger_receiver (
   // clock and reset
   input wire clk,   // 40 MHz TTC clock
   input wire reset,
@@ -10,11 +10,11 @@ module ttc_trigger_receiver(
   input wire reset_trig_timestamp,
 
   // trigger interface
-  (* mark_debug = "true" *) input wire trigger,                    // trigger signal
-  (* mark_debug = "true" *) input wire [ 1:0] trig_type,           // trigger type (muon fill, laser, pedestal)
-  (* mark_debug = "true" *) input wire [ 7:0] trig_settings,       // trigger settings
+  input wire trigger,                    // trigger signal
+  input wire [ 1:0] trig_type,           // trigger type (muon fill, laser, pedestal)
+  input wire [ 7:0] trig_settings,       // trigger settings
   input wire [31:0] thres_ddr3_overflow, // DDR3 overflow threshold
-  input wire [4:0] chan_en,       // enabled channels
+  input wire [4:0] chan_en,              // enabled channels
 
   // command manager interface
   input wire readout_done,        // a readout has completed
@@ -35,18 +35,18 @@ module ttc_trigger_receiver(
   input wire [11:0] wfm_count_chan4, // waveform count set for Channel 4
 
   // channel acquisition controller interface
-  (* mark_debug = "true" *) input wire acq_ready,            // channels are ready to acquire data
-  (* mark_debug = "true" *) output reg acq_trigger,          // trigger signal
-  (* mark_debug = "true" *) output reg [ 1:0] acq_trig_type, // trigger type (muon fill, laser, pedestal)
-  (* mark_debug = "true" *) output reg [23:0] acq_trig_num,  // trigger number, starts at 1
+  input wire acq_ready,            // channels are ready to acquire data
+  output reg acq_trigger,          // trigger signal
+  output reg [ 1:0] acq_trig_type, // trigger type (muon fill, laser, pedestal)
+  output reg [23:0] acq_trig_num,  // trigger number, starts at 1
 
   // interface to TTC Trigger FIFO
-  (* mark_debug = "true" *) input wire fifo_ready,
-  (* mark_debug = "true" *) output reg fifo_valid,
-  (* mark_debug = "true" *) output reg [127:0] fifo_data,
+  input wire fifo_ready,
+  output reg fifo_valid,
+  output reg [127:0] fifo_data,
 
   // status connections
-  (* mark_debug = "true" *) output reg [ 3:0] state,          // state of finite state machine
+  output reg [ 3:0] state,          // state of finite state machine
   output reg [23:0] trig_num,       // global trigger number
   output reg [43:0] trig_timestamp, // global trigger timestamp
 
@@ -63,12 +63,12 @@ module ttc_trigger_receiver(
   parameter ERROR           = 3;
 
 
-  (* mark_debug = "true" *) reg        empty_event;        // flag for an empty event response
-  (* mark_debug = "true" *) reg [43:0] trig_timestamp_cnt; // clock cycle count
-  (* mark_debug = "true" *) reg [23:0] acq_event_cnt;      // channel's trigger number, starts at 1
+  reg        empty_event;        // flag for an empty event response
+  reg [43:0] trig_timestamp_cnt; // clock cycle count
+  reg [23:0] acq_event_cnt;      // channel's trigger number, starts at 1
 
   // burst count of initiated acquisitions
-  (* mark_debug = "true" *) wire [21:0] acq_size_chan0;
+  wire [21:0] acq_size_chan0;
   wire [21:0] acq_size_chan1;
   wire [21:0] acq_size_chan2;
   wire [21:0] acq_size_chan3;
@@ -81,7 +81,7 @@ module ttc_trigger_receiver(
   assign acq_size_chan4 = (burst_count_chan4[22:0] + 1)*wfm_count_chan4[11:0] + 2;
 
   // number of bursts yet to be read out of DDR3
-  (* mark_debug = "true" *) reg [21:0] stored_bursts_chan0;
+  reg [21:0] stored_bursts_chan0;
   reg [21:0] stored_bursts_chan1;
   reg [21:0] stored_bursts_chan2;
   reg [21:0] stored_bursts_chan3;
@@ -94,7 +94,7 @@ module ttc_trigger_receiver(
                                  (stored_bursts_chan3[21:0] > thres_ddr3_overflow[31:0]) |
                                  (stored_bursts_chan4[21:0] > thres_ddr3_overflow[31:0]);
 
-  (* mark_debug = "true" *) reg [ 3:0] nextstate;
+  reg [ 3:0] nextstate;
   reg [ 1:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
   reg        next_empty_event;
@@ -104,7 +104,7 @@ module ttc_trigger_receiver(
   reg [31:0] next_ddr3_overflow_count;
 
   // DDR3 is full in a channel
-  (* mark_debug = "true" *) wire ddr3_full;
+  wire ddr3_full;
   assign ddr3_full = ((8388608 - stored_bursts_chan0[21:0]) < chan_en[0]*acq_size_chan0[21:0]) |
                      ((8388608 - stored_bursts_chan1[21:0]) < chan_en[1]*acq_size_chan1[21:0]) |
                      ((8388608 - stored_bursts_chan2[21:0]) < chan_en[2]*acq_size_chan2[21:0]) |

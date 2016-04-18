@@ -3,7 +3,7 @@
 
 // Module to re-program FPGA from flash by issuing an IPROG command
 
-module reprog(
+module reprog (
 	input clk,
 	input reset,
 	input [1:0] trigger // trigger[0] for golden image, trigger[1] for regular master image

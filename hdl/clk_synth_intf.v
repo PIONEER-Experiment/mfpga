@@ -1,11 +1,10 @@
-`timescale 1ns / 1ps
 `include "clk_synth_regs.txt"
 
 //*************************************************************************
 // NOTE:  Modified to support LMK04906 - 7/16/15
 //*************************************************************************
 
-module clk_synth_intf(
+module clk_synth_intf (
     input clk50,
     input clk50_reset,
 

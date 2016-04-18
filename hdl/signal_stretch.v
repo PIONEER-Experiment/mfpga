@@ -5,7 +5,7 @@
 // maximum number of extra clock cycles = 16
 // (for more, need to increase the number of bits in the counter register and in the n_extra_cycles input)
 
-module signal_stretch(
+module signal_stretch (
 	input signal_in,
 	input clk,
     input [3:0] n_extra_cycles,

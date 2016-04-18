@@ -1,9 +1,7 @@
-`timescale 1ns / 1ps
-
 // Toggle 2-stage synchronizer to bring asynchronous pulses into a clock domain
 // for a 1-bit pulse
 
-module toggle_sync_2stage(
+module toggle_sync_2stage (
     input wire clk_in,  // source clock
     input wire clk_out, // destination clock
     input wire in,      // input pulse

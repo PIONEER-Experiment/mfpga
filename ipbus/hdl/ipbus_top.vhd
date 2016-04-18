@@ -68,6 +68,7 @@ entity ipbus_top is port(
 	endianness_out     : out std_logic;                    -- indicates the endianness of the ADC data sent to the DAQ
 	trig_settings_out  : out std_logic_vector(7 downto 0); -- indicates whether or not to respond to a given trigger type
 	trig_sel_out       : out std_logic_vector(1 downto 0); -- select signal for the trigger (TTC, IPbus, or front panel)
+	ttc_loopback_out   : out std_logic;                    -- indicates which the TTS/TTC is in loopback mode
 
     -- threshold registers
     thres_data_corrupt  : out std_logic_vector(31 downto 0); -- data corruption
@@ -87,6 +88,13 @@ entity ipbus_top is port(
 	status_reg9  : in std_logic_vector(31 downto 0);
 	status_reg10 : in std_logic_vector(31 downto 0);
 	status_reg11 : in std_logic_vector(31 downto 0);
+	status_reg12 : in std_logic_vector(31 downto 0);
+	status_reg13 : in std_logic_vector(31 downto 0);
+	status_reg14 : in std_logic_vector(31 downto 0);
+	status_reg15 : in std_logic_vector(31 downto 0);
+	status_reg16 : in std_logic_vector(31 downto 0);
+	status_reg17 : in std_logic_vector(31 downto 0);
+	status_reg18 : in std_logic_vector(31 downto 0);
 
 	-- flash interface ports
 	flash_wr_nBytes  : out std_logic_vector(8 downto 0);
@@ -234,6 +242,7 @@ begin
         endianness_out     => endianness_out,
         trig_settings_out  => trig_settings_out,
         trig_sel_out       => trig_sel_out,
+        ttc_loopback_out   => ttc_loopback_out,
 
         -- threshold register ports
         thres_data_corrupt  => thres_data_corrupt,
@@ -263,6 +272,13 @@ begin
 		status_reg9  => status_reg9,
 		status_reg10 => status_reg10,
 		status_reg11 => status_reg11,
+		status_reg12 => status_reg12,
+		status_reg13 => status_reg13,
+		status_reg14 => status_reg14,
+		status_reg15 => status_reg15,
+		status_reg16 => status_reg16,
+		status_reg17 => status_reg17,
+		status_reg18 => status_reg18,
 
 	    -- flash interface ports
 	    flash_wr_nBytes  => flash_wr_nBytes,

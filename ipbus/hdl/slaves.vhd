@@ -36,6 +36,7 @@ entity slaves is
         endianness_out     : out std_logic;
         trig_settings_out  : out std_logic_vector(7 downto 0);
         trig_sel_out       : out std_logic_vector(1 downto 0);
+        ttc_loopback_out   : out std_logic;
 
         -- threshold registers
         thres_data_corrupt  : out std_logic_vector(31 downto 0); -- data corruption
@@ -65,6 +66,13 @@ entity slaves is
 		status_reg9  : in std_logic_vector(31 downto 0);
 		status_reg10 : in std_logic_vector(31 downto 0);
 		status_reg11 : in std_logic_vector(31 downto 0);
+		status_reg12 : in std_logic_vector(31 downto 0);
+		status_reg13 : in std_logic_vector(31 downto 0);
+		status_reg14 : in std_logic_vector(31 downto 0);
+		status_reg15 : in std_logic_vector(31 downto 0);
+		status_reg16 : in std_logic_vector(31 downto 0);
+		status_reg17 : in std_logic_vector(31 downto 0);
+		status_reg18 : in std_logic_vector(31 downto 0);
 
 		-- flash interface ports
 		flash_wr_nBytes  : out std_logic_vector(8 downto 0);
@@ -82,12 +90,13 @@ end slaves;
 
 architecture rtl of slaves is
 
-	constant NSLV: positive := 9;
-	signal ipbw: ipb_wbus_array(NSLV-1 downto 0);
-	signal ipbr, ipbr_d: ipb_rbus_array(NSLV-1 downto 0);
-	signal ctrl_reg: std_logic_vector(31 downto 0);
-	signal wo_reg: std_logic_vector(31 downto 0);
-	signal trigger: std_logic;
+	constant NSLV : positive := 6;
+
+	signal ipbw         : ipb_wbus_array(NSLV-1 downto 0);
+	signal ipbr, ipbr_d : ipb_rbus_array(NSLV-1 downto 0);
+	signal ctrl_reg     : std_logic_vector(31 downto 0);
+	signal wo_reg       : std_logic_vector(31 downto 0);
+	signal trigger      : std_logic;
 
 begin
 
@@ -121,7 +130,14 @@ begin
 			reg8 => status_reg8,
 			reg9 => status_reg9,
 			reg10 => status_reg10,
-			reg11 => status_reg11
+			reg11 => status_reg11,
+			reg12 => status_reg12,
+			reg13 => status_reg13,
+			reg14 => status_reg14,
+			reg15 => status_reg15,
+			reg16 => status_reg16,
+			reg17 => status_reg17,
+			reg18 => status_reg18
 		);
 		
 -- Slave 1: Control register
@@ -170,6 +186,7 @@ begin
         trig_settings_out(7)  <= ctrl_reg(26);
         trig_sel_out(0)       <= ctrl_reg(27);
         trig_sel_out(1)       <= ctrl_reg(28);
+        ttc_loopback_out      <= ctrl_reg(29);
 
 -- Slave 2: Write-only register
 

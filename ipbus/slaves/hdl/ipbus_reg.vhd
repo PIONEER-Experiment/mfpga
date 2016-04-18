@@ -4,8 +4,6 @@
 --
 -- We use one cycle of read / write latency to ease timing (probably not necessary)
 -- The q outputs change immediately on write (no latency).
---
--- Dave Newbold, March 2011
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -49,6 +47,9 @@ begin
 				reg(0)(8)  <= '1'; -- Channel 2 enabled by default
 				reg(0)(9)  <= '1'; -- Channel 3 enabled by default
 				reg(0)(10) <= '1'; -- Channel 4 enabled by default
+				reg(1) <= x"0000000a"; -- Default threshold for data corruption is 10
+				reg(2) <= x"0000000a"; -- Default threshold for unknown TTC broadcast commands is 10
+				reg(3) <= x"00733334"; -- Default threshold for DDR3 overflow warning is 7,549,747 (90% full)
 			elsif ipbus_in.ipb_strobe='1' and ipbus_in.ipb_write='1' then
 				reg(sel) <= ipbus_in.ipb_wdata;
 			end if;

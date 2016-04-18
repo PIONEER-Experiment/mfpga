@@ -1,6 +1,6 @@
-// top-level module for trigger handling and management
+// Top-level module for trigger handling and management
 
-module trigger_top(
+module trigger_top (
     // clocks
     input wire ttc_clk, //  40 MHz
     input wire clk125,  // 125 MHz
@@ -56,8 +56,8 @@ module trigger_top(
     output wire [ 6:0] tp_state,       // trigger processor state
     output wire [23:0] trig_num,       // global trigger number
     output wire [43:0] trig_timestamp, // timestamp for latest trigger received
-    (* mark_debug = "true" *) output wire trig_fifo_full,        // TTC trigger FIFO is almost full
-    (* mark_debug = "true" *) output wire acq_fifo_full,         // acquisition event FIFO is almost full
+    output wire trig_fifo_full,        // TTC trigger FIFO is almost full
+    output wire acq_fifo_full,         // acquisition event FIFO is almost full
 
     // error connections
     output wire [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
@@ -100,78 +100,42 @@ module trigger_top(
     // ----------------
 
     // synchronize chan_dones
-    wire [4:0] chan_dones_sync;
-    sync_2stage chan_dones_sync0(
+    wire [4:0] chan_dones_clk40;
+    sync_2stage #(
+        .WIDTH(5)
+    ) chan_dones_sync (
         .clk(ttc_clk),
-        .in(chan_dones[0]),
-        .out(chan_dones_sync[0])
-    );
-    sync_2stage chan_dones_sync1(
-        .clk(ttc_clk),
-        .in(chan_dones[1]),
-        .out(chan_dones_sync[1])
-    );
-    sync_2stage chan_dones_sync2(
-        .clk(ttc_clk),
-        .in(chan_dones[2]),
-        .out(chan_dones_sync[2])
-    );
-    sync_2stage chan_dones_sync3(
-        .clk(ttc_clk),
-        .in(chan_dones[3]),
-        .out(chan_dones_sync[3])
-    );
-    sync_2stage chan_dones_sync4(
-        .clk(ttc_clk),
-        .in(chan_dones[4]),
-        .out(chan_dones_sync[4])
+        .in(chan_dones),
+        .out(chan_dones_clk40)
     );
 
     // synchronize chan_en
-    wire [4:0] chan_en_sync;
-    sync_2stage chan_en_sync0(
+    wire [4:0] chan_en_clk40;
+    sync_2stage #(
+        .WIDTH(5)
+    ) chan_en_sync (
         .clk(ttc_clk),
-        .in(chan_en[0]),
-        .out(chan_en_sync[0])
-    );
-    sync_2stage chan_en_sync1(
-        .clk(ttc_clk),
-        .in(chan_en[1]),
-        .out(chan_en_sync[1])
-    );    
-    sync_2stage chan_en_sync2(
-        .clk(ttc_clk),
-        .in(chan_en[2]),
-        .out(chan_en_sync[2])
-    );
-    sync_2stage chan_en_sync3(
-        .clk(ttc_clk),
-        .in(chan_en[3]),
-        .out(chan_en_sync[3])
-    );
-    sync_2stage chan_en_sync4(
-        .clk(ttc_clk),
-        .in(chan_en[4]),
-        .out(chan_en_sync[4])
+        .in(chan_en),
+        .out(chan_en_clk40)
     );
 
     // toggle synchronize readout_done
-    (* mark_debug = "true" *) wire readout_done_sync;
-    toggle_sync_2stage readout_done_sync0(
+    wire readout_done_clk40;
+    toggle_sync_2stage readout_done_sync (
         .clk_in(clk125),
         .clk_out(ttc_clk),
         .in(readout_done),
-        .out(readout_done_sync)
+        .out(readout_done_clk40)
     );
 
     // synchronize readout_size
-    (* mark_debug = "true" *) wire [63:0] readout_size_sync;
-    wire [63:0] readout_size_in;
-    assign readout_size_in = {42'd0, readout_size[21:0]};
-    sync_2stage_64bit readout_size_sync0(
+    wire [21:0] readout_size_clk40;
+    sync_2stage #(
+        .WIDTH(22)
+    ) readout_size_sync (
         .clk(ttc_clk),
-        .in(readout_size_in),
-        .out(readout_size_sync)
+        .in(readout_size),
+        .out(readout_size_clk40)
     );
 
     // ----------------
@@ -179,7 +143,7 @@ module trigger_top(
     // ----------------
 
     // TTC trigger receiver module
-    ttc_trigger_receiver ttc_trigger_receiver(
+    ttc_trigger_receiver ttc_trigger_receiver (
         // user interface clock and reset
         .clk(ttc_clk),
         .reset(reset40),
@@ -193,11 +157,11 @@ module trigger_top(
         .trig_type(trig_type),                     // trigger type (muon fill, laser, pedestal)
         .trig_settings(trig_settings),             // trigger settings
         .thres_ddr3_overflow(thres_ddr3_overflow), // DDR3 overflow threshold
-        .chan_en(chan_en_sync),                    // enabled channels
+        .chan_en(chan_en_clk40),                   // enabled channels
 
         // command manager interface
-        .readout_done(readout_done_sync), // a readout has completed
-        .readout_size(readout_size_sync[21:0]), // burst count of readout event
+        .readout_done(readout_done_clk40), // a readout has completed
+        .readout_size(readout_size_clk40), // burst count of readout event
 
         .burst_count_chan0(burst_count_chan0), // burst count set for Channel 0
         .burst_count_chan1(burst_count_chan1), // burst count set for Channel 1
@@ -235,7 +199,7 @@ module trigger_top(
 
     
     // channel acquisition controller module
-    channel_acq_controller channel_acq_controller(
+    channel_acq_controller channel_acq_controller (
         // clock and reset
         .clk(ttc_clk),
         .reset(reset40),
@@ -251,7 +215,7 @@ module trigger_top(
         .acq_ready(acq_ready),     // channels are ready to acquire data
 
         // interface to Channel FPGAs
-        .acq_dones(chan_dones_sync),
+        .acq_dones(chan_dones_clk40),
         .acq_enable(chan_enable),
         .acq_trig(chan_trig),
 
@@ -266,7 +230,7 @@ module trigger_top(
 
     
     // trigger processor module
-    trigger_processor trigger_processor(
+    trigger_processor trigger_processor (
         // clock and reset
         .clk(clk125),
         .reset(rst_from_ipb),
@@ -301,7 +265,7 @@ module trigger_top(
 
     // TTC Trigger FIFO : 1024 depth, 512 almost full threshold, 16-byte data width
     // holds the trigger timestamp, trigger number, acquired event number, and trigger type
-    ttc_trigger_fifo ttc_trigger_fifo(
+    ttc_trigger_fifo ttc_trigger_fifo (
         // writing side
         .s_aclk(ttc_clk),                   // input
         .s_aresetn(reset40_n),              // input
@@ -322,7 +286,7 @@ module trigger_top(
 
     // Acquisition Event FIFO : 1024 depth, 512 almost full threshold, 4-byte data width
     // holds the trigger number and trigger type
-    acq_event_fifo acq_event_fifo(
+    acq_event_fifo acq_event_fifo (
         // writing side
         .s_aclk(ttc_clk),                  // input
         .s_aresetn(reset40_n),             // input

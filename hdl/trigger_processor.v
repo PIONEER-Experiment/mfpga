@@ -1,33 +1,33 @@
 // Finite state machine to handle readout of processed TTC triggers
 
-module trigger_processor(
+module trigger_processor (
   // clock and reset
   input wire clk,   // 125 MHz clock
   input wire reset,
 
   // interface to TTC Trigger FIFO
-  (* mark_debug = "true" *) input wire trig_fifo_valid,
-  (* mark_debug = "true" *) input wire [127:0] trig_fifo_data,
-  (* mark_debug = "true" *) output reg trig_fifo_ready,
+  input wire trig_fifo_valid,
+  input wire [127:0] trig_fifo_data,
+  output reg trig_fifo_ready,
 
   // interface to Acquisition Event FIFO
-  (* mark_debug = "true" *) input wire acq_fifo_valid,
-  (* mark_debug = "true" *) input wire [31:0] acq_fifo_data,
-  (* mark_debug = "true" *) output reg acq_fifo_ready,
+  input wire acq_fifo_valid,
+  input wire [31:0] acq_fifo_data,
+  output reg acq_fifo_ready,
 
   // interface to command manager
-  (* mark_debug = "true" *) input wire readout_ready,    // command manager is idle
-  (* mark_debug = "true" *) input wire readout_done,     // initiated readout has finished
-  (* mark_debug = "true" *) output reg send_empty_event, // request an empty event
-  (* mark_debug = "true" *) output reg initiate_readout, // request for the channels to be read out
+  input wire readout_ready,    // command manager is idle
+  input wire readout_done,     // initiated readout has finished
+  output reg send_empty_event, // request an empty event
+  output reg initiate_readout, // request for the channels to be read out
 
-  (* mark_debug = "true" *) output reg [23:0] ttc_event_num,      // channel's trigger number
-  (* mark_debug = "true" *) output reg [23:0] ttc_trig_num,       // global trigger number
-  (* mark_debug = "true" *) output reg [ 1:0] ttc_trig_type,      // trigger type
-  (* mark_debug = "true" *) output reg [43:0] ttc_trig_timestamp, // trigger timestamp
+  output reg [23:0] ttc_event_num,      // channel's trigger number
+  output reg [23:0] ttc_trig_num,       // global trigger number
+  output reg [ 1:0] ttc_trig_type,      // trigger type
+  output reg [43:0] ttc_trig_timestamp, // trigger timestamp
 
   // status connections
-  (* mark_debug = "true" *) output reg [6:0] state,     // state of finite state machine
+  output reg [6:0] state,     // state of finite state machine
   output wire error_trig_num, // trigger number mismatch between FIFOs
   output wire error_trig_type // trigger type mismatch between FIFOs
 );
@@ -43,11 +43,11 @@ module trigger_processor(
   
 
   // latched data from TTC Trigger FIFO
-  (* mark_debug = "true" *) reg ttc_empty_event;
+  reg ttc_empty_event;
 
   // latched data from Acquisition Event FIFO
-  (* mark_debug = "true" *) reg [ 1:0] acq_trig_type;
-  (* mark_debug = "true" *) reg [23:0] acq_trig_num;
+  reg [ 1:0] acq_trig_type;
+  reg [23:0] acq_trig_num;
 
   // 'next' signals
   reg [ 6:0] nextstate;

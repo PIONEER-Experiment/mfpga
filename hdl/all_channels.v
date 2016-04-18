@@ -1,7 +1,7 @@
-// Connect all of the serial links to the channel FPGAs that use the Aurora interface.
-// Implement and distribute any shared signals that are not passed from above.
+// Connect all of the serial links to the channel FPGAs that use the Aurora interface
+// Implement and distribute any shared signals that are not passed from above
 
-module all_channels(
+module all_channels (
   // clocks and reset
   input clk50,             // Aurora 'init_clk' uses 50 MHz clock per PG046-20
   input clk50_reset,       // active_hi synched to 'clk50'

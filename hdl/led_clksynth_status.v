@@ -1,9 +1,7 @@
-`timescale 1ns / 1ps
-
 // Module to control front panel LED
 // for the clock synthesizer status
 
-module led_clksynth_status(
+module led_clksynth_status (
   input wire clk,
   output wire red_led,
   output wire green_led,

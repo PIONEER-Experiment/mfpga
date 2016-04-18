@@ -26,18 +26,25 @@ entity ipbus_status_reg is
 		reg8      : in STD_LOGIC_VECTOR(31 downto 0);
 		reg9      : in STD_LOGIC_VECTOR(31 downto 0);
 		reg10     : in STD_LOGIC_VECTOR(31 downto 0);
-		reg11     : in STD_LOGIC_VECTOR(31 downto 0)
+		reg11     : in STD_LOGIC_VECTOR(31 downto 0);
+		reg12     : in STD_LOGIC_VECTOR(31 downto 0);
+		reg13     : in STD_LOGIC_VECTOR(31 downto 0);
+		reg14     : in STD_LOGIC_VECTOR(31 downto 0);
+		reg15     : in STD_LOGIC_VECTOR(31 downto 0);
+		reg16     : in STD_LOGIC_VECTOR(31 downto 0);
+		reg17     : in STD_LOGIC_VECTOR(31 downto 0);
+		reg18     : in STD_LOGIC_VECTOR(31 downto 0)
 	);
 	
 end ipbus_status_reg;
 
 architecture rtl of ipbus_status_reg is
 
-	type reg_array is array(11 downto 0) of std_logic_vector(31 downto 0);
-	signal reg: reg_array;
-	signal sel: integer;
-	signal ack: std_logic;
-	signal err: std_logic;
+	type reg_array is array(18 downto 0) of std_logic_vector(31 downto 0);
+	signal reg : reg_array;
+	signal sel : integer;
+	signal ack : std_logic;
+	signal err : std_logic;
 
 begin
 
@@ -75,5 +82,12 @@ begin
 	reg(9) <= reg9;
 	reg(10) <= reg10;
 	reg(11) <= reg11;
+	reg(12) <= reg12;
+	reg(13) <= reg13;
+	reg(14) <= reg14;
+	reg(15) <= reg15;
+	reg(16) <= reg16;
+	reg(17) <= reg17;
+	reg(18) <= reg18;
 
 end rtl;

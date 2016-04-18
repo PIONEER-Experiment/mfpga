@@ -1,11 +1,10 @@
-`timescale 1ns / 1ps
 `include "afe_dac_regs.txt"
 
 // ============================================
 // Interface between Master FPGA and AFE's DACs
 // ============================================
 
-module afe_dac_intf(
+module afe_dac_intf (
     input clk50,
     input clk50_reset,
 

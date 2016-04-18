@@ -1,32 +1,32 @@
 // Finite state machine to control triggering of the channels
 
-module channel_acq_controller(
+module channel_acq_controller (
   // clock and reset
   input wire clk,   // 40 MHz TTC clock
   input wire reset,
 
   // trigger configuration
-  (* mark_debug = "true" *) input wire [4:0] chan_en,    // which channels should receive the trigger
-  (* mark_debug = "true" *) input wire [3:0] trig_delay, // delay between receiving trigger and passing it onto channels
+  input wire [4:0] chan_en,    // which channels should receive the trigger
+  input wire [3:0] trig_delay, // delay between receiving trigger and passing it onto channels
 
   // interface from TTC trigger receiver
-  (* mark_debug = "true" *) input wire trigger,          // trigger signal
-  (* mark_debug = "true" *) input wire [ 1:0] trig_type, // trigger type (muon fill, laser, pedestal)
-  (* mark_debug = "true" *) input wire [23:0] trig_num,  // trigger number
-  (* mark_debug = "true" *) output wire acq_ready,       // channels are ready to acquire data
+  input wire trigger,          // trigger signal
+  input wire [ 1:0] trig_type, // trigger type (muon fill, laser, pedestal)
+  input wire [23:0] trig_num,  // trigger number
+  output wire acq_ready,       // channels are ready to acquire data
 
   // interface to Channel FPGAs
-  (* mark_debug = "true" *) input wire [4:0] acq_dones,
-  (* mark_debug = "true" *) output reg [9:0] acq_enable,
-  (* mark_debug = "true" *) output reg [4:0] acq_trig,
+  input wire [4:0] acq_dones,
+  output reg [9:0] acq_enable,
+  output reg [4:0] acq_trig,
 
   // interface to Acquisition Event FIFO
-  (* mark_debug = "true" *) input wire fifo_ready,
-  (* mark_debug = "true" *) output reg fifo_valid,
-  (* mark_debug = "true" *) output reg [31:0] fifo_data,
+  input wire fifo_ready,
+  output reg fifo_valid,
+  output reg [31:0] fifo_data,
 
   // status connections
-  (* mark_debug = "true" *) output reg [3:0] state // state of finite state machine
+  output reg [3:0] state // state of finite state machine
 );
 
   // state bits
@@ -36,14 +36,14 @@ module channel_acq_controller(
   parameter STORE_ACQ_INFO = 3;
   
 
-  (* mark_debug = "true" *) reg [ 1:0] acq_trig_type; // latched trigger type
-  (* mark_debug = "true" *) reg [23:0] acq_trig_num;  // latched trigger number
+  reg [ 1:0] acq_trig_type; // latched trigger type
+  reg [23:0] acq_trig_num;  // latched trigger number
 
-  (* mark_debug = "true" *) reg [ 3:0] nextstate;
+  reg [ 3:0] nextstate;
   reg [ 1:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
 
-  (* mark_debug = "true" *) reg [3:0] delay_cnt; // counter to keep track of trigger delay 
+  reg [3:0] delay_cnt; // counter to keep track of trigger delay 
 
 
   // combinational always block

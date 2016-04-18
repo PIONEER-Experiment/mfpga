@@ -16,7 +16,7 @@
 //
 // Originally created using Fizzim
 
-module command_manager(
+module command_manager (
   // user interface clock and reset
   input wire clk,
   input wire rst,
@@ -35,11 +35,11 @@ module command_manager(
   output reg chan_rx_fifo_ready,
 
   // interface to IPbus AXI output
-  (* mark_debug = "true" *) input wire ipbus_cmd_valid,
-  (* mark_debug = "true" *) input wire ipbus_cmd_last,
-  (* mark_debug = "true" *) input wire [3:0] ipbus_cmd_dest,
-  (* mark_debug = "true" *) input wire [31:0] ipbus_cmd_data,
-  (* mark_debug = "true" *) output reg ipbus_cmd_ready,
+  input wire ipbus_cmd_valid,
+  input wire ipbus_cmd_last,
+  input wire [3:0] ipbus_cmd_dest,
+  input wire [31:0] ipbus_cmd_data,
+  output reg ipbus_cmd_ready,
 
   // interface to IPbus AXI input
   input wire ipbus_res_ready,
@@ -62,27 +62,27 @@ module command_manager(
   input wire [23:0] trig_num,       // global trigger number, starts at 1
   input wire [ 1:0] trig_type,      // trigger type
   input wire [43:0] trig_timestamp, // trigger timestamp, defined by when trigger is received by trigger receiver module
-  (* mark_debug = "true" *) output wire readout_ready,        // ready to readout data, i.e., when in idle state
-  (* mark_debug = "true" *) output reg readout_done,          // finished readout flag
-  (* mark_debug = "true" *) output wire [21:0] readout_size,  // burst count of readout event
+  output wire readout_ready,        // ready to readout data, i.e., when in idle state
+  output reg readout_done,          // finished readout flag
+  output wire [21:0] readout_size,  // burst count of readout event
 
-  (* mark_debug = "true" *) output wire [22:0] burst_count_chan0,
-  (* mark_debug = "true" *) output wire [22:0] burst_count_chan1,
-  (* mark_debug = "true" *) output wire [22:0] burst_count_chan2,
-  (* mark_debug = "true" *) output wire [22:0] burst_count_chan3,
-  (* mark_debug = "true" *) output wire [22:0] burst_count_chan4,
+  output wire [22:0] burst_count_chan0,
+  output wire [22:0] burst_count_chan1,
+  output wire [22:0] burst_count_chan2,
+  output wire [22:0] burst_count_chan3,
+  output wire [22:0] burst_count_chan4,
 
-  (* mark_debug = "true" *) output wire [11:0] wfm_count_chan0,
-  (* mark_debug = "true" *) output wire [11:0] wfm_count_chan1,
-  (* mark_debug = "true" *) output wire [11:0] wfm_count_chan2,
-  (* mark_debug = "true" *) output wire [11:0] wfm_count_chan3,
-  (* mark_debug = "true" *) output wire [11:0] wfm_count_chan4,
+  output wire [11:0] wfm_count_chan0,
+  output wire [11:0] wfm_count_chan1,
+  output wire [11:0] wfm_count_chan2,
+  output wire [11:0] wfm_count_chan3,
+  output wire [11:0] wfm_count_chan4,
 
   // status connections
   input wire [4:0] chan_en,             // enabled channels, one bit for each channel
   input wire endianness_sel,            // select bit for the endianness of ADC data
   input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
-  (* mark_debug = "true" *) output reg [30:0] state,              // state of finite state machine
+  output reg [30:0] state,              // state of finite state machine
 
   // error connections
   output reg [31:0] cs_mismatch_count, // number of checksum mismatches
@@ -130,8 +130,8 @@ module command_manager(
 
   // channel header regs sorted the way they will be used: first chan_trig_num, then fill_type, ...
   reg [23:0] chan_trig_num;     // trigger number from channel header, starts at 1
-  (* mark_debug = "true" *) reg [ 2:0] fill_type;         // fill type: muon, laser, pedestal, ...
-  (* mark_debug = "true" *) reg [22:0] burst_count;       // burst count for data acquisition, 1 burst count = 8 ADC samples
+  reg [ 2:0] fill_type;         // fill type: muon, laser, pedestal, ...
+  reg [22:0] burst_count;       // burst count for data acquisition, 1 burst count = 8 ADC samples
   reg [25:0] ddr3_start_addr;   // DDR3 start address (3 LSBs always zero)
   reg [11:0] wfm_count;         // number of waveform to be acquired
   reg [21:0] wfm_gap_length;    // gap in unit of 2.5 ns between two consecutive waveforms
@@ -140,7 +140,7 @@ module command_manager(
   reg [31:0] csn;               // channel serial number
   reg [31:0] data_count;        // # of 32-bit data words received from Aurora, per waveform
   reg [11:0] data_wfm_count;    // # of waveforms received from Aurora
-  (* mark_debug = "true" *) reg [31:0] ipbus_buf;         // buffer for IPbus data
+  reg [31:0] ipbus_buf;         // buffer for IPbus data
   reg [31:0] readout_timestamp; // channel data readout timestamp
   reg [ 2:0] num_chan_en;       // number of enabled channels
   reg sent_amc13_header;        // flag to indicate that the AMC13 header has been sent
@@ -154,8 +154,8 @@ module command_manager(
   reg empty_event;                   // flag to indicate if this should be an empty event
   reg [22:0] chan_burst_count [4:0]; // two-dimentional memory for the configured burst counts
   reg [11:0] chan_wfm_count [4:0];   // two-dimentional memory for the configured waveform counts
-  (* mark_debug = "true" *) reg [31:0] ipbus_chan_cmd;         // buffer for issued channel command
-  (* mark_debug = "true" *) reg [31:0] ipbus_chan_reg;         // buffer for issued channel register
+  reg [31:0] ipbus_chan_cmd;         // buffer for issued channel command
+  reg [31:0] ipbus_chan_reg;         // buffer for issued channel register
 
 
   // break out the channel signals
@@ -173,7 +173,7 @@ module command_manager(
   
 
   // for internal regs
-  (* mark_debug = "true" *) reg [30:0] nextstate;
+  reg [30:0] nextstate;
   reg [22:0] next_burst_count;
   reg [31:0] next_chan_num_buf;
   reg [ 2:0] next_fill_type;
