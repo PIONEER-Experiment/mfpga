@@ -32,6 +32,22 @@ module afe_dac_intf (
 );
 
 
+// ==============================================
+// generate a low speed clock (6.25 MHz / 160 ns)
+// ==============================================
+reg [2:0] clk_cnt;
+wire slow_clk;
+wire slow_clk_180;
+
+always @ (posedge clk50)
+begin
+    clk_cnt[2:0] <= clk_cnt[2:0] + 1'b1;
+end 
+
+assign slow_clk = clk_cnt[2];
+assign slow_clk_180 = !slow_clk;
+
+
 // ==================
 // static assignments
 // ==================
@@ -257,12 +273,15 @@ reg32_ce2  s06_1_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC3_
 // to reset the loop counter and thus initiate a new programming sequence
 
 // synchronize the LSB with the slow_clk
-reg scntrl_LSB;
+wire scntrl_LSB;
+reg scntrl_LSB_sync1, scntrl_LSB_sync2;
 
 always @ (posedge slow_clk)
 begin
-    scntrl_LSB <= scntrl_reg_out[0];
+    scntrl_LSB_sync1 <= scntrl_reg_out[0];
+    scntrl_LSB_sync2 <= scntrl_LSB_sync1;
 end
+assign scntrl_LSB = scntrl_LSB_sync2;
 
 
 // =================================================
@@ -312,22 +331,6 @@ begin
             endcase
         end
 end
-
-
-// ==============================================
-// generate a low speed clock (6.25 MHz / 160 ns)
-// ==============================================
-reg [2:0] clk_cnt;
-wire slow_clk;
-wire slow_clk_180;
-
-always @ (posedge clk50)
-begin
-    clk_cnt[2:0] <= clk_cnt[2:0] + 1'b1;
-end 
-
-assign slow_clk = clk_cnt[2];
-assign slow_clk_180 = !slow_clk;
 
 
 // ==========================================================
