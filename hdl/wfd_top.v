@@ -3,10 +3,9 @@
 // As a useful reference, here's the syntax to mark signals for debug:
 // (* mark_debug = "true" *) 
 //
-// Notes:
-// 1. The channels are also reset with the TTC trigger number reset command.
+// Note 1: The channels are also reset with the TTC trigger number reset command.
 
-module wfd_top(
+module wfd_top (
     input  wire clkin,                // 50 MHz clock
     input  wire gtx_clk0, gtx_clk0_N, // Bank 115 125 MHz GTX Transceiver refclk
     input  wire gtx_clk1, gtx_clk1_N, // Bank 116 125 MHz GTX Transceiver refclk

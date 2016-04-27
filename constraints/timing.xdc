@@ -32,3 +32,4 @@ set_false_path -from [get_cells ipb/slaves/slave4/flash_cmd_strobe_reg*] -to [ge
 
 # Separate asynchronous clock domains
 set_clock_groups -name async_clks -asynchronous -group [get_clocks -include_generated_clocks clk50] -group [get_clocks -include_generated_clocks gige_clk] -group [get_clocks -include_generated_clocks ttc_clk] -group [get_clocks -include_generated_clocks DAQ_usrclk] -group [get_clocks -include_generated_clocks user_clk_chan0] -group [get_clocks -include_generated_clocks user_clk_chan1] -group [get_clocks -include_generated_clocks user_clk_chan2] -group [get_clocks -include_generated_clocks user_clk_chan3] -group [get_clocks -include_generated_clocks user_clk_chan4] -group [get_clocks -include_generated_clocks ipb/eth/phy/inst/pcs_pma_block_i/transceiver_inst/gtwizard_inst/inst/gtwizard_i/gt0_GTWIZARD_i/gtxe2_i/TXOUTCLK]
+
