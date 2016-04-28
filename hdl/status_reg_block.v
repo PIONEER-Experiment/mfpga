@@ -95,7 +95,7 @@ module status_reg_block (
 );
 
 // Register 00: Firmware version
-assign status_reg0 = {8'd0, `MAJOR_REV, `MINOR_REV, `BUG_FIX_REV};
+assign status_reg0 = {8'd0, `MAJOR_REV, `MINOR_REV, `BUILD_REV};
 
 // Register 01: Error
 assign status_reg1  = {27'd0, chan_error_rc[4:0], error_trig_type_from_cm, error_trig_type_from_tt, error_trig_num_from_cm, error_trig_num_from_tt, error_data_corrupt, error_trig_rate, error_unknown_ttc, error_pll_unlock};

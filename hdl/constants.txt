@@ -8,8 +8,8 @@
   	`define CONSTANTS_INCLUDED
 
 	// Define 8-bit constants to hold info about code version and functionality
-	`define	MAJOR_REV		8'd1	// major revision
-	`define	MINOR_REV		8'd0	// minor revision
-	`define BUG_FIX_REV		8'd0	// bug fix revision
+	`define	MAJOR_REV	8'd1	// major revision
+	`define	MINOR_REV	8'd0	// minor revision
+	`define BUILD_REV	8'd0	// build revision
 
 `endif
