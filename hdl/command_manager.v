@@ -213,6 +213,7 @@ module command_manager (
   // Explaination for 'event size' calculation:
   // (burst_count[19:0]*2              : 2 64-bit words per burst
   //                   +2              : 2 64-bit channel header words per channel data set
+  //                   +2*num_wfm_en   : 2 64-bit waveform header words per waveform data set
   //                   +2              : 2 64-bit channel checksum words per channel data set
   //                   +1)             : 1 64-bit readout timestamp per channel data set
   //                      *num_chan_en : # channels that will send data

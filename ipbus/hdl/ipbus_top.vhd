@@ -210,8 +210,8 @@ begin
 	-- reserved / assigned IP and MAC addresses are stored
 	-- on the Cornell CLASSE Muon g-2 wiki
 
-	mac_addr <= X"006055000140"; -- hard-coded to 00:60:55:00:01:40
-	ip_addr <= X"c0a81a28"; -- hard-coded to 192.168.26.40
+	mac_addr <= X"006055000128"; -- hard-coded to 00:60:55:00:01:28
+	ip_addr  <= X"c0a80128";     -- hard-coded to 192.168.26.40
 
 
 	-- ipbus slaves live in the entity below and can expose top-level ports

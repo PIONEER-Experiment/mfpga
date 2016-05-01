@@ -34,28 +34,23 @@
     // Format: {4'h0, CMD[27:24], ADDR[23:20], DATA[19:4], 4'h0}
     // 32'h0cadddd0
 
-    // OFFSET_0 = 0.000 V, /OFFSET_0 = 0.975 V (2^16 / 2^16 * Vdd)
-    // OFFSET_1 = 0.000 V, /OFFSET_1 = 0.975 V (2^16 / 2^16 * Vdd)
-    // OFFSET_2 = 0.000 V, /OFFSET_2 = 0.975 V (2^16 / 2^16 * Vdd)
-    // OFFSET_3 = 0.000 V, /OFFSET_3 = 0.975 V (2^16 / 2^16 * Vdd)
-    // OFFSET_4 = 0.000 V, /OFFSET_4 = 0.975 V (2^16 / 2^16 * Vdd)
     // VOCM = MID-SUPPLY
-    // N.C. = MID-SUPPLY
+    // N.C. = POWER-OFF (100 kOhm to GND)
 
-    `define DAC1_DEF_CHAN_A    32'h030ffff0    // DAC #1 Channel A :  OFFSET_4
+    `define DAC1_DEF_CHAN_A    32'h030ffff0    // DAC #1 Channel A :  OFFSET_0
     `define DAC2_DEF_CHAN_A    32'h030ffff0    // DAC #2 Channel A :  OFFSET_2
-    `define DAC3_DEF_CHAN_A    32'h030ffff0    // DAC #3 Channel A :  OFFSET_0
+    `define DAC3_DEF_CHAN_A    32'h030ffff0    // DAC #3 Channel A :  OFFSET_4
 
-    `define DAC1_DEF_CHAN_B    32'h03100000    // DAC #1 Channel B : /OFFSET_4
+    `define DAC1_DEF_CHAN_B    32'h03100000    // DAC #1 Channel B : /OFFSET_0
     `define DAC2_DEF_CHAN_B    32'h03100000    // DAC #2 Channel B : /OFFSET_2
-    `define DAC3_DEF_CHAN_B    32'h03100000    // DAC #3 Channel B : /OFFSET_0
+    `define DAC3_DEF_CHAN_B    32'h03100000    // DAC #3 Channel B : /OFFSET_4
 
-    `define DAC1_DEF_CHAN_C    32'h03280000    // DAC #1 Channel C :  VOCM
+    `define DAC1_DEF_CHAN_C    32'h032ffff0    // DAC #1 Channel C :  OFFSET_1
     `define DAC2_DEF_CHAN_C    32'h032ffff0    // DAC #2 Channel C :  OFFSET_3
-    `define DAC3_DEF_CHAN_C    32'h032ffff0    // DAC #3 Channel C :  OFFSET_1
+    `define DAC3_DEF_CHAN_C    32'h03280000    // DAC #3 Channel C :  VOCM
 
-    `define DAC1_DEF_CHAN_D    32'h03300000    // DAC #1 Channel D :  N.C.
+    `define DAC1_DEF_CHAN_D    32'h03300000    // DAC #1 Channel D : /OFFSET_1
     `define DAC2_DEF_CHAN_D    32'h03300000    // DAC #2 Channel D : /OFFSET_3
-    `define DAC3_DEF_CHAN_D    32'h03300000    // DAC #3 Channel D : /OFFSET_1
+    `define DAC3_DEF_CHAN_D    32'h04000208    // DAC #3 Channel D :  N.C.
 
 `endif

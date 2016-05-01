@@ -4,13 +4,15 @@
 // Interface between Master FPGA and AFE's DACs
 // ============================================
 
+// Note: Modified to support AD5666, 11/02/2015
+
 module afe_dac_intf (
     input clk50,
     input clk50_reset,
 
     // inputs from IPbus
-    input io_clk,             // ipbus interface clock
-    input io_reset,           // ipbus interface reset    
+    input io_clk,             // IPbus interface clock
+    input io_reset,           // IPbus interface reset    
     input io_sel,             // this module has been selected for an I/O operation
     input io_sync,            // start the I/O operation
     input [19:0] io_addr,     // local slave address, memory or register
@@ -57,12 +59,21 @@ assign sclk = slow_clk_180;
 // ================================
 // synchronize state machine inputs
 // ================================
-reg resetS;
+wire clk50_reset_stretch;
+wire resetS, resetS_from_clk50;
 
-always @ (posedge slow_clk)
-begin
-    resetS <= clk50_reset;
-end
+signal_stretch clk50_reset_stretch_module (
+    .signal_in(clk50_reset),
+    .clk(clk50),
+    .n_extra_cycles(8'h10), // add more than enough extra clock cycles for synchronization into 6.25 MHz clock domain
+    .signal_out(clk50_reset_stretch)
+);
+
+sync_2stage resetS_sync (
+    .clk(slow_clk),
+    .in(clk50_reset_stretch),
+    .out(resetS_from_clk50)
+);
 
 
 // ===================================================
@@ -77,14 +88,22 @@ parameter STARTUP_DONE   = 3'b110;
 reg [2:0] startup_state = STARTUP_IDLE;
 
 reg [15:0] startup_cnt = 16'd0; // counter to wait >3 ms after power up
-reg startup_rst_level_cntrl;    // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for cntrl
-reg startup_rst_level_reg;      // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for regs
+reg startup_rst_cntrl;          // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for cntrl
+reg startup_rst_reg;            // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for regs
 reg startup_done;               // flag to tell other state machines that the startup procedure is complete
 
-wire startup_rst_cntrl;
-wire startup_rst_reg;
-assign startup_rst_cntrl = (startup_rst_level_cntrl) ? 1'b1 : 1'b0;
-assign startup_rst_reg   = (startup_rst_level_reg)   ? 1'b1 : 1'b0;
+
+assign resetS = (startup_done) ? resetS_from_clk50 : startup_rst_reg;
+
+// synchronize resetS in io_clk domain
+// for s[#]_reg_out reset signals
+wire resetS_ioclk;
+sync_2stage io_reset_sync (
+    .clk(io_clk),
+    .in(resetS),
+    .out(resetS_ioclk)
+);
+
 
 always @ (posedge slow_clk)
 begin
@@ -94,9 +113,9 @@ begin
     case (startup_state)
         STARTUP_IDLE : begin
             startup_cnt[15:0] <= 16'd0;
-            startup_rst_level_cntrl <= 1'b0;
-            startup_rst_level_reg <= 1'b0;
-            startup_done <= 1'b0;
+            startup_rst_cntrl <= 1'b0;
+            startup_rst_reg   <= 1'b0;
+            startup_done      <= 1'b0;
 
             startup_state <= STARTUP_WAIT;
         end
@@ -104,9 +123,9 @@ begin
         // wait for >3 ms after power is delivered to AFE's DACs
         STARTUP_WAIT : begin
             startup_cnt[15:0] <= startup_cnt[15:0] + 1'b1;
-            startup_rst_level_cntrl <= 1'b0;
-            startup_rst_level_reg <= 1'b0;
-            startup_done <= 1'b0;
+            startup_rst_cntrl <= 1'b0;
+            startup_rst_reg   <= 1'b0;
+            startup_done      <= 1'b0;
 
             if (startup_cnt[15])
                 startup_state <= STARTUP_RESET;
@@ -116,11 +135,12 @@ begin
         
         // reset the s[#]_reg reg32_ce2 blocks to their default values
         // this will load the default register values into s[#]_reg_out wires
+        // and will initialize the other state machines to their IDLE state
         STARTUP_RESET : begin
             startup_cnt[15:0] <= startup_cnt[15:0] + 1'b1;
-            startup_rst_level_cntrl <= 1'b0;
-            startup_rst_level_reg <= 1'b1;
-            startup_done <= 1'b0;
+            startup_rst_cntrl <= 1'b0;
+            startup_rst_reg   <= 1'b1;
+            startup_done      <= 1'b0;
 
             if (startup_cnt[5])
                 startup_state <= STARTUP_STROBE;
@@ -132,9 +152,9 @@ begin
         // this will initiate the configuration to the DACs
         STARTUP_STROBE : begin
             startup_cnt[15:0] <= 16'd0;
-            startup_rst_level_cntrl <= 1'b1;
-            startup_rst_level_reg <= 1'b0;
-            startup_done <= 1'b0;
+            startup_rst_cntrl <= 1'b1;
+            startup_rst_reg   <= 1'b0;
+            startup_done      <= 1'b0;
 
             startup_state <= STARTUP_DONE;
         end
@@ -143,9 +163,9 @@ begin
         // the startup_done flag tells the WRITE SM to toggle the sync wire after writing to the registers
         STARTUP_DONE : begin
             startup_cnt[15:0] <= 16'd0;
-            startup_rst_level_cntrl <= 1'b0;
-            startup_rst_level_reg <= 1'b0;
-            startup_done <= 1'b1;
+            startup_rst_cntrl <= 1'b0;
+            startup_rst_reg   <= 1'b0;
+            startup_done      <= 1'b1;
 
             startup_state <= STARTUP_DONE;
         end
@@ -225,48 +245,39 @@ wire [95:0] s04_reg_out;    // AFE DAC Channel B
 wire [95:0] s05_reg_out;    // AFE DAC Channel C
 wire [95:0] s06_reg_out;    // AFE DAC Channel D
 
-// format: {(DAC #3 REG), (DAC #2 REG), (DAC #1 REG)}
-assign s00_reg_out = {s00_1_reg_out, s00_2_reg_out, s00_3_reg_out};
-assign s01_reg_out = {s01_1_reg_out, s01_2_reg_out, s01_3_reg_out};
-assign s02_reg_out = {s02_1_reg_out, s02_2_reg_out, s02_3_reg_out};
-assign s03_reg_out = {s03_1_reg_out, s03_2_reg_out, s03_3_reg_out};
-assign s04_reg_out = {s04_1_reg_out, s04_2_reg_out, s04_3_reg_out};
-assign s05_reg_out = {s05_1_reg_out, s05_2_reg_out, s05_3_reg_out};
-assign s06_reg_out = {s06_1_reg_out, s06_2_reg_out, s06_3_reg_out};
+// format: {(DAC #1 REG), (DAC #2 REG), (DAC #3 REG)}
+assign s00_reg_out = {s00_3_reg_out, s00_2_reg_out, s00_1_reg_out};
+assign s01_reg_out = {s01_3_reg_out, s01_2_reg_out, s01_1_reg_out};
+assign s02_reg_out = {s02_3_reg_out, s02_2_reg_out, s02_1_reg_out};
+assign s03_reg_out = {s03_3_reg_out, s03_2_reg_out, s03_1_reg_out};
+assign s04_reg_out = {s04_3_reg_out, s04_2_reg_out, s04_1_reg_out};
+assign s05_reg_out = {s05_3_reg_out, s05_2_reg_out, s05_1_reg_out};
+assign s06_reg_out = {s06_3_reg_out, s06_2_reg_out, s06_1_reg_out};
 
-// reverse format for initial configuration
-// NOT NEEDED RIGHT NOW SINCE \LDAC AND DCEN REGISTERS ARE IDENTICAL FOR ALL DACS
-//wire [95:0] s01_reg_out_r, s02_reg_out_r;
-//assign s01_reg_out_r = {s01_3_reg_out, s01_2_reg_out, s01_1_reg_out};
-//assign s02_reg_out_r = {s02_3_reg_out, s02_2_reg_out, s02_1_reg_out};
 
-wire rst_reg;    // want the reg_out values to be set to default when IPbus reset or the startup reset is asserted
-wire rst_cntrl;  // want the cntrl_reg_out values to be set to default when IPbus reset or the startup reset is asserted
-assign rst_reg   = resetS | startup_rst_reg;
-assign rst_cntrl = resetS | startup_rst_cntrl;
+reg32_ce2 scntrl_reg(.in(io_wr_data[31:0]), .reset(startup_rst_cntrl), .def_value(32'h0000_0001), .out(scntrl_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(scntrl_reg_sel));
 
-reg32_ce2 scntrl_reg(.in(io_wr_data[31:0]), .reset(rst_cntrl), .def_value(32'h00000001),     .out(scntrl_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(scntrl_reg_sel));
-reg32_ce2  s00_3_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC1_DEF_MODE),   .out(s00_3_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s00_3_reg_sel));
-reg32_ce2  s00_2_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC2_DEF_MODE),   .out(s00_2_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s00_2_reg_sel));
-reg32_ce2  s00_1_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC3_DEF_MODE),   .out(s00_1_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s00_1_reg_sel));
-reg32_ce2  s01_3_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC1_DEF_LDAC),   .out(s01_3_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s01_3_reg_sel));
-reg32_ce2  s01_2_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC2_DEF_LDAC),   .out(s01_2_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s01_2_reg_sel));
-reg32_ce2  s01_1_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC3_DEF_LDAC),   .out(s01_1_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s01_1_reg_sel));
-reg32_ce2  s02_3_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC1_DEF_DCEN),   .out(s02_3_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s02_3_reg_sel));
-reg32_ce2  s02_2_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC2_DEF_DCEN),   .out(s02_2_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s02_2_reg_sel));
-reg32_ce2  s02_1_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC3_DEF_DCEN),   .out(s02_1_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s02_1_reg_sel));
-reg32_ce2  s03_3_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC1_DEF_CHAN_A), .out(s03_3_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s03_3_reg_sel));
-reg32_ce2  s03_2_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC2_DEF_CHAN_A), .out(s03_2_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s03_2_reg_sel));
-reg32_ce2  s03_1_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC3_DEF_CHAN_A), .out(s03_1_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s03_1_reg_sel));
-reg32_ce2  s04_3_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC1_DEF_CHAN_B), .out(s04_3_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s04_3_reg_sel));
-reg32_ce2  s04_2_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC2_DEF_CHAN_B), .out(s04_2_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s04_2_reg_sel));
-reg32_ce2  s04_1_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC3_DEF_CHAN_B), .out(s04_1_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s04_1_reg_sel));
-reg32_ce2  s05_3_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC1_DEF_CHAN_C), .out(s05_3_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s05_3_reg_sel));
-reg32_ce2  s05_2_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC2_DEF_CHAN_C), .out(s05_2_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s05_2_reg_sel));
-reg32_ce2  s05_1_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC3_DEF_CHAN_C), .out(s05_1_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s05_1_reg_sel));
-reg32_ce2  s06_3_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC1_DEF_CHAN_D), .out(s06_3_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s06_3_reg_sel));
-reg32_ce2  s06_2_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC2_DEF_CHAN_D), .out(s06_2_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s06_2_reg_sel));
-reg32_ce2  s06_1_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC3_DEF_CHAN_D), .out(s06_1_reg_out[31:0]),  .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s06_1_reg_sel));
+reg32_ce2 s00_1_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC1_DEF_MODE),   .out(s00_1_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s00_1_reg_sel));
+reg32_ce2 s00_2_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC2_DEF_MODE),   .out(s00_2_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s00_2_reg_sel));
+reg32_ce2 s00_3_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC3_DEF_MODE),   .out(s00_3_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s00_3_reg_sel));
+reg32_ce2 s01_1_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC1_DEF_LDAC),   .out(s01_1_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s01_1_reg_sel));
+reg32_ce2 s01_2_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC2_DEF_LDAC),   .out(s01_2_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s01_2_reg_sel));
+reg32_ce2 s01_3_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC3_DEF_LDAC),   .out(s01_3_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s01_3_reg_sel));
+reg32_ce2 s02_1_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC1_DEF_DCEN),   .out(s02_1_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s02_1_reg_sel));
+reg32_ce2 s02_2_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC2_DEF_DCEN),   .out(s02_2_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s02_2_reg_sel));
+reg32_ce2 s02_3_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC3_DEF_DCEN),   .out(s02_3_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s02_3_reg_sel));
+reg32_ce2 s03_1_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC1_DEF_CHAN_A), .out(s03_1_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s03_1_reg_sel));
+reg32_ce2 s03_2_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC2_DEF_CHAN_A), .out(s03_2_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s03_2_reg_sel));
+reg32_ce2 s03_3_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC3_DEF_CHAN_A), .out(s03_3_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s03_3_reg_sel));
+reg32_ce2 s04_1_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC1_DEF_CHAN_B), .out(s04_1_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s04_1_reg_sel));
+reg32_ce2 s04_2_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC2_DEF_CHAN_B), .out(s04_2_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s04_2_reg_sel));
+reg32_ce2 s04_3_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC3_DEF_CHAN_B), .out(s04_3_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s04_3_reg_sel));
+reg32_ce2 s05_1_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC1_DEF_CHAN_C), .out(s05_1_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s05_1_reg_sel));
+reg32_ce2 s05_2_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC2_DEF_CHAN_C), .out(s05_2_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s05_2_reg_sel));
+reg32_ce2 s05_3_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC3_DEF_CHAN_C), .out(s05_3_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s05_3_reg_sel));
+reg32_ce2 s06_1_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC1_DEF_CHAN_D), .out(s06_1_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s06_1_reg_sel));
+reg32_ce2 s06_2_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC2_DEF_CHAN_D), .out(s06_2_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s06_2_reg_sel));
+reg32_ce2 s06_3_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC3_DEF_CHAN_D), .out(s06_3_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s06_3_reg_sel));
 
 
 // use the LSB of the control register to generate a strobe which will be used
@@ -274,14 +285,20 @@ reg32_ce2  s06_1_reg(.in(io_wr_data[31:0]), .reset(rst_reg),   .def_value(`DAC3_
 
 // synchronize the LSB with the slow_clk
 wire scntrl_LSB;
-reg scntrl_LSB_sync1, scntrl_LSB_sync2;
+wire scntrl_LSB_stretch;
 
-always @ (posedge slow_clk)
-begin
-    scntrl_LSB_sync1 <= scntrl_reg_out[0];
-    scntrl_LSB_sync2 <= scntrl_LSB_sync1;
-end
-assign scntrl_LSB = scntrl_LSB_sync2;
+signal_stretch scntrl_stretch (
+    .signal_in(scntrl_reg_out[0]),
+    .clk(io_clk),
+    .n_extra_cycles(8'h28), // add more than enough extra clock cycles for synchronization into 6.25 MHz clock domain
+    .signal_out(scntrl_LSB_stretch)
+);
+
+sync_2stage scntrl_sync (
+    .clk(slow_clk),
+    .in(scntrl_LSB_stretch),
+    .out(scntrl_LSB)
+);
 
 
 // =================================================
@@ -292,7 +309,7 @@ parameter STROBE_IDLE = 3'b001;
 parameter STROBE_TRIG = 3'b010;
 parameter STROBE_DONE = 3'b100;
 
-reg [2:0] strobe_state = STROBE_IDLE;
+reg [2:0] strobe_state = 3'b000;
 reg strobe;
 
 always @ (posedge slow_clk)
@@ -349,7 +366,7 @@ parameter SHIFT_IDLE     = 2'b00;
 parameter SHIFT_LOAD     = 2'b01;
 parameter SHIFT_SHIFTING = 2'b10;
 
-reg [1:0] shift_state = SHIFT_IDLE;
+reg [1:0] shift_state = 2'b00;
 
 reg sreg_cnt_ena;
 reg sreg_cnt_reset;
@@ -367,6 +384,7 @@ assign sreg_cnt_max_init = (dac_reg_addr[4:0] <= 5'd1) ? sreg_cnt_max_32 : sreg_
 wire sreg_cnt_max;
 assign sreg_cnt_max = (dac_reg_addr[4:0] >= 5'd4) ? sreg_cnt_max_96 : sreg_cnt_max_init;
 
+
 always @ (posedge slow_clk)
 begin
     if (sreg_cnt_reset)
@@ -379,6 +397,7 @@ end
 
 reg sreg_load;
 
+
 always @ (posedge slow_clk)
 begin
     if (sreg_load)
@@ -389,15 +408,16 @@ end
 
 assign sdi = sreg[95];
 
+
 always @ (posedge slow_clk)
 begin
     if (resetS)
         begin
-            sreg_load <= 1'b1;
+            sreg_load      <= 1'b1;
             sreg_cnt_reset <= 1'b1;
-            sreg_cnt_ena <= 1'b0;
-            sync_n <= 1'b1;
-            sreg_ready <= 1'b1;
+            sreg_cnt_ena   <= 1'b0;
+            sync_n         <= 1'b1;
+            sreg_ready     <= 1'b1;
             
             shift_state <= SHIFT_IDLE;
         end
@@ -406,10 +426,10 @@ begin
             case (shift_state)
                 SHIFT_IDLE : begin
                     sreg_cnt_reset <= 1'b1;
-                    sreg_cnt_ena <= 1'b0;
-                    sreg_load <= 1'b1;                    
-                    sync_n <= 1'b1;
-                    sreg_ready <= 1'b1;
+                    sreg_cnt_ena   <= 1'b0;
+                    sreg_load      <= 1'b1;
+                    sync_n         <= 1'b1;
+                    sreg_ready     <= 1'b1;
 
                     if (sreg_strobe)
                         shift_state <= SHIFT_LOAD;
@@ -419,10 +439,10 @@ begin
                 
                 SHIFT_LOAD : begin
                     sreg_cnt_reset <= 1'b1;
-                    sreg_cnt_ena <= 1'b0;
-                    sreg_load <= 1'b1;                    
-                    sync_n <= 1'b1;
-                    sreg_ready <= 1'b0;
+                    sreg_cnt_ena   <= 1'b0;
+                    sreg_load      <= 1'b1;
+                    sync_n         <= 1'b1;
+                    sreg_ready     <= 1'b0;
 
                     if (sreg_strobe)
                         shift_state <= SHIFT_LOAD;
@@ -432,10 +452,10 @@ begin
                 
                 SHIFT_SHIFTING : begin
                     sreg_cnt_reset <= 1'b0;
-                    sreg_cnt_ena <= 1'b1;
-                    sreg_load <= 1'b0;
-                    sync_n <= 1'b0;
-                    sreg_ready <= 1'b0;
+                    sreg_cnt_ena   <= 1'b1;
+                    sreg_load      <= 1'b0;
+                    sync_n         <= 1'b0;
+                    sreg_ready     <= 1'b0;
 
                     if (sreg_cnt_max)
                         shift_state <= SHIFT_IDLE;
@@ -457,17 +477,17 @@ always @ (posedge slow_clk)
 begin
     case (dac_reg_addr[4:0])
         // order in which the registers will be programmed
-        5'b00000 : dac_reg[95:0] = s01_reg_out[95:0]; // \LDAC, for DAC 1
-        5'b00001 : dac_reg[95:0] = s02_reg_out[95:0]; //  DCEN, for DAC 1
-        5'b00010 : dac_reg[95:0] = s01_reg_out[95:0]; // \LDAC, for DAC 1,2
-        5'b00011 : dac_reg[95:0] = s02_reg_out[95:0]; //  DCEN, for DAC 1,2
-        5'b00100 : dac_reg[95:0] = s01_reg_out[95:0]; // \LDAC, for DAC 1,2,3
-        5'b00101 : dac_reg[95:0] = s02_reg_out[95:0]; //  DCEN, for DAC 1,2,3
-        5'b00110 : dac_reg[95:0] = s00_reg_out[95:0]; //  MODE
-        5'b00111 : dac_reg[95:0] = s03_reg_out[95:0]; //  Channel A
-        5'b01000 : dac_reg[95:0] = s04_reg_out[95:0]; //  Channel B
-        5'b01001 : dac_reg[95:0] = s05_reg_out[95:0]; //  Channel C
-        5'b01010 : dac_reg[95:0] = s06_reg_out[95:0]; //  Channel D
+        5'b00000 : dac_reg[95:0] = s01_reg_out[95:0];   // \LDAC, for DAC 1
+        5'b00001 : dac_reg[95:0] = s02_reg_out[95:0];   //  DCEN, for DAC 1
+        5'b00010 : dac_reg[95:0] = s01_reg_out[95:0];   // \LDAC, for DAC 1,2
+        5'b00011 : dac_reg[95:0] = s02_reg_out[95:0];   //  DCEN, for DAC 1,2
+        5'b00100 : dac_reg[95:0] = s01_reg_out[95:0];   // \LDAC, for DAC 1,2,3
+        5'b00101 : dac_reg[95:0] = s02_reg_out[95:0];   //  DCEN, for DAC 1,2,3
+        5'b00110 : dac_reg[95:0] = s00_reg_out[95:0];   //  MODE
+        5'b00111 : dac_reg[95:0] = s03_reg_out[95:0];   //  Channel A
+        5'b01000 : dac_reg[95:0] = s04_reg_out[95:0];   //  Channel B
+        5'b01001 : dac_reg[95:0] = s05_reg_out[95:0];   //  Channel C
+        5'b01010 : dac_reg[95:0] = s06_reg_out[95:0];   //  Channel D
     endcase
 end
 
@@ -483,7 +503,7 @@ parameter WRITE_INCREMENT = 3'b100;
 parameter SYNC_LOW        = 3'b101;
 parameter SYNC_HIGH       = 3'b110;
 
-reg [2:0] dac_state = WRITE_IDLE;
+reg [2:0] dac_state = 3'b000;
 
 
 // =======================================
@@ -514,7 +534,7 @@ begin
     if (resetS)
         begin
             dac_reg_addr[4:0] <= 5'b00000;
-            sreg_strobe <= 1'b0;
+            sreg_strobe  <= 1'b0;
             loop_cnt_ena <= 1'b0;
 
             dac_state <= WRITE_IDLE;
@@ -523,7 +543,7 @@ begin
         begin
             case (dac_state)
                 WRITE_IDLE : begin
-                    sreg_strobe <= 1'b0;
+                    sreg_strobe  <= 1'b0;
                     loop_cnt_ena <= 1'b0;
 
                     if (!loop_cnt_max)
@@ -540,15 +560,15 @@ begin
             
                 WRITE_COUNT : begin
                     dac_reg_addr[4:0] <= dac_reg_addr[4:0];
-                    sreg_strobe <= 1'b0;
+                    sreg_strobe  <= 1'b0;
                     loop_cnt_ena <= 1'b1;
 
                     dac_state <= WRITE_LOAD;
                 end
-                               
+                
                 WRITE_LOAD : begin
                     dac_reg_addr[4:0] <= dac_reg_addr[4:0];
-                    sreg_strobe <= 1'b1;
+                    sreg_strobe  <= 1'b1;
                     loop_cnt_ena <= 1'b0;
 
                     if (sreg_ready) // wait here until the shift reg starts shifting                       
@@ -559,7 +579,7 @@ begin
                 
                 WRITE_SHIFT : begin
                     dac_reg_addr[4:0] <= dac_reg_addr[4:0];
-                    sreg_strobe <= 1'b0;
+                    sreg_strobe  <= 1'b0;
                     loop_cnt_ena <= 1'b0;
 
                     if (sreg_ready) // wait here until the shift reg stops shifting
@@ -570,7 +590,7 @@ begin
                 
                 WRITE_INCREMENT : begin
                     dac_reg_addr[4:0] <= dac_reg_addr[4:0] + 1'b1;
-                    sreg_strobe <= 1'b0;
+                    sreg_strobe  <= 1'b0;
                     loop_cnt_ena <= 1'b0;
 
                     dac_state <= WRITE_IDLE;
