@@ -27,7 +27,7 @@ module afe_dac_intf (
     // outputs to chip(s)
     output sclk,              // serial clock input
     output sdi,               // serial data input
-    output reg sync_n,        // active-low control input, '/sync' signal
+    output sync_n,            // active-low control input, '/sync' signal
 
     // debugs
     output [2:0] debug
@@ -53,7 +53,11 @@ assign slow_clk_180 = !slow_clk;
 // ==================
 // static assignments
 // ==================
-assign sclk = slow_clk_180;
+reg sync_n_int; // internal sync_n, only low while programming
+
+// supply clock and sync to chips only when programming
+assign sclk   = (~sync_n_int | sync_n) ? slow_clk_180 : 1'b0;
+assign sync_n = sync_n_int^sreg_ready; // will go high for two clock cycles prior to programming
 
 
 // ================================
@@ -362,9 +366,9 @@ reg [95:0] sreg;
 reg [7:0] sreg_cnt = 8'b00000000;
 reg sreg_ready;
 
-parameter SHIFT_IDLE     = 2'b00;
-parameter SHIFT_LOAD     = 2'b01;
-parameter SHIFT_SHIFTING = 2'b10;
+parameter SHIFT_IDLE     = 2'b01;
+parameter SHIFT_LOAD     = 2'b10;
+parameter SHIFT_SHIFTING = 2'b11;
 
 reg [1:0] shift_state = 2'b00;
 
@@ -416,7 +420,7 @@ begin
             sreg_load      <= 1'b1;
             sreg_cnt_reset <= 1'b1;
             sreg_cnt_ena   <= 1'b0;
-            sync_n         <= 1'b1;
+            sync_n_int     <= 1'b1;
             sreg_ready     <= 1'b1;
             
             shift_state <= SHIFT_IDLE;
@@ -428,7 +432,7 @@ begin
                     sreg_cnt_reset <= 1'b1;
                     sreg_cnt_ena   <= 1'b0;
                     sreg_load      <= 1'b1;
-                    sync_n         <= 1'b1;
+                    sync_n_int     <= 1'b1;
                     sreg_ready     <= 1'b1;
 
                     if (sreg_strobe)
@@ -441,7 +445,7 @@ begin
                     sreg_cnt_reset <= 1'b1;
                     sreg_cnt_ena   <= 1'b0;
                     sreg_load      <= 1'b1;
-                    sync_n         <= 1'b1;
+                    sync_n_int     <= 1'b1;
                     sreg_ready     <= 1'b0;
 
                     if (sreg_strobe)
@@ -454,7 +458,7 @@ begin
                     sreg_cnt_reset <= 1'b0;
                     sreg_cnt_ena   <= 1'b1;
                     sreg_load      <= 1'b0;
-                    sync_n         <= 1'b0;
+                    sync_n_int     <= 1'b0;
                     sreg_ready     <= 1'b0;
 
                     if (sreg_cnt_max)
@@ -495,13 +499,13 @@ end
 // =========================================================
 // automatic configuration of all of the AFE's DAC registers
 // =========================================================
-parameter WRITE_IDLE      = 3'b000;
-parameter WRITE_COUNT     = 3'b001;
-parameter WRITE_LOAD      = 3'b010;
-parameter WRITE_SHIFT     = 3'b011;
-parameter WRITE_INCREMENT = 3'b100;
-parameter SYNC_LOW        = 3'b101;
-parameter SYNC_HIGH       = 3'b110;
+parameter WRITE_IDLE      = 3'b001;
+parameter WRITE_COUNT     = 3'b010;
+parameter WRITE_LOAD      = 3'b011;
+parameter WRITE_SHIFT     = 3'b100;
+parameter WRITE_INCREMENT = 3'b101;
+parameter SYNC_LOW        = 3'b110;
+parameter SYNC_HIGH       = 3'b111;
 
 reg [2:0] dac_state = 3'b000;
 
