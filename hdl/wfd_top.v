@@ -191,9 +191,6 @@ module wfd_top (
     assign c3_io[3] = rst_from_ipb | rst_trigger_num;
     assign c4_io[3] = rst_from_ipb | rst_trigger_num;
 
-    assign bbus_scl = ext_trig ? mmc_io[0] : 1'bz;
-    assign bbus_sda = ext_trig ? mmc_io[1] : 1'bz;
-
     // front panel clock: sel0 = 1'b1, sel1 = 1'b0
     assign ext_clk_sel0 = 1'b1;
     assign ext_clk_sel1 = 1'b0;
@@ -267,7 +264,28 @@ module wfd_top (
     wire reset40_n;
     assign reset40_n = ~reset40;
 
-
+	// connect a module that will read from the I2C temperature/memory chip.
+	// Since the MAC and IP address are used with IP bus, run the block with 'clk125'
+	wire [47:0] i2c_mac_adr;		// MAC address read from I2C EEPROM
+	wire [31:0] i2c_ip_adr;			// IP address read from I2C EEPROM
+	i2c_top i2c_top(
+		// inputs
+		.clk(clk125),			// 
+        .reset(rst_from_ipb),	//
+        // outputs
+        .i2c_startup_done(i2c_startup_done),	// MAC andIP will be valid when this is asserted
+		.i2c_mac_adr(i2c_mac_adr[47:0]),		// MAC address read from I2C EEPROM
+		.i2c_ip_adr(i2c_ip_adr[31:0]),			// IP address read from I2C EEPROM
+		// I2C signals
+		.scl_pad_i(bbus_scl),					// input from external pin
+		.scl_pad_o(bbus_scl_o),					// output to tri-state driver
+		.scl_padoen_o(bbus_scl_oen),			// enable signal for tri-state driver
+		.sda_pad_i(bbus_sda),					// input from external pin
+		.sda_pad_o(bbus_sda_o),					// output to tri-state driver
+		.sda_padoen_o(bbus_sda_oen)				// enable signal for tri-state driver
+	);
+    assign bbus_scl = bbus_scl_oen ? bbus_scl_o : 1'bz;
+	assign bbus_sda = bbus_sda_oen ? bbus_sda_o : 1'bz;
     
     // ================== communicate with SPI flash memory ==================
 
@@ -714,6 +732,11 @@ module wfd_top (
         .clk_125(),
         .ipb_clk(clk125),
         .gtrefclk_out(gtrefclk0),
+        
+		// MAC and IP address from I2C EEPROM
+		.i2c_mac_adr(i2c_mac_adr[47:0]),		// MAC address read from I2C EEPROM
+		.i2c_ip_adr(i2c_ip_adr[31:0]),			// IP address read from I2C EEPROM
+        .i2c_startup_done(i2c_startup_done),	// MAC andIP will be valid when this is asserted
 
         // channel user space interface
         // pass out the raw IPbus signals; they're handled in the Aurora block

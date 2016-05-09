@@ -51,6 +51,8 @@ set_property IOSTANDARD LVCMOS33 [get_ports {mmc_io[0]}]
 
 set_property IOSTANDARD LVCMOS33 [get_ports bbus_scl]
 set_property IOSTANDARD LVCMOS33 [get_ports bbus_sda]
+set_property PULLUP TRUE [get_ports bbus_scl]
+set_property PULLUP TRUE [get_ports bbus_sda]
 
 set_property IOSTANDARD LVCMOS33 [get_ports ext_trig]
 
