@@ -4,16 +4,6 @@
 // 1. Handle configuration via IPbus
 // 2. Handle ADC data readout to DAQ link
 //
-// Implemented error checking:
-// 1. Trigger number from trigger info. FIFO and channel header are compared
-// 2. Failed channel response code monitored. Abort readout from failed channel.
-//    Will produce event size mismatch errors in the AMC13 status registers!
-//
-// Notes:
-// 1. Trigger timestamp from trigger info. FIFO is stored in the AMC13 header as follows:
-//    The 12 most significant bits are in the first AMC13 header, in place of the bunch crossing number
-//    The 32 least significant bits are in the second AMC13 header, in the user-designated space
-//
 // Originally created using Fizzim
 
 module command_manager (
@@ -210,15 +200,11 @@ module command_manager (
 
   // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
   wire [19:0] event_size;
-  // Explaination for 'event size' calculation:
-  // (burst_count[19:0]*2              : 2 64-bit words per burst
-  //                   +2              : 2 64-bit channel header words per channel data set
-  //                   +2*num_wfm_en   : 2 64-bit waveform header words per waveform data set
-  //                   +2              : 2 64-bit channel checksum words per channel data set
-  //                   +1)             : 1 64-bit readout timestamp per channel data set
-  //                      *num_chan_en : # channels that will send data
-  //                      +3           : 3 (2 AMC13 header + 1 AMC13 trailer) 64-bit words per AMC13 data set
-  assign event_size = (burst_count[19:0]*2+2+2+1)*(chan_en[0]+chan_en[1]+chan_en[2]+chan_en[3]+chan_en[4])+3; // TO MODIFY
+  assign event_size = ((burst_count_chan0[19:0]*2+2)*wfm_count_chan0[11:0]+5)*chan_en[0]+ 
+                      ((burst_count_chan1[19:0]*2+2)*wfm_count_chan1[11:0]+5)*chan_en[1]+ 
+                      ((burst_count_chan2[19:0]*2+2)*wfm_count_chan2[11:0]+5)*chan_en[2]+ 
+                      ((burst_count_chan3[19:0]*2+2)*wfm_count_chan3[11:0]+5)*chan_en[3]+ 
+                      ((burst_count_chan4[19:0]*2+2)*wfm_count_chan4[11:0]+5)*chan_en[4]+3;
 
   // number of 128-bit bursts read out of DDR3
   // Explaination for 'readout_size' calculation:
