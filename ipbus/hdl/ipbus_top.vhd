@@ -30,9 +30,10 @@ entity ipbus_top is port(
 	gtrefclk_out : out std_logic;
 
 	-- MAC and IP address from I2C bus
-	i2c_startup_done	: in std_logic;		-- MAC and IP will be valid when this is asserted
-	i2c_mac_adr			: in std_logic_vector(47 downto 0);		-- MAC address read from I2C EEPROM
-	i2c_ip_adr			: in std_logic_vector(31 downto 0);		-- IP address read from I2C EEPROM
+    ip_addr_rst_out  : out std_logic;                    -- IP/MAC address from EEPROM reset
+	i2c_startup_done : in std_logic;		             -- MAC and IP will be valid when this is asserted
+	i2c_mac_adr		 : in std_logic_vector(47 downto 0); -- MAC address read from I2C EEPROM
+	i2c_ip_adr		 : in std_logic_vector(31 downto 0); -- IP address read from I2C EEPROM
 
 	-- channel user space interface
     user_ipb_clk    : out std_logic;                     -- programming clock
@@ -207,81 +208,83 @@ begin
 
 	-- IPbus slaves live in the entity below and can expose top-level ports
 	-- the IPbus fabric is instantiated within
-	slaves: entity work.slaves port map(
-		ipb_clk => ipb_clk,
-		ipb_rst => rst_ipb,
-		ipb_in  => ipb_master_out,
-		ipb_out => ipb_master_in,
-		rst_out => sys_rst,
+	slaves: entity work.slaves
+		port map(
+			ipb_clk => ipb_clk,
+			ipb_rst => rst_ipb,
+			ipb_in  => ipb_master_out,
+			ipb_out => ipb_master_in,
+			rst_out => sys_rst,
 
-		-- debug ports
-	    debug => debug,
+			-- debug ports
+		    debug => debug,
 
-        -- AXI4-stream interface
-	    axi_stream_in         => axi_stream_in,
-	    axi_stream_in_tready  => axi_stream_in_tready,
-	    axi_stream_out        => axi_stream_out,
-	    axi_stream_out_tready => axi_stream_out_tready,
+	        -- AXI4-stream interface
+		    axi_stream_in         => axi_stream_in,
+		    axi_stream_in_tready  => axi_stream_in_tready,
+		    axi_stream_out        => axi_stream_out,
+		    axi_stream_out_tready => axi_stream_out_tready,
 
-	    -- control register ports
-	    trigger_out        => trigger_out,
-	    chan_done_out      => chan_done_out,
-	    chan_en_out        => chan_en_out,
-	    prog_chan_out      => prog_chan_out,
-	    reprog_trigger_out => reprog_trigger_out,
-        trig_delay_out     => trig_delay_out,
-        endianness_out     => endianness_out,
-        trig_settings_out  => trig_settings_out,
-        trig_sel_out       => trig_sel_out,
-        ttc_loopback_out   => ttc_loopback_out,
+		    -- control register ports
+		    trigger_out        => trigger_out,
+		    ip_addr_rst_out    => ip_addr_rst_out,
+		    chan_done_out      => chan_done_out,
+		    chan_en_out        => chan_en_out,
+		    prog_chan_out      => prog_chan_out,
+		    reprog_trigger_out => reprog_trigger_out,
+	        trig_delay_out     => trig_delay_out,
+	        endianness_out     => endianness_out,
+	        trig_settings_out  => trig_settings_out,
+	        trig_sel_out       => trig_sel_out,
+	        ttc_loopback_out   => ttc_loopback_out,
 
-        -- threshold register ports
-        thres_data_corrupt  => thres_data_corrupt,
-        thres_unknown_ttc   => thres_unknown_ttc,
-        thres_ddr3_overflow => thres_ddr3_overflow,
+	        -- threshold register ports
+	        thres_data_corrupt  => thres_data_corrupt,
+	        thres_unknown_ttc   => thres_unknown_ttc,
+	        thres_ddr3_overflow => thres_ddr3_overflow,
 
-		-- channel user space interface
-        user_ipb_clk    => user_ipb_clk,    -- programming clock
-        user_ipb_strobe => user_ipb_strobe, -- this ipb space is selected for an I/O operation 
-        user_ipb_addr   => user_ipb_addr,   -- slave address, memory or register
-        user_ipb_write  => user_ipb_write,  -- this is a write operation
-        user_ipb_wdata  => user_ipb_wdata,  -- data to write for write operations
-        user_ipb_rdata  => user_ipb_rdata,  -- data returned for read operations
-        user_ipb_ack    => user_ipb_ack,    -- 'write' data has been stored, 'read' data is ready
-        user_ipb_err    => user_ipb_err,    -- '1' if error, '0' if OK?
+			-- channel user space interface
+	        user_ipb_clk    => user_ipb_clk,    -- programming clock
+	        user_ipb_strobe => user_ipb_strobe, -- this ipb space is selected for an I/O operation 
+	        user_ipb_addr   => user_ipb_addr,   -- slave address, memory or register
+	        user_ipb_write  => user_ipb_write,  -- this is a write operation
+	        user_ipb_wdata  => user_ipb_wdata,  -- data to write for write operations
+	        user_ipb_rdata  => user_ipb_rdata,  -- data returned for read operations
+	        user_ipb_ack    => user_ipb_ack,    -- 'write' data has been stored, 'read' data is ready
+	        user_ipb_err    => user_ipb_err,    -- '1' if error, '0' if OK?
 
-        -- status registers
-		status_reg0  => status_reg0,
-		status_reg1  => status_reg1,
-		status_reg2  => status_reg2,
-		status_reg3  => status_reg3,
-		status_reg4  => status_reg4,
-		status_reg5  => status_reg5,
-		status_reg6  => status_reg6,
-		status_reg7  => status_reg7,
-		status_reg8  => status_reg8,
-		status_reg9  => status_reg9,
-		status_reg10 => status_reg10,
-		status_reg11 => status_reg11,
-		status_reg12 => status_reg12,
-		status_reg13 => status_reg13,
-		status_reg14 => status_reg14,
-		status_reg15 => status_reg15,
-		status_reg16 => status_reg16,
-		status_reg17 => status_reg17,
-		status_reg18 => status_reg18,
+	        -- status registers
+			status_reg0  => status_reg0,
+			status_reg1  => status_reg1,
+			status_reg2  => status_reg2,
+			status_reg3  => status_reg3,
+			status_reg4  => status_reg4,
+			status_reg5  => status_reg5,
+			status_reg6  => status_reg6,
+			status_reg7  => status_reg7,
+			status_reg8  => status_reg8,
+			status_reg9  => status_reg9,
+			status_reg10 => status_reg10,
+			status_reg11 => status_reg11,
+			status_reg12 => status_reg12,
+			status_reg13 => status_reg13,
+			status_reg14 => status_reg14,
+			status_reg15 => status_reg15,
+			status_reg16 => status_reg16,
+			status_reg17 => status_reg17,
+			status_reg18 => status_reg18,
 
-	    -- flash interface ports
-	    flash_wr_nBytes  => flash_wr_nBytes,
-	    flash_rd_nBytes  => flash_rd_nBytes,
-	    flash_cmd_strobe => flash_cmd_strobe,
-	    flash_rbuf_en    => flash_rbuf_en,
-		flash_rbuf_addr  => flash_rbuf_addr,
-		flash_rbuf_data  => flash_rbuf_data,
-		flash_wbuf_en    => flash_wbuf_en,
-		flash_wbuf_addr  => flash_wbuf_addr,
-		flash_wbuf_data  => flash_wbuf_data
-	);
+		    -- flash interface ports
+		    flash_wr_nBytes  => flash_wr_nBytes,
+		    flash_rd_nBytes  => flash_rd_nBytes,
+		    flash_cmd_strobe => flash_cmd_strobe,
+		    flash_rbuf_en    => flash_rbuf_en,
+			flash_rbuf_addr  => flash_rbuf_addr,
+			flash_rbuf_data  => flash_rbuf_data,
+			flash_wbuf_en    => flash_wbuf_en,
+			flash_wbuf_addr  => flash_wbuf_addr,
+			flash_wbuf_data  => flash_wbuf_data
+		);
 
 	-- break out axi signals
 	axi_stream_in.tvalid <= axi_stream_in_tvalid;

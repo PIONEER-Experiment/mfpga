@@ -28,6 +28,7 @@ entity slaves is
 
 	    -- control signals
 	    trigger_out        : out std_logic;
+	    ip_addr_rst_out    : out std_logic;
 	    chan_done_out      : out std_logic_vector(4 downto 0);
 	    chan_en_out        : out std_logic_vector(4 downto 0);
 	    prog_chan_out      : out std_logic;
@@ -97,6 +98,7 @@ architecture rtl of slaves is
 	signal ctrl_reg     : std_logic_vector(31 downto 0);
 	signal wo_reg       : std_logic_vector(31 downto 0);
 	signal trigger      : std_logic;
+	signal ip_addr_rst  : std_logic;
 
 begin
 
@@ -200,8 +202,11 @@ begin
 			q => wo_reg
 		);
 
-		trigger <= wo_reg(0);
+		trigger     <= wo_reg(0);
 		trigger_out <= trigger;
+
+		ip_addr_rst     <= wo_reg(1);
+		ip_addr_rst_out <= ip_addr_rst;
 
 -- Slave 3: AXI4-stream interface to Aurora IP
 

@@ -265,10 +265,10 @@ module wfd_top (
     wire bbus_scl_oen;
     wire bbus_sda_oen;
 
-	i2c_top i2c_top(
+	i2c_top i2c_top (
 		// inputs
 		.clk(clk125),
-        .reset(rst_from_ipb),                // TODO: setup dedicated IPbus reset for EEPROM
+        .reset(ip_addr_rst),                 // IPbus reset for reloading addresses from EEPROM
         // outputs
         .i2c_startup_done(i2c_startup_done), // MAC andIP will be valid when this is asserted
 		.i2c_mac_adr(i2c_mac_adr[47:0]),	 // MAC address read from I2C EEPROM
@@ -282,8 +282,8 @@ module wfd_top (
 		.sda_padoen_o(bbus_sda_oen)			 // enable signal for tri-state driver
 	);
 
-    assign bbus_scl = (~bbus_scl_oen) ? bbus_scl_o : 1'bz;
-    assign bbus_sda = (~bbus_sda_oen) ? bbus_sda_o : 1'bz;
+    assign bbus_scl = bbus_scl_oen ? 1'bz : bbus_scl_o;
+    assign bbus_sda = bbus_sda_oen ? 1'bz : bbus_sda_o;
 
     // debug signals
     assign debug0 = bbus_scl;
@@ -742,9 +742,10 @@ module wfd_top (
         .gtrefclk_out(gtrefclk0),
         
 		// MAC and IP address from I2C EEPROM
-		.i2c_mac_adr(i2c_mac_adr[47:0]),		// MAC address read from I2C EEPROM
-		.i2c_ip_adr(i2c_ip_adr[31:0]),			// IP address read from I2C EEPROM
-        .i2c_startup_done(i2c_startup_done),	// MAC andIP will be valid when this is asserted
+        .ip_addr_rst_out(ip_addr_rst),       // IP/MAC address from EEPROM reset
+		.i2c_mac_adr(i2c_mac_adr[47:0]),	 // MAC address read from I2C EEPROM
+		.i2c_ip_adr(i2c_ip_adr[31:0]),		 // IP address read from I2C EEPROM
+        .i2c_startup_done(i2c_startup_done), // MAC andIP will be valid when this is asserted
 
         // channel user space interface
         // pass out the raw IPbus signals; they're handled in the Aurora block
