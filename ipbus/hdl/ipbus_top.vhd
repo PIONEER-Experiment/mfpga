@@ -123,8 +123,6 @@ architecture rtl of ipbus_top is
 	signal mac_tx_valid, mac_tx_last, mac_tx_error, mac_tx_ready, mac_rx_valid, mac_rx_last, mac_rx_error : std_logic;
 	signal ipb_master_out : ipb_wbus;
 	signal ipb_master_in : ipb_rbus;
-	signal mac_addr : std_logic_vector(47 downto 0);
-	signal ip_addr : std_logic_vector(31 downto 0);
 	signal pkt_rx, pkt_tx, pkt_rx_led, pkt_tx_led, sys_rst : std_logic;	
 	signal eth_phy_status_vector : std_logic_vector(15 downto 0);
     signal axi_stream_in : axi_stream;
@@ -146,8 +144,8 @@ begin
 		);
 
 	rst_out <= rst_ipb;
-
 	clk_125 <= clk_125_int;
+	
 	
 	-- Ethernet MAC core and PHY interface
 	eth: entity work.eth_k7_1000basex
@@ -178,8 +176,8 @@ begin
 			phy_status_vector => eth_phy_status_vector
 		);
 	
-	-- ipbus control logic
 
+	-- IPbus control logic
 	ipbus: entity work.ipbus_ctrl
 		port map(
 			mac_clk => clk_125_int,
@@ -197,36 +195,18 @@ begin
 			mac_tx_ready => mac_tx_ready,
 			ipb_out => ipb_master_out,
 			ipb_in => ipb_master_in,
-			mac_addr => mac_addr,
-			ip_addr => ip_addr,
+			mac_addr => i2c_mac_adr,      -- MAC address from I2C EEPROM
+			ip_addr => i2c_ip_adr,        --  IP address from I2C EEPROM
+			enable => i2c_startup_done,
 			pkt_rx => pkt_rx,
 			pkt_tx => pkt_tx,
 			pkt_rx_led => pkt_rx_led,
 			pkt_tx_led => pkt_tx_led
 		);
-	
 
-	-- Assign the MAC and IP addresses, either from the EEPROM or use hardcoded defaults
-	-- available MAC addresses:
-	--      00:60:55:00:01:XX
-	--      00:60:55:00:02:XX
-	-- reserved / assigned IP and MAC addresses are stored on the Cornell CLASSE Muon g-2 wiki
-	process(clk_125_int)
-	begin
-		if rising_edge(clk_125_int) then
-			-- see if the EEPROM has provided addresses
-			if i2c_startup_done='1' then
-				mac_addr <= i2c_mac_adr;	-- value read from EEPROM
-				ip_addr  <= i2c_ip_adr;     -- valur read from EEPROM
-			else
-				mac_addr <= X"006055000128"; -- hard-coded to 00:60:55:00:01:28
-				ip_addr  <= X"c0a80128";     -- hard-coded to 192.168.26.40
-			end if;
-		end if;
-	end process;
 
-	-- ipbus slaves live in the entity below and can expose top-level ports
-	-- The ipbus fabric is instantiated within.
+	-- IPbus slaves live in the entity below and can expose top-level ports
+	-- the IPbus fabric is instantiated within
 	slaves: entity work.slaves port map(
 		ipb_clk => ipb_clk,
 		ipb_rst => rst_ipb,

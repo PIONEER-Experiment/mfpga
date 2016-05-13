@@ -346,12 +346,16 @@ module i2c_master_bit_ctrl (
           cmd_stop <= #1 cmd == `I2C_CMD_STOP;
 
     always @(posedge clk or negedge nReset)
-      if (~nReset)
+      if (~nReset) begin
           al <= #1 1'b0;
-      else if (rst)
+      end
+      else if (rst) begin
           al <= #1 1'b0;
-      else
-          al <= #1 (sda_chk & ~sSDA & sda_oen) | (|c_state & sto_condition & ~cmd_stop);
+      end
+      else begin
+          al <= #1 1'b0; // tie arbitration lost signal low
+                         // originally was: (sda_chk & ~sSDA & sda_oen) | (|c_state & sto_condition & ~cmd_stop);
+      end
 
 
     // generate dout signal (store SDA on rising edge of SCL)
@@ -400,7 +404,7 @@ module i2c_master_bit_ctrl (
       end
       else
       begin
-          cmd_ack   <= #1 1'b0; // default no command acknowledge + assert cmd_ack only 1clk cycle
+          cmd_ack <= #1 1'b0; // default no command acknowledge + assert cmd_ack only 1clk cycle
 
           if (clk_en)
               case (c_state) // synopsys full_case parallel_case
@@ -416,7 +420,7 @@ module i2c_master_bit_ctrl (
                         endcase
 
                         scl_oen <= #1 scl_oen; // keep SCL in same state
-                        sda_oen <= #1 sda_oen; // keep SDA in same state
+                        sda_oen <= #1 scl_oen; // keep SDA in same state
                         sda_chk <= #1 1'b0;    // don't check SDA output
                     end
 
@@ -554,6 +558,7 @@ module i2c_master_bit_ctrl (
                         scl_oen <= #1 1'b1; // keep SCL high
                         sda_oen <= #1 din;
                         sda_chk <= #1 1'b1; // check SDA output
+                                            // unused with arbitration lost signal tied low
                     end
 
                     wr_d:

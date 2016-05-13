@@ -4,17 +4,17 @@
 `timescale 1ns / 10ps
 // synopsys translate_on
 
-module i2c_get_from_image_sm(
+module i2c_get_from_image_sm (
 	// inputs
-	input clk,						// 125 MHz clock for IPbus 
-    input reset,					// synchronous, active-hi reset from 'rst_from_ipb'
-    input image_copy_done,			// the entire EEPROM has been read
-    input [7:0] image_rd_dat,		// data from the image memory
+	input clk,					   // 125 MHz clock for IPbus 
+    input reset,				   // synchronous, active-hi reset from 'rst_from_ipb'
+    input image_copy_done,		   // the entire EEPROM has been read
+    input [7:0] image_rd_dat,	   // data from the image memory
     // outputs
-    output reg [7:0] image_rd_adr,	// address to the image memory
-    output [47:0] i2c_mac_adr,		// MAC address read from I2C EEPROM
-    output [31:0] i2c_ip_adr,		// IP address read from I2C EEPROM
-    output reg i2c_startup_done		// MAC andIP will be valid when this is asserted
+    output reg [7:0] image_rd_adr, // address to the image memory
+    output [47:0] i2c_mac_adr,	   // MAC address read from I2C EEPROM
+    output [31:0] i2c_ip_adr,	   // IP address read from I2C EEPROM
+    output reg i2c_startup_done	   // MAC andIP will be valid when this is asserted
 );
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -22,17 +22,17 @@ module i2c_get_from_image_sm(
 reg [7:0] mac0_, mac1_, ip0_, ip1_, ip2_, ip3_;
 reg store_mac0, store_mac1, store_ip0, store_ip1, store_ip2, store_ip3;
 // The upper 4 bytes of the MAC address are always 00:60:55:00:01:XX
-assign i2c_mac_adr[47:0] = { 8'h00, 8'h60, 8'h55, 8'h00, mac1_[7:0], mac0_[7:0]};
-assign i2c_ip_adr[31:0]  = { ip3_[7:0], ip2_[7:0], ip1_[7:0], ip0_[7:0]};
+assign i2c_mac_adr[47:0] = {8'h00, 8'h60, 8'h55, 8'h00, mac1_[7:0], mac0_[7:0]};
+assign i2c_ip_adr[31:0]  = {ip3_[7:0], ip2_[7:0], ip1_[7:0], ip0_[7:0]};
 
 // control retrieval of the MAC and IP registers
 always @(posedge clk) begin
 	if (store_mac0) mac0_[7:0] <= image_rd_dat[7:0];
 	if (store_mac1) mac1_[7:0] <= image_rd_dat[7:0];
-	if (store_ip0) ip0_[7:0] <= image_rd_dat[7:0];
-	if (store_ip1) ip1_[7:0] <= image_rd_dat[7:0];
-	if (store_ip2) ip2_[7:0] <= image_rd_dat[7:0];
-	if (store_ip3) ip3_[7:0] <= image_rd_dat[7:0];
+	if (store_ip0)   ip0_[7:0] <= image_rd_dat[7:0];
+	if (store_ip1)   ip1_[7:0] <= image_rd_dat[7:0];
+	if (store_ip2)   ip2_[7:0] <= image_rd_dat[7:0];
+	if (store_ip3)   ip3_[7:0] <= image_rd_dat[7:0];
 end
 
 /////////////////////////////////////////////////////////////////////////////////////////////

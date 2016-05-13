@@ -50,6 +50,8 @@ always @(posedge clk) begin
 	if (tx_reg_init3) tx_reg <= {i2c_dev_adr, 1'b1};	// address phase for a READ
 end
 
+wire cmd_ack;
+
 // connect the I2C controller module
 // This came from the 'opencores' website at http://opencores.org/project,i2c
 // The 'wishbone' interface was eliminated, and direct connections made to the 'byte controller' block
@@ -59,8 +61,8 @@ i2c_master_byte_ctrl byte_controller (
 	.rst(reset),				// synchronous active high reset
 	.nReset(1'b1),				// asynchronous active low reset, NOT USED SO HELD HIGH
 	.ena(core_en),				// core enable signal
-	.clk_cnt(16'd249),			// = (clk/(5*SCL)) - 1, so for 125 MHz 'clk' and 100 kHz SCL, need 249
-	//.clk_cnt(16'd9),			// = (clk/(5*SCL)) - 1, so for 5 MHz 'clk' and 100 kHz SCL, need 10-1=9
+    .clk_cnt(16'd249),          // = (clk/(5*SCL)) - 1, so for 125 MHz 'clk' and 100 kHz SCL, need 249
+	//.clk_cnt(16'd9),		   	// = (clk/(5*SCL)) - 1, so for 5 MHz 'clk' and 100 kHz SCL, need 10-1=9
 	.start(i2c_start),			// prepend an I2C 'start' cycle
 	.stop(i2c_stop),			// post-pend an I2C 'stop' cycle
 	.read(i2c_read),			// do an I2C 'read' operation
@@ -71,8 +73,8 @@ i2c_master_byte_ctrl byte_controller (
 	.cmd_ack(cmd_ack),			// the command is complete
 	.ack_out(irxack),			// status of the ACK bit from the I2C bus
 	.dout(i2c_rd_dat[7:0]),		// byte read from EEPROM
-	.i2c_busy ( i2c_busy     ),
-	.i2c_al   ( i2c_al       ),
+	.i2c_busy(i2c_busy),
+	.i2c_al(i2c_al),
 	// I2C signals
 	.scl_i(scl_pad_i),			// 'clock' input from external pin
 	.scl_o(scl_pad_o),			// 'clock' output to tri-state driver

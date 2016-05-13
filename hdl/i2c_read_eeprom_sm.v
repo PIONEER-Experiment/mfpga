@@ -121,10 +121,11 @@ always @ (CS or i2c_byte_rdy or image_wr_adr[7:0] or pause_cntr[15:0])    begin
 
         // Increment the EEPROM address 
         CS[INC_ADR]: begin
-                NS[PAUSE] = 1'b1;
+                NS[REQ_BYTE] = 1'b1; // no delay between bytes
+                // NS[PAUSE] = 1'b1; // uncomment if you want delay between btyes
         end
 
-       // Insert a delay between bytes 
+       // Insert a delay between bytes
         CS[PAUSE]: begin
         	if (pause_cntr[15:0] == 16'h0000)
                 NS[REQ_BYTE] = 1'b1;
