@@ -544,7 +544,7 @@ module command_manager (
       state[SEND_AMC13_HEADER1] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {11'd0, endianness_sel, empty_event, fill_type[2:0], trig_timestamp[31:0], 16'd1};
+          next_daq_data[63:0] = {11'd0, endianness_sel, empty_event, fill_type[2:0], trig_timestamp[31:0], 3'd1, 13'd1};
           nextstate[SEND_AMC13_HEADER2] = 1'b1;
         end
         else if (~daq_almost_full) begin
