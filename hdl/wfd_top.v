@@ -97,6 +97,20 @@ module wfd_top (
     assign clk50 = clkin; // just to make the frequency explicit
 
 
+    // ======== startup reset signals ========
+    wire startup_rst_clk50;
+    wire startup_rst_clk125;
+
+    // synchronous reset logic
+    startup_reset startup_reset (
+        .clk50(clk50),                     // 50 MHz buffered clock 
+        .reset_clk50(startup_rst_clk50),   // active-high reset output, goes low after startup
+        .clk125(clk125),                   // buffered clock, 125 MHz
+        .reset_clk125(startup_rst_clk125), // active-high reset output, goes low after startup
+        .ipb_reset(clk50_reset)
+    );
+
+
     // ======== error signals ========
     // thresholds
     wire [31:0] thres_data_corrupt;  // data corruption
@@ -367,6 +381,7 @@ module wfd_top (
     wire prog_chan_start;            // in 50 MHz clock domain 
                                      // don't have to worry about missing the faster signal -- stays high 
                                      // until you use ipbus to set it low again
+    wire prog_chan_done;
 
     sync_2stage prog_chan_start_sync (
         .clk(clk50),
@@ -374,10 +389,13 @@ module wfd_top (
         .out(prog_chan_start)
     );
 
+    wire prog_chan_start_mux; // combine ipbus and startup triggers
+    assign prog_chan_start_mux = prog_chan_start | startup_rst_clk50;
+
     prog_channels prog_channels (
         .clk(clk50),
         .reset(clk50_reset),
-        .prog_chan_start(prog_chan_start),             // start signal from IPbus
+        .prog_chan_start(prog_chan_start_mux),         // start signal from IPbus
         .c_progb(c_progb),                             // configuration signal to all five channels
         .c_clk(c_clk),                                 // configuration clock to all five channels
         .c_din(c_din),                                 // configuration bitstream to all five channels
@@ -387,7 +405,8 @@ module wfd_top (
         .prog_chan_in_progress(prog_chan_in_progress), // signal to spi_flash_intf
         .store_flash_command(pc_to_flash_wbuf_en),     // signal to spi_flash_intf
         .read_bitstream(read_bitstream),               // start signal to spi_flash_intf
-        .end_bitstream(end_bitstream)                  // done signal from spi_flash_intf
+        .end_bitstream(end_bitstream),                 // done signal from spi_flash_intf
+        .prog_chan_done(prog_chan_done)                // done programming the channels
     );
 
     // ======== module to reprogram FPGA from flash ========
@@ -1055,6 +1074,7 @@ module wfd_top (
         .reset(rst_from_ipb),
 
         // status inputs
+        .prog_chan_done(prog_chan_done),
         .thres_data_corrupt(thres_data_corrupt),
         .thres_unknown_ttc(thres_unknown_ttc),
         .thres_ddr3_overflow(thres_ddr3_overflow),
@@ -1263,6 +1283,7 @@ module wfd_top (
         .wfm_count_chan4(wfm_count_chan4), // waveform count set for Channel 4
 
         // status connections
+        .i2c_mac_adr(i2c_mac_adr[47:0]),         // input  [47:0], MAC address from EEPROM
         .chan_en(chan_en),                       // input  [ 4:0], enabled channels from IPbus
         .endianness_sel(endianness_sel),         // input, from IPbus
         .thres_data_corrupt(thres_data_corrupt), // input  [31:0], from IPbus

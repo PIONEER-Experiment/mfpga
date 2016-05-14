@@ -69,7 +69,8 @@ module command_manager (
   output wire [11:0] wfm_count_chan4,
 
   // status connections
-  input wire [4:0] chan_en,             // enabled channels, one bit for each channel
+  input wire [47:0] i2c_mac_adr,        // this board's MAC address
+  input wire [ 4:0] chan_en,            // enabled channels, one bit for each channel
   input wire endianness_sel,            // select bit for the endianness of ADC data
   input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
   output reg [30:0] state,              // state of finite state machine
@@ -213,6 +214,10 @@ module command_manager (
   //                      *wfm_count[11:0] : # waveforms per readout event
   //                      +2               : (1 channel header + 1 channel checksum) per readout event
   assign readout_size = (burst_count[19:0]+1)*wfm_count[11:0]+2;
+
+  // this board's seriol number
+  wire [12:0] board_id;
+  assign board_id = (i2c_mac_adr[15:8]*256)+i2c_mac_adr[7:0];
 
 
   // comb always block
@@ -544,7 +549,7 @@ module command_manager (
       state[SEND_AMC13_HEADER1] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {11'd0, endianness_sel, empty_event, fill_type[2:0], trig_timestamp[31:0], 3'd1, 13'd1};
+          next_daq_data[63:0] = {11'd0, endianness_sel, empty_event, fill_type[2:0], trig_timestamp[31:0], 3'd1, board_id};
           nextstate[SEND_AMC13_HEADER2] = 1'b1;
         end
         else if (~daq_almost_full) begin
