@@ -1,8 +1,6 @@
-// file: one_channel.v
-//
 // Connect the serial links to the one channel FPGA.
 
-module one_channel(
+module one_channel (
   // clocks and reset
   input clk50,                          // Aurora 'init_clk' uses 50 MHz clock per PG046-20
   input clk50_reset,                    // active-high synched to 'clk50', drive 'gt_reset'

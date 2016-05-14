@@ -1,27 +1,28 @@
-`timescale 1ns / 1ps
 `include "clk_synth_regs.txt"
 
-//*************************************************************************
-// NOTE:  Modified to support LMK04906 - 7/16/15
-//*************************************************************************
+// ===================================================
+// Interface between Master FPGA and clock synthesizer
+// ===================================================
 
-module clk_synth_intf(
+// Note: Modified to support LMK04906, 07/16/2015
+
+module clk_synth_intf (
     input clk50,
     input clk50_reset,
 
     // inputs from IPbus
-    input io_clk,            // ipbus interface clock
-    input io_reset,          // ipbus interface reset    
-    input io_sel,            // this module has been selected for an I/O operation
-    input io_sync,           // start the I/O operation
-    input [19:0] io_addr,    // local slave address, memory or register
-    input io_wr_en,          // this is a write operation, enable target for one clock
-    input [31:0] io_wr_data, // data to write for write operations
+    input io_clk,             // IPbus interface clock
+    input io_reset,           // IPbus interface reset    
+    input io_sel,             // this module has been selected for an I/O operation
+    input io_sync,            // start the I/O operation
+    input [19:0] io_addr,     // local slave address, memory or register
+    input io_wr_en,           // this is a write operation, enable target for one clock
+    input [31:0] io_wr_data,  // data to write for write operations
 
     // unused
-    input io_rd_en,                     // this is a read operation, enable readback logic
-    output [31:0] io_rd_data,           // data returned for read operations
-    output io_rd_ack,                   // 'write' data has been stored, 'read' data is ready
+    input io_rd_en,           // this is a read operation, enable readback logic
+    output [31:0] io_rd_data, // data returned for read operations
+    output io_rd_ack,         // 'write' data has been stored, 'read' data is ready
 
     // outputs to clock synthesizer
     output dclk,
@@ -33,26 +34,51 @@ module clk_synth_intf(
 );
 
 
-//*************************************************************************
+// ==============================================
+// generate a low speed clock (6.25 MHz / 160 ns)
+// ==============================================
+reg [2:0] clk_cnt;
+wire slow_clk;
+wire slow_clk_180;
+
+always @ (posedge clk50)
+begin
+    clk_cnt[2:0] <= clk_cnt[2:0] + 1'b1;
+end 
+
+assign slow_clk = clk_cnt[2];
+assign slow_clk_180 = !slow_clk;
+
+
+// ==================
 // static assignments
-//*************************************************************************
+// ==================
 assign dclk = slow_clk_180;
 
 
-//*************************************************************************
+// ================================
 // synchronize state machine inputs
-//*************************************************************************
-reg resetS;
+// ================================
+wire clk50_reset_stretch;
+wire resetS, resetS_from_clk50;
 
-always @ (posedge slow_clk)
-begin
-    resetS <= clk50_reset;
-end
+signal_stretch clk50_reset_stretch_module (
+    .signal_in(clk50_reset),
+    .clk(clk50),
+    .n_extra_cycles(8'h10), // add more than enough extra clock cycles for synchronization into 6.25 MHz clock domain
+    .signal_out(clk50_reset_stretch)
+);
+
+sync_2stage resetS_sync (
+    .clk(slow_clk),
+    .in(clk50_reset_stretch),
+    .out(resetS_from_clk50)
+);
 
 
-// ====================================================================
+// ===================================================
 // startup state machine to configure default settings
-// ====================================================================
+// ===================================================
 parameter STARTUP_IDLE   = 3'b001;
 parameter STARTUP_WAIT   = 3'b010;
 parameter STARTUP_RESET  = 3'b100;
@@ -62,14 +88,22 @@ parameter STARTUP_DONE   = 3'b110;
 reg [2:0] startup_state = STARTUP_IDLE;
 
 reg [15:0] startup_cnt = 16'd0; // counter to wait >3 ms after power up
-reg startup_rst_level_cntrl;    // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for cntrl
-reg startup_rst_level_reg;      // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for regs
+reg startup_rst_cntrl;          // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for cntrl
+reg startup_rst_reg;            // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for regs
 reg startup_done;               // flag to tell other state machines that the startup procedure is complete
 
-wire startup_rst_cntrl;
-wire startup_rst_reg;
-assign startup_rst_cntrl = (startup_rst_level_cntrl) ? 1'b1 : 1'b0;
-assign startup_rst_reg   = (startup_rst_level_reg)   ? 1'b1 : 1'b0;
+
+assign resetS = (startup_done) ? resetS_from_clk50 : startup_rst_reg;
+
+// synchronize resetS in io_clk domain
+// for s[#]_reg_out reset signals
+wire resetS_ioclk;
+sync_2stage io_reset_sync (
+    .clk(io_clk),
+    .in(resetS),
+    .out(resetS_ioclk)
+);
+
 
 always @ (posedge slow_clk)
 begin
@@ -79,9 +113,9 @@ begin
     case (startup_state)
         STARTUP_IDLE : begin
             startup_cnt[15:0] <= 16'd0;
-            startup_rst_level_cntrl <= 1'b0;
-            startup_rst_level_reg <= 1'b0;
-            startup_done <= 1'b0;
+            startup_rst_cntrl <= 1'b0;
+            startup_rst_reg   <= 1'b0;
+            startup_done      <= 1'b0;
 
             startup_state <= STARTUP_WAIT;
         end
@@ -89,9 +123,9 @@ begin
         // wait for >3 ms after power is delivered to clock synthesizer
         STARTUP_WAIT : begin
             startup_cnt[15:0] <= startup_cnt[15:0] + 1'b1;
-            startup_rst_level_cntrl <= 1'b0;
-            startup_rst_level_reg <= 1'b0;
-            startup_done <= 1'b0;
+            startup_rst_cntrl <= 1'b0;
+            startup_rst_reg   <= 1'b0;
+            startup_done      <= 1'b0;
 
             if (startup_cnt[15])
                 startup_state <= STARTUP_RESET;
@@ -101,11 +135,12 @@ begin
         
         // reset the s[#]_reg reg32_ce2 blocks to their default values
         // this will load the default register values into s[#]_reg_out wires
+        // and will initialize the other state machines to their IDLE state
         STARTUP_RESET : begin
             startup_cnt[15:0] <= startup_cnt[15:0] + 1'b1;
-            startup_rst_level_cntrl <= 1'b0;
-            startup_rst_level_reg <= 1'b1;
-            startup_done <= 1'b0;
+            startup_rst_cntrl <= 1'b0;
+            startup_rst_reg   <= 1'b1;
+            startup_done      <= 1'b0;
 
             if (startup_cnt[5])
                 startup_state <= STARTUP_STROBE;
@@ -117,9 +152,9 @@ begin
         // this will initiate the configuration to the clock synthesizer
         STARTUP_STROBE : begin
             startup_cnt[15:0] <= 16'd0;
-            startup_rst_level_cntrl <= 1'b1;
-            startup_rst_level_reg <= 1'b0;
-            startup_done <= 1'b0;
+            startup_rst_cntrl <= 1'b1;
+            startup_rst_reg   <= 1'b0;
+            startup_done      <= 1'b0;
 
             startup_state <= STARTUP_DONE;
         end
@@ -128,9 +163,9 @@ begin
         // the startup_done flag tells the WRITE SM to toggle the sync wire after writing to the registers
         STARTUP_DONE : begin
             startup_cnt[15:0] <= 16'd0;
-            startup_rst_level_cntrl <= 1'b0;
-            startup_rst_level_reg <= 1'b0;
-            startup_done <= 1'b1;
+            startup_rst_cntrl <= 1'b0;
+            startup_rst_reg   <= 1'b0;
+            startup_done      <= 1'b1;
 
             startup_state <= STARTUP_DONE;
         end
@@ -138,10 +173,10 @@ begin
 end
 
 
-//*************************************************************************
+// ==============================================
 // IPbus interface used to update register values
-//*************************************************************************
-//address decoding
+// ==============================================
+// address decoding
 wire reg_wr_en, scntrlreg_sel;
 wire s25reg_sel, s24reg_sel, s23reg_sel, s22reg_sel, s21reg_sel, s20reg_sel, s19reg_sel, s18reg_sel,
      s17reg_sel, s16reg_sel, s15reg_sel, s14reg_sel, s13reg_sel, s12reg_sel, s11reg_sel, s10reg_sel,
@@ -179,14 +214,14 @@ assign    s01reg_sel = io_sel && (io_addr[4:0] == 5'b00001);    // clk synth reg
 assign    s00reg_sel = io_sel && (io_addr[4:0] == 5'b00000);    // clk synth reg 0, initial reset
 
 
-// ====================================================================
+// ===================================================================
 // Recommended programming sequence:
 //     R0 to R31
 //
 // Notes:
 //     s[#] notation indicates the order of data sent to the clk synth
 //          and not the clk synth register number
-// ====================================================================
+// ===================================================================
 
 wire [31:0] scntrl_reg_out; // LSB controls the strobe
 
@@ -220,62 +255,68 @@ wire [31:0] s02_reg_out;    // clk synth reg 1
 wire [31:0] s01_reg_out;    // clk synth reg 0
 wire [31:0] s00_reg_out;    // clk synth reg 0, initial reset
 
-wire rst_reg;    // want the reg_out values to be set to default when IPbus reset or the startup reset is asserted
-wire rst_cntrl;  // want the cntrl_reg_out values to be set to default when IPbus reset or the startup reset is asserted
-assign rst_reg   = resetS | startup_rst_reg;
-assign rst_cntrl = resetS | startup_rst_cntrl;
 
-reg32_ce2 scntrl_reg(.in(io_wr_data[31:0]), .reset(rst_cntrl), .def_value(32'h00000001), .out(scntrl_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(scntrlreg_sel));
+reg32_ce2 scntrl_reg(.in(io_wr_data[31:0]), .reset(startup_rst_cntrl), .def_value(32'h00000001), .out(scntrl_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(scntrlreg_sel));
 
-reg32_ce2 s25_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG31),      .out(s25_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s25reg_sel));
-reg32_ce2 s24_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG30),      .out(s24_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s24reg_sel));
-reg32_ce2 s23_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG29),      .out(s23_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s23reg_sel));
-reg32_ce2 s22_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG28),      .out(s22_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s22reg_sel));
-reg32_ce2 s21_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG27),      .out(s21_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s21reg_sel));
-reg32_ce2 s20_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG26),      .out(s20_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s20reg_sel));
-reg32_ce2 s19_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG25),      .out(s19_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s19reg_sel));
-reg32_ce2 s18_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG24),      .out(s18_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s18reg_sel));
-reg32_ce2 s17_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG16),      .out(s17_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s17reg_sel));
-reg32_ce2 s16_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG15),      .out(s16_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s16reg_sel));
-reg32_ce2 s15_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG14),      .out(s15_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s15reg_sel));
-reg32_ce2 s14_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG13),      .out(s14_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s14reg_sel));
-reg32_ce2 s13_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG12),      .out(s13_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s13reg_sel));
-reg32_ce2 s12_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG11),      .out(s12_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s12reg_sel));
-reg32_ce2 s11_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG10),      .out(s11_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s11reg_sel));
-reg32_ce2 s10_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG09),      .out(s10_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s10reg_sel));
-reg32_ce2 s09_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG08),      .out(s09_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s09reg_sel));
-reg32_ce2 s08_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG07),      .out(s08_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s08reg_sel));
-reg32_ce2 s07_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG06),      .out(s07_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s07reg_sel));
-reg32_ce2 s06_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG05),      .out(s06_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s06reg_sel));
-reg32_ce2 s05_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG04),      .out(s05_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s05reg_sel));
-reg32_ce2 s04_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG03),      .out(s04_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s04reg_sel));
-reg32_ce2 s03_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG02),      .out(s03_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s03reg_sel));
-reg32_ce2 s02_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG01),      .out(s02_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s02reg_sel));
-reg32_ce2 s01_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG00),      .out(s01_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s01reg_sel));
-reg32_ce2 s00_reg(.in(io_wr_data[31:0]), .reset(rst_reg), .def_value(`CS_DEF_REG00_INIT), .out(s00_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s00reg_sel));
+reg32_ce2 s25_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG31),      .out(s25_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s25reg_sel));
+reg32_ce2 s24_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG30),      .out(s24_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s24reg_sel));
+reg32_ce2 s23_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG29),      .out(s23_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s23reg_sel));
+reg32_ce2 s22_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG28),      .out(s22_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s22reg_sel));
+reg32_ce2 s21_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG27),      .out(s21_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s21reg_sel));
+reg32_ce2 s20_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG26),      .out(s20_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s20reg_sel));
+reg32_ce2 s19_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG25),      .out(s19_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s19reg_sel));
+reg32_ce2 s18_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG24),      .out(s18_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s18reg_sel));
+reg32_ce2 s17_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG16),      .out(s17_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s17reg_sel));
+reg32_ce2 s16_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG15),      .out(s16_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s16reg_sel));
+reg32_ce2 s15_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG14),      .out(s15_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s15reg_sel));
+reg32_ce2 s14_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG13),      .out(s14_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s14reg_sel));
+reg32_ce2 s13_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG12),      .out(s13_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s13reg_sel));
+reg32_ce2 s12_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG11),      .out(s12_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s12reg_sel));
+reg32_ce2 s11_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG10),      .out(s11_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s11reg_sel));
+reg32_ce2 s10_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG09),      .out(s10_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s10reg_sel));
+reg32_ce2 s09_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG08),      .out(s09_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s09reg_sel));
+reg32_ce2 s08_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG07),      .out(s08_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s08reg_sel));
+reg32_ce2 s07_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG06),      .out(s07_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s07reg_sel));
+reg32_ce2 s06_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG05),      .out(s06_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s06reg_sel));
+reg32_ce2 s05_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG04),      .out(s05_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s05reg_sel));
+reg32_ce2 s04_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG03),      .out(s04_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s04reg_sel));
+reg32_ce2 s03_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG02),      .out(s03_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s03reg_sel));
+reg32_ce2 s02_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG01),      .out(s02_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s02reg_sel));
+reg32_ce2 s01_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG00),      .out(s01_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s01reg_sel));
+reg32_ce2 s00_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG00_INIT), .out(s00_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s00reg_sel));
 
 
 // use the LSB of the control register to generate a strobe which will be used
 // to reset the loop counter and thus initiate a new programming sequence
 
 // synchronize the LSB with the slow_clk
-reg scntrl_LSB;
+wire scntrl_LSB;
+wire scntrl_LSB_stretch;
 
-always @ (posedge slow_clk)
-begin
-    scntrl_LSB <= scntrl_reg_out[0];
-end
+signal_stretch scntrl_stretch (
+    .signal_in(scntrl_reg_out[0]),
+    .clk(io_clk),
+    .n_extra_cycles(8'h28), // add more than enough extra clock cycles for synchronization into 6.25 MHz clock domain
+    .signal_out(scntrl_LSB_stretch)
+);
+
+sync_2stage scntrl_sync (
+    .clk(slow_clk),
+    .in(scntrl_LSB_stretch),
+    .out(scntrl_LSB)
+);
 
 
-//*************************************************************************
+
+// =================================================
 // generate a single clock strobe based on scntrlLSB
 // it's triggered by sctrlLSB going from low to high
-//*************************************************************************
+// =================================================
 parameter STROBE_IDLE = 3'b001;
 parameter STROBE_TRIG = 3'b010;
 parameter STROBE_DONE = 3'b100;
 
-reg [2:0] strobe_state = STROBE_IDLE;
+reg [2:0] strobe_state = 3'b000;
 reg strobe;
 
 always @ (posedge slow_clk)
@@ -316,29 +357,13 @@ begin
 end
 
 
-//*************************************************************************
-// generate a low speed clock (6.25 MHz / 160 ns)
-//*************************************************************************
-reg [2:0] clk_cnt;
-wire slow_clk;
-wire slow_clk_180;
-
-always @ (posedge clk50)
-begin
-    clk_cnt[2:0] <= clk_cnt[2:0] + 1'b1;
-end 
-
-assign slow_clk = clk_cnt[2];
-assign slow_clk_180 = !slow_clk;
-
-
-//*************************************************************************
+// ==========================================================
 // shift register with counter, LSB wired to output of module
 //
 // sreg_strobe - starts the shifting mechanism
 // payload     - what will be shifted
 // sreg_ready  - active high status signal
-//*************************************************************************
+// ==========================================================
 reg sreg_strobe;
 reg [31:0] sreg;
 reg [5:0] sreg_cnt = 6'b000000;
@@ -348,13 +373,14 @@ parameter SHIFT_IDLE     = 2'b00;
 parameter SHIFT_LOAD     = 2'b01;
 parameter SHIFT_SHIFTING = 2'b10;
 
-reg [1:0] shift_state = SHIFT_IDLE;
+reg [1:0] shift_state = 2'b00;
 
 reg sreg_cnt_ena;
 reg sreg_cnt_reset;
 
 wire sreg_cnt_max;
 assign sreg_cnt_max = (sreg_cnt == 6'b011110) ? 1'b1 : 1'b0;
+
 
 always @ (posedge slow_clk)
 begin
@@ -368,6 +394,7 @@ end
 
 reg sreg_load;
 
+
 always @ (posedge slow_clk)
 begin
     if (sreg_load)
@@ -378,15 +405,16 @@ end
 
 assign ddat = sreg[31];
 
+
 always @ (posedge slow_clk)
 begin
     if (resetS)
         begin
-            sreg_load <= 1'b1;
+            sreg_load      <= 1'b1;
             sreg_cnt_reset <= 1'b1;
-            sreg_cnt_ena <= 1'b0;
-            dlen <= 1'b1;
-            sreg_ready <= 1'b1;
+            sreg_cnt_ena   <= 1'b0;
+            dlen           <= 1'b1;
+            sreg_ready     <= 1'b1;
             
             shift_state <= SHIFT_IDLE;
         end
@@ -395,10 +423,10 @@ begin
             case (shift_state)
                 SHIFT_IDLE : begin
                     sreg_cnt_reset <= 1'b1;
-                    sreg_cnt_ena <= 1'b0;
-                    sreg_load <= 1'b1;                    
-                    dlen <= 1'b1;
-                    sreg_ready <= 1'b1;
+                    sreg_cnt_ena   <= 1'b0;
+                    sreg_load      <= 1'b1;                    
+                    dlen           <= 1'b1;
+                    sreg_ready     <= 1'b1;
 
                     if (sreg_strobe)
                         shift_state <= SHIFT_LOAD;
@@ -408,10 +436,10 @@ begin
                 
                 SHIFT_LOAD : begin
                     sreg_cnt_reset <= 1'b1;
-                    sreg_cnt_ena <= 1'b0;
-                    sreg_load <= 1'b1;                    
-                    dlen <= 1'b1;
-                    sreg_ready <= 1'b0;
+                    sreg_cnt_ena   <= 1'b0;
+                    sreg_load      <= 1'b1;                    
+                    dlen           <= 1'b1;
+                    sreg_ready     <= 1'b0;
 
                     if (sreg_strobe)
                         shift_state <= SHIFT_LOAD;
@@ -421,10 +449,10 @@ begin
                 
                 SHIFT_SHIFTING : begin
                     sreg_cnt_reset <= 1'b0;
-                    sreg_cnt_ena <= 1'b1;
-                    sreg_load <= 1'b0;
-                    dlen <= 1'b0;
-                    sreg_ready <= 1'b0;
+                    sreg_cnt_ena   <= 1'b1;
+                    sreg_load      <= 1'b0;
+                    dlen           <= 1'b0;
+                    sreg_ready     <= 1'b0;
 
                     if (sreg_cnt_max)
                         shift_state <= SHIFT_IDLE;
@@ -436,15 +464,16 @@ begin
 end
 
 
-//*************************************************************************
+// ==================
 // array of registers
-//*************************************************************************
+// ==================
 reg [4:0] synth_reg_addr = 5'd0;
 reg [31:0] synth_reg = 32'd0;
 
 always @ (posedge slow_clk)
 begin
     case (synth_reg_addr[4:0])
+        // order in which the registers will be programmed
         5'b00000 : synth_reg[31:0] = s00_reg_out[31:0];
         5'b00001 : synth_reg[31:0] = s01_reg_out[31:0];
         5'b00010 : synth_reg[31:0] = s02_reg_out[31:0];
@@ -475,9 +504,9 @@ begin
 end
 
 
-//*************************************************************************
+// =====================================================
 // automatic configuration of all of the synth registers
-//*************************************************************************
+// =====================================================
 parameter WRITE_IDLE      = 3'b000;
 parameter WRITE_COUNT     = 3'b001;
 parameter WRITE_LOAD      = 3'b010;
@@ -486,21 +515,22 @@ parameter WRITE_INCREMENT = 3'b100;
 parameter SYNC_LOW        = 3'b101;
 parameter SYNC_HIGH       = 3'b110;
 
-reg [2:0] synth_state = WRITE_IDLE;
+reg [2:0] synth_state = 3'b000;
 
-// ====================================================================
+
+// ==============================
 // signals for sync functionality
-// ====================================================================
+// ==============================
 reg [4:0] sync_cnt = 5'b00000; // counter to keep sync wire low for >4 clock cycles
 reg sync_asserted = 1'b0;      // flag to remember when sync has already been asserted
 reg sync_level;                // flag to drive sync wire to either low (1'b0) or high (1'b1)
 
-assign sync = (sync_level) ? 1'b1 : 1'b0;
+assign sync = sync_level;
 
 
-//************************************************
+// =======================================
 // loop counter to clock out all registers
-//************************************************
+// =======================================
 reg [5:0] loop_cnt = `CS_NUM_REGS; // initialized to cnt_max so that the WRITE SM isn't automatically triggered
 reg loop_cnt_ena;
 
@@ -518,19 +548,19 @@ begin
 end
 
 
-//************************************************
+// ====================================
 // state machine to write the registers
-//************************************************
+// ====================================
 always @ (posedge slow_clk)
 begin
     if (resetS)
         begin
             synth_reg_addr[4:0] <= 5'b00000;
-            sreg_strobe <= 1'b0;
-            loop_cnt_ena <= 1'b0;
+            sreg_strobe   <= 1'b0;
+            loop_cnt_ena  <= 1'b0;
             sync_cnt[4:0] <= 5'b00000;
             sync_asserted <= 1'b0;
-            sync_level <= 1'b1;
+            sync_level    <= 1'b1;
 
             synth_state <= WRITE_IDLE;
         end
@@ -538,10 +568,10 @@ begin
         begin
             case (synth_state)
                 WRITE_IDLE : begin
-                    sreg_strobe <= 1'b0;
-                    loop_cnt_ena <= 1'b0;
+                    sreg_strobe   <= 1'b0;
+                    loop_cnt_ena  <= 1'b0;
                     sync_cnt[4:0] <= 5'b00000;
-                    sync_level <= 1'b1;
+                    sync_level    <= 1'b1;
 
                     if (!loop_cnt_max)
                         begin               
@@ -562,8 +592,8 @@ begin
             
                 WRITE_COUNT : begin
                     synth_reg_addr[4:0] <= synth_reg_addr[4:0];
-                    sreg_strobe <= 1'b0;
-                    loop_cnt_ena <= 1'b1;
+                    sreg_strobe   <= 1'b0;
+                    loop_cnt_ena  <= 1'b1;
                     sync_asserted <= 1'b0;
 
                     synth_state <= WRITE_LOAD;
@@ -571,11 +601,11 @@ begin
                                
                 WRITE_LOAD : begin
                     synth_reg_addr[4:0] <= synth_reg_addr[4:0];
-                    sreg_strobe <= 1'b1;
-                    loop_cnt_ena <= 1'b0;
+                    sreg_strobe   <= 1'b1;
+                    loop_cnt_ena  <= 1'b0;
                     sync_asserted <= 1'b0;
 
-                    if (sreg_ready)              // wait here until the shift reg starts shifting                       
+                    if (sreg_ready) // wait here until the shift reg starts shifting                       
                         synth_state <= WRITE_LOAD;
                     else
                         synth_state <= WRITE_SHIFT;
@@ -583,11 +613,11 @@ begin
                 
                 WRITE_SHIFT : begin
                     synth_reg_addr[4:0] <= synth_reg_addr[4:0];
-                    sreg_strobe <= 1'b0;
-                    loop_cnt_ena <= 1'b0;
+                    sreg_strobe   <= 1'b0;
+                    loop_cnt_ena  <= 1'b0;
                     sync_asserted <= 1'b0;
 
-                    if (sreg_ready)             // wait here until the shift reg stops shifting
+                    if (sreg_ready) // wait here until the shift reg stops shifting
                         synth_state <= WRITE_INCREMENT;
                     else
                         synth_state <= WRITE_SHIFT;
@@ -595,8 +625,8 @@ begin
                 
                 WRITE_INCREMENT : begin
                     synth_reg_addr[4:0] <= synth_reg_addr[4:0] + 1'b1;
-                    sreg_strobe <= 1'b0;
-                    loop_cnt_ena <= 1'b0;
+                    sreg_strobe   <= 1'b0;
+                    loop_cnt_ena  <= 1'b0;
                     sync_asserted <= 1'b0;
 
                     synth_state <= WRITE_IDLE;
@@ -604,7 +634,7 @@ begin
 
                 SYNC_LOW : begin
                     sync_cnt[4:0] <= sync_cnt[4:0] + 1'b1;
-                    sync_level <= 1'b0;
+                    sync_level    <= 1'b0;
                     sync_asserted <= 1'b0;
 
                     if (sync_cnt[4])
@@ -615,7 +645,7 @@ begin
 
                 SYNC_HIGH : begin
                     sync_cnt[4:0] <= sync_cnt[4:0] + 1'b1;
-                    sync_level <= 1'b1;
+                    sync_level    <= 1'b1;
                     sync_asserted <= 1'b1;
 
                     if (!sync_cnt[4])
@@ -628,9 +658,9 @@ begin
 end
 
 
-//*************************************************************************
+// =================
 // debug assignments
-//*************************************************************************
+// =================
 assign debug[2] = slow_clk;
 assign debug[1] = loop_cnt_max;
 assign debug[0] = scntrl_reg_out[0];

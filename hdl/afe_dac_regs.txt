@@ -1,0 +1,56 @@
+// Registers values for digital-to-analog converter (AD5666) configurations
+// on the analog frontend mezzanine card.
+
+// Be sure to use [ `include "afe_dac_regs.txt" ] whenever any of these constants are needed.
+// Also, be sure to use the backtic [ ` ] when the constant is actually used.
+
+// Only define these constants once.
+`ifndef AFE_DAC_REGS_INCLUDED
+  `define AFE_DAC_REGS_INCLUDED
+  
+    // Define 32-bit register values for DAC
+
+    // ====================
+    // AD5666 chip settings
+    // ====================
+    `define DAC_NUM_REGS       6'd11           // 11 DAC registers
+
+    // =======================
+    // Default register values
+    // =======================
+
+    `define DAC1_DEF_MODE      32'h0400000f    // Power-up all channels
+    `define DAC2_DEF_MODE      32'h0400000f    // Power-up all channels
+    `define DAC3_DEF_MODE      32'h0400000f    // Power-up all channels
+
+    `define DAC1_DEF_LDAC      32'h0600000f    // DAC channels update, overrides the \LDAC pin
+    `define DAC2_DEF_LDAC      32'h0600000f    // DAC channels update, overrides the \LDAC pin
+    `define DAC3_DEF_LDAC      32'h0600000f    // DAC channels update, overrides the \LDAC pin
+
+    `define DAC1_DEF_DCEN      32'h08000002    // Daisy-chain enable, internal reference disable
+    `define DAC2_DEF_DCEN      32'h08000002    // Daisy-chain enable, internal reference disable
+    `define DAC3_DEF_DCEN      32'h08000002    // Daisy-chain enable, internal reference disable
+
+    // Format: {4'h0, CMD[27:24], ADDR[23:20], DATA[19:4], 4'h0}
+    // 32'h0cadddd0
+
+    // VOCM = MID-SUPPLY
+    // N.C. = POWER-OFF (100 kOhm to GND)
+
+    `define DAC1_DEF_CHAN_A    32'h030ffff0    // DAC #1 Channel A :  OFFSET_0
+    `define DAC2_DEF_CHAN_A    32'h030ffff0    // DAC #2 Channel A :  OFFSET_2
+    `define DAC3_DEF_CHAN_A    32'h030ffff0    // DAC #3 Channel A :  OFFSET_4
+
+    `define DAC1_DEF_CHAN_B    32'h03100000    // DAC #1 Channel B : /OFFSET_0
+    `define DAC2_DEF_CHAN_B    32'h03100000    // DAC #2 Channel B : /OFFSET_2
+    `define DAC3_DEF_CHAN_B    32'h03100000    // DAC #3 Channel B : /OFFSET_4
+
+    `define DAC1_DEF_CHAN_C    32'h032ffff0    // DAC #1 Channel C :  OFFSET_1
+    `define DAC2_DEF_CHAN_C    32'h032ffff0    // DAC #2 Channel C :  OFFSET_3
+    `define DAC3_DEF_CHAN_C    32'h03280000    // DAC #3 Channel C :  VOCM
+
+    `define DAC1_DEF_CHAN_D    32'h03300000    // DAC #1 Channel D : /OFFSET_1
+    `define DAC2_DEF_CHAN_D    32'h03300000    // DAC #2 Channel D : /OFFSET_3
+    `define DAC3_DEF_CHAN_D    32'h04000208    // DAC #3 Channel D :  N.C.
+
+`endif

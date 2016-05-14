@@ -59,6 +59,7 @@ entity DAQ_Link_7S is
            TTSclk : in  STD_LOGIC; -- clock source which clocks TTS signals
            TTS : in  STD_LOGIC_VECTOR (3 downto 0);
 -- Data port
+					 ReSyncAndEmpty : in  STD_LOGIC;
 					 EventDataClk : in  STD_LOGIC;
            EventData_valid : in  STD_LOGIC; -- used as data write enable
            EventData_header : in  STD_LOGIC; -- first data word
@@ -116,9 +117,18 @@ COMPONENT FIFO_RESET_7S
 		fifo_en : OUT std_logic
 		);
 END COMPONENT;
+function boolean_to_int_u(biu : boolean) return integer is
+  begin
+   if(biu) then
+     return 2;
+   else
+     return 7;
+   end if;
+end function;
+constant version : std_logic_vector(7 downto 0) := x"14";
 constant N : integer := 8;
+constant u : integer := boolean_to_int_u(simulation);
 constant Acknowledge : std_logic_vector(7 downto 0) := x"12";
-constant version : std_logic_vector(7 downto 0) := x"10";
 constant data : std_logic_vector(7 downto 0) := x"34";
 constant InitRqst : std_logic_vector(7 downto 0) := x"56";
 constant Counter : std_logic_vector(7 downto 0) := x"78";
@@ -146,12 +156,13 @@ signal UsrClkDiv : std_logic_vector(1 downto 0) := (others => '0');
 signal TTS_TRIG_data : std_logic_vector(17 downto 0) := (others => '0');
 signal fifo_reset : std_logic := '0';
 signal AlmostFull_i : std_logic := '0';
-signal AlmostFull_sync : std_logic_vector(2 downto 0) := (others => '0');
+--signal AlmostFull_sync : std_logic_vector(2 downto 0) := (others => '0');
 signal Init_EventCRC : std_logic := '0';
 signal ce_EventCRC : std_logic := '0';
 signal EventCRC_d : std_logic_vector(31 downto 0) := (others => '0');
 signal EventCRC : std_logic_vector(31 downto 0) := (others => '0');
 signal BoE : std_logic := '0';
+signal BoE_q : std_logic := '0';
 signal EoE : std_logic := '0';
 signal FillDataBuf : std_logic := '0';
 signal dataBuf_WrEn : std_logic := '0';
@@ -177,7 +188,7 @@ signal DataPipe_full : std_logic := '0';
 signal InitLink : std_logic := '0';
 signal InitACK : std_logic := '0';
 signal ReSend : std_logic := '0';
-signal Ready_i : std_logic := '1';
+--signal Ready_i : std_logic := '1';
 signal FoundEOF : std_logic := '0';
 signal ACK : std_logic := '0';
 signal CntrACK : std_logic := '0';
@@ -268,6 +279,7 @@ signal UnknownEventLength : std_logic := '1';
 signal bad_EventLength : std_logic := '1';
 signal EventLength : std_logic_vector(19 downto 0) := (others => '0');
 signal EventWC : std_logic_vector(19 downto 0) := (others => '0');
+signal EventWCp : std_logic_vector(19 downto 0) := (others => '0');
 signal EventCnt : std_logic_vector(4 downto 0) := (others => '0');
 signal WrEventCnt : std_logic_vector(4 downto 0) := (others => '0');
 signal RdEventCnt : std_logic_vector(4 downto 0) := (others => '0');
@@ -304,6 +316,7 @@ signal cntr14 : std_logic_vector(15 downto 0) := (others => '0');
 signal cntr15 : std_logic_vector(15 downto 0) := (others => '0');
 signal cntr16 : std_logic_vector(15 downto 0) := (others => '0');
 signal short_event_cntr : std_logic_vector(15 downto 0) := (others => '0');
+signal bad_word_cntr : std_logic_vector(15 downto 0) := (others => '0');
 signal input_word_cntr : std_logic_vector(15 downto 0) := (others => '0');
 signal input_header_cntr : std_logic_vector(15 downto 0) := (others => '0');
 signal input_trailer_cntr : std_logic_vector(15 downto 0) := (others => '0');
@@ -335,16 +348,201 @@ signal L1A_DATA_wa : std_logic_vector(2 downto 0) := (others => '0');
 signal OldL1Ainfo_wa0_SyncRegs : std_logic_vector(3 downto 0) := (others => '0');
 signal ce_L1A_DATA_ra : std_logic := '0';
 signal CriticalTTS : std_logic_vector(2 downto 0) := (others => '0');
+-- resync logic
+signal ReSyncAndEmptySync : std_logic_vector(3 downto 0) := (others => '0');
+signal ReSyncState : std_logic_vector(2 downto 0) := (others => '0');
+signal dl_cntr : std_logic_vector(u downto 0) := (others => '0');
+--signal  : std_logic_vector(2 downto 0) := (others => '0');
+signal GotBoE : std_logic := '0';
+signal GotOrN : std_logic := '0';
+signal FakeEvN : std_logic_vector(23 downto 0) := (others => '0');
+signal Board_ID : std_logic_vector(15 downto 0) := (others => '0');
+signal DataFIFO_RdEn_i : std_logic := '0';
+signal DataFIFO_EMPTY_i : std_logic := '1';
+signal DataFIFO_do_i : std_logic_vector(65 downto 0) := (others => '0');
+signal rst_input_evn : std_logic := '0';
+signal wait_cntr : std_logic_vector(8 downto 0) := (others => '0');
+signal wait_header : std_logic := '0';
+signal wait_trailer : std_logic := '0';
+signal bad_header : std_logic := '0';
+signal bad_trailer : std_logic := '0';
+signal bad_data : std_logic := '0';
+signal bad_size : std_logic := '0';
+signal input_wc : std_logic_vector(19 downto 0) := (others => '0');
 begin
-Ready <= fifo_en;
 AlmostFull <= AlmostFull_i;
+process(EventDataClk,fifo_reset)
+begin
+	if(fifo_reset = '1')then
+		wait_header <= '1';
+		wait_trailer <= '0';
+		input_wc <= (others => '0');
+		bad_header <= '0';
+		bad_trailer <= '0';
+		bad_data <= '0';
+		bad_size <= '0';
+	elsif(EventDataClk'event and EventDataClk = '1')then
+		if(EventData_valid = '1')then
+			if(EventData_header = '1')then
+				wait_header <= '0';
+			elsif(EventData_trailer = '1')then
+				wait_header <= '1';
+			end if;
+			if(EventData_trailer = '1')then
+				input_wc <= (others => '0');
+				wait_trailer <= '0';
+			else
+				input_wc <= input_wc + 1;
+				if(input_wc = x"ffffd")then
+					wait_trailer <= '1';
+				end if;
+			end if;
+			if(wait_header = '1')then
+				if(EventData_trailer = '1')then
+					bad_trailer <= '1';
+				elsif(EventData_header = '0')then
+					bad_data <= '1';
+				end if;
+			elsif(EventData_header = '1')then
+				bad_header <= '1';
+			end if;
+			if(wait_trailer = '1' and EventData_trailer = '0')then
+				bad_size <= '1';
+			end if;
+		end if;
+	end if;
+end process;
+process(UsrClk)
+begin
+	if(UsrClk'event and UsrClk = '1')then
+		if(fifo_reset = '1' or InitLink ='1')then
+			ReSyncAndEmptySync <= (others => '0');
+		else
+			ReSyncAndEmptySync <= ReSyncAndEmptySync(2 downto 0) & ReSyncAndEmpty;
+		end if;
+		if(fifo_reset = '1' or InitLink = '1')then
+			GotBoE <= '0';
+			GotOrN <= '0';
+		elsif(ReSyncState(2) = '0' and ce_EventCRC = '1')then
+			if(EoE = '1')then
+				GotBoE <= '0';
+				GotOrN <= '0';
+			elsif(BoE = '1')then
+				GotBoE <= '1';
+			elsif(BoE_q = '1')then
+				GotOrN <= '1';
+			end if;
+		elsif(ReSyncState = "111")then
+			GotBoE <= '0';
+			GotOrN <= '0';
+		end if;
+		if(DataFIFO_RdEn = '1')then
+			BOE_q <= BOE;
+		end if;
+		if(fifo_reset = '1' or InitLink = '1')then
+			ReSyncState <= "000";
+			dl_cntr <= (others => '0');
+			rst_input_evn <= '0';
+		elsif(ReSyncState(2) = '0')then
+			case ReSyncState(1 downto 0) is
+				when "00" =>
+					if(ReSyncAndEmptySync(3 downto 2) = "01")then
+						ReSyncState <= "001";
+					end if;
+					rst_input_evn <= '0';
+				when "01" =>
+					if(and_reduce(dl_cntr) = '1')then
+						ReSyncState <= "010";
+					end if;
+					dl_cntr <= dl_cntr + 1;
+				when "10" =>
+					if(DataFIFO_EMPTY_i = '1' and EventStatusCnt(4 downto 1) = x"0" and (GotOrN = '1' or EventStatusCnt(0) = '0'))then
+						ReSyncState <= "011";
+					end if;
+				when others =>
+					if(and_reduce(dl_cntr) = '1')then
+						if(L1Ainfo_empty = '0' or GotBoE = '1')then
+							ReSyncState <= "100";
+						else
+							ReSyncState <= "000";
+						end if;
+						rst_input_evn <= '1';
+					end if;
+					dl_cntr <= dl_cntr + 1;
+			end case;
+		elsif(UsrClkDiv = "10")then
+			case ReSyncState(1 downto 0) is
+				when "00" =>
+					if((L1Ainfo_empty = '0' or GotBoE = '1') and EventStatusCnt(4) = '0' and DataBuf_used(14) = '0')then
+						if(GotOrN = '1')then
+							ReSyncState <= "111";
+						elsif(GotBoE = '1')then
+							ReSyncState <= "110";
+						else
+							ReSyncState <= "101";
+						end if;
+					end if;
+				when "01" => ReSyncState <= "110";
+				when "10" => ReSyncState <= "111";
+				when others => ReSyncState <= "100";
+			end case;
+		end if;
+		if(ReSyncState = "011")then
+			FakeEvN <= input_evn;
+		elsif(ReSyncState = "111" and UsrClkDiv = "10")then
+			FakeEvN <= FakeEvN + 1;
+		end if;
+		if(fifo_reset = '1' or InitLink ='1')then
+			DataFIFO_EMPTY <= '1';
+			DataFIFO_RdEn_i <= '0';
+		elsif(ReSyncState(2) = '0')then
+			if(DataFIFO_EMPTY_i = '0')then
+				DataFIFO_EMPTY <= '0';
+			elsif(DataFIFO_RdEn = '1')then
+				DataFIFO_EMPTY <= '1';
+			end if;
+			if(DataFIFO_EMPTY_i = '1')then
+				DataFIFO_RdEn_i <= '0';
+			elsif((DataFIFO_EMPTY = '1' and DataFIFO_RdEn_i = '0') or DataFIFO_RdEn = '1')then
+				DataFIFO_RdEn_i <= '1';
+			else
+				DataFIFO_RdEn_i <= '0';
+			end if;
+		else
+			case ReSyncState(1 downto 0) is
+				when "00" => DataFIFO_EMPTY <= '1';
+				when others => DataFIFO_EMPTY <= '0';
+			end case;
+			DataFIFO_RdEn_i <= '0';
+		end if;
+		if(ReSyncState(2) = '0')then
+			if(DataFIFO_EMPTY = '1' or DataFIFO_RdEn = '1')then
+				DataFIFO_do <= DataFIFO_do_i;
+			end if;
+		else
+			case ReSyncState(1 downto 0) is
+				when "01" => DataFIFO_do <= "10" & x"00" & FakeEvN & x"00000003";
+				when "10" => DataFIFO_do <= "00" & x"000000000000" & Board_ID;
+				when "11" => DataFIFO_do <= "01" & x"00000000" & FakeEvN(7 downto 0) & x"8" & EventWCp;
+				when others => DataFIFO_do <= (others => '0');
+			end case;
+		end if;
+		if(GotOrN = '1')then
+			EventWCp <= EventWC;
+		else
+			EventWCp <= x"00003";
+		end if;
+	end if;
+end process;
+Ready <= '1';
+--Ready <= fifo_en;
 i_FIFO_RESET_7S: FIFO_RESET_7S PORT MAP(
 		reset => fifo_reset,
 		clk => EventDataClk,
 		fifo_rst => fifo_rst,
 		fifo_en => fifo_en
 	);
-fifo_reset <= not Ready_i;
+--fifo_reset <= not Ready_i;
 i_DataFIFO : FIFO_DUALCLOCK_MACRO
    generic map (
       DEVICE => "7SERIES",            -- Target Device: "VIRTEX5", "VIRTEX6", "7SERIES" 
@@ -356,8 +554,8 @@ i_DataFIFO : FIFO_DUALCLOCK_MACRO
    port map (
       ALMOSTEMPTY => open,   -- 1-bit output almost empty
       ALMOSTFULL => AlmostFull_i,     -- 1-bit output almost full
-      DO => DataFIFO_do,                     -- Output data, width defined by DATA_WIDTH parameter
-      EMPTY => DataFIFO_EMPTY,               -- 1-bit output empty
+      DO => DataFIFO_do_i,                     -- Output data, width defined by DATA_WIDTH parameter
+      EMPTY => DataFIFO_EMPTY_i,               -- 1-bit output empty
       FULL => open,                 -- 1-bit output full
       RDCOUNT => RDCOUNT,           -- Output read count, width determined by FIFO depth
       RDERR => open,               -- 1-bit output read error
@@ -365,12 +563,12 @@ i_DataFIFO : FIFO_DUALCLOCK_MACRO
       WRERR => DataFIFO_WRERR,               -- 1-bit output write error
       DI => DataFIFO_di,                     -- Input data, width defined by DATA_WIDTH parameter
       RDCLK => UsrClk,               -- 1-bit input read clock
-      RDEN => DataFIFO_RdEn,                 -- 1-bit input read enable
+      RDEN => DataFIFO_RdEn_i,                 -- 1-bit input read enable
       RST => FIFO_rst,                   -- 1-bit input reset
       WRCLK => EventDataClk,               -- 1-bit input write clock
       WREN => DataFIFO_WrEn                  -- 1-bit input write enable
    );
-DataFIFO_WrEn <= FIFO_en and EventData_valid;
+DataFIFO_WrEn <= FIFO_en and EventData_valid and ((wait_header and EventData_header) or (wait_trailer and EventData_trailer) or (not wait_header and not wait_trailer and not EventData_header));
 DataFIFO_di <= EventData_header & EventData_trailer & EventData;
 process(UsrClk)
 begin
@@ -386,7 +584,7 @@ begin
 		if(DataFIFO_do(65) = '1' and DataFIFO_RdEnp = '1')then
 			EventLength <= DataFIFO_do(19 downto 0);
 		end if;
-		if(Ready_i = '0' or InitLink ='1')then
+		if(fifo_reset = '1' or InitLink ='1')then
 			ChkEvtLen <= (others => '0');
 		elsif(DataFIFO_RdEnp = '1')then
 			if(DataFIFO_do(64) = '1' and ChkEvtLen(1) = '1')then
@@ -410,7 +608,7 @@ begin
 			bad_EventLength <= '0';
 		end if;
 		Init_EventCRC <= not UsrClkDiv(1) and not UsrClkDiv(0) and DataFIFO_do(65) and not ChkEvtLen(1) and not ChkEvtLen(0) and not DataFIFO_EMPTY;
-		if(FIFO_en = '0' or Ready_i = '0' or InitLink = '1' or DataFIFO_EMPTY = '1')then
+		if(FIFO_en = '0' or fifo_reset = '1' or InitLink = '1' or DataFIFO_EMPTY = '1')then
 			FillDataBuf <= '0';
 		elsif(UsrClkDiv = "00")then
 			if(DataBuf_full = '1' or EventCnt(4 downto 3) = "11")then
@@ -423,15 +621,23 @@ begin
 		DataFIFO_RdEn <= UsrClkDiv(1) and not UsrClkDiv(0) and FillDataBuf and (ChkEvtLen(1) or not DataFIFO_do(64));
 		DataFIFO_RdEnp <= UsrClkDiv(1) and not UsrClkDiv(0) and FillDataBuf and FIFO_en;
 		DataBuf_wrEn <= FillDataBuf;
-		BoE <= DataFIFO_do(65);
-		EoE <= DataFIFO_do(64) and ChkEvtLen(1);
-		if(BoE = '1' and ce_EventCRC = '1')then
-			evnLSB <= EventCRC_d(7 downto 0);
+		BoE <= DataFIFO_do(65) and not DataFIFO_EMPTY;
+		EoE <= DataFIFO_do(64) and not DataFIFO_EMPTY and ChkEvtLen(1);
+--		if(BoE = '1' and ce_EventCRC = '1')then
+--			evnLSB <= EventCRC_d(7 downto 0);
+--		end if;
+--		if(EventCRC_d(31 downto 24) = evnLSB)then
+--			bad_ID <= '0';
+--		else
+--			bad_ID <= '1';
+--		end if;
+		if(DataFIFO_do(65) = '1' and DataFIFO_RdEn = '1')then
+			evnLSB <= DataFIFO_do(39 downto 32);
 		end if;
-		if(EventCRC_d(31 downto 24) = evnLSB)then
-			bad_ID <= '0';
-		else
+		if(DataFIFO_do(64) = '1' and DataFIFO_RdEn = '1' and DataFIFO_do(31 downto 24) /= evnLSB)then
 			bad_ID <= '1';
+		else
+			bad_ID <= '0';
 		end if;
 		if(UsrClkDiv(0) = '1')then
 			if(EoE = '1' and UsrClkDiv(1) = '1')then
@@ -491,40 +697,54 @@ begin
 		RXDATA_q <= RXDATA;
 	end if;
 end process;
-process(EventDataClk,reset,InitLink)
+process(EventDataClk,fifo_reset,rst_input_evn)
 begin
-	if(reset = '1' or Ready_i = '0')then
+	if(rst_input_evn = '1' or fifo_reset = '1')then
+		input_evn <= x"000001";
+	elsif(EventDataClk'event and EventDataClk = '1')then
+		if(EventData_valid = '1')then
+			if(DataFIFO_di(65) = '1')then
+				input_evn <= DataFIFO_di(55 downto 32);
+			elsif(DataFIFO_di(64) = '1')then
+				input_evn <= input_evn + 1;
+			end if;
+		end if;
+	end if;
+end process;
+process(EventDataClk,fifo_reset)
+begin
+	if(fifo_reset = '1')then
 		ChkEvtLen_in <= (others => '0');
 		sample_sync <= (others => '0');
 		FIFO_ovf <= '0';
+		cntrb <= (others => '0');
 		cntrc <= (others => '0');
 		cntrd <= (others => '0');
 		cntre <= (others => '0');
 		cntrf <= (others => '0');
 		cntr16 <= (others => '0');
 		short_event_cntr <= (others => '0');
+		bad_word_cntr <= (others => '0');
 		input_word_cntr <= (others => '0');
 		input_header_cntr <= (others => '0');
 		input_trailer_cntr <= (others => '0');
 		input_evnErr_cntr <= (others => '0');
-		input_evn <= x"000001";
 	elsif(EventDataClk'event and EventDataClk = '1')then
+--		AlmostFull <= AlmostFull_i or not fifo_en;
 		sample_sync <= sample_sync(2 downto 0) & sample;
 		if(DataFIFO_WRERR = '1')then
 			FIFO_ovf <= '1';
+		end if;
+		if(EventData_valid = '1' and (wait_header /= EventData_header or (wait_trailer = '1' and EventData_trailer = '0')))then
+			bad_word_cntr <= bad_word_cntr + 1;
 		end if;
 		if(dataFIFO_WrEn = '1')then
 			input_word_cntr <= input_word_cntr + 1;
 			if(DataFIFO_di(65) = '1')then
 				input_header_cntr <= input_header_cntr + 1;
-				input_evn <= DataFIFO_di(55 downto 32);
 				if(DataFIFO_di(55 downto 32) /= input_evn)then
 					input_evnErr_cntr <= input_evnErr_cntr + 1;
 				end if;
-			end if;
-			if(DataFIFO_di(64) = '1')then
-				input_trailer_cntr <= input_trailer_cntr + 1;
-				input_evn <= input_evn + 1;
 			end if;
 			if(DataFIFO_di(64) = '1')then
 				ChkEvtLen_in <= (others => '0');
@@ -534,7 +754,6 @@ begin
 			end if;
 			if(DataFIFO_di(64) = '1')then
 				input_trailer_cntr <= input_trailer_cntr + 1;
-				input_evn <= input_evn + 1;
 				if(ChkEvtLen_in(1) = '0')then
 					short_event_cntr <= short_event_cntr + 1;
 				end if;
@@ -542,6 +761,7 @@ begin
 		end if;
 		if(sample_sync(3) /= sample_sync(2))then -- update after Counters sent
 			cntr16 <= short_event_cntr;
+			cntrb <= bad_word_cntr;
 			cntrc <= input_word_cntr;
 			cntrd <= input_header_cntr;
 			cntre <= input_trailer_cntr;
@@ -552,7 +772,7 @@ end process;
 process(UsrClk)
 begin
 	if(UsrClk'event and UsrClk = '1')then
-		if(Ready_i = '0' or InitLink = '1')then
+		if(fifo_reset = '1' or InitLink = '1')then
 			DataBuf_wa <= (others => '0');
 			ReSendQueOut_q <= (others => '0');
 			DataBuf_used <= (others => '0');
@@ -721,6 +941,18 @@ g_TxFIFO : for i in 0 to 16 generate
    );
 end generate;
 TxFIFO_Di(15 downto 0) <= cntrs when sel_cntr = '1' else TxFIFO_Dip;
+process(UsrClk,EventData_valid)
+begin
+	if(EventData_valid = '1')then
+		wait_cntr <= (others => '0');
+	elsif(UsrClk'event and UsrClk = '1')then
+		if(InitLink = '0')then
+			wait_cntr <= (others => '0');
+		else
+			wait_cntr <= wait_cntr + 1;
+		end if;
+	end if;
+end process;
 process(UsrClk)
 begin
 	if(UsrClk'event and UsrClk = '1')then
@@ -764,13 +996,18 @@ begin
 -- whenever a good initialization packet is received, (re)initializa miniCTR
 		elsif(check_packet = '1' and CRC_OK = '1' and TypeInit = '1' and frame_OK = '1' and WC_OK = '1' and bad_K = '0')then
 			InitLink <= '1';
-		else
+		elsif(wait_cntr(8) = '1')then
 			InitLink <= '0';
 		end if;
+--		if(reset_SyncRegs(3) = '1')then
+--			Ready <= '0';
+--		elsif(InitACK = '1' and TxState = SendCRC and TxType = InitRqst)then
+--			Ready <= '1';
+--		end if;
 		if(reset_SyncRegs(3) = '1' or InitLink = '1')then
-			Ready_i <= '0';
+			fifo_reset <= '1';
 		elsif(InitACK = '1' and TxState = SendCRC and TxType = InitRqst)then
-			Ready_i <= '1';
+			fifo_reset <= '0';
 		end if;
 		if(InitLink = '1')then
 			SEQNUM <= x"00";
@@ -901,7 +1138,7 @@ begin
 				when x"2" => cntrs <= '0' & DataBuf_ra;
 				when x"3" => cntrs <= "000000" & L1Ainfo_wa;
 				when x"4" => cntrs <= "000000" & info_ra;
-				when x"5" => cntrs <= "000000" & AMCinfo_wa;
+				when x"5" => cntrs <= bad_header & bad_trailer & bad_data & bad_size & "00" & AMCinfo_wa;
 				when x"6" => cntrs <= x"00" & version;
 				when x"7" => cntrs <= DataBuf_full & EventStatus_empty & EventData2Send & DataPipe_empty & CriticalTTS & EventCnt & ReSendQue_a & AlmostFull_i & dataFIFO_Empty;
 				when x"8" => cntrs <= cntr10;
@@ -963,7 +1200,7 @@ begin
 -- Comma ends a packet and after that, any D-word marks the beginning of a packet
 		if(RXCHARISCOMMA_q  = "11" or (L1Ainfo_wa(1 downto 0) = "11" and L1Ainfo_WrEn = '1'))then
 			L1Ainfo <= '0';
-		elsif(RXCHARISK_q = "00" and Header2 = '1' and Ready_i = '1' and TypeData = '1')then
+		elsif(RXCHARISK_q = "00" and Header2 = '1' and fifo_reset = '0' and TypeData = '1')then
 			L1Ainfo <= '1';
 		end if;
 		if(RXCHARISCOMMA_q  = "11")then
@@ -1156,21 +1393,22 @@ begin
 		end if;
 		if(InitLink = '1')then
 			cntra <= (others => '0');
-		elsif(EoE = '1' and UsrClkDiv(1) = '1' and bad_ID = '1')then
+--		elsif(EoE = '1' and UsrClkDiv = "11" and bad_ID = '1')then
+		elsif(bad_ID = '1')then
 			cntra <= cntra + 1;
 		end if;
-		AlmostFull_sync <= AlmostFull_sync(1 downto 0) & AlmostFull_i;
-		if(InitLink = '1')then
-			cntrb <= (others => '0');
-		elsif(AlmostFull_sync(2) = '1')then
-			cntrb <= cntrb + 1;
-		end if;
-		if(ready_i = '0' or CntrACK = '1')then
+--		AlmostFull_sync <= AlmostFull_sync(1 downto 0) & AlmostFull_i;
+--		if(InitLink = '1')then
+--			cntrb <= (others => '0');
+--		elsif(AlmostFull_sync(2) = '1')then
+--			cntrb <= cntrb + 1;
+--		end if;
+		if(fifo_reset = '1' or CntrACK = '1')then
 			CntrSent <= '0';
 		elsif(TxState = SendCRC and IsCntr = '1')then
 			CntrSent <= '1';
 		end if;
-		if(ready_i = '0' or CntrACK = '1' or (TxState = SendCRC and IsCntr = '1'))then
+		if(fifo_reset = '1' or CntrACK = '1' or (TxState = SendCRC and IsCntr = '1'))then
 			cntr_timer <= (others => '0');
 		elsif(CntrTimeout = '0')then
 			cntr_timer <= cntr_timer + 1;
@@ -1387,7 +1625,7 @@ begin
 		else
 			EventStatus_empty <= '0';
 		end if;
-		if(Ready_i = '0' or InitLink = '1')then
+		if(fifo_reset = '1' or InitLink = '1')then
 			EventStatus_wa <= (others => '0');
 		elsif(we_EventStatus = '1')then
 			EventStatus_wa <= EventStatus_wa + 1;
@@ -1414,7 +1652,8 @@ g_EventStatus : for i in 0 to 2 generate
       WE => we_EventStatus       -- Write enable input
    );
 end generate;
-EventStatus(6 downto 3) <= (others => '0');
+EventStatus(3) <= ReSyncState(2);
+EventStatus(7 downto 4) <= (others => '0');
 EventStatus_ra <= RdEventCnt;
 g_L1A_DATA: for i in 0 to 15 generate
   i_L1Adata : RAM32X1D

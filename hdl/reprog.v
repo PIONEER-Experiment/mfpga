@@ -2,28 +2,26 @@
 `include "ICAP_values.txt"
 
 // Module to re-program FPGA from flash by issuing an IPROG command
-//
-// Robin Bjorkquist, May 2015
 
-module reprog(
+module reprog (
 	input clk,
 	input reset,
 	input [1:0] trigger // trigger[0] for golden image, trigger[1] for regular master image
 );
 
 // =========================================================================
-//      declare signals
+// declare signals
 // =========================================================================
 
 wire clk_180 = !clk;
 reg ICAP_enable;
 wire [31:0] ICAP_input;
 reg [31:0] ICAP_value; // determined by state machine
-reg bitstream_select; // 0 for golden image, 1 for regular master image
+reg bitstream_select;  // 0 for golden image, 1 for regular master image
 
 
 // =========================================================================
-//      instantiate ICAPE2 primitive to access FPGA configuration logic 
+// instantiate ICAPE2 primitive to access FPGA configuration logic 
 // =========================================================================
 
 // ICAPE2: Internal Configuration Access Port
@@ -31,25 +29,23 @@ reg bitstream_select; // 0 for golden image, 1 for regular master image
 // Xilinx HDL Libraries Guide, version 13.4
 
 ICAPE2 #(
-	.DEVICE_ID(0'h3651093),     // Specifies the pre-programmed Device ID value to be used for simulation
-						        // purposes.
-	.ICAP_WIDTH("X32"),         // Specifies the input and output data width.
-	.SIM_CFG_FILE_NAME("NONE")  // Specifies the Raw Bitstream (RBT) file to be parsed by the simulation
-                                // model.
+	.DEVICE_ID(0'h3651093),    // Specifies the pre-programmed Device ID value to be used for simulation purposes
+	.ICAP_WIDTH("X32"),        // Specifies the input and output data width
+	.SIM_CFG_FILE_NAME("NONE") // Specifies the Raw Bitstream (RBT) file to be parsed by the simulation model
 )
 ICAPE2_inst (
 	.O(),               // 32-bit output: Configuration data output bus (not used here)
-	.CLK(clk_180),      // 1-bit input: Clock Input
-	.CSIB(ICAP_enable), // 1-bit input: Active-Low ICAP Enable
-	.I(ICAP_input),     // 32-bit input: Configuration data input bus
-	.RDWRB(1'b0)        // 1-bit input: Read/Write Select input (tie low to select "write")
+	.CLK(clk_180),      //  1-bit  input: Clock Input
+	.CSIB(ICAP_enable), //  1-bit  input: Active-Low ICAP Enable
+	.I(ICAP_input),     // 32-bit  input: Configuration data input bus
+	.RDWRB(1'b0)        //  1-bit  input: Read/Write Select input (tie low to select "write")
 );
 
 // End of ICAPE2_inst instantiation
 
 
 // =========================================================================
-//      create bit ordering required by ICAP
+// create bit ordering required by ICAP
 // =========================================================================
 
 assign ICAP_input[31] = ICAP_value[24];
@@ -90,7 +86,7 @@ assign ICAP_input[0]  = ICAP_value[7];
 
 
 // =========================================================================
-//      state machine for sending commands to ICAP
+// state machine for sending commands to ICAP
 // =========================================================================
 
 parameter IDLE       = 4'd0;

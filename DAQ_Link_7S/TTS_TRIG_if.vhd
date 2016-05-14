@@ -251,7 +251,7 @@ i_Hamming: Hamming PORT MAP(
 		dout => trig_data
 	);
 Hamming_din <= TTC_FIFO_do(13 downto 8) & TTS_FIFO_do(3 downto 0) & TTC_FIFO_do(7 downto 0);
-TTS_data(3 downto 0) <= LastTTS;
+--TTS_data(3 downto 0) <= LastTTS;
 process(UsrClk)
 variable c : std_logic_vector(3 downto 0);
 begin
@@ -260,6 +260,7 @@ begin
 	c(2) := RXDATA(9) xor RXDATA(10) xor RXDATA(11) xor RXDATA(14);
 	c(3) := not RXDATA(11) xor RXDATA(12) xor RXDATA(13) xor RXDATA(14) xor RXDATA(15);
 	if(UsrClk'event and UsrClk = '1')then
+		TTS_data(3 downto 0) <= TTS_FIFO_do(3 downto 0);
 		TTS_data(4) <= TTS_FIFO_do(0) xor TTS_FIFO_do(1) xor TTS_FIFO_do(3);
 		TTS_data(5) <= TTS_FIFO_do(0) xor TTS_FIFO_do(2) xor TTS_FIFO_do(3);
 		TTS_data(6) <= TTS_FIFO_do(1) xor TTS_FIFO_do(2) xor TTS_FIFO_do(3);

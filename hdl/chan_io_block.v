@@ -1,11 +1,6 @@
-`timescale 1ns / 1ps
-
-// chan_io_block
-//
 // This module provides the programmable I/O interface for one channel.
-//
 
-module chan_io_block(
+module chan_io_block (
   // programming interface
   // inputs
   input io_clk,                    // programming clock

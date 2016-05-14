@@ -19,9 +19,6 @@
 //        both NNN and MMM are limited to 9 bits
 //
 // prog_channels.v can also take over the interface to read the channel bitstream
-//
-// Robin Bjorkquist, February 2015
-
 
 module spi_flash_intf(
 	input clk,
@@ -73,7 +70,7 @@ wire [31:0] rbuf_data_out;
 
 
 // =========================================================================
-//      bring IPbus signals into the 50 MHz clk domain 
+// bring IPbus signals into the 50 MHz clk domain 
 // =========================================================================
 
 sync_2stage flash_cmd_sync(
@@ -94,7 +91,7 @@ end
 
 
 // =========================================================================
-//      bring prog_channels signals into the IPbus 125 MHz clock domain
+// bring prog_channels signals into the IPbus 125 MHz clock domain
 // =========================================================================
 
 wire prog_chan_in_progress_125;
@@ -114,7 +111,7 @@ sync_2stage pc_wbur_wr_en_sync(
 
 
 // =========================================================================
-//      determine control of WBUF and RBUF ports
+// determine control of WBUF and RBUF ports
 // =========================================================================
 
 // only IPbus communicates with the read port of RBUF
@@ -141,7 +138,7 @@ end
 
 
 // =========================================================================
-//      counter for addresses on flash side of WBUF and RBUF
+// counter for addresses on flash side of WBUF and RBUF
 // =========================================================================
 
 reg [11:0] bit_cnt = 12'b0;
@@ -162,7 +159,7 @@ end
 
 
 // =========================================================================
-//      channel bitstream counter
+// channel bitstream counter
 // =========================================================================
 
 reg [24:0] chan_bs_bit_cnt = 25'b0;
@@ -182,7 +179,7 @@ end
 
 
 // =========================================================================
-//      state machine for communicating with flash
+// state machine for communicating with flash
 // =========================================================================
 
 // declare symbolic name for each state
@@ -319,7 +316,7 @@ assign end_bitstream = (CS[CHAN_BS_DONE] == 1'b1);
 
 
 // =========================================================================
-//      dual port block RAMs
+// dual port block RAMs
 // =========================================================================
 
 // WBUF: for writing to flash

@@ -51,6 +51,8 @@ set_property IOSTANDARD LVCMOS33 [get_ports {mmc_io[0]}]
 
 set_property IOSTANDARD LVCMOS33 [get_ports bbus_scl]
 set_property IOSTANDARD LVCMOS33 [get_ports bbus_sda]
+set_property PULLUP TRUE [get_ports bbus_scl]
+set_property PULLUP TRUE [get_ports bbus_sda]
 
 set_property IOSTANDARD LVCMOS33 [get_ports ext_trig]
 
@@ -106,12 +108,12 @@ set_property IOSTANDARD LVCMOS33 [get_ports {c0_io[2]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {c0_io[1]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {c0_io[0]}]
 
-set_property IOSTANDARD LVCMOS33 [get_ports {mezzb[5]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {mezzb[4]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {mezzb[3]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {mezzb[2]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {mezzb[1]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {mezzb[0]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {mezzb5}]
+set_property IOSTANDARD LVCMOS33 [get_ports {mezzb4}]
+set_property IOSTANDARD LVCMOS33 [get_ports {mezzb3}]
+set_property IOSTANDARD LVCMOS33 [get_ports {afe_dac_sync_n}]
+set_property IOSTANDARD LVCMOS33 [get_ports {afe_dac_sdi}]
+set_property IOSTANDARD LVCMOS33 [get_ports {afe_dac_sclk}]
 
 set_property IOSTANDARD LVCMOS33 [get_ports mmc_reset_m]
 
@@ -163,13 +165,14 @@ set_property IOSTANDARD LVCMOS33 [get_ports spi_miso]
 set_property IOSTANDARD LVCMOS33 [get_ports spi_mosi]
 set_property IOSTANDARD LVCMOS33 [get_ports spi_ss]
 
+set_property IOSTANDARD LVCMOS33 [get_ports fp_sw_master]
+
 
 #################
 # pin assignments
 #################
 
 set_property PACKAGE_PIN P1 [get_ports gige_tx_N]
-
 
 set_property PACKAGE_PIN M1 [get_ports daq_tx_N]
 
@@ -250,13 +253,12 @@ set_property PACKAGE_PIN B12 [get_ports {c0_io[2]}]
 set_property PACKAGE_PIN B10 [get_ports {c0_io[1]}]
 set_property PACKAGE_PIN A12 [get_ports {c0_io[0]}]
 
-set_property PACKAGE_PIN V24 [get_ports {mezzb[5]}]
-set_property PACKAGE_PIN W24 [get_ports {mezzb[4]}]
-set_property PACKAGE_PIN AA24 [get_ports {mezzb[3]}]
-set_property PACKAGE_PIN AB24 [get_ports {mezzb[2]}]
-set_property PACKAGE_PIN AC24 [get_ports {mezzb[1]}]
-set_property PACKAGE_PIN AD24 [get_ports {mezzb[0]}]
-
+set_property PACKAGE_PIN V24 [get_ports {mezzb5}]
+set_property PACKAGE_PIN W24 [get_ports {mezzb4}]
+set_property PACKAGE_PIN AA24 [get_ports {mezzb3}]
+set_property PACKAGE_PIN AB24 [get_ports {afe_dac_sync_n}]
+set_property PACKAGE_PIN AC24 [get_ports {afe_dac_sdi}]
+set_property PACKAGE_PIN AD24 [get_ports {afe_dac_sclk}]
 
 set_property PACKAGE_PIN F23 [get_ports adcclk_stat_ld]
 set_property PACKAGE_PIN G24 [get_ports adcclk_stat]
@@ -304,3 +306,5 @@ set_property PACKAGE_PIN A9 [get_ports {initb[0]}]
 set_property PACKAGE_PIN A25 [get_ports spi_miso]
 set_property PACKAGE_PIN B24 [get_ports spi_mosi]
 set_property PACKAGE_PIN C23 [get_ports spi_ss]
+
+set_property PACKAGE_PIN J21 [get_ports fp_sw_master]

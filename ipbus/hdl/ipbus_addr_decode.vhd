@@ -23,24 +23,18 @@ package body ipbus_addr_decode is
   function ipbus_addr_sel(signal addr : in std_logic_vector(31 downto 0)) return integer is
     variable sel : integer;
   begin
-		if    std_match(addr, "-------0---------000-----------0") then
-			sel := 0; -- status_reg / base 00000000 / mask 00000000
-		elsif std_match(addr, "-------0---------000-----------1") then
-			sel := 1; -- ctrl_reg / base 00000001 / mask 00000000
-		elsif std_match(addr, "-------0---------001------------") then
-			sel := 2; -- ram / base 00001000 / mask 000003ff
-		elsif std_match(addr, "-------0---------010------------") then
-			sel := 3; -- write_only_reg / base 00002000 / mask 00000001
-		elsif std_match(addr, "-------0---------011------------") then
-			sel := 4; -- counters / base 00003000 / mask 0000000f
-		elsif std_match(addr, "-------0---------100------------") then
-			sel := 5; -- channel / base 00004000 / mask 0000000f
-		elsif std_match(addr, "-------0---------101------------") then
-			sel := 6; -- daq_link / base 00005000 / mask 00000003
-		elsif std_match(addr, "-------0---------110------------") then
-			sel := 7; -- ipbus_flash / base 00006000 / mask 000001ff
+		if    std_match(addr, "-------0---------00----10-------") then
+			sel := 0; -- status_reg / base 00000100 / mask 0000001f
+		elsif std_match(addr, "-------0---------00----01-------") then
+			sel := 1; -- ctrl_reg / base 00000080 / mask 0000000f
+		elsif std_match(addr, "-------0---------01-------------") then
+			sel := 2; -- write_only_reg / base 00002000 / mask 00000001
+		elsif std_match(addr, "-------0---------10-------------") then
+			sel := 3; -- channel / base 00004000 / mask 0000000f
+		elsif std_match(addr, "-------0---------11-------------") then
+			sel := 4; -- ipbus_flash / base 00006000 / mask 000001ff
 		elsif std_match(addr, "-------1------------------------") then
-			sel := 8; -- ipbus_user / base 01000000 / mask 00ffffff
+			sel := 5; -- ipbus_user / base 01000000 / mask 00ffffff
 		else
 			sel := 99;
 		end if;
