@@ -217,7 +217,7 @@ module command_manager (
 
   // this board's seriol number
   wire [12:0] board_id;
-  assign board_id = (i2c_mac_adr[15:8]*256)+i2c_mac_adr[7:0];
+  assign board_id = (i2c_mac_adr[15:8]-1)*256+i2c_mac_adr[7:0];
 
 
   // comb always block
