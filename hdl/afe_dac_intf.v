@@ -9,6 +9,7 @@
 module afe_dac_intf (
     input clk50,
     input clk50_reset,
+    input clk10,
 
     // inputs from IPbus
     input io_clk,             // IPbus interface clock
@@ -27,37 +28,16 @@ module afe_dac_intf (
     // outputs to chip(s)
     output sclk,              // serial clock input
     output sdi,               // serial data input
-    output sync_n,            // active-low control input, '/sync' signal
+    output reg sync_n,        // active-low control input, '/sync' signal
 
     // debugs
     output [2:0] debug
 );
 
-
-// ==============================================
-// generate a low speed clock (6.25 MHz / 160 ns)
-// ==============================================
-reg [2:0] clk_cnt;
-wire slow_clk;
-wire slow_clk_180;
-
-always @ (posedge clk50)
-begin
-    clk_cnt[2:0] <= clk_cnt[2:0] + 1'b1;
-end 
-
-assign slow_clk = clk_cnt[2];
-assign slow_clk_180 = !slow_clk;
-
-
 // ==================
 // static assignments
 // ==================
-reg sync_n_int; // internal sync_n, only low while programming
-
-// supply clock and sync to chips only when programming
-assign sclk   = (~sync_n_int | sync_n) ? slow_clk_180 : 1'b0;
-assign sync_n = sync_n_int^sreg_ready; // will go high for two clock cycles prior to programming
+assign sclk = clk10;
 
 
 // ================================
@@ -69,12 +49,12 @@ wire resetS, resetS_from_clk50;
 signal_stretch clk50_reset_stretch_module (
     .signal_in(clk50_reset),
     .clk(clk50),
-    .n_extra_cycles(8'h10), // add more than enough extra clock cycles for synchronization into 6.25 MHz clock domain
+    .n_extra_cycles(8'h14), // add more than enough extra clock cycles for synchronization into 10 MHz clock domain
     .signal_out(clk50_reset_stretch)
 );
 
 sync_2stage resetS_sync (
-    .clk(slow_clk),
+    .clk(clk10),
     .in(clk50_reset_stretch),
     .out(resetS_from_clk50)
 );
@@ -109,7 +89,7 @@ sync_2stage io_reset_sync (
 );
 
 
-always @ (posedge slow_clk)
+always @ (posedge clk10)
 begin
     // no reset is allowed for startup state machine
     // this state machine will only run once, after that IPbus needs to be used for configuration
@@ -239,6 +219,14 @@ wire [31:0] s04_1_reg_out, s04_2_reg_out, s04_3_reg_out;    // AFE DAC Channel B
 wire [31:0] s05_1_reg_out, s05_2_reg_out, s05_3_reg_out;    // AFE DAC Channel C
 wire [31:0] s06_1_reg_out, s06_2_reg_out, s06_3_reg_out;    // AFE DAC Channel D
 
+wire [31:0] s00_1_reg_out_sync, s00_2_reg_out_sync, s00_3_reg_out_sync;    // AFE DAC MODE
+wire [31:0] s01_1_reg_out_sync, s01_2_reg_out_sync, s01_3_reg_out_sync;    // AFE DAC \LDAC
+wire [31:0] s02_1_reg_out_sync, s02_2_reg_out_sync, s02_3_reg_out_sync;    // AFE DAC DCEN
+wire [31:0] s03_1_reg_out_sync, s03_2_reg_out_sync, s03_3_reg_out_sync;    // AFE DAC Channel A
+wire [31:0] s04_1_reg_out_sync, s04_2_reg_out_sync, s04_3_reg_out_sync;    // AFE DAC Channel B
+wire [31:0] s05_1_reg_out_sync, s05_2_reg_out_sync, s05_3_reg_out_sync;    // AFE DAC Channel C
+wire [31:0] s06_1_reg_out_sync, s06_2_reg_out_sync, s06_3_reg_out_sync;    // AFE DAC Channel D
+
 
 // to AFE's DACs
 wire [95:0] s00_reg_out;    // AFE DAC MODE
@@ -248,15 +236,6 @@ wire [95:0] s03_reg_out;    // AFE DAC Channel A
 wire [95:0] s04_reg_out;    // AFE DAC Channel B
 wire [95:0] s05_reg_out;    // AFE DAC Channel C
 wire [95:0] s06_reg_out;    // AFE DAC Channel D
-
-// format: {(DAC #1 REG), (DAC #2 REG), (DAC #3 REG)}
-assign s00_reg_out = {s00_3_reg_out, s00_2_reg_out, s00_1_reg_out};
-assign s01_reg_out = {s01_3_reg_out, s01_2_reg_out, s01_1_reg_out};
-assign s02_reg_out = {s02_3_reg_out, s02_2_reg_out, s02_1_reg_out};
-assign s03_reg_out = {s03_3_reg_out, s03_2_reg_out, s03_1_reg_out};
-assign s04_reg_out = {s04_3_reg_out, s04_2_reg_out, s04_1_reg_out};
-assign s05_reg_out = {s05_3_reg_out, s05_2_reg_out, s05_1_reg_out};
-assign s06_reg_out = {s06_3_reg_out, s06_2_reg_out, s06_1_reg_out};
 
 
 reg32_ce2 scntrl_reg(.in(io_wr_data[31:0]), .reset(startup_rst_cntrl), .def_value(32'h0000_0001), .out(scntrl_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(scntrl_reg_sel));
@@ -284,22 +263,210 @@ reg32_ce2 s06_2_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC
 reg32_ce2 s06_3_reg(.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DAC3_DEF_CHAN_D), .out(s06_3_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s06_3_reg_sel));
 
 
+// ==================================================
+// synchronize register values into slow clock domain
+// ==================================================
+sync_2stage #(
+    .WIDTH(32)
+) s00_1_reg_sync (
+    .clk(clk10),
+    .in(s00_1_reg_out),
+    .out(s00_1_reg_out_sync)
+);
+
+sync_2stage #(
+    .WIDTH(32)
+) s00_2_reg_sync (
+    .clk(clk10),
+    .in(s00_2_reg_out),
+    .out(s00_2_reg_out_sync)
+);
+
+sync_2stage #(
+    .WIDTH(32)
+) s00_3_reg_sync (
+    .clk(clk10),
+    .in(s00_3_reg_out),
+    .out(s00_3_reg_out_sync)
+);
+
+
+sync_2stage #(
+    .WIDTH(32)
+) s01_1_reg_sync (
+    .clk(clk10),
+    .in(s01_1_reg_out),
+    .out(s01_1_reg_out_sync)
+);
+
+sync_2stage #(
+    .WIDTH(32)
+) s01_2_reg_sync (
+    .clk(clk10),
+    .in(s01_2_reg_out),
+    .out(s01_2_reg_out_sync)
+);
+
+sync_2stage #(
+    .WIDTH(32)
+) s01_3_reg_sync (
+    .clk(clk10),
+    .in(s01_3_reg_out),
+    .out(s01_3_reg_out_sync)
+);
+
+
+sync_2stage #(
+    .WIDTH(32)
+) s02_1_reg_sync (
+    .clk(clk10),
+    .in(s02_1_reg_out),
+    .out(s02_1_reg_out_sync)
+);
+
+sync_2stage #(
+    .WIDTH(32)
+) s02_2_reg_sync (
+    .clk(clk10),
+    .in(s02_2_reg_out),
+    .out(s02_2_reg_out_sync)
+);
+
+sync_2stage #(
+    .WIDTH(32)
+) s02_3_reg_sync (
+    .clk(clk10),
+    .in(s02_3_reg_out),
+    .out(s02_3_reg_out_sync)
+);
+
+
+sync_2stage #(
+    .WIDTH(32)
+) s03_1_reg_sync (
+    .clk(clk10),
+    .in(s03_1_reg_out),
+    .out(s03_1_reg_out_sync)
+);
+
+sync_2stage #(
+    .WIDTH(32)
+) s03_2_reg_sync (
+    .clk(clk10),
+    .in(s03_2_reg_out),
+    .out(s03_2_reg_out_sync)
+);
+
+sync_2stage #(
+    .WIDTH(32)
+) s03_3_reg_sync (
+    .clk(clk10),
+    .in(s03_3_reg_out),
+    .out(s03_3_reg_out_sync)
+);
+
+
+sync_2stage #(
+    .WIDTH(32)
+) s04_1_reg_sync (
+    .clk(clk10),
+    .in(s04_1_reg_out),
+    .out(s04_1_reg_out_sync)
+);
+
+sync_2stage #(
+    .WIDTH(32)
+) s04_2_reg_sync (
+    .clk(clk10),
+    .in(s04_2_reg_out),
+    .out(s04_2_reg_out_sync)
+);
+
+sync_2stage #(
+    .WIDTH(32)
+) s04_3_reg_sync (
+    .clk(clk10),
+    .in(s04_3_reg_out),
+    .out(s04_3_reg_out_sync)
+);
+
+
+sync_2stage #(
+    .WIDTH(32)
+) s05_1_reg_sync (
+    .clk(clk10),
+    .in(s05_1_reg_out),
+    .out(s05_1_reg_out_sync)
+);
+
+sync_2stage #(
+    .WIDTH(32)
+) s05_2_reg_sync (
+    .clk(clk10),
+    .in(s05_2_reg_out),
+    .out(s05_2_reg_out_sync)
+);
+
+sync_2stage #(
+    .WIDTH(32)
+) s05_3_reg_sync (
+    .clk(clk10),
+    .in(s05_3_reg_out),
+    .out(s05_3_reg_out_sync)
+);
+
+
+sync_2stage #(
+    .WIDTH(32)
+) s06_1_reg_sync (
+    .clk(clk10),
+    .in(s06_1_reg_out),
+    .out(s06_1_reg_out_sync)
+);
+
+sync_2stage #(
+    .WIDTH(32)
+) s06_2_reg_sync (
+    .clk(clk10),
+    .in(s06_2_reg_out),
+    .out(s06_2_reg_out_sync)
+);
+
+sync_2stage #(
+    .WIDTH(32)
+) s06_3_reg_sync (
+    .clk(clk10),
+    .in(s06_3_reg_out),
+    .out(s06_3_reg_out_sync)
+);
+
+
+// format: {(DAC #1 REG), (DAC #2 REG), (DAC #3 REG)}
+assign s00_reg_out = {s00_3_reg_out_sync, s00_2_reg_out_sync, s00_1_reg_out_sync};
+assign s01_reg_out = {s01_3_reg_out_sync, s01_2_reg_out_sync, s01_1_reg_out_sync};
+assign s02_reg_out = {s02_3_reg_out_sync, s02_2_reg_out_sync, s02_1_reg_out_sync};
+assign s03_reg_out = {s03_3_reg_out_sync, s03_2_reg_out_sync, s03_1_reg_out_sync};
+assign s04_reg_out = {s04_3_reg_out_sync, s04_2_reg_out_sync, s04_1_reg_out_sync};
+assign s05_reg_out = {s05_3_reg_out_sync, s05_2_reg_out_sync, s05_1_reg_out_sync};
+assign s06_reg_out = {s06_3_reg_out_sync, s06_2_reg_out_sync, s06_1_reg_out_sync};
+
+
 // use the LSB of the control register to generate a strobe which will be used
 // to reset the loop counter and thus initiate a new programming sequence
 
-// synchronize the LSB with the slow_clk
+// synchronize the LSB with the clk10
 wire scntrl_LSB;
 wire scntrl_LSB_stretch;
 
 signal_stretch scntrl_stretch (
     .signal_in(scntrl_reg_out[0]),
     .clk(io_clk),
-    .n_extra_cycles(8'h28), // add more than enough extra clock cycles for synchronization into 6.25 MHz clock domain
+    .n_extra_cycles(8'h32), // add more than enough extra clock cycles for synchronization into 10 MHz clock domain
     .signal_out(scntrl_LSB_stretch)
 );
 
 sync_2stage scntrl_sync (
-    .clk(slow_clk),
+    .clk(clk10),
     .in(scntrl_LSB_stretch),
     .out(scntrl_LSB)
 );
@@ -316,7 +483,7 @@ parameter STROBE_DONE = 3'b100;
 reg [2:0] strobe_state = 3'b000;
 reg strobe;
 
-always @ (posedge slow_clk)
+always @ (posedge clk10)
 begin
     if (resetS)
         begin
@@ -389,7 +556,7 @@ wire sreg_cnt_max;
 assign sreg_cnt_max = (dac_reg_addr[4:0] >= 5'd4) ? sreg_cnt_max_96 : sreg_cnt_max_init;
 
 
-always @ (posedge slow_clk)
+always @ (posedge clk10)
 begin
     if (sreg_cnt_reset)
         sreg_cnt[7:0] <= 8'b00000000;
@@ -401,8 +568,10 @@ end
 
 reg sreg_load;
 
+reg [95:0] dac_reg = 96'd0;
 
-always @ (posedge slow_clk)
+
+always @ (posedge clk10)
 begin
     if (sreg_load)
         sreg[95:0] <= dac_reg[95:0];
@@ -413,14 +582,14 @@ end
 assign sdi = sreg[95];
 
 
-always @ (posedge slow_clk)
+always @ (posedge clk10)
 begin
     if (resetS)
         begin
             sreg_load      <= 1'b1;
             sreg_cnt_reset <= 1'b1;
             sreg_cnt_ena   <= 1'b0;
-            sync_n_int     <= 1'b1;
+            sync_n         <= 1'b1;
             sreg_ready     <= 1'b1;
             
             shift_state <= SHIFT_IDLE;
@@ -432,7 +601,7 @@ begin
                     sreg_cnt_reset <= 1'b1;
                     sreg_cnt_ena   <= 1'b0;
                     sreg_load      <= 1'b1;
-                    sync_n_int     <= 1'b1;
+                    sync_n         <= 1'b1;
                     sreg_ready     <= 1'b1;
 
                     if (sreg_strobe)
@@ -445,7 +614,7 @@ begin
                     sreg_cnt_reset <= 1'b1;
                     sreg_cnt_ena   <= 1'b0;
                     sreg_load      <= 1'b1;
-                    sync_n_int     <= 1'b1;
+                    sync_n         <= 1'b1;
                     sreg_ready     <= 1'b0;
 
                     if (sreg_strobe)
@@ -458,7 +627,7 @@ begin
                     sreg_cnt_reset <= 1'b0;
                     sreg_cnt_ena   <= 1'b1;
                     sreg_load      <= 1'b0;
-                    sync_n_int     <= 1'b0;
+                    sync_n         <= 1'b0;
                     sreg_ready     <= 1'b0;
 
                     if (sreg_cnt_max)
@@ -475,9 +644,8 @@ end
 // array of registers
 // ==================
 reg [4:0] dac_reg_addr = 5'd0;
-reg [95:0] dac_reg = 96'd0;
 
-always @ (posedge slow_clk)
+always @ (posedge clk10)
 begin
     case (dac_reg_addr[4:0])
         // order in which the registers will be programmed
@@ -492,6 +660,7 @@ begin
         5'b01000 : dac_reg[95:0] = s04_reg_out[95:0];   //  Channel B
         5'b01001 : dac_reg[95:0] = s05_reg_out[95:0];   //  Channel C
         5'b01010 : dac_reg[95:0] = s06_reg_out[95:0];   //  Channel D
+        5'b01011 : dac_reg[95:0] = s00_reg_out[95:0];   //  MODE
     endcase
 end
 
@@ -519,7 +688,7 @@ reg loop_cnt_ena;
 wire loop_cnt_max;
 assign loop_cnt_max = (loop_cnt == `DAC_NUM_REGS) ? 1'b1 : 1'b0;
 
-always @ (posedge slow_clk)
+always @ (posedge clk10)
 begin
     if (strobe)
         loop_cnt[5:0] <= 6'b000000;
@@ -533,7 +702,7 @@ end
 // ====================================
 // state machine to write the registers
 // ====================================
-always @ (posedge slow_clk)
+always @ (posedge clk10)
 begin
     if (resetS)
         begin
@@ -607,9 +776,8 @@ end
 // =================
 // debug assignments
 // =================
-assign debug[2] = slow_clk;
-assign debug[1] = loop_cnt_max;
-assign debug[0] = scntrl_reg_out[0];
- 
+assign debug[2] = 1'b0; // unused
+assign debug[1] = 1'b0; // unused
+assign debug[0] = 1'b0; // unused
 
 endmodule

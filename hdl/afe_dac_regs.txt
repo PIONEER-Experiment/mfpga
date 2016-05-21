@@ -13,7 +13,7 @@
     // ====================
     // AD5666 chip settings
     // ====================
-    `define DAC_NUM_REGS       6'd11           // 11 DAC registers
+    `define DAC_NUM_REGS       6'd12           // 12 DAC registers
 
     // =======================
     // Default register values

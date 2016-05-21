@@ -215,9 +215,9 @@ module command_manager (
   //                      +2               : (1 channel header + 1 channel checksum) per readout event
   assign readout_size = (burst_count[19:0]+1)*wfm_count[11:0]+2;
 
-  // this board's seriol number
+  // this board's serial number
   wire [12:0] board_id;
-  assign board_id = (i2c_mac_adr[15:8]-1)*256+i2c_mac_adr[7:0];
+  assign board_id = (i2c_mac_adr[15:8] == 8'h01) ? i2c_mac_adr[7:0] : i2c_mac_adr[7:0]+256;
 
 
   // comb always block
@@ -549,7 +549,7 @@ module command_manager (
       state[SEND_AMC13_HEADER1] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {11'd0, endianness_sel, empty_event, fill_type[2:0], trig_timestamp[31:0], 3'd1, board_id};
+          next_daq_data[63:0] = {11'd0, endianness_sel, empty_event, fill_type[2:0], trig_timestamp[31:0], 3'd1, board_id[12:0]};
           nextstate[SEND_AMC13_HEADER2] = 1'b1;
         end
         else if (~daq_almost_full) begin

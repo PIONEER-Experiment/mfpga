@@ -111,9 +111,13 @@ set_property IOSTANDARD LVCMOS33 [get_ports {c0_io[0]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {mezzb5}]
 set_property IOSTANDARD LVCMOS33 [get_ports {mezzb4}]
 set_property IOSTANDARD LVCMOS33 [get_ports {mezzb3}]
+
 set_property IOSTANDARD LVCMOS33 [get_ports {afe_dac_sync_n}]
 set_property IOSTANDARD LVCMOS33 [get_ports {afe_dac_sdi}]
 set_property IOSTANDARD LVCMOS33 [get_ports {afe_dac_sclk}]
+set_property SLEW FAST [get_ports {afe_dac_sync_n}]
+set_property SLEW FAST [get_ports {afe_dac_sdi}]
+set_property SLEW FAST [get_ports {afe_dac_sclk}]
 
 set_property IOSTANDARD LVCMOS33 [get_ports mmc_reset_m]
 
@@ -256,6 +260,7 @@ set_property PACKAGE_PIN A12 [get_ports {c0_io[0]}]
 set_property PACKAGE_PIN V24 [get_ports {mezzb5}]
 set_property PACKAGE_PIN W24 [get_ports {mezzb4}]
 set_property PACKAGE_PIN AA24 [get_ports {mezzb3}]
+
 set_property PACKAGE_PIN AB24 [get_ports {afe_dac_sync_n}]
 set_property PACKAGE_PIN AC24 [get_ports {afe_dac_sdi}]
 set_property PACKAGE_PIN AD24 [get_ports {afe_dac_sclk}]

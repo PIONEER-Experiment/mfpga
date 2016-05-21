@@ -85,8 +85,9 @@ module wfd_top (
 );
 
     // ======== clock signals ========
+    wire clk_10, clk10; // 10 MHz clock for AFE DAC interface
     wire clk50;
-    wire clk125;
+    wire clk_125, clk125;
     wire clk200;
     wire clkfb;
     wire gtrefclk0;
@@ -95,6 +96,9 @@ module wfd_top (
     wire spi_clock;
 
     assign clk50 = clkin; // just to make the frequency explicit
+
+
+    wire clk50_reset;
 
 
     // ======== startup reset signals ========
@@ -215,12 +219,13 @@ module wfd_top (
         .CLKFBOUT_MULT(20.0),
         .CLKIN1_PERIOD(20), // in ns, so 20 -> 50 MHz
         .CLKOUT0_DIVIDE(5),
-        .CLKOUT1_DIVIDE(8)
+        .CLKOUT1_DIVIDE(8),
+        .CLKOUT2_DIVIDE(100)
     ) clk (
         .CLKIN1(clkin),
         .CLKOUT0(clk200),
         .CLKOUT1(clk_125),
-        .CLKOUT2(),
+        .CLKOUT2(clk_10),
         .CLKOUT3(),
         .CLKOUT4(),
         .CLKOUT5(),
@@ -234,6 +239,8 @@ module wfd_top (
     // Added BUFG object to deal with a warning message that caused implementation to fail
     // "Clock net clk125 is not driven by a Clock Buffer and has more than 2000 loads."
     BUFG BUFG_clk125 (.I(clk_125), .O(clk125));
+
+    BUFG BUFG_clk10 (.I(clk_10), .O(clk10));
 
     // ======== ethernet status signals ========
     reg sfp_los = 0;      // loss of signal for Gigabit ethernet (not used)
@@ -253,7 +260,6 @@ module wfd_top (
         .signal_out(ipb_rst_stretch)
     );
 
-    wire clk50_reset;
     sync_2stage clk50_reset_sync (
         .clk(clk50),
         .in(ipb_rst_stretch),
@@ -856,6 +862,7 @@ module wfd_top (
         .axis_clk(clk125),
         .axis_clk_resetN(rst_from_ipb_n),
         .gt_refclk(gtrefclk0),
+        .clk10(clk10),
 
         // IPbus inputs
         .ipb_clk(user_ipb_clk),           // programming clock

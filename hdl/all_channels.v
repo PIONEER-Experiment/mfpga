@@ -8,6 +8,7 @@ module all_channels (
   input axis_clk,          // clock for the interconnect side of the FIFOs
   input axis_clk_resetN,   // active-lo reset for the interconnect side of the FIFOs
   input gt_refclk,         // 125 MHz oscillator, from IBUFDS_GTE2 at a higher level
+  input clk10,
   
   // IPbus inputs
   input ipb_clk,           // programming clock
@@ -548,6 +549,7 @@ module all_channels (
     // clocks and reset
     .clk50(clk50),                         // Aurora 'init_clk' uses 50 MHz clock per PG046-20
     .clk50_reset(clk50_reset),             // active_hi synched to 'clk50'
+    .clk10(clk10),
     
     // programming interface inputs
     .io_clk(ipb_clk),                      // programming clock
