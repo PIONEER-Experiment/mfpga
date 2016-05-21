@@ -9,6 +9,7 @@
 //   4. Disconnected the TTC Channel B information decoder
 //   5. Disconnected the channel programming initiation via IPbus
 //   6. Report that this is the golden image in MSB of Status Register 0
+//   7. Don't program the DAC offsets on the AFE
 
 // As a useful reference, here's the syntax to mark signals for debug:
 // (* mark_debug = "true" *) 
@@ -103,6 +104,10 @@ module wfd_top (
     wire spi_clock;
 
     assign clk50 = clkin; // just to make the frequency explicit
+
+    assign afe_dac_sclk   = 1'b0;
+    assign afe_dac_sdi    = 1'b0;
+    assign afe_dac_sync_n = 1'b1;
 
 
     // ======== error signals ========
@@ -959,9 +964,9 @@ module wfd_top (
         .adcclk_sync(adcclk_sync),
 
         // analog front-end DAC connections
-        .afe_dac_sclk(afe_dac_sclk),
-        .afe_dac_sdi(afe_dac_sdi),
-        .afe_dac_sync_n(afe_dac_sync_n),
+        .afe_dac_sclk(),   // ##### don't program offsets while in golden image #####
+        .afe_dac_sdi(),    // ##### don't program offsets while in golden image #####
+        .afe_dac_sync_n(), // ##### don't program offsets while in golden image #####
 
         // counter ouputs
         .frame_err(frame_err),
