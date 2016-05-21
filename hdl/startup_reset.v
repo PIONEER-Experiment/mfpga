@@ -3,11 +3,11 @@
 // synchronously with the appropriate clock. A clock must be present to negate the output.
 
 module startup_reset (
-	input clk50,         // buffered clock, 50 MHz
-	output reset_clk50,  // active-high reset output, goes low after startup
-	input clk125,        // buffered clock, 125 MHz
-    output reset_clk125, // active-high reset output, goes low after startup
-    input ipb_reset      // reset from IPbus
+	input  wire clk50,        // buffered clock, 50 MHz
+	output wire reset_clk50,  // active-high reset output, goes low after startup
+	input  wire clk125,       // buffered clock, 125 MHz
+    output wire reset_clk125, // active-high reset output, goes low after startup
+    input  wire hold          // signal to hold off counter
 );
 
 	// Connect a counter that will count up once the chip comes out of reset, until it reaches its maximum value.
@@ -17,7 +17,7 @@ module startup_reset (
 	wire at_max;           // counter is at maximum value
 	assign at_max = (cnt == 16'hffff) ? 1'b1 : 1'b0;
 	always @(posedge clk50) begin
-        if (~at_max & ~ipb_reset) cnt <= cnt + 1; // only count after ipbus reset is disabled upon startup
+        if (~at_max & ~hold) cnt <= cnt + 1; // only count after hold is removed
         else cnt <= cnt;
     end
  

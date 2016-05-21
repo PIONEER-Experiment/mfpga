@@ -36,7 +36,6 @@ entity slaves is
         trig_delay_out     : out std_logic_vector(3 downto 0);
         endianness_out     : out std_logic;
         trig_settings_out  : out std_logic_vector(7 downto 0);
-        trig_sel_out       : out std_logic_vector(1 downto 0);
         ttc_loopback_out   : out std_logic;
 
         -- threshold registers
@@ -186,8 +185,8 @@ begin
         trig_settings_out(5)  <= ctrl_reg(24);
         trig_settings_out(6)  <= ctrl_reg(25);
         trig_settings_out(7)  <= ctrl_reg(26);
-        trig_sel_out(0)       <= ctrl_reg(27);
-        trig_sel_out(1)       <= ctrl_reg(28);
+        --                    <= ctrl_reg(27);
+        --                    <= ctrl_reg(28);
         ttc_loopback_out      <= ctrl_reg(29);
 
 -- Slave 2: Write-only register

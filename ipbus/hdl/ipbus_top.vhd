@@ -73,7 +73,6 @@ entity ipbus_top is port(
     trig_delay_out     : out std_logic_vector(3 downto 0); -- tells trigger manager how long to wait before passing the trigger onto channels
 	endianness_out     : out std_logic;                    -- indicates the endianness of the ADC data sent to the DAQ
 	trig_settings_out  : out std_logic_vector(7 downto 0); -- indicates whether or not to respond to a given trigger type
-	trig_sel_out       : out std_logic_vector(1 downto 0); -- select signal for the trigger (TTC, IPbus, or front panel)
 	ttc_loopback_out   : out std_logic;                    -- indicates which the TTS/TTC is in loopback mode
 
     -- threshold registers
@@ -196,9 +195,11 @@ begin
 			mac_tx_ready => mac_tx_ready,
 			ipb_out => ipb_master_out,
 			ipb_in => ipb_master_in,
-			mac_addr => i2c_mac_adr,      -- MAC address from I2C EEPROM
-			ip_addr => i2c_ip_adr,        --  IP address from I2C EEPROM
-			enable => i2c_startup_done,
+			mac_addr => X"006055000140",
+			ip_addr => X"c0a80128",
+			--mac_addr => i2c_mac_adr,      -- MAC address from I2C EEPROM
+			--ip_addr => i2c_ip_adr,        --  IP address from I2C EEPROM
+			--enable => i2c_startup_done,
 			pkt_rx => pkt_rx,
 			pkt_tx => pkt_tx,
 			pkt_rx_led => pkt_rx_led,
@@ -235,7 +236,6 @@ begin
 	        trig_delay_out     => trig_delay_out,
 	        endianness_out     => endianness_out,
 	        trig_settings_out  => trig_settings_out,
-	        trig_sel_out       => trig_sel_out,
 	        ttc_loopback_out   => ttc_loopback_out,
 
 	        -- threshold register ports

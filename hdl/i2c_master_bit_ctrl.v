@@ -93,52 +93,53 @@
 //               Fixed wb_ack_o generation bug.
 //               Fixed bug in the byte_controller statemachine.
 //               Added headers.
-//
 
-//
-/////////////////////////////////////
+
+// Modified by Charlie Strohman and David Sweigart, May 2016
+
+
+/////////////////////////
 // Bit controller section
-/////////////////////////////////////
+/////////////////////////
 //
 // Translate simple commands into SCL/SDA transitions
 // Each command has 5 states, A/B/C/D/idle
 //
-// start:	SCL	~~~~~~~~~~\____
-//	SDA	~~~~~~~~\______
-//		 x | A | B | C | D | i
+// start: SCL ~~~~~~~~~~\____
+//  SDA ~~~~~~~~\______
+//     x | A | B | C | D | i
 //
-// repstart	SCL	____/~~~~\___
-//	SDA	__/~~~\______
-//		 x | A | B | C | D | i
+// repstart SCL ____/~~~~\___
+//  SDA __/~~~\______
+//     x | A | B | C | D | i
 //
-// stop	SCL	____/~~~~~~~~
-//	SDA	==\____/~~~~~
-//		 x | A | B | C | D | i
+// stop SCL ____/~~~~~~~~
+//  SDA ==\____/~~~~~
+//     x | A | B | C | D | i
 //
-//- write	SCL	____/~~~~\____
-//	SDA	==X=========X=
-//		 x | A | B | C | D | i
+//- write SCL ____/~~~~\____
+//  SDA ==X=========X=
+//     x | A | B | C | D | i
 //
-//- read	SCL	____/~~~~\____
-//	SDA	XXXX=====XXXX
-//		 x | A | B | C | D | i
-//
+//- read  SCL ____/~~~~\____
+//  SDA XXXX=====XXXX
+//     x | A | B | C | D | i
 
-// Timing:     Normal mode      Fast mode
-///////////////////////////////////////////////////////////////////////
+
+// Timing      Normal mode      Fast mode
+/////////////////////////////////////////
 // Fscl        100KHz           400KHz
-// Th_scl      4.0us            0.6us   High period of SCL
-// Tl_scl      4.7us            1.3us   Low period of SCL
-// Tsu:sta     4.7us            0.6us   setup time for a repeated start condition
-// Tsu:sto     4.0us            0.6us   setup time for a stop conditon
-// Tbuf        4.7us            1.3us   Bus free time between a stop and start condition
-//
+// Th_scl      4.0us            0.6us    High period of SCL
+// Tl_scl      4.7us            1.3us    Low period of SCL
+// Tsu:sta     4.7us            0.6us    setup time for a repeated start condition
+// Tsu:sto     4.0us            0.6us    setup time for a stop conditon
+// Tbuf        4.7us            1.3us    Bus free time between a stop and start condition
 
 // synopsys translate_off
 `timescale 1ns / 10ps
 // synopsys translate_on
 
-`include "i2c_master_defines.v"
+`include "i2c_master_defines.txt"
 
 module i2c_master_bit_ctrl (
     input             clk,      // system clock

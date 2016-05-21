@@ -1,0 +1,17 @@
+// I2C registers wishbone addresses
+
+// Be sure to use [ `include "i2c_master_defines.txt" ] whenever any of these constants are needed.
+// Also, be sure to use the backtic [ ` ] when the constant is actually used.
+
+// Only define these constants once.
+`ifndef I2C_INCLUDED
+  	`define I2C_INCLUDED
+
+	// bitcontroller states
+	`define I2C_CMD_NOP   	4'b0000
+	`define I2C_CMD_START	4'b0001
+	`define I2C_CMD_STOP  	4'b0010
+	`define I2C_CMD_WRITE 	4'b0100
+	`define I2C_CMD_READ  	4'b1000
+
+`endif

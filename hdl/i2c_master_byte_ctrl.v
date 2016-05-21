@@ -64,13 +64,15 @@
 //               Fixed wb_ack_o generation bug.
 //               Fixed bug in the byte_controller statemachine.
 //               Added headers.
-//
+
+
+// Modified by Charlie Strohman and David Sweigart, May 2016
 
 // synopsys translate_off
 `timescale 1ns / 10ps
 // synopsys translate_on
 
-`include "i2c_master_defines.v"
+`include "i2c_master_defines.txt"
 
 module i2c_master_byte_ctrl (
 	clk, rst, nReset, ena, clk_cnt, start, stop, read, write, ack_in, din,

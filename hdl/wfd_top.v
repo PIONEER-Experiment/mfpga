@@ -99,19 +99,20 @@ module wfd_top (
 
 
     wire clk50_reset;
+    wire prog_chan_done; // channels have been programmed signal
 
 
     // ======== startup reset signals ========
-    wire startup_rst_clk50;
-    wire startup_rst_clk125;
+    wire master_init_rst_clk50, master_init_rst_clk125;
 
-    // synchronous reset logic
-    startup_reset startup_reset (
-        .clk50(clk50),                     // 50 MHz buffered clock 
-        .reset_clk50(startup_rst_clk50),   // active-high reset output, goes low after startup
-        .clk125(clk125),                   // buffered clock, 125 MHz
-        .reset_clk125(startup_rst_clk125), // active-high reset output, goes low after startup
-        .ipb_reset(clk50_reset)
+    // synchronous reset logic for master
+    // starts the channel programming logic
+    startup_reset master_startup_reset (
+        .clk50(clk50),                         // 50 MHz buffered clock 
+        .reset_clk50(master_init_rst_clk50),   // active-high reset output, goes low after startup
+        .clk125(clk125),                       // buffered clock, 125 MHz
+        .reset_clk125(master_init_rst_clk125), // active-high reset output, goes low after startup
+        .hold(clk50_reset)                     // reset signal from reset
     );
 
 
@@ -189,10 +190,6 @@ module wfd_top (
         .adcclk_clkin0_stat(adcclk_clkin0_stat)
     );
 
-
-
-    // dummy use of signals
-    assign debug7 = spi_ss & spi_clk & spi_mosi & spi_miso & prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb3 & mezzb4 & mezzb5 & mmc_io[2] & mmc_io[3] & ext_trig_sync & trigger_from_ipbus_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
 
     // active-high reset signal to channels
     assign c0_io[3] = rst_from_ipb | rst_trigger_num;
@@ -276,6 +273,7 @@ module wfd_top (
     wire reset40_n;
     assign reset40_n = ~reset40;
 
+
 	// connect a module that will read from the I2C temperature/memory chip.
 	// Since the MAC and IP address are used with IP bus, run the block with 'clk125'
 	wire [47:0] i2c_mac_adr; // MAC address read from I2C EEPROM
@@ -305,7 +303,8 @@ module wfd_top (
     assign bbus_scl = bbus_scl_oen ? 1'bz : bbus_scl_o;
     assign bbus_sda = bbus_sda_oen ? 1'bz : bbus_sda_o;
 
-    // debug signals
+
+    // ======== debug signals ========
     assign debug0 = bbus_scl;
     assign debug1 = bbus_sda;
     assign debug2 = 1'b1;
@@ -313,7 +312,8 @@ module wfd_top (
     assign debug4 = bbus_sda_oen;
     assign debug5 = 1'b1;
     assign debug6 = 1'b0;
-    assign debug7 = 1'b0;
+    assign debug7 = spi_ss & spi_clk & spi_mosi & spi_miso & prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb3 & mezzb4 & mezzb5 & mmc_io[2] & mmc_io[3] & ext_trig_sync & trigger_from_ipbus_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
+
     
     // ================== communicate with SPI flash memory ==================
 
@@ -387,7 +387,6 @@ module wfd_top (
     wire prog_chan_start;            // in 50 MHz clock domain 
                                      // don't have to worry about missing the faster signal -- stays high 
                                      // until you use ipbus to set it low again
-    wire prog_chan_done;
 
     sync_2stage prog_chan_start_sync (
         .clk(clk50),
@@ -396,7 +395,7 @@ module wfd_top (
     );
 
     wire prog_chan_start_mux; // combine ipbus and startup triggers
-    assign prog_chan_start_mux = prog_chan_start | startup_rst_clk50;
+    assign prog_chan_start_mux = prog_chan_start | master_init_rst_clk50;
 
     prog_channels prog_channels (
         .clk(clk50),
@@ -528,7 +527,7 @@ module wfd_top (
 
     wire c0_axi_stream_to_channel_tvalid, c0_axi_stream_to_channel_tlast, c0_axi_stream_to_channel_tready;
     wire [0:31] c0_axi_stream_to_channel_tdata;
-    wire [ 0:3] c0_axi_stream_to_channel_tdest;
+    wire [0: 3] c0_axi_stream_to_channel_tdest;
 
     // Channel 1
     wire c1_axi_stream_to_cm_tvalid, c1_axi_stream_to_cm_tlast, c1_axi_stream_to_cm_tready;
@@ -536,7 +535,7 @@ module wfd_top (
 
     wire c1_axi_stream_to_channel_tvalid, c1_axi_stream_to_channel_tlast, c1_axi_stream_to_channel_tready;
     wire [0:31] c1_axi_stream_to_channel_tdata;
-    wire [ 0:3] c1_axi_stream_to_channel_tdest;
+    wire [0: 3] c1_axi_stream_to_channel_tdest;
 
     // Channel 2
     wire c2_axi_stream_to_cm_tvalid, c2_axi_stream_to_cm_tlast, c2_axi_stream_to_cm_tready;
@@ -544,7 +543,7 @@ module wfd_top (
 
     wire c2_axi_stream_to_channel_tvalid, c2_axi_stream_to_channel_tlast, c2_axi_stream_to_channel_tready;
     wire [0:31] c2_axi_stream_to_channel_tdata;
-    wire [ 0:3] c2_axi_stream_to_channel_tdest;
+    wire [0: 3] c2_axi_stream_to_channel_tdest;
 
     // Channel 3
     wire c3_axi_stream_to_cm_tvalid, c3_axi_stream_to_cm_tlast, c3_axi_stream_to_cm_tready;
@@ -552,7 +551,7 @@ module wfd_top (
 
     wire c3_axi_stream_to_channel_tvalid, c3_axi_stream_to_channel_tlast, c3_axi_stream_to_channel_tready;
     wire [0:31] c3_axi_stream_to_channel_tdata;
-    wire [ 0:3] c3_axi_stream_to_channel_tdest;
+    wire [0: 3] c3_axi_stream_to_channel_tdest;
 
     // Channel 4
     wire c4_axi_stream_to_cm_tvalid, c4_axi_stream_to_cm_tlast, c4_axi_stream_to_cm_tready;
@@ -560,7 +559,7 @@ module wfd_top (
 
     wire c4_axi_stream_to_channel_tvalid, c4_axi_stream_to_channel_tlast, c4_axi_stream_to_channel_tready;
     wire [0:31] c4_axi_stream_to_channel_tdata;
-    wire [ 0:3] c4_axi_stream_to_channel_tdest;
+    wire [0: 3] c4_axi_stream_to_channel_tdest;
 
 
     ////////////////////////////////////////////////////////////////
@@ -598,7 +597,7 @@ module wfd_top (
     // connections from command manager to AXIS TX Switch
     wire axi_stream_to_channel_from_cm_tvalid, axi_stream_to_channel_from_cm_tlast, axi_stream_to_channel_from_cm_tready;
     wire [0:31] axi_stream_to_channel_from_cm_tdata;
-    wire [ 0:3] axi_stream_to_channel_from_cm_tdest;
+    wire [0: 3] axi_stream_to_channel_from_cm_tdest;
 
 
     ///////////////////////////////////////////////////////////////
@@ -641,7 +640,7 @@ module wfd_top (
     // connections from IPbus to command manager
     wire axi_stream_to_cm_from_ipbus_tvalid, axi_stream_to_cm_from_ipbus_tlast, axi_stream_to_cm_from_ipbus_tready;
     wire [0:31] axi_stream_to_cm_from_ipbus_tdata;
-    wire [ 0:3] axi_stream_to_cm_from_ipbus_tdest;
+    wire [0: 3] axi_stream_to_cm_from_ipbus_tdest;
 
 
     ////////////////////////////////////////////////////////
@@ -651,17 +650,17 @@ module wfd_top (
     wire send_empty_event;
     wire initiate_readout;
 
-    wire [22:0] burst_count_chan0;
-    wire [22:0] burst_count_chan1;
-    wire [22:0] burst_count_chan2;
-    wire [22:0] burst_count_chan3;
-    wire [22:0] burst_count_chan4;
+    wire [22:0] burst_count_type1_chan0;
+    wire [22:0] burst_count_type1_chan1;
+    wire [22:0] burst_count_type1_chan2;
+    wire [22:0] burst_count_type1_chan3;
+    wire [22:0] burst_count_type1_chan4;
 
-    wire [11:0] wfm_count_chan0;
-    wire [11:0] wfm_count_chan1;
-    wire [11:0] wfm_count_chan2;
-    wire [11:0] wfm_count_chan3;
-    wire [11:0] wfm_count_chan4;
+    wire [11:0] wfm_count_type1_chan0;
+    wire [11:0] wfm_count_type1_chan1;
+    wire [11:0] wfm_count_type1_chan2;
+    wire [11:0] wfm_count_type1_chan3;
+    wire [11:0] wfm_count_type1_chan4;
 
     // ======== communication with the AMC13 DAQ link ========
     wire daq_header, daq_trailer;
@@ -690,7 +689,6 @@ module wfd_top (
     wire [30:0] cm_state;
 
     // ======== trigger information signals ========
-    wire [ 1:0] trig_sel;
     wire [ 7:0] trig_settings;
     wire [23:0] ttc_event_num;
     wire [23:0] ttc_trig_num;
@@ -813,7 +811,6 @@ module wfd_top (
         .trig_delay_out(trig_delay[3:0]),               // set trigger delay in the trigger manager
         .endianness_out(endianness_sel),                // select signal for the ADC data's endianness
         .trig_settings_out(trig_settings),              // select which trigger types are enabled
-        .trig_sel_out(trig_sel),                        // select which input is the trigger (TTC, IPbus, front panel)
         .ttc_loopback_out(ttc_loopback),                // select whether TTC/TTS is in loopback mode
 
         // threshold registers
@@ -1147,11 +1144,6 @@ module wfd_top (
     );
 
 
-    wire trigger_mux; // selected trigger source
-    assign trigger_mux = (trig_sel[1:0] == 2'b01) ? trigger_from_ipbus_sync :
-                         (trig_sel[1:0] == 2'b10) ? ext_trig_sync           :
-                                                    trigger_from_ttc;
-
     // trigger top module
     trigger_top trigger_top (
         // clocks
@@ -1167,7 +1159,7 @@ module wfd_top (
         .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
 
         // trigger interface
-        .trigger(trigger_mux),                     // trigger signal
+        .trigger(trigger_from_ttc),                // trigger signal
         .trig_type(fill_type),                     // trigger type (muon fill, laser, pedestal)
         .trig_settings(trig_settings),             // trigger settings
         .chan_en(chan_en),                         // enabled channels
@@ -1191,17 +1183,17 @@ module wfd_top (
         .ttc_trig_type(ttc_trig_type),           // trigger type
         .ttc_trig_timestamp(ttc_trig_timestamp), // trigger timestamp
 
-        .burst_count_chan0(burst_count_chan0), // burst count set for Channel 0
-        .burst_count_chan1(burst_count_chan1), // burst count set for Channel 1
-        .burst_count_chan2(burst_count_chan2), // burst count set for Channel 2
-        .burst_count_chan3(burst_count_chan3), // burst count set for Channel 3
-        .burst_count_chan4(burst_count_chan4), // burst count set for Channel 4
+        .burst_count_type1_chan0(burst_count_type1_chan0), // burst count set for trigger type 1 for Channel 0
+        .burst_count_type1_chan1(burst_count_type1_chan1), // burst count set for trigger type 1 for Channel 1
+        .burst_count_type1_chan2(burst_count_type1_chan2), // burst count set for trigger type 1 for Channel 2
+        .burst_count_type1_chan3(burst_count_type1_chan3), // burst count set for trigger type 1 for Channel 3
+        .burst_count_type1_chan4(burst_count_type1_chan4), // burst count set for trigger type 1 for Channel 4
 
-        .wfm_count_chan0(wfm_count_chan0), // waveform count set for Channel 0
-        .wfm_count_chan1(wfm_count_chan1), // waveform count set for Channel 1
-        .wfm_count_chan2(wfm_count_chan2), // waveform count set for Channel 2
-        .wfm_count_chan3(wfm_count_chan3), // waveform count set for Channel 3
-        .wfm_count_chan4(wfm_count_chan4), // waveform count set for Channel 4
+        .wfm_count_type1_chan0(wfm_count_type1_chan0), // waveform count set for trigger type 1 for Channel 0
+        .wfm_count_type1_chan1(wfm_count_type1_chan1), // waveform count set for trigger type 1 for Channel 1
+        .wfm_count_type1_chan2(wfm_count_type1_chan2), // waveform count set for trigger type 1 for Channel 2
+        .wfm_count_type1_chan3(wfm_count_type1_chan3), // waveform count set for trigger type 1 for Channel 3
+        .wfm_count_type1_chan4(wfm_count_type1_chan4), // waveform count set for trigger type 1 for Channel 4
 
         // status connections
         .ttr_state(ttr_state),           // TTC trigger receiver state
@@ -1277,17 +1269,17 @@ module wfd_top (
         .readout_done(readout_done),         // finished readout flag
         .readout_size(readout_size),         // burst count of readout event
 
-        .burst_count_chan0(burst_count_chan0), // burst count set for Channel 0
-        .burst_count_chan1(burst_count_chan1), // burst count set for Channel 1
-        .burst_count_chan2(burst_count_chan2), // burst count set for Channel 2
-        .burst_count_chan3(burst_count_chan3), // burst count set for Channel 3
-        .burst_count_chan4(burst_count_chan4), // burst count set for Channel 4
+        .burst_count_type1_chan0(burst_count_type1_chan0), // burst count set for trigger type 1 for Channel 0
+        .burst_count_type1_chan1(burst_count_type1_chan1), // burst count set for trigger type 1 for Channel 1
+        .burst_count_type1_chan2(burst_count_type1_chan2), // burst count set for trigger type 1 for Channel 2
+        .burst_count_type1_chan3(burst_count_type1_chan3), // burst count set for trigger type 1 for Channel 3
+        .burst_count_type1_chan4(burst_count_type1_chan4), // burst count set for trigger type 1 for Channel 4
 
-        .wfm_count_chan0(wfm_count_chan0), // waveform count set for Channel 0
-        .wfm_count_chan1(wfm_count_chan1), // waveform count set for Channel 1
-        .wfm_count_chan2(wfm_count_chan2), // waveform count set for Channel 2
-        .wfm_count_chan3(wfm_count_chan3), // waveform count set for Channel 3
-        .wfm_count_chan4(wfm_count_chan4), // waveform count set for Channel 4
+        .wfm_count_type1_chan0(wfm_count_type1_chan0), // waveform count set for trigger type 1 for Channel 0
+        .wfm_count_type1_chan1(wfm_count_type1_chan1), // waveform count set for trigger type 1 for Channel 1
+        .wfm_count_type1_chan2(wfm_count_type1_chan2), // waveform count set for trigger type 1 for Channel 2
+        .wfm_count_type1_chan3(wfm_count_type1_chan3), // waveform count set for trigger type 1 for Channel 3
+        .wfm_count_type1_chan4(wfm_count_type1_chan4), // waveform count set for trigger type 1 for Channel 4
 
         // status connections
         .i2c_mac_adr(i2c_mac_adr[47:0]),         // input  [47:0], MAC address from EEPROM

@@ -56,17 +56,17 @@ module command_manager (
   output reg readout_done,          // finished readout flag
   output wire [21:0] readout_size,  // burst count of readout event
 
-  output wire [22:0] burst_count_chan0,
-  output wire [22:0] burst_count_chan1,
-  output wire [22:0] burst_count_chan2,
-  output wire [22:0] burst_count_chan3,
-  output wire [22:0] burst_count_chan4,
+  output wire [22:0] burst_count_type1_chan0,
+  output wire [22:0] burst_count_type1_chan1,
+  output wire [22:0] burst_count_type1_chan2,
+  output wire [22:0] burst_count_type1_chan3,
+  output wire [22:0] burst_count_type1_chan4,
 
-  output wire [11:0] wfm_count_chan0,
-  output wire [11:0] wfm_count_chan1,
-  output wire [11:0] wfm_count_chan2,
-  output wire [11:0] wfm_count_chan3,
-  output wire [11:0] wfm_count_chan4,
+  output wire [11:0] wfm_count_type1_chan0,
+  output wire [11:0] wfm_count_type1_chan1,
+  output wire [11:0] wfm_count_type1_chan2,
+  output wire [11:0] wfm_count_type1_chan3,
+  output wire [11:0] wfm_count_type1_chan4,
 
   // status connections
   input wire [47:0] i2c_mac_adr,        // this board's MAC address
@@ -111,9 +111,10 @@ module command_manager (
   parameter READ_CHAN_DATA1        = 22;
   parameter READ_CHAN_DATA2        = 23;
   parameter READ_CHAN_DATA_RESYNC  = 24;
-  parameter SEND_READOUT_TIMESTAMP = 25;
+  parameter SEND_CHAN_TRAILER1     = 25;
   parameter READY_AMC13_TRAILER    = 26;
   parameter SEND_AMC13_TRAILER     = 27;
+  // error state bits
   parameter ERROR_DATA_CORRUPTION  = 28;
   parameter ERROR_TRIG_NUM         = 29;
   parameter ERROR_TRIG_TYPE        = 30;
@@ -142,25 +143,25 @@ module command_manager (
   reg [127:0] channel_checksum; // checksum from received channel data
 
   // other internal regs
-  reg empty_event;                   // flag to indicate if this should be an empty event
-  reg [22:0] chan_burst_count [4:0]; // two-dimentional memory for the configured burst counts
-  reg [11:0] chan_wfm_count [4:0];   // two-dimentional memory for the configured waveform counts
-  reg [31:0] ipbus_chan_cmd;         // buffer for issued channel command
-  reg [31:0] ipbus_chan_reg;         // buffer for issued channel register
+  reg empty_event;                         // flag to indicate if this should be an empty event
+  reg [22:0] chan_burst_count_type1 [4:0]; // two-dimentional memory for the configured burst counts
+  reg [11:0] chan_wfm_count_type1   [4:0]; // two-dimentional memory for the configured waveform counts
+  reg [31:0] ipbus_chan_cmd;               // buffer for issued channel command
+  reg [31:0] ipbus_chan_reg;               // buffer for issued channel register
 
 
   // break out the channel signals
-  assign burst_count_chan0 = chan_burst_count[0];
-  assign burst_count_chan1 = chan_burst_count[1];
-  assign burst_count_chan2 = chan_burst_count[2];
-  assign burst_count_chan3 = chan_burst_count[3];
-  assign burst_count_chan4 = chan_burst_count[4];
+  assign burst_count_type1_chan0 = chan_burst_count_type1[0];
+  assign burst_count_type1_chan1 = chan_burst_count_type1[1];
+  assign burst_count_type1_chan2 = chan_burst_count_type1[2];
+  assign burst_count_type1_chan3 = chan_burst_count_type1[3];
+  assign burst_count_type1_chan4 = chan_burst_count_type1[4];
 
-  assign wfm_count_chan0 = chan_wfm_count[0];
-  assign wfm_count_chan1 = chan_wfm_count[1];
-  assign wfm_count_chan2 = chan_wfm_count[2];
-  assign wfm_count_chan3 = chan_wfm_count[3];
-  assign wfm_count_chan4 = chan_wfm_count[4];
+  assign wfm_count_type1_chan0 = chan_wfm_count_type1[0];
+  assign wfm_count_type1_chan1 = chan_wfm_count_type1[1];
+  assign wfm_count_type1_chan2 = chan_wfm_count_type1[2];
+  assign wfm_count_type1_chan3 = chan_wfm_count_type1[3];
+  assign wfm_count_type1_chan4 = chan_wfm_count_type1[4];
   
 
   // for internal regs
@@ -195,30 +196,25 @@ module command_manager (
   reg next_chan_tx_fifo_last;
   reg next_ipbus_res_last;
   reg next_daq_valid;
-  reg [22:0] next_chan_burst_count [4:0];
-  reg [11:0] next_chan_wfm_count [4:0];
+  reg [22:0] next_chan_burst_count_type1 [4:0];
+  reg [11:0] next_chan_wfm_count_type1   [4:0];
 
 
   // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
   wire [19:0] event_size;
-  assign event_size = ((burst_count_chan0[19:0]*2+2)*wfm_count_chan0[11:0]+5)*chan_en[0]+ 
-                      ((burst_count_chan1[19:0]*2+2)*wfm_count_chan1[11:0]+5)*chan_en[1]+ 
-                      ((burst_count_chan2[19:0]*2+2)*wfm_count_chan2[11:0]+5)*chan_en[2]+ 
-                      ((burst_count_chan3[19:0]*2+2)*wfm_count_chan3[11:0]+5)*chan_en[3]+ 
-                      ((burst_count_chan4[19:0]*2+2)*wfm_count_chan4[11:0]+5)*chan_en[4]+3;
+  assign event_size = ((burst_count_type1_chan0[19:0]*2+2)*wfm_count_type1_chan0[11:0]+5)*chan_en[0]+ 
+                      ((burst_count_type1_chan1[19:0]*2+2)*wfm_count_type1_chan1[11:0]+5)*chan_en[1]+ 
+                      ((burst_count_type1_chan2[19:0]*2+2)*wfm_count_type1_chan2[11:0]+5)*chan_en[2]+ 
+                      ((burst_count_type1_chan3[19:0]*2+2)*wfm_count_type1_chan3[11:0]+5)*chan_en[3]+ 
+                      ((burst_count_type1_chan4[19:0]*2+2)*wfm_count_type1_chan4[11:0]+5)*chan_en[4]+3;
 
   // number of 128-bit bursts read out of DDR3
-  // Explaination for 'readout_size' calculation:
-  // (burst_count[19:0]                    : # bursts per waveform
-  //                   +1)                 : 1 waveform header per waveform
-  //                      *wfm_count[11:0] : # waveforms per readout event
-  //                      +2               : (1 channel header + 1 channel checksum) per readout event
   assign readout_size = (burst_count[19:0]+1)*wfm_count[11:0]+2;
 
   // this board's serial number
   wire [12:0] board_id;
-  assign board_id = (i2c_mac_adr[15:8] == 8'h01) ? i2c_mac_adr[7:0] : i2c_mac_adr[7:0]+256;
-
+  assign board_id = (i2c_mac_adr[15:8]-1)*256+i2c_mac_adr[7:0];
+  
 
   // comb always block
   always @* begin
@@ -248,21 +244,21 @@ module command_manager (
     next_ipbus_chan_reg[31:0]    = ipbus_chan_reg[31:0];
 
     // external regs
-    next_daq_data[63:0]         = daq_data[63:0];
-    next_chan_error_rc[4:0]     = chan_error_rc[4:0];
-    next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0];
-    next_chan_tx_fifo_last      = chan_tx_fifo_last;
-    next_ipbus_res_last         = ipbus_res_last;
-    next_chan_burst_count[0]    = chan_burst_count[0];
-    next_chan_burst_count[1]    = chan_burst_count[1];
-    next_chan_burst_count[2]    = chan_burst_count[2];
-    next_chan_burst_count[3]    = chan_burst_count[3];
-    next_chan_burst_count[4]    = chan_burst_count[4];
-    next_chan_wfm_count[0]      = chan_wfm_count[0];
-    next_chan_wfm_count[1]      = chan_wfm_count[1];
-    next_chan_wfm_count[2]      = chan_wfm_count[2];
-    next_chan_wfm_count[3]      = chan_wfm_count[3];
-    next_chan_wfm_count[4]      = chan_wfm_count[4];
+    next_daq_data[63:0]            = daq_data[63:0];
+    next_chan_error_rc[4:0]        = chan_error_rc[4:0];
+    next_chan_tx_fifo_dest[3:0]    = chan_tx_fifo_dest[3:0];
+    next_chan_tx_fifo_last         = chan_tx_fifo_last;
+    next_ipbus_res_last            = ipbus_res_last;
+    next_chan_burst_count_type1[0] = chan_burst_count_type1[0];
+    next_chan_burst_count_type1[1] = chan_burst_count_type1[1];
+    next_chan_burst_count_type1[2] = chan_burst_count_type1[2];
+    next_chan_burst_count_type1[3] = chan_burst_count_type1[3];
+    next_chan_burst_count_type1[4] = chan_burst_count_type1[4];
+    next_chan_wfm_count_type1[0]   = chan_wfm_count_type1[0];
+    next_chan_wfm_count_type1[1]   = chan_wfm_count_type1[1];
+    next_chan_wfm_count_type1[2]   = chan_wfm_count_type1[2];
+    next_chan_wfm_count_type1[3]   = chan_wfm_count_type1[3];
+    next_chan_wfm_count_type1[4]   = chan_wfm_count_type1[4];
 
     next_daq_valid          = 0; // default
     chan_tx_fifo_data[31:0] = 0; // default
@@ -324,10 +320,10 @@ module command_manager (
 
           // watch for write register commands
           if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0002)) begin
-            next_chan_burst_count[chan_tx_fifo_dest] = ipbus_cmd_data[22:0]; // burst count value
+            next_chan_burst_count_type1[chan_tx_fifo_dest] = ipbus_cmd_data[22:0]; // burst count value, muon fill
           end
           else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_000e)) begin
-            next_chan_wfm_count[chan_tx_fifo_dest] = ipbus_cmd_data[11:0]; // waveform count value
+            next_chan_wfm_count_type1[chan_tx_fifo_dest] = ipbus_cmd_data[11:0];   // waveform count value, muon fill
           end
 
           nextstate[CHECK_LAST] = 1'b1;
@@ -611,13 +607,34 @@ module command_manager (
       state[READ_CHAN_DATA1] : begin
         // check if the Aurora RX FIFO has data for us
         if (chan_rx_fifo_valid) begin
-          if (endianness_sel) begin
-            // little-endian
-            next_daq_data[63:0] = {chan_rx_fifo_data[7:0], chan_rx_fifo_data[15:8], chan_rx_fifo_data[23:16], chan_rx_fifo_data[31:24], 32'h00000000};
+          // this is the waveform header [31:0]
+          if ((data_count[31:0] == 0) & (data_wfm_count[11:0] != wfm_count[11:0])) begin
+            // convert waveform length from # bursts to # samples
+            next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:23], (chan_rx_fifo_data[22:0]<<3)};
+          end
+          // this is the waveform header [95:64]
+          else if ((data_count[31:0] == 2) & (data_wfm_count[11:0] != wfm_count[11:0])) begin
+            // keep waveform header format as it is
+            next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+          end
+          // this is an ADC data word
+          else begin
+            // big-endian data format, can be switched in next state
+            next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+          end
+
+          // this is the channel checksum [31:0]
+          if ((data_count[31:0] == 0) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
+            next_channel_checksum[127:0] = {96'd0, chan_rx_fifo_data[31:0]};
+          end
+          // this is the channel checksum [95:64]
+          else if ((data_count[31:0] == 2) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
+            next_channel_checksum[127:0] = {32'd0, chan_rx_fifo_data[31:0], channel_checksum[63:0]};
           end
           else begin
-            // big-endian, default
-            next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+            // update least- or most-significant 64-bits of checksum
+            // use '~update_mcs_lsb' to determine the 'next' value
+            next_master_checksum[127:0] = (~update_mcs_lsb) ? {master_checksum[127:32], (master_checksum[31:0]^chan_rx_fifo_data[31:0])} : {master_checksum[127:96], (master_checksum[95:64]^chan_rx_fifo_data[31:0]), master_checksum[63:0]};
           end
 
           next_data_count[31:0] = data_count[31:0]+1;
@@ -627,7 +644,7 @@ module command_manager (
           nextstate[READ_CHAN_DATA1] = 1'b1;
         end
       end
-      // read the second 32-bit data word from channel and
+      // read the second 32-bit data word from channel, and
       // send the data to the DAQ link to AMC13
       state[READ_CHAN_DATA2] : begin
         // this state's logic ties together the 'ready' and 'valid' signals between the Aurora RX FIFO and DAQ link
@@ -636,13 +653,32 @@ module command_manager (
         // DAQ link has flagged that its buffer is almost full
         // grab the Aurora RX FIFO's lastest word, and wait for DAQ link to recover before trying to send it
         if (~daq_ready & chan_rx_fifo_valid) begin
-          if (endianness_sel) begin
-            // little-endian
-            next_daq_data[63:0] = {daq_data[63:32], chan_rx_fifo_data[7:0], chan_rx_fifo_data[15:8], chan_rx_fifo_data[23:16], chan_rx_fifo_data[31:24]};
-          end
-          else begin
-            // big-endian, default
+          // this is the waveform header [63:32]
+          if ((data_count[31:0] == 1) & (data_wfm_count[11:0] != wfm_count[11:0])) begin
+            // keep waveform header format as it is
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+          end
+          // this is the waveform header [127:96]
+          else if ((data_count[31:0] == 3) & (data_wfm_count[11:0] != wfm_count[11:0])) begin
+            // keep waveform header format as it is
+            next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+          end
+          // this is the channel checksum [63:32]
+          else if ((data_count[31:0] == 1) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
+            // keep channel checksum format as it is
+            next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+          end
+          // this is the channel checksum [127:64]
+          else if ((data_count[31:0] == 1) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
+            // keep channel checksum format as it is
+            next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+          end
+          // this is an ADC data word
+          else begin
+            // send ADC data in desired endianness:
+            //      big-endian when 'endianness_sel' is 0 (default)
+            //   little-endian when 'endianness_sel' is 1
+            next_daq_data[63:0] = (~endianness_sel) ? {chan_rx_fifo_data[31:0], daq_data[31:0]} : {daq_data[7:0], daq_data[15:8], daq_data[23:16], daq_data[31:24], chan_rx_fifo_data[7:0], chan_rx_fifo_data[15:8], chan_rx_fifo_data[23:16], chan_rx_fifo_data[31:24]};
           end
 
           next_data_count[31:0]     = (data_count[31:0] < burst_count[22:0]*4+3) ? data_count[31:0]+1   : 32'b0;
@@ -651,44 +687,52 @@ module command_manager (
 
           // check whether this data word is the channel checksum
           if ((data_count[31:0] == 1) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
-            next_channel_checksum[127:0] = {64'd0, chan_rx_fifo_data[31:0], daq_data[31:0]};
+            next_channel_checksum[127:0] = {64'd0, chan_rx_fifo_data[31:0], channel_checksum[31:0]};
+          end
+          else if ((data_count[31:0] == 3) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
+            next_channel_checksum[127:0] = {chan_rx_fifo_data[31:0], channel_checksum[95:0]};
           end
           else begin
             // update least- or most-significant 64-bits of checksum
             // use '~update_mcs_lsb' to determine the 'next' value
-            next_master_checksum[127:0] = ~update_mcs_lsb ? {master_checksum[127:64], (master_checksum[63:0]^{chan_rx_fifo_data[31:0], daq_data[31:0]})} : {(master_checksum[127:64]^{chan_rx_fifo_data[31:0], daq_data[31:0]}), master_checksum[63:0]};
+            next_master_checksum[127:0] = (~update_mcs_lsb) ? {master_checksum[127:64], (master_checksum[63:32]^chan_rx_fifo_data[31:0]), master_checksum[31:0]} : {(master_checksum[127:96]^chan_rx_fifo_data[31:0]), master_checksum[95:0]};
           end
           nextstate[READ_CHAN_DATA_RESYNC] = 1'b1;
         end
         // we're receiving the last data word
-        // send it, and exit to send the readout timestamp next
+        // send it, and exit to send the channel trailer next
         else if (daq_ready & chan_rx_fifo_valid & (data_count[31:0] == 3) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
           next_daq_valid = 1'b1;
-          if (endianness_sel) begin
-            // little-endian
-            next_daq_data[63:0] = {daq_data[63:32], chan_rx_fifo_data[7:0], chan_rx_fifo_data[15:8], chan_rx_fifo_data[23:16], chan_rx_fifo_data[31:24]};
-          end
-          else begin
-            // big-endian, default
-            next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
-          end
+
+          // this is the channel checksum, use big-endian
+          next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
 
           next_data_count[31:0]     = (data_count[31:0] < burst_count[22:0]*4+3) ? data_count[31:0]+1   : 32'b0;
           next_data_wfm_count[11:0] = (data_count[31:0] < burst_count[22:0]*4+3) ? data_wfm_count[11:0] : data_wfm_count[11:0]+1;
-          next_channel_checksum[127:0] = {chan_rx_fifo_data[31:0], daq_data[31:0], channel_checksum[63:0]};
-          nextstate[SEND_READOUT_TIMESTAMP] = 1'b1;
+          next_channel_checksum[127:0] = {chan_rx_fifo_data[31:0], channel_checksum[95:0]};
+          nextstate[SEND_CHAN_TRAILER1] = 1'b1;
         end
         // we've not received all the data
         // send current data, and continue the readout loop
         else if (daq_ready & chan_rx_fifo_valid) begin
           next_daq_valid = 1'b1;
-          if (endianness_sel) begin
-            // little-endian
-            next_daq_data[63:0] = {daq_data[63:32], chan_rx_fifo_data[7:0], chan_rx_fifo_data[15:8], chan_rx_fifo_data[23:16], chan_rx_fifo_data[31:24]};
-          end
-          else begin
-            // big-endian, default
+
+          // this is the waveform header [63:32]
+          if ((data_count[31:0] == 1) & (data_wfm_count[11:0] != wfm_count[11:0])) begin
+            // keep waveform header format as it is
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+          end
+          // this is the waveform header [127:96]
+          else if ((data_count[31:0] == 3) & (data_wfm_count[11:0] != wfm_count[11:0])) begin
+            // keep waveform header format as it is
+            next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+          end
+          // this is an ADC data word
+          else begin
+            // send ADC data in desired endianness:
+            //      big-endian when 'endianness_sel' is 0 (default)
+            //   little-endian when 'endianness_sel' is 1
+            next_daq_data[63:0] = (~endianness_sel) ? {chan_rx_fifo_data[31:0], daq_data[31:0]} : {daq_data[7:0], daq_data[15:8], daq_data[23:16], daq_data[31:24], chan_rx_fifo_data[7:0], chan_rx_fifo_data[15:8], chan_rx_fifo_data[23:16], chan_rx_fifo_data[31:24]};
           end
 
           next_data_count[31:0]     = (data_count[31:0] < burst_count[22:0]*4+3) ? data_count[31:0]+1   : 32'b0;
@@ -697,12 +741,12 @@ module command_manager (
 
           // check whether this data word is the channel checksum
           if ((data_count[31:0] == 1) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
-            next_channel_checksum[127:0] = {64'd0, chan_rx_fifo_data[31:0], daq_data[31:0]};
+            next_channel_checksum[127:0] = {64'd0, chan_rx_fifo_data[31:0], channel_checksum[31:0]};
           end
           else begin
             // update least- or most-significant 64-bits of checksum
             // use '~update_mcs_lsb' to determine the 'next' value
-            next_master_checksum[127:0] = ~update_mcs_lsb ? {master_checksum[127:64], (master_checksum[63:0]^{chan_rx_fifo_data[31:0], daq_data[31:0]})} : {(master_checksum[127:64]^{chan_rx_fifo_data[31:0], daq_data[31:0]}), master_checksum[63:0]};
+            next_master_checksum[127:0] = (~update_mcs_lsb) ? {master_checksum[127:64], (master_checksum[63:32]^chan_rx_fifo_data[31:0]), master_checksum[31:0]} : {(master_checksum[127:96]^chan_rx_fifo_data[31:0]), master_checksum[95:0]};
           end
           nextstate[READ_CHAN_DATA1] = 1'b1;
         end
@@ -717,7 +761,7 @@ module command_manager (
         // send it, and exit to send the readout timestamp next
         if (daq_ready & (data_count[31:0] == 3) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
           next_daq_valid = 1'b1;
-          nextstate[SEND_READOUT_TIMESTAMP] = 1'b1;
+          nextstate[SEND_CHAN_TRAILER1] = 1'b1;
         end
         // we've not received all the data
         // send current data, and continue readout loop
@@ -731,7 +775,7 @@ module command_manager (
         end
       end
       // send the channel readout's timestamp
-      state[SEND_READOUT_TIMESTAMP] : begin
+      state[SEND_CHAN_TRAILER1] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
           next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0]+1;
@@ -752,7 +796,7 @@ module command_manager (
         end
         else begin
           // DAQ link buffer is still almost full
-          nextstate[SEND_READOUT_TIMESTAMP] = 1'b1;
+          nextstate[SEND_CHAN_TRAILER1] = 1'b1;
         end
       end
       // prepare the AMC13 trailer word
@@ -815,86 +859,86 @@ module command_manager (
       // reset values
       state <= 31'd1 << IDLE;
 
-      burst_count[22:0]       <= 0;
-      chan_num_buf[31:0]      <= 0;
-      chan_tag[15:0]          <= 0;
-      fill_type[2:0]          <= 0;
-      wfm_count[11:0]         <= 0;
-      wfm_gap_length[21:0]    <= 0;
-      chan_tx_fifo_dest[3:0]  <= 0;
-      chan_tx_fifo_last       <= 0;
-      csn[31:0]               <= 0;
-      daq_data[63:0]          <= 0;
-      data_count[31:0]        <= 0;
-      data_wfm_count[11:0]    <= 0;
-      ddr3_start_addr[25:0]   <= 0;
-      ipbus_buf[31:0]         <= 0;
-      ipbus_res_last          <= 0;
-      num_chan_en[2:0]        <= 0;
-      sent_amc13_header       <= 0;
-      chan_trig_num[23:0]     <= 0;
-      readout_timestamp[31:0] <= 0;
-      chan_error_rc[4:0]      <= 0; // clear error upon reset
-      daq_valid               <= 0;
-      update_mcs_lsb          <= 0;
-      master_checksum[127:0]  <= 0;
-      channel_checksum[127:0] <= 0;
-      empty_event             <= 0;
-      cs_mismatch_count[31:0] <= 0; // clear soft error count upon reset
-      chan_burst_count[0]     <= 23'd70000; // channel default is 70,000
-      chan_burst_count[1]     <= 23'd70000; // channel default is 70,000
-      chan_burst_count[2]     <= 23'd70000; // channel default is 70,000
-      chan_burst_count[3]     <= 23'd70000; // channel default is 70,000
-      chan_burst_count[4]     <= 23'd70000; // channel default is 70,000
-      chan_wfm_count[0]       <= 12'd1;     // channel default is 1
-      chan_wfm_count[1]       <= 12'd1;     // channel default is 1
-      chan_wfm_count[2]       <= 12'd1;     // channel default is 1
-      chan_wfm_count[3]       <= 12'd1;     // channel default is 1
-      chan_wfm_count[4]       <= 12'd1;     // channel default is 1
-      ipbus_chan_cmd[31:0]    <= 0;
-      ipbus_chan_reg[31:0]    <= 0;
+      burst_count[22:0]         <= 0;
+      chan_num_buf[31:0]        <= 0;
+      chan_tag[15:0]            <= 0;
+      fill_type[2:0]            <= 0;
+      wfm_count[11:0]           <= 0;
+      wfm_gap_length[21:0]      <= 0;
+      chan_tx_fifo_dest[3:0]    <= 0;
+      chan_tx_fifo_last         <= 0;
+      csn[31:0]                 <= 0;
+      daq_data[63:0]            <= 0;
+      data_count[31:0]          <= 0;
+      data_wfm_count[11:0]      <= 0;
+      ddr3_start_addr[25:0]     <= 0;
+      ipbus_buf[31:0]           <= 0;
+      ipbus_res_last            <= 0;
+      num_chan_en[2:0]          <= 0;
+      sent_amc13_header         <= 0;
+      chan_trig_num[23:0]       <= 0;
+      readout_timestamp[31:0]   <= 0;
+      chan_error_rc[4:0]        <= 0; // clear error upon reset
+      daq_valid                 <= 0;
+      update_mcs_lsb            <= 0;
+      master_checksum[127:0]    <= 0;
+      channel_checksum[127:0]   <= 0;
+      empty_event               <= 0;
+      cs_mismatch_count[31:0]   <= 0; // clear soft error count upon reset
+      chan_burst_count_type1[0] <= 23'd70000; // channel default is 70,000
+      chan_burst_count_type1[1] <= 23'd70000; // channel default is 70,000
+      chan_burst_count_type1[2] <= 23'd70000; // channel default is 70,000
+      chan_burst_count_type1[3] <= 23'd70000; // channel default is 70,000
+      chan_burst_count_type1[4] <= 23'd70000; // channel default is 70,000
+      chan_wfm_count_type1[0]   <= 12'd1;     // channel default is 1
+      chan_wfm_count_type1[1]   <= 12'd1;     // channel default is 1
+      chan_wfm_count_type1[2]   <= 12'd1;     // channel default is 1
+      chan_wfm_count_type1[3]   <= 12'd1;     // channel default is 1
+      chan_wfm_count_type1[4]   <= 12'd1;     // channel default is 1
+      ipbus_chan_cmd[31:0]      <= 0;
+      ipbus_chan_reg[31:0]      <= 0;
     end
     else begin
       state <= nextstate;
 
-      burst_count[22:0]       <= next_burst_count[22:0];
-      chan_num_buf[31:0]      <= next_chan_num_buf[31:0];
-      chan_tag[15:0]          <= next_chan_tag[15:0];
-      fill_type[2:0]          <= next_fill_type[2:0];
-      wfm_count[11:0]         <= next_wfm_count[11:0];
-      wfm_gap_length[21:0]    <= next_wfm_gap_length[21:0];
-      chan_tx_fifo_dest[3:0]  <= next_chan_tx_fifo_dest[3:0];
-      chan_tx_fifo_last       <= next_chan_tx_fifo_last;
-      csn[31:0]               <= next_csn[31:0];
-      daq_data[63:0]          <= next_daq_data[63:0];
-      data_count[31:0]        <= next_data_count[31:0];
-      data_wfm_count[11:0]    <= next_data_wfm_count[11:0];
-      ddr3_start_addr[25:0]   <= next_ddr3_start_addr[25:0];
-      ipbus_buf[31:0]         <= next_ipbus_buf[31:0];
-      ipbus_res_last          <= next_ipbus_res_last;
-      num_chan_en[2:0]        <= next_num_chan_en[2:0];
-      sent_amc13_header       <= next_sent_amc13_header;
-      chan_trig_num[23:0]     <= next_chan_trig_num[23:0];   
-      readout_timestamp[31:0] <= next_readout_timestamp[31:0];
-      chan_error_rc[4:0]      <= next_chan_error_rc[4:0];
-      daq_valid               <= next_daq_valid;
-      update_mcs_lsb          <= next_update_mcs_lsb;
-      master_checksum[127:0]  <= next_master_checksum[127:0];
-      channel_checksum[127:0] <= next_channel_checksum[127:0];
-      empty_event             <= next_empty_event;
-      cs_mismatch_count[31:0] <= next_cs_mismatch_count[31:0];
-      chan_burst_count[0]     <= next_chan_burst_count[0];
-      chan_burst_count[1]     <= next_chan_burst_count[1];
-      chan_burst_count[2]     <= next_chan_burst_count[2];
-      chan_burst_count[3]     <= next_chan_burst_count[3];
-      chan_burst_count[4]     <= next_chan_burst_count[4];
-      chan_wfm_count[0]       <= next_chan_wfm_count[0];
-      chan_wfm_count[1]       <= next_chan_wfm_count[1];
-      chan_wfm_count[2]       <= next_chan_wfm_count[2];
-      chan_wfm_count[3]       <= next_chan_wfm_count[3];
-      chan_wfm_count[4]       <= next_chan_wfm_count[4];
-      ipbus_chan_cmd[31:0]    <= next_ipbus_chan_cmd[31:0];
-      ipbus_chan_reg[31:0]    <= next_ipbus_chan_reg[31:0];
+      burst_count[22:0]         <= next_burst_count[22:0];
+      chan_num_buf[31:0]        <= next_chan_num_buf[31:0];
+      chan_tag[15:0]            <= next_chan_tag[15:0];
+      fill_type[2:0]            <= next_fill_type[2:0];
+      wfm_count[11:0]           <= next_wfm_count[11:0];
+      wfm_gap_length[21:0]      <= next_wfm_gap_length[21:0];
+      chan_tx_fifo_dest[3:0]    <= next_chan_tx_fifo_dest[3:0];
+      chan_tx_fifo_last         <= next_chan_tx_fifo_last;
+      csn[31:0]                 <= next_csn[31:0];
+      daq_data[63:0]            <= next_daq_data[63:0];
+      data_count[31:0]          <= next_data_count[31:0];
+      data_wfm_count[11:0]      <= next_data_wfm_count[11:0];
+      ddr3_start_addr[25:0]     <= next_ddr3_start_addr[25:0];
+      ipbus_buf[31:0]           <= next_ipbus_buf[31:0];
+      ipbus_res_last            <= next_ipbus_res_last;
+      num_chan_en[2:0]          <= next_num_chan_en[2:0];
+      sent_amc13_header         <= next_sent_amc13_header;
+      chan_trig_num[23:0]       <= next_chan_trig_num[23:0];   
+      readout_timestamp[31:0]   <= next_readout_timestamp[31:0];
+      chan_error_rc[4:0]        <= next_chan_error_rc[4:0];
+      daq_valid                 <= next_daq_valid;
+      update_mcs_lsb            <= next_update_mcs_lsb;
+      master_checksum[127:0]    <= next_master_checksum[127:0];
+      channel_checksum[127:0]   <= next_channel_checksum[127:0];
+      empty_event               <= next_empty_event;
+      cs_mismatch_count[31:0]   <= next_cs_mismatch_count[31:0];
+      chan_burst_count_type1[0] <= next_chan_burst_count_type1[0];
+      chan_burst_count_type1[1] <= next_chan_burst_count_type1[1];
+      chan_burst_count_type1[2] <= next_chan_burst_count_type1[2];
+      chan_burst_count_type1[3] <= next_chan_burst_count_type1[3];
+      chan_burst_count_type1[4] <= next_chan_burst_count_type1[4];
+      chan_wfm_count_type1[0]   <= next_chan_wfm_count_type1[0];
+      chan_wfm_count_type1[1]   <= next_chan_wfm_count_type1[1];
+      chan_wfm_count_type1[2]   <= next_chan_wfm_count_type1[2];
+      chan_wfm_count_type1[3]   <= next_chan_wfm_count_type1[3];
+      chan_wfm_count_type1[4]   <= next_chan_wfm_count_type1[4];
+      ipbus_chan_cmd[31:0]      <= next_ipbus_chan_cmd[31:0];
+      ipbus_chan_reg[31:0]      <= next_ipbus_chan_reg[31:0];
     end
   end
 
@@ -1013,7 +1057,7 @@ module command_manager (
         nextstate[READ_CHAN_DATA_RESYNC]  : begin
           ;
         end
-        nextstate[SEND_READOUT_TIMESTAMP] : begin
+        nextstate[SEND_CHAN_TRAILER1]     : begin
           ;
         end
         nextstate[READY_AMC13_TRAILER]    : begin

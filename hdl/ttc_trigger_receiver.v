@@ -21,18 +21,18 @@ module ttc_trigger_receiver (
   input wire [21:0] readout_size, // burst count of readout event
 
   // synchronize signals?
-  input wire [22:0] burst_count_chan0, // burst count set for Channel 0
-  input wire [22:0] burst_count_chan1, // burst count set for Channel 1
-  input wire [22:0] burst_count_chan2, // burst count set for Channel 2
-  input wire [22:0] burst_count_chan3, // burst count set for Channel 3
-  input wire [22:0] burst_count_chan4, // burst count set for Channel 4
+  input wire [22:0] burst_count_type1_chan0, // burst count set for Channel 0
+  input wire [22:0] burst_count_type1_chan1, // burst count set for Channel 1
+  input wire [22:0] burst_count_type1_chan2, // burst count set for Channel 2
+  input wire [22:0] burst_count_type1_chan3, // burst count set for Channel 3
+  input wire [22:0] burst_count_type1_chan4, // burst count set for Channel 4
 
   // synchronize signals?
-  input wire [11:0] wfm_count_chan0, // waveform count set for Channel 0
-  input wire [11:0] wfm_count_chan1, // waveform count set for Channel 1
-  input wire [11:0] wfm_count_chan2, // waveform count set for Channel 2
-  input wire [11:0] wfm_count_chan3, // waveform count set for Channel 3
-  input wire [11:0] wfm_count_chan4, // waveform count set for Channel 4
+  input wire [11:0] wfm_count_type1_chan0, // waveform count set for Channel 0
+  input wire [11:0] wfm_count_type1_chan1, // waveform count set for Channel 1
+  input wire [11:0] wfm_count_type1_chan2, // waveform count set for Channel 2
+  input wire [11:0] wfm_count_type1_chan3, // waveform count set for Channel 3
+  input wire [11:0] wfm_count_type1_chan4, // waveform count set for Channel 4
 
   // channel acquisition controller interface
   input wire acq_ready,            // channels are ready to acquire data
@@ -74,11 +74,11 @@ module ttc_trigger_receiver (
   wire [21:0] acq_size_chan3;
   wire [21:0] acq_size_chan4;
 
-  assign acq_size_chan0 = (burst_count_chan0[22:0] + 1)*wfm_count_chan0[11:0] + 2;
-  assign acq_size_chan1 = (burst_count_chan1[22:0] + 1)*wfm_count_chan1[11:0] + 2;
-  assign acq_size_chan2 = (burst_count_chan2[22:0] + 1)*wfm_count_chan2[11:0] + 2;
-  assign acq_size_chan3 = (burst_count_chan3[22:0] + 1)*wfm_count_chan3[11:0] + 2;
-  assign acq_size_chan4 = (burst_count_chan4[22:0] + 1)*wfm_count_chan4[11:0] + 2;
+  assign acq_size_chan0 = (burst_count_type1_chan0[22:0] + 1)*wfm_count_type1_chan0[11:0] + 2;
+  assign acq_size_chan1 = (burst_count_type1_chan1[22:0] + 1)*wfm_count_type1_chan1[11:0] + 2;
+  assign acq_size_chan2 = (burst_count_type1_chan2[22:0] + 1)*wfm_count_type1_chan2[11:0] + 2;
+  assign acq_size_chan3 = (burst_count_type1_chan3[22:0] + 1)*wfm_count_type1_chan3[11:0] + 2;
+  assign acq_size_chan4 = (burst_count_type1_chan4[22:0] + 1)*wfm_count_type1_chan4[11:0] + 2;
 
   // number of bursts yet to be read out of DDR3
   reg [21:0] stored_bursts_chan0;

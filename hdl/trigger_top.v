@@ -38,17 +38,17 @@ module trigger_top (
     output wire [ 1:0] ttc_trig_type,      // trigger type
     output wire [43:0] ttc_trig_timestamp, // trigger timestamp
 
-    input wire [22:0] burst_count_chan0, // burst count set for Channel 0
-    input wire [22:0] burst_count_chan1, // burst count set for Channel 1
-    input wire [22:0] burst_count_chan2, // burst count set for Channel 2
-    input wire [22:0] burst_count_chan3, // burst count set for Channel 3
-    input wire [22:0] burst_count_chan4, // burst count set for Channel 4
+    input wire [22:0] burst_count_type1_chan0, // burst count set for Channel 0
+    input wire [22:0] burst_count_type1_chan1, // burst count set for Channel 1
+    input wire [22:0] burst_count_type1_chan2, // burst count set for Channel 2
+    input wire [22:0] burst_count_type1_chan3, // burst count set for Channel 3
+    input wire [22:0] burst_count_type1_chan4, // burst count set for Channel 4
 
-    input wire [11:0] wfm_count_chan0, // waveform count set for Channel 0
-    input wire [11:0] wfm_count_chan1, // waveform count set for Channel 1
-    input wire [11:0] wfm_count_chan2, // waveform count set for Channel 2
-    input wire [11:0] wfm_count_chan3, // waveform count set for Channel 3
-    input wire [11:0] wfm_count_chan4, // waveform count set for Channel 4
+    input wire [11:0] wfm_count_type1_chan0, // waveform count set for Channel 0
+    input wire [11:0] wfm_count_type1_chan1, // waveform count set for Channel 1
+    input wire [11:0] wfm_count_type1_chan2, // waveform count set for Channel 2
+    input wire [11:0] wfm_count_type1_chan3, // waveform count set for Channel 3
+    input wire [11:0] wfm_count_type1_chan4, // waveform count set for Channel 4
 
     // status connections
     output wire [ 3:0] ttr_state,      // TTC trigger receiver state
@@ -163,17 +163,17 @@ module trigger_top (
         .readout_done(readout_done_clk40), // a readout has completed
         .readout_size(readout_size_clk40), // burst count of readout event
 
-        .burst_count_chan0(burst_count_chan0), // burst count set for Channel 0
-        .burst_count_chan1(burst_count_chan1), // burst count set for Channel 1
-        .burst_count_chan2(burst_count_chan2), // burst count set for Channel 2
-        .burst_count_chan3(burst_count_chan3), // burst count set for Channel 3
-        .burst_count_chan4(burst_count_chan4), // burst count set for Channel 4
+        .burst_count_type1_chan0(burst_count_type1_chan0), // burst count set for Channel 0
+        .burst_count_type1_chan1(burst_count_type1_chan1), // burst count set for Channel 1
+        .burst_count_type1_chan2(burst_count_type1_chan2), // burst count set for Channel 2
+        .burst_count_type1_chan3(burst_count_type1_chan3), // burst count set for Channel 3
+        .burst_count_type1_chan4(burst_count_type1_chan4), // burst count set for Channel 4
 
-        .wfm_count_chan0(wfm_count_chan0), // waveform count set for Channel 0
-        .wfm_count_chan1(wfm_count_chan1), // waveform count set for Channel 1
-        .wfm_count_chan2(wfm_count_chan2), // waveform count set for Channel 2
-        .wfm_count_chan3(wfm_count_chan3), // waveform count set for Channel 3
-        .wfm_count_chan4(wfm_count_chan4), // waveform count set for Channel 4
+        .wfm_count_type1_chan0(wfm_count_type1_chan0), // waveform count set for Channel 0
+        .wfm_count_type1_chan1(wfm_count_type1_chan1), // waveform count set for Channel 1
+        .wfm_count_type1_chan2(wfm_count_type1_chan2), // waveform count set for Channel 2
+        .wfm_count_type1_chan3(wfm_count_type1_chan3), // waveform count set for Channel 3
+        .wfm_count_type1_chan4(wfm_count_type1_chan4), // waveform count set for Channel 4
 
         // channel acquisition controller interface
         .acq_ready(acq_ready),         // channels are ready to acquire data
