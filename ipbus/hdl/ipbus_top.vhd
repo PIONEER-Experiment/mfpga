@@ -45,7 +45,7 @@ entity ipbus_top is port(
     user_ipb_ack    : in  std_logic;			         -- 'write' data has been stored, 'read' data is ready
     user_ipb_err    : in  std_logic;			         -- '1' if error, '0' if OK?	
 
-    -- channel link        
+    -- channel link
     axi_stream_in_tvalid : in  std_logic;
     axi_stream_in_tdata  : in  std_logic_vector(31 downto 0);
     axi_stream_in_tstrb  : in  std_logic_vector(3 downto 0);
@@ -195,11 +195,9 @@ begin
 			mac_tx_ready => mac_tx_ready,
 			ipb_out => ipb_master_out,
 			ipb_in => ipb_master_in,
-			mac_addr => X"006055000140",
-			ip_addr => X"c0a80128",
-			--mac_addr => i2c_mac_adr,      -- MAC address from I2C EEPROM
-			--ip_addr => i2c_ip_adr,        --  IP address from I2C EEPROM
-			--enable => i2c_startup_done,
+			mac_addr => i2c_mac_adr,      -- MAC address from I2C EEPROM
+			ip_addr => i2c_ip_adr,        --  IP address from I2C EEPROM
+			enable => i2c_startup_done,
 			pkt_rx => pkt_rx,
 			pkt_tx => pkt_tx,
 			pkt_rx_led => pkt_rx_led,
