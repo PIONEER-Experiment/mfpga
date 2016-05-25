@@ -151,6 +151,10 @@ set_property IOSTANDARD LVCMOS33 [get_ports {wfdps[0]}]
 set_property IOSTANDARD LVCMOS33 [get_ports c_clk]
 set_property IOSTANDARD LVCMOS33 [get_ports c_din]
 set_property IOSTANDARD LVCMOS33 [get_ports c_progb]
+set_property SLEW FAST [get_ports c_clk]
+set_property SLEW FAST [get_ports c_din]
+set_property SLEW FAST [get_ports c_progb]
+
 set_property IOSTANDARD LVCMOS33 [get_ports test]
 
 set_property IOSTANDARD LVCMOS33 [get_ports {prog_done[4]}]

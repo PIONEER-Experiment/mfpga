@@ -13,9 +13,9 @@ module startup_reset (
 	// Connect a counter that will count up once the chip comes out of reset, until it reaches its maximum value.
 	// At that time, disable counting. Reset the counter anytime lock is lost.
 	// Use the output as a reset signal. This counter is clocked from the input pin.
-	reg [15:0] cnt = 16'h0000; // current counter output
+	reg [19:0] cnt = 20'h00000; // current counter output
 	wire at_max;           // counter is at maximum value
-	assign at_max = (cnt == 16'hffff) ? 1'b1 : 1'b0;
+	assign at_max = (cnt == 20'hfffff) ? 1'b1 : 1'b0;
 	always @(posedge clk50) begin
         if (~at_max & ~hold) cnt <= cnt + 1; // only count after hold is removed
         else cnt <= cnt;

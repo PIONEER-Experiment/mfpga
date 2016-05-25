@@ -52,21 +52,22 @@ module command_manager (
   input wire [23:0] trig_num,       // global trigger number, starts at 1
   input wire [ 1:0] trig_type,      // trigger type
   input wire [43:0] trig_timestamp, // trigger timestamp, defined by when trigger is received by trigger receiver module
+  input wire [ 1:0] curr_trig_type, // currently set trigger type
   output wire readout_ready,        // ready to readout data, i.e., when in idle state
   output reg readout_done,          // finished readout flag
   output wire [21:0] readout_size,  // burst count of readout event
 
-  output wire [22:0] burst_count_type1_chan0,
-  output wire [22:0] burst_count_type1_chan1,
-  output wire [22:0] burst_count_type1_chan2,
-  output wire [22:0] burst_count_type1_chan3,
-  output wire [22:0] burst_count_type1_chan4,
+  output wire [22:0] burst_count_chan0,
+  output wire [22:0] burst_count_chan1,
+  output wire [22:0] burst_count_chan2,
+  output wire [22:0] burst_count_chan3,
+  output wire [22:0] burst_count_chan4,
 
-  output wire [11:0] wfm_count_type1_chan0,
-  output wire [11:0] wfm_count_type1_chan1,
-  output wire [11:0] wfm_count_type1_chan2,
-  output wire [11:0] wfm_count_type1_chan3,
-  output wire [11:0] wfm_count_type1_chan4,
+  output wire [11:0] wfm_count_chan0,
+  output wire [11:0] wfm_count_chan1,
+  output wire [11:0] wfm_count_chan2,
+  output wire [11:0] wfm_count_chan3,
+  output wire [11:0] wfm_count_chan4,
 
   // status connections
   input wire [47:0] i2c_mac_adr,        // this board's MAC address
@@ -144,24 +145,14 @@ module command_manager (
 
   // other internal regs
   reg empty_event;                         // flag to indicate if this should be an empty event
-  reg [22:0] chan_burst_count_type1 [4:0]; // two-dimentional memory for the configured burst counts
-  reg [11:0] chan_wfm_count_type1   [4:0]; // two-dimentional memory for the configured waveform counts
+  reg [22:0] chan_burst_count_type1 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 1
+  reg [22:0] chan_burst_count_type2 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 1
+  reg [22:0] chan_burst_count_type3 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 1
+  reg [11:0] chan_wfm_count_type1   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 1
+  reg [11:0] chan_wfm_count_type2   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 1
+  reg [11:0] chan_wfm_count_type3   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 1
   reg [31:0] ipbus_chan_cmd;               // buffer for issued channel command
   reg [31:0] ipbus_chan_reg;               // buffer for issued channel register
-
-
-  // break out the channel signals
-  assign burst_count_type1_chan0 = chan_burst_count_type1[0];
-  assign burst_count_type1_chan1 = chan_burst_count_type1[1];
-  assign burst_count_type1_chan2 = chan_burst_count_type1[2];
-  assign burst_count_type1_chan3 = chan_burst_count_type1[3];
-  assign burst_count_type1_chan4 = chan_burst_count_type1[4];
-
-  assign wfm_count_type1_chan0 = chan_wfm_count_type1[0];
-  assign wfm_count_type1_chan1 = chan_wfm_count_type1[1];
-  assign wfm_count_type1_chan2 = chan_wfm_count_type1[2];
-  assign wfm_count_type1_chan3 = chan_wfm_count_type1[3];
-  assign wfm_count_type1_chan4 = chan_wfm_count_type1[4];
   
 
   // for internal regs
@@ -197,16 +188,40 @@ module command_manager (
   reg next_ipbus_res_last;
   reg next_daq_valid;
   reg [22:0] next_chan_burst_count_type1 [4:0];
+  reg [22:0] next_chan_burst_count_type2 [4:0];
+  reg [22:0] next_chan_burst_count_type3 [4:0];
   reg [11:0] next_chan_wfm_count_type1   [4:0];
+  reg [11:0] next_chan_wfm_count_type2   [4:0];
+  reg [11:0] next_chan_wfm_count_type3   [4:0];
 
 
   // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
+  wire [19:0] event_size_type1, event_size_type2, event_size_type3;
+
+  assign event_size_type1 = ((chan_burst_count_type1[0]*2+2)*chan_wfm_count_type1[0]+5)*chan_en[0]+ 
+                            ((chan_burst_count_type1[1]*2+2)*chan_wfm_count_type1[1]+5)*chan_en[1]+ 
+                            ((chan_burst_count_type1[2]*2+2)*chan_wfm_count_type1[2]+5)*chan_en[2]+ 
+                            ((chan_burst_count_type1[3]*2+2)*chan_wfm_count_type1[3]+5)*chan_en[3]+ 
+                            ((chan_burst_count_type1[4]*2+2)*chan_wfm_count_type1[4]+5)*chan_en[4]+3;
+
+  assign event_size_type2 = ((chan_burst_count_type2[0]*2+2)*chan_wfm_count_type2[0]+5)*chan_en[0]+ 
+                            ((chan_burst_count_type2[1]*2+2)*chan_wfm_count_type2[1]+5)*chan_en[1]+ 
+                            ((chan_burst_count_type2[2]*2+2)*chan_wfm_count_type2[2]+5)*chan_en[2]+ 
+                            ((chan_burst_count_type2[3]*2+2)*chan_wfm_count_type2[3]+5)*chan_en[3]+ 
+                            ((chan_burst_count_type2[4]*2+2)*chan_wfm_count_type2[4]+5)*chan_en[4]+3;
+
+  assign event_size_type3 = ((chan_burst_count_type3[0]*2+2)*chan_wfm_count_type3[0]+5)*chan_en[0]+ 
+                            ((chan_burst_count_type3[1]*2+2)*chan_wfm_count_type3[1]+5)*chan_en[1]+ 
+                            ((chan_burst_count_type3[2]*2+2)*chan_wfm_count_type3[2]+5)*chan_en[2]+ 
+                            ((chan_burst_count_type3[3]*2+2)*chan_wfm_count_type3[3]+5)*chan_en[3]+ 
+                            ((chan_burst_count_type3[4]*2+2)*chan_wfm_count_type3[4]+5)*chan_en[4]+3;
+
+  // mux the correct event size for this trigger type
   wire [19:0] event_size;
-  assign event_size = ((burst_count_type1_chan0[19:0]*2+2)*wfm_count_type1_chan0[11:0]+5)*chan_en[0]+ 
-                      ((burst_count_type1_chan1[19:0]*2+2)*wfm_count_type1_chan1[11:0]+5)*chan_en[1]+ 
-                      ((burst_count_type1_chan2[19:0]*2+2)*wfm_count_type1_chan2[11:0]+5)*chan_en[2]+ 
-                      ((burst_count_type1_chan3[19:0]*2+2)*wfm_count_type1_chan3[11:0]+5)*chan_en[3]+ 
-                      ((burst_count_type1_chan4[19:0]*2+2)*wfm_count_type1_chan4[11:0]+5)*chan_en[4]+3;
+  assign event_size = (fill_type[2:0] == 3'b001) ? event_size_type1[19:0] :
+                      (fill_type[2:0] == 3'b010) ? event_size_type2[19:0] :
+                      (fill_type[2:0] == 3'b011) ? event_size_type3[19:0] : 
+                                                   20'hfffff;
 
   // number of 128-bit bursts read out of DDR3
   assign readout_size = (burst_count[19:0]+1)*wfm_count[11:0]+2;
@@ -214,6 +229,52 @@ module command_manager (
   // this board's serial number
   wire [12:0] board_id;
   assign board_id = (i2c_mac_adr[15:8]-1)*256+i2c_mac_adr[7:0];
+
+
+
+  // determine burst counts for the trigger logic
+  assign burst_count_chan0 = (curr_trig_type[1:0] == 2'b01) ? chan_burst_count_type1[0] :
+                             (curr_trig_type[1:0] == 2'b10) ? chan_burst_count_type2[0] :
+                             (curr_trig_type[1:0] == 2'b11) ? chan_burst_count_type3[0] :
+                                                              23'd0;
+  assign burst_count_chan1 = (curr_trig_type[1:0] == 2'b01) ? chan_burst_count_type1[1] :
+                             (curr_trig_type[1:0] == 2'b10) ? chan_burst_count_type2[1] :
+                             (curr_trig_type[1:0] == 2'b11) ? chan_burst_count_type3[1] :
+                                                              23'd0;
+  assign burst_count_chan2 = (curr_trig_type[1:0] == 2'b01) ? chan_burst_count_type1[2] :
+                             (curr_trig_type[1:0] == 2'b10) ? chan_burst_count_type2[2] :
+                             (curr_trig_type[1:0] == 2'b11) ? chan_burst_count_type3[2] :
+                                                              23'd0;
+  assign burst_count_chan3 = (curr_trig_type[1:0] == 2'b01) ? chan_burst_count_type1[3] :
+                             (curr_trig_type[1:0] == 2'b10) ? chan_burst_count_type2[3] :
+                             (curr_trig_type[1:0] == 2'b11) ? chan_burst_count_type3[3] :
+                                                              23'd0;
+  assign burst_count_chan4 = (curr_trig_type[1:0] == 2'b01) ? chan_burst_count_type1[4] :
+                             (curr_trig_type[1:0] == 2'b10) ? chan_burst_count_type2[4] :
+                             (curr_trig_type[1:0] == 2'b11) ? chan_burst_count_type3[4] :
+                                                              23'd0;
+
+  // determine waveform counts for the trigger logic
+  assign wfm_count_chan0 = (curr_trig_type[1:0] == 2'b01) ? chan_wfm_count_type1[0] :
+                           (curr_trig_type[1:0] == 2'b10) ? chan_wfm_count_type2[0] :
+                           (curr_trig_type[1:0] == 2'b11) ? chan_wfm_count_type3[0] :
+                                                            12'd0;
+  assign wfm_count_chan1 = (curr_trig_type[1:0] == 2'b01) ? chan_wfm_count_type1[1] :
+                           (curr_trig_type[1:0] == 2'b10) ? chan_wfm_count_type2[1] :
+                           (curr_trig_type[1:0] == 2'b11) ? chan_wfm_count_type3[1] :
+                                                            12'd0;
+  assign wfm_count_chan2 = (curr_trig_type[1:0] == 2'b01) ? chan_wfm_count_type1[2] :
+                           (curr_trig_type[1:0] == 2'b10) ? chan_wfm_count_type2[2] :
+                           (curr_trig_type[1:0] == 2'b11) ? chan_wfm_count_type3[2] :
+                                                            12'd0;
+  assign wfm_count_chan3 = (curr_trig_type[1:0] == 2'b01) ? chan_wfm_count_type1[3] :
+                           (curr_trig_type[1:0] == 2'b10) ? chan_wfm_count_type2[3] :
+                           (curr_trig_type[1:0] == 2'b11) ? chan_wfm_count_type3[3] :
+                                                            12'd0;
+  assign wfm_count_chan4 = (curr_trig_type[1:0] == 2'b01) ? chan_wfm_count_type1[4] :
+                           (curr_trig_type[1:0] == 2'b10) ? chan_wfm_count_type2[4] :
+                           (curr_trig_type[1:0] == 2'b11) ? chan_wfm_count_type3[4] :
+                                                            12'd0;
   
 
   // comb always block
@@ -254,11 +315,31 @@ module command_manager (
     next_chan_burst_count_type1[2] = chan_burst_count_type1[2];
     next_chan_burst_count_type1[3] = chan_burst_count_type1[3];
     next_chan_burst_count_type1[4] = chan_burst_count_type1[4];
+    next_chan_burst_count_type2[0] = chan_burst_count_type2[0];
+    next_chan_burst_count_type2[1] = chan_burst_count_type2[1];
+    next_chan_burst_count_type2[2] = chan_burst_count_type2[2];
+    next_chan_burst_count_type2[3] = chan_burst_count_type2[3];
+    next_chan_burst_count_type2[4] = chan_burst_count_type2[4];
+    next_chan_burst_count_type3[0] = chan_burst_count_type3[0];
+    next_chan_burst_count_type3[1] = chan_burst_count_type3[1];
+    next_chan_burst_count_type3[2] = chan_burst_count_type3[2];
+    next_chan_burst_count_type3[3] = chan_burst_count_type3[3];
+    next_chan_burst_count_type3[4] = chan_burst_count_type3[4];
     next_chan_wfm_count_type1[0]   = chan_wfm_count_type1[0];
     next_chan_wfm_count_type1[1]   = chan_wfm_count_type1[1];
     next_chan_wfm_count_type1[2]   = chan_wfm_count_type1[2];
     next_chan_wfm_count_type1[3]   = chan_wfm_count_type1[3];
     next_chan_wfm_count_type1[4]   = chan_wfm_count_type1[4];
+    next_chan_wfm_count_type2[0]   = chan_wfm_count_type2[0];
+    next_chan_wfm_count_type2[1]   = chan_wfm_count_type2[1];
+    next_chan_wfm_count_type2[2]   = chan_wfm_count_type2[2];
+    next_chan_wfm_count_type2[3]   = chan_wfm_count_type2[3];
+    next_chan_wfm_count_type2[4]   = chan_wfm_count_type2[4];
+    next_chan_wfm_count_type3[0]   = chan_wfm_count_type3[0];
+    next_chan_wfm_count_type3[1]   = chan_wfm_count_type3[1];
+    next_chan_wfm_count_type3[2]   = chan_wfm_count_type3[2];
+    next_chan_wfm_count_type3[3]   = chan_wfm_count_type3[3];
+    next_chan_wfm_count_type3[4]   = chan_wfm_count_type3[4];
 
     next_daq_valid          = 0; // default
     chan_tx_fifo_data[31:0] = 0; // default
@@ -322,8 +403,20 @@ module command_manager (
           if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0002)) begin
             next_chan_burst_count_type1[chan_tx_fifo_dest] = ipbus_cmd_data[22:0]; // burst count value, muon fill
           end
+          else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0003)) begin
+            next_chan_burst_count_type2[chan_tx_fifo_dest] = ipbus_cmd_data[22:0]; // burst count value, laser fill
+          end
+          else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0004)) begin
+            next_chan_burst_count_type3[chan_tx_fifo_dest] = ipbus_cmd_data[22:0]; // burst count value, pedestal fill
+          end
           else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_000e)) begin
             next_chan_wfm_count_type1[chan_tx_fifo_dest] = ipbus_cmd_data[11:0];   // waveform count value, muon fill
+          end
+          else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0010)) begin
+            next_chan_wfm_count_type2[chan_tx_fifo_dest] = ipbus_cmd_data[11:0];   // waveform count value, laser fill
+          end
+          else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0012)) begin
+            next_chan_wfm_count_type3[chan_tx_fifo_dest] = ipbus_cmd_data[11:0];   // waveform count value, pedestal fill
           end
 
           nextstate[CHECK_LAST] = 1'b1;
@@ -890,11 +983,31 @@ module command_manager (
       chan_burst_count_type1[2] <= 23'd70000; // channel default is 70,000
       chan_burst_count_type1[3] <= 23'd70000; // channel default is 70,000
       chan_burst_count_type1[4] <= 23'd70000; // channel default is 70,000
+      chan_burst_count_type2[0] <= 23'd0;     // channel default is 0
+      chan_burst_count_type2[1] <= 23'd0;     // channel default is 0
+      chan_burst_count_type2[2] <= 23'd0;     // channel default is 0
+      chan_burst_count_type2[3] <= 23'd0;     // channel default is 0
+      chan_burst_count_type2[4] <= 23'd0;     // channel default is 0
+      chan_burst_count_type3[0] <= 23'd0;     // channel default is 0
+      chan_burst_count_type3[1] <= 23'd0;     // channel default is 0
+      chan_burst_count_type3[2] <= 23'd0;     // channel default is 0
+      chan_burst_count_type3[3] <= 23'd0;     // channel default is 0
+      chan_burst_count_type3[4] <= 23'd0;     // channel default is 0
       chan_wfm_count_type1[0]   <= 12'd1;     // channel default is 1
       chan_wfm_count_type1[1]   <= 12'd1;     // channel default is 1
       chan_wfm_count_type1[2]   <= 12'd1;     // channel default is 1
       chan_wfm_count_type1[3]   <= 12'd1;     // channel default is 1
       chan_wfm_count_type1[4]   <= 12'd1;     // channel default is 1
+      chan_wfm_count_type2[0]   <= 12'd1;     // channel default is 1
+      chan_wfm_count_type2[1]   <= 12'd1;     // channel default is 1
+      chan_wfm_count_type2[2]   <= 12'd1;     // channel default is 1
+      chan_wfm_count_type2[3]   <= 12'd1;     // channel default is 1
+      chan_wfm_count_type2[4]   <= 12'd1;     // channel default is 1
+      chan_wfm_count_type3[0]   <= 12'd1;     // channel default is 1
+      chan_wfm_count_type3[1]   <= 12'd1;     // channel default is 1
+      chan_wfm_count_type3[2]   <= 12'd1;     // channel default is 1
+      chan_wfm_count_type3[3]   <= 12'd1;     // channel default is 1
+      chan_wfm_count_type3[4]   <= 12'd1;     // channel default is 1
       ipbus_chan_cmd[31:0]      <= 0;
       ipbus_chan_reg[31:0]      <= 0;
     end
@@ -932,11 +1045,31 @@ module command_manager (
       chan_burst_count_type1[2] <= next_chan_burst_count_type1[2];
       chan_burst_count_type1[3] <= next_chan_burst_count_type1[3];
       chan_burst_count_type1[4] <= next_chan_burst_count_type1[4];
+      chan_burst_count_type2[0] <= next_chan_burst_count_type2[0];
+      chan_burst_count_type2[1] <= next_chan_burst_count_type2[1];
+      chan_burst_count_type2[2] <= next_chan_burst_count_type2[2];
+      chan_burst_count_type2[3] <= next_chan_burst_count_type2[3];
+      chan_burst_count_type2[4] <= next_chan_burst_count_type2[4];
+      chan_burst_count_type3[0] <= next_chan_burst_count_type3[0];
+      chan_burst_count_type3[1] <= next_chan_burst_count_type3[1];
+      chan_burst_count_type3[2] <= next_chan_burst_count_type3[2];
+      chan_burst_count_type3[3] <= next_chan_burst_count_type3[3];
+      chan_burst_count_type3[4] <= next_chan_burst_count_type3[4];
       chan_wfm_count_type1[0]   <= next_chan_wfm_count_type1[0];
       chan_wfm_count_type1[1]   <= next_chan_wfm_count_type1[1];
       chan_wfm_count_type1[2]   <= next_chan_wfm_count_type1[2];
       chan_wfm_count_type1[3]   <= next_chan_wfm_count_type1[3];
       chan_wfm_count_type1[4]   <= next_chan_wfm_count_type1[4];
+      chan_wfm_count_type2[0]   <= next_chan_wfm_count_type2[0];
+      chan_wfm_count_type2[1]   <= next_chan_wfm_count_type2[1];
+      chan_wfm_count_type2[2]   <= next_chan_wfm_count_type2[2];
+      chan_wfm_count_type2[3]   <= next_chan_wfm_count_type2[3];
+      chan_wfm_count_type2[4]   <= next_chan_wfm_count_type2[4];
+      chan_wfm_count_type3[0]   <= next_chan_wfm_count_type3[0];
+      chan_wfm_count_type3[1]   <= next_chan_wfm_count_type3[1];
+      chan_wfm_count_type3[2]   <= next_chan_wfm_count_type3[2];
+      chan_wfm_count_type3[3]   <= next_chan_wfm_count_type3[3];
+      chan_wfm_count_type3[4]   <= next_chan_wfm_count_type3[4];
       ipbus_chan_cmd[31:0]      <= next_ipbus_chan_cmd[31:0];
       ipbus_chan_reg[31:0]      <= next_ipbus_chan_reg[31:0];
     end

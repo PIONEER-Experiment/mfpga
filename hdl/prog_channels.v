@@ -31,7 +31,7 @@ reg [4:0] prog_done_sync;
 
 always @ (posedge clk)
 begin
-    initb_sync[4:0]     <= initb[4:0];
+    initb_sync[4:0] <= initb[4:0];
     prog_done_sync[4:0] <= prog_done[4:0];
 end
 
@@ -107,7 +107,7 @@ begin
                 read_bitstream        <= 1'b0;
                 prog_chan_done        <= 1'b0;
 
-                if (counter[3:0] == 4'hF)
+                if (counter[3:0] == 4'hf)
                     state <= INIT2;
                 else begin
                     counter[3:0] <= counter[3:0] + 1'h1;
@@ -151,7 +151,7 @@ begin
                 read_bitstream        <= 1'b0;
                 prog_chan_done        <= 1'b0;
 
-                if (prog_done == 5'b11111)
+                if (prog_done_sync == 5'b11111)
                     state <= DONE;
                 else
                     state <= WAIT_FOR_DONE;

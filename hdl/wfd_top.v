@@ -98,22 +98,33 @@ module wfd_top (
     assign clk50 = clkin; // just to make the frequency explicit
 
 
-    wire clk50_reset;
+    wire ipb_clk50_reset, clk50_reset;
     wire prog_chan_done; // channels have been programmed signal
 
 
     // ======== startup reset signals ========
-    wire master_init_rst_clk50, master_init_rst_clk125;
+    wire master_init_rst1_clk50, master_init_rst1_clk125;
+    wire master_init_rst2_clk50, master_init_rst2_clk125;
 
     // synchronous reset logic for master
-    // starts the channel programming logic
-    startup_reset master_startup_reset (
-        .clk50(clk50),                         // 50 MHz buffered clock 
-        .reset_clk50(master_init_rst_clk50),   // active-high reset output, goes low after startup
-        .clk125(clk125),                       // buffered clock, 125 MHz
-        .reset_clk125(master_init_rst_clk125), // active-high reset output, goes low after startup
-        .hold(clk50_reset)                     // reset signal from reset
+    startup_reset master_startup_reset1 (
+        .clk50(clk50),                          // 50 MHz buffered clock 
+        .reset_clk50(master_init_rst1_clk50),   // active-high reset output, goes low after startup
+        .clk125(clk125),                        // buffered clock, 125 MHz
+        .reset_clk125(master_init_rst1_clk125), // active-high reset output, goes low after startup
+        .hold(ipb_clk50_reset)                  // reset signal from reset
     );
+
+    // starts the channel programming logic
+    startup_reset master_startup_reset2 (
+        .clk50(clk50),                          // 50 MHz buffered clock 
+        .reset_clk50(master_init_rst2_clk50),   // active-high reset output, goes low after startup
+        .clk125(clk125),                        // buffered clock, 125 MHz
+        .reset_clk125(master_init_rst2_clk125), // active-high reset output, goes low after startup
+        .hold(clk50_reset)                      // reset signal from reset
+    );
+
+    assign clk50_reset = ipb_clk50_reset | master_init_rst1_clk50;
 
 
     // ======== error signals ========
@@ -260,7 +271,7 @@ module wfd_top (
     sync_2stage clk50_reset_sync (
         .clk(clk50),
         .in(ipb_rst_stretch),
-        .out(clk50_reset)
+        .out(ipb_clk50_reset)
     );
 
     wire reset40;
@@ -395,7 +406,7 @@ module wfd_top (
     );
 
     wire prog_chan_start_mux; // combine ipbus and startup triggers
-    assign prog_chan_start_mux = prog_chan_start | master_init_rst_clk50;
+    assign prog_chan_start_mux = prog_chan_start | master_init_rst2_clk50;
 
     prog_channels prog_channels (
         .clk(clk50),
@@ -650,17 +661,8 @@ module wfd_top (
     wire send_empty_event;
     wire initiate_readout;
 
-    wire [22:0] burst_count_type1_chan0;
-    wire [22:0] burst_count_type1_chan1;
-    wire [22:0] burst_count_type1_chan2;
-    wire [22:0] burst_count_type1_chan3;
-    wire [22:0] burst_count_type1_chan4;
-
-    wire [11:0] wfm_count_type1_chan0;
-    wire [11:0] wfm_count_type1_chan1;
-    wire [11:0] wfm_count_type1_chan2;
-    wire [11:0] wfm_count_type1_chan3;
-    wire [11:0] wfm_count_type1_chan4;
+    wire [22:0] burst_count_chan0, burst_count_chan1, burst_count_chan2, burst_count_chan3, burst_count_chan4;
+    wire [11:0] wfm_count_chan0, wfm_count_chan1, wfm_count_chan2, wfm_count_chan3, wfm_count_chan4;
 
     // ======== communication with the AMC13 DAQ link ========
     wire daq_header, daq_trailer;
@@ -1183,17 +1185,17 @@ module wfd_top (
         .ttc_trig_type(ttc_trig_type),           // trigger type
         .ttc_trig_timestamp(ttc_trig_timestamp), // trigger timestamp
 
-        .burst_count_type1_chan0(burst_count_type1_chan0), // burst count set for trigger type 1 for Channel 0
-        .burst_count_type1_chan1(burst_count_type1_chan1), // burst count set for trigger type 1 for Channel 1
-        .burst_count_type1_chan2(burst_count_type1_chan2), // burst count set for trigger type 1 for Channel 2
-        .burst_count_type1_chan3(burst_count_type1_chan3), // burst count set for trigger type 1 for Channel 3
-        .burst_count_type1_chan4(burst_count_type1_chan4), // burst count set for trigger type 1 for Channel 4
+        .burst_count_chan0(burst_count_chan0), // burst count set for Channel 0
+        .burst_count_chan1(burst_count_chan1), // burst count set for Channel 1
+        .burst_count_chan2(burst_count_chan2), // burst count set for Channel 2
+        .burst_count_chan3(burst_count_chan3), // burst count set for Channel 3
+        .burst_count_chan4(burst_count_chan4), // burst count set for Channel 4
 
-        .wfm_count_type1_chan0(wfm_count_type1_chan0), // waveform count set for trigger type 1 for Channel 0
-        .wfm_count_type1_chan1(wfm_count_type1_chan1), // waveform count set for trigger type 1 for Channel 1
-        .wfm_count_type1_chan2(wfm_count_type1_chan2), // waveform count set for trigger type 1 for Channel 2
-        .wfm_count_type1_chan3(wfm_count_type1_chan3), // waveform count set for trigger type 1 for Channel 3
-        .wfm_count_type1_chan4(wfm_count_type1_chan4), // waveform count set for trigger type 1 for Channel 4
+        .wfm_count_chan0(wfm_count_chan0), // waveform count set for Channel 0
+        .wfm_count_chan1(wfm_count_chan1), // waveform count set for Channel 1
+        .wfm_count_chan2(wfm_count_chan2), // waveform count set for Channel 2
+        .wfm_count_chan3(wfm_count_chan3), // waveform count set for Channel 3
+        .wfm_count_chan4(wfm_count_chan4), // waveform count set for Channel 4
 
         // status connections
         .ttr_state(ttr_state),           // TTC trigger receiver state
@@ -1265,21 +1267,22 @@ module wfd_top (
         .trig_num(ttc_trig_num),             // global trigger number, starts at 1
         .trig_type(ttc_trig_type),           // trigger type
         .trig_timestamp(ttc_trig_timestamp), // trigger timestamp, defined by when trigger is received by trigger receiver module
+        .curr_trig_type(fill_type),          // currently set trigger type
         .readout_ready(readout_ready),       // ready to readout data, i.e., when in idle state
         .readout_done(readout_done),         // finished readout flag
         .readout_size(readout_size),         // burst count of readout event
 
-        .burst_count_type1_chan0(burst_count_type1_chan0), // burst count set for trigger type 1 for Channel 0
-        .burst_count_type1_chan1(burst_count_type1_chan1), // burst count set for trigger type 1 for Channel 1
-        .burst_count_type1_chan2(burst_count_type1_chan2), // burst count set for trigger type 1 for Channel 2
-        .burst_count_type1_chan3(burst_count_type1_chan3), // burst count set for trigger type 1 for Channel 3
-        .burst_count_type1_chan4(burst_count_type1_chan4), // burst count set for trigger type 1 for Channel 4
+        .burst_count_chan0(burst_count_chan0), // burst count set for Channel 0
+        .burst_count_chan1(burst_count_chan1), // burst count set for Channel 1
+        .burst_count_chan2(burst_count_chan2), // burst count set for Channel 2
+        .burst_count_chan3(burst_count_chan3), // burst count set for Channel 3
+        .burst_count_chan4(burst_count_chan4), // burst count set for Channel 4
 
-        .wfm_count_type1_chan0(wfm_count_type1_chan0), // waveform count set for trigger type 1 for Channel 0
-        .wfm_count_type1_chan1(wfm_count_type1_chan1), // waveform count set for trigger type 1 for Channel 1
-        .wfm_count_type1_chan2(wfm_count_type1_chan2), // waveform count set for trigger type 1 for Channel 2
-        .wfm_count_type1_chan3(wfm_count_type1_chan3), // waveform count set for trigger type 1 for Channel 3
-        .wfm_count_type1_chan4(wfm_count_type1_chan4), // waveform count set for trigger type 1 for Channel 4
+        .wfm_count_chan0(wfm_count_chan0), // waveform count set for Channel 0
+        .wfm_count_chan1(wfm_count_chan1), // waveform count set for Channel 1
+        .wfm_count_chan2(wfm_count_chan2), // waveform count set for Channel 2
+        .wfm_count_chan3(wfm_count_chan3), // waveform count set for Channel 3
+        .wfm_count_chan4(wfm_count_chan4), // waveform count set for Channel 4
 
         // status connections
         .i2c_mac_adr(i2c_mac_adr[47:0]),         // input  [47:0], MAC address from EEPROM
