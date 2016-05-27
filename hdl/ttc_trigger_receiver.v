@@ -10,8 +10,8 @@ module ttc_trigger_receiver (
   input wire reset_trig_timestamp,
 
   // trigger interface
-  input wire trigger,                    // trigger signal
-  input wire [ 1:0] trig_type,           // trigger type (muon fill, laser, pedestal)
+  input wire trigger,                    // TTC trigger signal
+  input wire [ 2:0] trig_type,           // trigger type (muon fill, laser, pedestal, async)
   input wire [ 7:0] trig_settings,       // trigger settings
   input wire [31:0] thres_ddr3_overflow, // DDR3 overflow threshold
   input wire [ 4:0] chan_en,             // enabled channels
@@ -20,13 +20,14 @@ module ttc_trigger_receiver (
   input wire readout_done,        // a readout has completed
   input wire [21:0] readout_size, // burst count of readout event
 
-  // synchronize signals?
+  // set burst count for each channel
   input wire [22:0] burst_count_chan0,
   input wire [22:0] burst_count_chan1,
   input wire [22:0] burst_count_chan2,
   input wire [22:0] burst_count_chan3,
   input wire [22:0] burst_count_chan4,
 
+  // set waveform count for each channel
   input wire [11:0] wfm_count_chan0,
   input wire [11:0] wfm_count_chan1,
   input wire [11:0] wfm_count_chan2,
@@ -36,7 +37,7 @@ module ttc_trigger_receiver (
   // channel acquisition controller interface
   input wire acq_ready,            // channels are ready to acquire data
   output reg acq_trigger,          // trigger signal
-  output reg [ 1:0] acq_trig_type, // trigger type (muon fill, laser, pedestal)
+  output reg [ 2:0] acq_trig_type, // trigger type (muon fill, laser, pedestal, async)
   output reg [23:0] acq_trig_num,  // trigger number, starts at 1
 
   // interface to TTC Trigger FIFO
@@ -45,6 +46,7 @@ module ttc_trigger_receiver (
   output reg [127:0] fifo_data,
 
   // status connections
+  input wire async_mode,            // asynchronous mode select
   output reg [ 3:0] state,          // state of finite state machine
   output reg [23:0] trig_num,       // global trigger number
   output reg [43:0] trig_timestamp, // global trigger timestamp
@@ -94,7 +96,7 @@ module ttc_trigger_receiver (
                                  (stored_bursts_chan4[21:0] > thres_ddr3_overflow[31:0]);
 
   reg [ 3:0] nextstate;
-  reg [ 1:0] next_acq_trig_type;
+  reg [ 2:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
   reg        next_empty_event;
   reg [23:0] next_trig_num;
@@ -115,7 +117,7 @@ module ttc_trigger_receiver (
   always @* begin
     nextstate = 4'd0;
 
-    next_acq_trig_type      [ 1:0] = acq_trig_type[ 1:0];
+    next_acq_trig_type      [ 2:0] = acq_trig_type[ 2:0];
     next_acq_trig_num       [23:0] = acq_trig_num [23:0];
     next_empty_event               = empty_event;
     next_trig_num           [23:0] = trig_num      [23:0];
@@ -131,7 +133,7 @@ module ttc_trigger_receiver (
         if (trigger) begin
           next_acq_trig_num  [23:0] = trig_num[23:0];           // latch trigger number
           next_trig_num      [23:0] = trig_num[23:0] + 1;       // increment trigger counter
-          next_acq_trig_type [ 1:0] = trig_type[1:0];           // latch trigger type
+          next_acq_trig_type [ 2:0] = trig_type[2:0];           // latch trigger type
           next_trig_timestamp[43:0] = trig_timestamp_cnt[43:0]; // latch trigger timestamp counter
 
           nextstate[SEND_TRIGGER] = 1'b1;
@@ -146,23 +148,41 @@ module ttc_trigger_receiver (
         if (~acq_ready) begin
           nextstate[ERROR] = 1'b1; // throw error
         end
-        // channels are ready for data collection
-        // 0 = pass trigger, 1 = block trigger
-        else if (trig_settings[acq_trig_type] == 1'b1) begin
-          next_empty_event = 1'b1; // indicate to send an empty event
-          nextstate[STORE_TRIG_INFO] = 1'b1;
+        // in synchronous mode
+        else if (~async_mode) begin
+          // check for a flagged synchronous trigger or an asynchronous trigger
+          // 0 = pass trigger, 1 = block trigger
+          if (trig_settings[acq_trig_type] | acq_trig_type[2]) begin
+            next_empty_event = 1'b1; // indicate to send an empty event
+            nextstate[STORE_TRIG_INFO] = 1'b1;
+          end
+          // this trigger would overwrite valid data in DDR3, in synchronous mode
+          else if (ddr3_full) begin
+            next_ddr3_overflow_count[31:0] = ddr3_overflow_count[31:0] + 1; // increment overflow error counter
+            next_empty_event = 1'b1; // indicate to send an empty event
+            nextstate[STORE_TRIG_INFO] = 1'b1;
+          end
+          // pass along the trigger to channels
+          else begin
+            acq_trigger              = 1'b1;                    // pass on the trigger
+            next_acq_event_cnt[23:0] = acq_event_cnt[23:0] + 1; // increment accepted event counter
+            nextstate[STORE_TRIG_INFO] = 1'b1;
+          end
         end
-        // this trigger would overwrite valid data in DDR3
-        else if (ddr3_full) begin
-          next_ddr3_overflow_count[31:0] = ddr3_overflow_count[31:0] + 1; // increment overflow error counter
-          next_empty_event = 1'b1; // indicate to send an empty event
-          nextstate[STORE_TRIG_INFO] = 1'b1;
-        end
-        // pass along the trigger to channels
+        // in asynchronous mode
         else begin
-          acq_trigger              = 1'b1;                    // pass on the trigger
-          next_acq_event_cnt[23:0] = acq_event_cnt[23:0] + 1; // increment accepted event counter
-          nextstate[STORE_TRIG_INFO] = 1'b1;
+          // check for a synchronous trigger
+          if (~acq_trig_type[2]) begin
+            next_empty_event = 1'b1; // indicate to send an empty event
+            nextstate[STORE_TRIG_INFO] = 1'b1;
+          end
+          // this is an asynchronous readout trigger
+          // pass along the trigger to channels
+          else begin
+            acq_trigger              = 1'b1;                    // pass on the trigger
+            next_acq_event_cnt[23:0] = acq_event_cnt[23:0] + 1; // increment accepted event counter
+            nextstate[STORE_TRIG_INFO] = 1'b1;
+          end
         end
       end
       // store the trigger information in the FIFO, for the trigger processor
@@ -192,14 +212,14 @@ module ttc_trigger_receiver (
       state <= 4'd1 << IDLE;
 
       empty_event               <=  1'b0;
-      acq_trig_type      [ 1:0] <=  2'd0;
+      acq_trig_type      [ 2:0] <=  3'd0;
       ddr3_overflow_count[31:0] <= 32'd0;
     end
     else begin
       state <= nextstate;
 
       empty_event               <= next_empty_event;
-      acq_trig_type      [ 1:0] <= next_acq_trig_type      [ 1:0];
+      acq_trig_type      [ 2:0] <= next_acq_trig_type      [ 2:0];
       ddr3_overflow_count[31:0] <= next_ddr3_overflow_count[31:0];
     end
 
@@ -254,8 +274,8 @@ module ttc_trigger_receiver (
   // datapath sequential always block
   always @(posedge clk) begin
     if (reset) begin
-      fifo_valid <=   1'b0;
-      fifo_data  <= 128'd0;
+      fifo_valid       <=   1'b0;
+      fifo_data[127:0] <= 128'd0;
     end
     else begin
       case (1'b1) // synopsys parallel_case full_case
@@ -269,7 +289,7 @@ module ttc_trigger_receiver (
         end
         nextstate[STORE_TRIG_INFO]: begin
           fifo_valid       <= 1'b1;
-          fifo_data[127:0] <= {33'd0, empty_event, acq_trig_type[1:0], acq_event_cnt[23:0], acq_trig_num[23:0], trig_timestamp[43:0]};
+          fifo_data[127:0] <= {32'd0, empty_event, acq_trig_type[2:0], acq_event_cnt[23:0], acq_trig_num[23:0], trig_timestamp[43:0]};
         end
         nextstate[ERROR]: begin
           fifo_valid       <=   1'b0;

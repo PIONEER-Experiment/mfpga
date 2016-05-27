@@ -2,7 +2,7 @@
 // 
 // Outputs the 'Ready' state unless an error has occured
 
-module TTS_reporter (
+module tts_reporter (
   // user interface clock and reset
   input wire clk,
   input wire reset,

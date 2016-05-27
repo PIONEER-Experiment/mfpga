@@ -5,12 +5,12 @@ use work.ipbus.all;
 
 entity ipbus_write_only_reg is
 	generic(addr_width: natural := 0);
-	port(
-		clk: in std_logic;
-		reset: in std_logic;
-		ipbus_in: in ipb_wbus;
-		ipbus_out: out ipb_rbus;
-		q: out STD_LOGIC_VECTOR(2**addr_width*32-1 downto 0)
+	port (
+		clk       : in  std_logic;
+		reset     : in  std_logic; -- unused
+		ipbus_in  : in  ipb_wbus;
+		ipbus_out : out ipb_rbus;
+		q         : out STD_LOGIC_VECTOR(2**addr_width*32-1 downto 0)
 	);
 	
 end ipbus_write_only_reg;

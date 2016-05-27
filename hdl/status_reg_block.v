@@ -56,14 +56,16 @@ module status_reg_block (
   input wire ttc_ready,
 
   // FSM state
-  input wire [30:0] cm_state,
+  input wire [31:0] cm_state,
   input wire [ 3:0] ttr_state,
+  input wire [ 3:0] ptr_state,
   input wire [ 3:0] cac_state,
+  input wire [ 3:0] caca_state,
   input wire [ 6:0] tp_state,
 
   // acquisition
   input wire [4:0] acq_readout_pause,
-  input wire [1:0] fill_type,
+  input wire [2:0] fill_type,
   input wire [4:0] chan_en,
   input wire endianness_sel,
 
@@ -116,13 +118,13 @@ assign status_reg4  = {30'd0, daq_almost_full, daq_ready};
 assign status_reg5  = {21'd0, tts_state[3:0], ttc_chan_b_info[5:0], ttc_ready};
 
 // Register 06: FSM state 0
-assign status_reg6  = {1'd0, cm_state[30:0]};
+assign status_reg6  = cm_state[31:0];
 
 // Register 07: FSM state 1
-assign status_reg7  = {17'd0, tp_state[6:0], cac_state[3:0], ttr_state[3:0]};
+assign status_reg7  = {9'd0, tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
 
 // Register 08: Acquisition
-assign status_reg8  = {19'd0, endianness_sel, acq_readout_pause[4:0], fill_type[1:0], chan_en[4:0]};
+assign status_reg8  = {18'd0, endianness_sel, acq_readout_pause[4:0], fill_type[2:0], chan_en[4:0]};
 
 // Register 09: Trigger information
 assign status_reg9  = {18'd0, trig_settings[7:0], acq_fifo_full, trig_fifo_full, trig_delay[3:0]};

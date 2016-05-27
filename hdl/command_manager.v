@@ -15,7 +15,7 @@ module command_manager (
   input wire chan_tx_fifo_ready,
   output reg chan_tx_fifo_valid,
   output reg chan_tx_fifo_last,
-  output reg [3:0] chan_tx_fifo_dest,
+  output reg [ 3:0] chan_tx_fifo_dest,
   output reg [31:0] chan_tx_fifo_data,
 
   // interface to RX channel FIFO (through AXI4-Stream RX Switch)
@@ -27,7 +27,7 @@ module command_manager (
   // interface to IPbus AXI output
   input wire ipbus_cmd_valid,
   input wire ipbus_cmd_last,
-  input wire [3:0] ipbus_cmd_dest,
+  input wire [ 3:0] ipbus_cmd_dest,
   input wire [31:0] ipbus_cmd_data,
   output reg ipbus_cmd_ready,
 
@@ -50,38 +50,45 @@ module command_manager (
   input wire initiate_readout,      // request for the channels to be read out
   input wire [23:0] event_num,      // channel's trigger number
   input wire [23:0] trig_num,       // global trigger number, starts at 1
-  input wire [ 1:0] trig_type,      // trigger type
+  input wire [ 2:0] trig_type,      // trigger type
   input wire [43:0] trig_timestamp, // trigger timestamp, defined by when trigger is received by trigger receiver module
-  input wire [ 1:0] curr_trig_type, // currently set trigger type
+  input wire [ 2:0] curr_trig_type, // currently set trigger type
   output wire readout_ready,        // ready to readout data, i.e., when in idle state
-  output reg readout_done,          // finished readout flag
+  output reg  readout_done,         // finished readout flag
   output wire [21:0] readout_size,  // burst count of readout event
 
+  // set burst count for each channel
   output wire [22:0] burst_count_chan0,
   output wire [22:0] burst_count_chan1,
   output wire [22:0] burst_count_chan2,
   output wire [22:0] burst_count_chan3,
   output wire [22:0] burst_count_chan4,
 
+  // set waveform count for each channel
   output wire [11:0] wfm_count_chan0,
   output wire [11:0] wfm_count_chan1,
   output wire [11:0] wfm_count_chan2,
   output wire [11:0] wfm_count_chan3,
   output wire [11:0] wfm_count_chan4,
 
+  // interface to pulse trigger FIFO (through trigger top)
+  input wire pulse_fifo_tvalid,
+  input wire [127:0] pulse_fifo_tdata,
+  output reg pulse_fifo_tready,
+
   // status connections
   input wire [47:0] i2c_mac_adr,        // this board's MAC address
   input wire [ 4:0] chan_en,            // enabled channels, one bit for each channel
   input wire endianness_sel,            // select bit for the endianness of ADC data
   input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
-  output reg [30:0] state,              // state of finite state machine
+  output reg [31:0] state,              // state of finite state machine
 
   // error connections
   output reg [31:0] cs_mismatch_count, // number of checksum mismatches
   output reg error_data_corrupt,       // data corruption error
   output reg error_trig_num,           // trigger number mismatch between channel and master
   output reg error_trig_type,          // trigger type mismatch between channel and master
-  output reg [4:0] chan_error_rc       // master received an error response code, one bit for each channel
+  output reg [ 4:0] chan_error_rc      // master received an error response code, one bit for each channel
 );
 
   // idle state bit
@@ -112,13 +119,14 @@ module command_manager (
   parameter READ_CHAN_DATA1        = 22;
   parameter READ_CHAN_DATA2        = 23;
   parameter READ_CHAN_DATA_RESYNC  = 24;
-  parameter SEND_CHAN_TRAILER1     = 25;
-  parameter READY_AMC13_TRAILER    = 26;
-  parameter SEND_AMC13_TRAILER     = 27;
+  parameter READ_PULSE_FIFO        = 25;
+  parameter SEND_CHAN_TRAILER1     = 26;
+  parameter READY_AMC13_TRAILER    = 27;
+  parameter SEND_AMC13_TRAILER     = 28;
   // error state bits
-  parameter ERROR_DATA_CORRUPTION  = 28;
-  parameter ERROR_TRIG_NUM         = 29;
-  parameter ERROR_TRIG_TYPE        = 30;
+  parameter ERROR_DATA_CORRUPTION  = 29;
+  parameter ERROR_TRIG_NUM         = 30;
+  parameter ERROR_TRIG_TYPE        = 31;
 
 
   // channel header regs sorted the way they will be used: first chan_trig_num, then fill_type, ...
@@ -126,13 +134,13 @@ module command_manager (
   reg [ 2:0] fill_type;         // fill type: muon, laser, pedestal, ...
   reg [22:0] burst_count;       // burst count for data acquisition, 1 burst count = 8 ADC samples
   reg [25:0] ddr3_start_addr;   // DDR3 start address (3 LSBs always zero)
-  reg [11:0] wfm_count;         // number of waveform to be acquired
+  reg [22:0] wfm_count;         // number of waveform acquired
   reg [21:0] wfm_gap_length;    // gap in unit of 2.5 ns between two consecutive waveforms
   reg [15:0] chan_tag;          // channel tag
   reg [31:0] chan_num_buf;      // channel number
   reg [31:0] csn;               // channel serial number
   reg [31:0] data_count;        // # of 32-bit data words received from Aurora, per waveform
-  reg [11:0] data_wfm_count;    // # of waveforms received from Aurora
+  reg [22:0] data_wfm_count;    // # of waveforms received from Aurora
   reg [31:0] ipbus_buf;         // buffer for IPbus data
   reg [31:0] readout_timestamp; // channel data readout timestamp
   reg [ 2:0] num_chan_en;       // number of enabled channels
@@ -142,6 +150,11 @@ module command_manager (
   reg update_mcs_lsb;           // flag to update the 64 LSBs of the 128-bit master checksum (mcs)
   reg [127:0] master_checksum;  // checksum calculated in this module
   reg [127:0] channel_checksum; // checksum from received channel data
+
+  // regs for asynchronous mode
+  reg [22:0] pulse_data_size;   // burst count covering channel headers, waveform headers, waveforms, and checksums
+  reg [43:0] pulse_timestamp;   // 44-bit pulse trigger timestamp
+  reg [ 1:0] pulse_trig_length; // length of pulse trigger (short or long)
 
   // other internal regs
   reg empty_event;                         // flag to indicate if this should be an empty event
@@ -156,16 +169,16 @@ module command_manager (
   
 
   // for internal regs
-  reg [30:0] nextstate;
+  reg [31:0] nextstate;
   reg [22:0] next_burst_count;
   reg [31:0] next_chan_num_buf;
   reg [ 2:0] next_fill_type;
-  reg [11:0] next_wfm_count;
+  reg [22:0] next_wfm_count;
   reg [21:0] next_wfm_gap_length;
   reg [15:0] next_chan_tag;
   reg [31:0] next_csn;
   reg [31:0] next_data_count;
-  reg [11:0] next_data_wfm_count;
+  reg [22:0] next_data_wfm_count;
   reg [25:0] next_ddr3_start_addr;
   reg [31:0] next_ipbus_buf;
   reg [23:0] next_chan_trig_num;
@@ -179,6 +192,9 @@ module command_manager (
   reg [31:0] next_cs_mismatch_count;
   reg [31:0] next_ipbus_chan_cmd;
   reg [31:0] next_ipbus_chan_reg;
+  reg [22:0] next_pulse_data_size;
+  reg [43:0] next_pulse_timestamp;
+  reg [ 1:0] next_pulse_trig_length;
 
   // for external regs
   reg [63:0] next_daq_data;
@@ -196,7 +212,7 @@ module command_manager (
 
 
   // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
-  wire [19:0] event_size_type1, event_size_type2, event_size_type3;
+  wire [19:0] event_size_type1, event_size_type2, event_size_type3, event_size_type4;
 
   assign event_size_type1 = ((chan_burst_count_type1[0]*2+2)*chan_wfm_count_type1[0]+5)*chan_en[0]+ 
                             ((chan_burst_count_type1[1]*2+2)*chan_wfm_count_type1[1]+5)*chan_en[1]+ 
@@ -216,11 +232,14 @@ module command_manager (
                             ((chan_burst_count_type3[3]*2+2)*chan_wfm_count_type3[3]+5)*chan_en[3]+ 
                             ((chan_burst_count_type3[4]*2+2)*chan_wfm_count_type3[4]+5)*chan_en[4]+3;
 
+  assign event_size_type4 = (pulse_data_size[22:0]+1)*(chan_en[0]+chan_en[1]+chan_en[2]+chan_en[3]+chan_en[4])+3;
+
   // mux the correct event size for this trigger type
   wire [19:0] event_size;
   assign event_size = (fill_type[2:0] == 3'b001) ? event_size_type1[19:0] :
                       (fill_type[2:0] == 3'b010) ? event_size_type2[19:0] :
                       (fill_type[2:0] == 3'b011) ? event_size_type3[19:0] : 
+                      (fill_type[2:0] == 3'b100) ? event_size_type4[19:0] :
                                                    20'hfffff;
 
   // number of 128-bit bursts read out of DDR3
@@ -280,16 +299,16 @@ module command_manager (
   // comb always block
   always @* begin
     // internal regs
-    nextstate = 31'd0;
+    nextstate = 32'd0;
     next_burst_count[22:0]       = burst_count[22:0];
     next_chan_num_buf[31:0]      = chan_num_buf[31:0];
     next_fill_type[2:0]          = fill_type[2:0];
-    next_wfm_count[11:0]         = wfm_count[11:0];
+    next_wfm_count[22:0]         = wfm_count[22:0];
     next_wfm_gap_length[21:0]    = wfm_gap_length[21:0];
     next_chan_tag[15:0]          = chan_tag[15:0];
     next_csn[31:0]               = csn[31:0];
     next_data_count[31:0]        = data_count[31:0];
-    next_data_wfm_count[11:0]    = data_wfm_count[11:0];
+    next_data_wfm_count[22:0]    = data_wfm_count[22:0];
     next_ddr3_start_addr[25:0]   = ddr3_start_addr[25:0];
     next_ipbus_buf[31:0]         = ipbus_buf[31:0];
     next_chan_trig_num[23:0]     = chan_trig_num[23:0];
@@ -303,6 +322,9 @@ module command_manager (
     next_cs_mismatch_count[31:0] = cs_mismatch_count[31:0];
     next_ipbus_chan_cmd[31:0]    = ipbus_chan_cmd[31:0];
     next_ipbus_chan_reg[31:0]    = ipbus_chan_reg[31:0];
+    next_pulse_data_size[22:0]   = pulse_data_size[22:0];
+    next_pulse_timestamp[43:0]   = pulse_timestamp[43:0];
+    next_pulse_trig_length[1:0]  = pulse_trig_length[1:0];
 
     // external regs
     next_daq_data[63:0]            = daq_data[63:0];
@@ -572,9 +594,19 @@ module command_manager (
             nextstate[ERROR_TRIG_TYPE] = 1'b1;
           end
           else begin
-            next_chan_trig_num[23:0]    = chan_rx_fifo_data[23:0];
-            next_fill_type[2:0]         = chan_rx_fifo_data[26:24];
-            next_burst_count[22:0]      = {18'd0, chan_rx_fifo_data[31:27]};
+            next_chan_trig_num[23:0] = chan_rx_fifo_data[23:0];
+            next_fill_type[2:0]      = chan_rx_fifo_data[26:24];
+
+            // synchronous
+            if (~chan_rx_fifo_data[26]) begin
+              next_burst_count[22:0] = {18'd0, chan_rx_fifo_data[31:27]};
+            end
+            // asynchronous
+            else begin
+              next_burst_count[22:0]     = 23'd0;
+              next_pulse_data_size[22:0] = {18'd0, chan_rx_fifo_data[31:27]};
+            end
+
             next_master_checksum[127:0] = {master_checksum[127:32], chan_rx_fifo_data[31:0]};
             nextstate[READ_CHAN_INFO2] = 1'b1;
           end
@@ -586,7 +618,16 @@ module command_manager (
       // get burst count from channel's header word #2
       state[READ_CHAN_INFO2] : begin
         if (chan_rx_fifo_valid) begin
-          next_burst_count[22:0]      = {chan_rx_fifo_data[17:0], burst_count[4:0]};
+          // synchronous
+          if (~fill_type[2]) begin
+            next_burst_count[22:0] = {chan_rx_fifo_data[17:0], burst_count[4:0]};
+          end
+          // asynchronous
+          else begin
+            next_burst_count[22:0]     = 23'd0;
+            next_pulse_data_size[22:0] = {chan_rx_fifo_data[17:0], pulse_data_size[4:0]};
+          end
+
           next_ddr3_start_addr[13:0]  = chan_rx_fifo_data[31:18];
           next_master_checksum[127:0] = {master_checksum[127:64], chan_rx_fifo_data[31:0], master_checksum[31:0]};
           nextstate[READ_CHAN_INFO3] = 1'b1;
@@ -599,8 +640,18 @@ module command_manager (
       state[READ_CHAN_INFO3] : begin
         if (chan_rx_fifo_valid) begin
           next_ddr3_start_addr[25:14] = chan_rx_fifo_data[11:0];
-          next_wfm_count[11:0]        = chan_rx_fifo_data[23:12];
-          next_wfm_gap_length[8:0]    = chan_rx_fifo_data[31:24];
+
+          // synchronous
+          if (~fill_type[2]) begin
+            next_wfm_count[22:0]     = {11'd0, chan_rx_fifo_data[23:12]};
+            next_wfm_gap_length[8:0] = chan_rx_fifo_data[31:24];
+          end
+          // asynchronous
+          else begin
+            next_wfm_count[19:0]     = chan_rx_fifo_data[31:12];
+            next_wfm_gap_length[8:0] = 9'd0;
+          end
+
           next_master_checksum[127:0] = {master_checksum[127:96], chan_rx_fifo_data[31:0], master_checksum[63:0]};
           nextstate[READ_CHAN_INFO4] = 1'b1;
         end
@@ -611,8 +662,17 @@ module command_manager (
       // get tag and fill type from channel's header word #4
       state[READ_CHAN_INFO4] : begin
         if (chan_rx_fifo_valid) begin
-          next_wfm_gap_length[21:9] = chan_rx_fifo_data[13:0];
-          next_chan_tag[15:0]       = chan_rx_fifo_data[29:14];
+          // synchronous
+          if (~fill_type[2]) begin
+            next_wfm_gap_length[21:9] = chan_rx_fifo_data[13:0];
+          end
+          // asynchronous
+          else begin
+            next_wfm_gap_length[21:9] = 13'd0;
+            next_wfm_count[22:20]     = chan_rx_fifo_data[2:0];
+          end
+
+          next_chan_tag[15:0] = chan_rx_fifo_data[29:14];
           next_master_checksum[127:0] = {chan_rx_fifo_data[31:0], master_checksum[95:0]};
           nextstate[READY_AMC13_HEADER1] = 1'b1;
         end
@@ -686,8 +746,8 @@ module command_manager (
       // send the second channel header word
       state[SEND_CHAN_HEADER2] : begin
         if (daq_ready) begin
-          next_data_count[31:0] = 0;
-          next_data_wfm_count[11:0] = 0;
+          next_data_count[31:0] = 32'd0;
+          next_data_wfm_count[22:0] = 23'd0;
           next_update_mcs_lsb = 0;
           nextstate[READ_CHAN_DATA1] = 1'b1;
         end
@@ -701,14 +761,31 @@ module command_manager (
         // check if the Aurora RX FIFO has data for us
         if (chan_rx_fifo_valid) begin
           // this is the waveform header [31:0]
-          if ((data_count[31:0] == 0) & (data_wfm_count[11:0] != wfm_count[11:0])) begin
-            // convert waveform length from # bursts to # samples
-            next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:23], (chan_rx_fifo_data[22:0]<<3)};
+          if ((data_count[31:0] == 0) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
+            // synchronous mode
+            if (~fill_type[2]) begin
+              // convert waveform length from # bursts to # samples
+              next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:23], (chan_rx_fifo_data[22:0]<<3)};
+            end
+            // asynchronous mode
+            else begin
+              // add pre-and post-trigger burst counts to get the total count
+              next_burst_count[22:0] = chan_rx_fifo_data[22:11] + chan_rx_fifo_data[10:0];
+              // convert pre- and post-trigger waveform length from # bursts to # samples
+              next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:23], (chan_rx_fifo_data[22:11]<<3), (chan_rx_fifo_data[10:0]<<3)};
+            end
           end
           // this is the waveform header [95:64]
-          else if ((data_count[31:0] == 2) & (data_wfm_count[11:0] != wfm_count[11:0])) begin
-            // keep waveform header format as it is
-            next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+          else if ((data_count[31:0] == 2) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
+            // synchronous mode
+            if (~fill_type[2]) begin
+              // keep waveform header format as it is
+              next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+            end
+            // asynchronous mode
+            else begin
+              next_daq_data[63:0] = {32'h00000000, pulse_timestamp[20:0], chan_rx_fifo_data[10:0]};
+            end
           end
           // this is an ADC data word
           else begin
@@ -717,11 +794,11 @@ module command_manager (
           end
 
           // this is the channel checksum [31:0]
-          if ((data_count[31:0] == 0) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
+          if ((data_count[31:0] == 0) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
             next_channel_checksum[127:0] = {96'd0, chan_rx_fifo_data[31:0]};
           end
           // this is the channel checksum [95:64]
-          else if ((data_count[31:0] == 2) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
+          else if ((data_count[31:0] == 2) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
             next_channel_checksum[127:0] = {32'd0, chan_rx_fifo_data[31:0], channel_checksum[63:0]};
           end
           else begin
@@ -731,7 +808,15 @@ module command_manager (
           end
 
           next_data_count[31:0] = data_count[31:0]+1;
-          nextstate[READ_CHAN_DATA2] = 1'b1;
+
+          if (fill_type[2] & (data_count[31:0] == 0) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
+            // asynchronous trigger readout, start of waveform header
+            nextstate[READ_PULSE_FIFO] = 1'b1;
+          end
+          else begin
+            // synchronous trigger readout
+            nextstate[READ_CHAN_DATA2] = 1'b1;
+          end
         end
         else begin
           nextstate[READ_CHAN_DATA1] = 1'b1;
@@ -747,22 +832,29 @@ module command_manager (
         // grab the Aurora RX FIFO's lastest word, and wait for DAQ link to recover before trying to send it
         if (~daq_ready & chan_rx_fifo_valid) begin
           // this is the waveform header [63:32]
-          if ((data_count[31:0] == 1) & (data_wfm_count[11:0] != wfm_count[11:0])) begin
+          if ((data_count[31:0] == 1) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
             // keep waveform header format as it is
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
           // this is the waveform header [127:96]
-          else if ((data_count[31:0] == 3) & (data_wfm_count[11:0] != wfm_count[11:0])) begin
-            // keep waveform header format as it is
-            next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+          else if ((data_count[31:0] == 3) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
+            // synchronous mode
+            if (~fill_type[2]) begin
+              // keep waveform header format as it is
+              next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+            end
+            // asynchronous mode
+            else begin
+              next_daq_data[63:0] = {chan_rx_fifo_data[31:30], chan_rx_fifo_data[6:2], pulse_trig_length[1:0], pulse_timestamp[43:21], daq_data[31:0]};
+            end
           end
           // this is the channel checksum [63:32]
-          else if ((data_count[31:0] == 1) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
+          else if ((data_count[31:0] == 1) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
             // keep channel checksum format as it is
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
           // this is the channel checksum [127:64]
-          else if ((data_count[31:0] == 1) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
+          else if ((data_count[31:0] == 1) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
             // keep channel checksum format as it is
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
@@ -775,14 +867,14 @@ module command_manager (
           end
 
           next_data_count[31:0]     = (data_count[31:0] < burst_count[22:0]*4+3) ? data_count[31:0]+1   : 32'b0;
-          next_data_wfm_count[11:0] = (data_count[31:0] < burst_count[22:0]*4+3) ? data_wfm_count[11:0] : data_wfm_count[11:0]+1;
+          next_data_wfm_count[22:0] = (data_count[31:0] < burst_count[22:0]*4+3) ? data_wfm_count[22:0] : data_wfm_count[22:0]+1;
           next_update_mcs_lsb = ~update_mcs_lsb;
 
           // check whether this data word is the channel checksum
-          if ((data_count[31:0] == 1) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
+          if ((data_count[31:0] == 1) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
             next_channel_checksum[127:0] = {64'd0, chan_rx_fifo_data[31:0], channel_checksum[31:0]};
           end
-          else if ((data_count[31:0] == 3) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
+          else if ((data_count[31:0] == 3) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
             next_channel_checksum[127:0] = {chan_rx_fifo_data[31:0], channel_checksum[95:0]};
           end
           else begin
@@ -794,14 +886,14 @@ module command_manager (
         end
         // we're receiving the last data word
         // send it, and exit to send the channel trailer next
-        else if (daq_ready & chan_rx_fifo_valid & (data_count[31:0] == 3) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
+        else if (daq_ready & chan_rx_fifo_valid & (data_count[31:0] == 3) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
           next_daq_valid = 1'b1;
 
           // this is the channel checksum, use big-endian
           next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
 
           next_data_count[31:0]     = (data_count[31:0] < burst_count[22:0]*4+3) ? data_count[31:0]+1   : 32'b0;
-          next_data_wfm_count[11:0] = (data_count[31:0] < burst_count[22:0]*4+3) ? data_wfm_count[11:0] : data_wfm_count[11:0]+1;
+          next_data_wfm_count[22:0] = (data_count[31:0] < burst_count[22:0]*4+3) ? data_wfm_count[22:0] : data_wfm_count[22:0]+1;
           next_channel_checksum[127:0] = {chan_rx_fifo_data[31:0], channel_checksum[95:0]};
           nextstate[SEND_CHAN_TRAILER1] = 1'b1;
         end
@@ -811,12 +903,12 @@ module command_manager (
           next_daq_valid = 1'b1;
 
           // this is the waveform header [63:32]
-          if ((data_count[31:0] == 1) & (data_wfm_count[11:0] != wfm_count[11:0])) begin
+          if ((data_count[31:0] == 1) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
             // keep waveform header format as it is
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
           // this is the waveform header [127:96]
-          else if ((data_count[31:0] == 3) & (data_wfm_count[11:0] != wfm_count[11:0])) begin
+          else if ((data_count[31:0] == 3) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
             // keep waveform header format as it is
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
@@ -829,11 +921,11 @@ module command_manager (
           end
 
           next_data_count[31:0]     = (data_count[31:0] < burst_count[22:0]*4+3) ? data_count[31:0]+1   : 32'b0;
-          next_data_wfm_count[11:0] = (data_count[31:0] < burst_count[22:0]*4+3) ? data_wfm_count[11:0] : data_wfm_count[11:0]+1;
+          next_data_wfm_count[22:0] = (data_count[31:0] < burst_count[22:0]*4+3) ? data_wfm_count[22:0] : data_wfm_count[22:0]+1;
           next_update_mcs_lsb = ~update_mcs_lsb;
 
           // check whether this data word is the channel checksum
-          if ((data_count[31:0] == 1) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
+          if ((data_count[31:0] == 1) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
             next_channel_checksum[127:0] = {64'd0, chan_rx_fifo_data[31:0], channel_checksum[31:0]};
           end
           else begin
@@ -852,7 +944,7 @@ module command_manager (
       state[READ_CHAN_DATA_RESYNC] : begin
         // we've already received the last data word
         // send it, and exit to send the readout timestamp next
-        if (daq_ready & (data_count[31:0] == 3) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
+        if (daq_ready & (data_count[31:0] == 3) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
           next_daq_valid = 1'b1;
           nextstate[SEND_CHAN_TRAILER1] = 1'b1;
         end
@@ -865,6 +957,17 @@ module command_manager (
         else begin
           // DAQ link buffer is still almost full
           nextstate[READ_CHAN_DATA_RESYNC] = 1'b1;
+        end
+      end
+      // grab pulse information from Pulse Trigger FIFO
+      state[READ_PULSE_FIFO] : begin
+        if (pulse_fifo_tvalid) begin
+          next_pulse_timestamp[43:0]  = pulse_fifo_tdata[43:0];
+          next_pulse_trig_length[1:0] = pulse_fifo_tdata[69:68];
+          nextstate[READ_CHAN_DATA2] = 1'b1;
+        end
+        else begin
+          nextstate[READ_PULSE_FIFO] = 1'b1;
         end
       end
       // send the channel readout's timestamp
@@ -950,20 +1053,20 @@ module command_manager (
   always @(posedge clk) begin
     if (rst) begin
       // reset values
-      state <= 31'd1 << IDLE;
+      state <= 32'd1 << IDLE;
 
       burst_count[22:0]         <= 0;
       chan_num_buf[31:0]        <= 0;
       chan_tag[15:0]            <= 0;
       fill_type[2:0]            <= 0;
-      wfm_count[11:0]           <= 0;
+      wfm_count[22:0]           <= 0;
       wfm_gap_length[21:0]      <= 0;
       chan_tx_fifo_dest[3:0]    <= 0;
       chan_tx_fifo_last         <= 0;
       csn[31:0]                 <= 0;
       daq_data[63:0]            <= 0;
       data_count[31:0]          <= 0;
-      data_wfm_count[11:0]      <= 0;
+      data_wfm_count[22:0]      <= 0;
       ddr3_start_addr[25:0]     <= 0;
       ipbus_buf[31:0]           <= 0;
       ipbus_res_last            <= 0;
@@ -1010,6 +1113,9 @@ module command_manager (
       chan_wfm_count_type3[4]   <= 12'd1;     // channel default is 1
       ipbus_chan_cmd[31:0]      <= 0;
       ipbus_chan_reg[31:0]      <= 0;
+      pulse_data_size[22:0]     <= 23'd0;
+      pulse_timestamp[43:0]     <= 44'd0;
+      pulse_trig_length[1:0]    <=  2'd0;
     end
     else begin
       state <= nextstate;
@@ -1018,14 +1124,14 @@ module command_manager (
       chan_num_buf[31:0]        <= next_chan_num_buf[31:0];
       chan_tag[15:0]            <= next_chan_tag[15:0];
       fill_type[2:0]            <= next_fill_type[2:0];
-      wfm_count[11:0]           <= next_wfm_count[11:0];
+      wfm_count[22:0]           <= next_wfm_count[22:0];
       wfm_gap_length[21:0]      <= next_wfm_gap_length[21:0];
       chan_tx_fifo_dest[3:0]    <= next_chan_tx_fifo_dest[3:0];
       chan_tx_fifo_last         <= next_chan_tx_fifo_last;
       csn[31:0]                 <= next_csn[31:0];
       daq_data[63:0]            <= next_daq_data[63:0];
       data_count[31:0]          <= next_data_count[31:0];
-      data_wfm_count[11:0]      <= next_data_wfm_count[11:0];
+      data_wfm_count[22:0]      <= next_data_wfm_count[22:0];
       ddr3_start_addr[25:0]     <= next_ddr3_start_addr[25:0];
       ipbus_buf[31:0]           <= next_ipbus_buf[31:0];
       ipbus_res_last            <= next_ipbus_res_last;
@@ -1072,6 +1178,9 @@ module command_manager (
       chan_wfm_count_type3[4]   <= next_chan_wfm_count_type3[4];
       ipbus_chan_cmd[31:0]      <= next_ipbus_chan_cmd[31:0];
       ipbus_chan_reg[31:0]      <= next_ipbus_chan_reg[31:0];
+      pulse_data_size[22:0]     <= next_pulse_data_size[22:0];
+      pulse_timestamp[43:0]     <= next_pulse_timestamp[43:0];
+      pulse_trig_length[1:0]    <= next_pulse_trig_length[1:0];
     end
   end
 
@@ -1189,6 +1298,9 @@ module command_manager (
         end
         nextstate[READ_CHAN_DATA_RESYNC]  : begin
           ;
+        end
+        nextstate[READ_PULSE_FIFO]        : begin
+          pulse_fifo_tready <= 1;
         end
         nextstate[SEND_CHAN_TRAILER1]     : begin
           ;

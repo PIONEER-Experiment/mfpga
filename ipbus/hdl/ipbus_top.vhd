@@ -1,8 +1,8 @@
 -- Top-level design for IPbus
 --
--- You must edit this file to set the IP and MAC addresses
+-- This file is where the IP and MAC addresses are set.
 --
--- Dave Newbold, 16/7/12
+-- Template from Dave Newbold, 16/7/12
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -66,6 +66,7 @@ entity ipbus_top is port(
 
     -- control signals
     trigger_out        : out std_logic;                    -- trigger
+    async_mode_out     : out std_logic;                    -- enable asynchronous mode
     chan_done_out      : out std_logic_vector(4 downto 0); -- channel done to trigger manager
     chan_en_out        : out std_logic_vector(4 downto 0); -- enable channels in command manager
     prog_chan_out      : out std_logic;                    -- signal to start programming sequence for channel FPGAs
@@ -152,27 +153,27 @@ begin
 		port map(
 			gt_clkp => gt_clkp,
 			gt_clkn => gt_clkn,
-			gt_txp => gt_txp,
-			gt_txn => gt_txn,
-			gt_rxp => gt_rxp,
-			gt_rxn => gt_rxn,
-			sig_detn => sfp_los,
+			gt_txp  => gt_txp,
+			gt_txn  => gt_txn,
+			gt_rxp  => gt_rxp,
+			gt_rxn  => gt_rxn,
+			sig_detn       => sfp_los,
 			clk200_bufg_in => clk_200,
-			gtrefclk_out => gtrefclk_out,
-			clk125_out => clk_125_int,
+			gtrefclk_out   => gtrefclk_out,
+			clk125_out     => clk_125_int,
 			phy_rst => '0',
 			mac_rst => rst_125,
-			locked => eth_locked,
-			tx_data => mac_tx_data,
+			locked  => eth_locked,
+			tx_data  => mac_tx_data,
 			tx_valid => mac_tx_valid,
-			tx_last => mac_tx_last,
+			tx_last  => mac_tx_last,
 			tx_error => mac_tx_error,
 			tx_ready => mac_tx_ready,
-			rx_data => mac_rx_data,
+			rx_data  => mac_rx_data,
 			rx_valid => mac_rx_valid,
-			rx_last => mac_rx_last,
+			rx_last  => mac_rx_last,
 			rx_error => mac_rx_error,
-			link_status => eth_link_status,
+			link_status       => eth_link_status,
 			phy_status_vector => eth_phy_status_vector
 		);
 	
@@ -180,24 +181,24 @@ begin
 	-- IPbus control logic
 	ipbus: entity work.ipbus_ctrl
 		port map(
-			mac_clk => clk_125_int,
+			mac_clk    => clk_125_int,
 			rst_macclk => rst_125,
 			ipb_clk => ipb_clk,
 			rst_ipb => rst_ipb,
-			mac_rx_data => mac_rx_data,
+			mac_rx_data  => mac_rx_data,
 			mac_rx_valid => mac_rx_valid,
-			mac_rx_last => mac_rx_last,
+			mac_rx_last  => mac_rx_last,
 			mac_rx_error => mac_rx_error,
-			mac_tx_data => mac_tx_data,
+			mac_tx_data  => mac_tx_data,
 			mac_tx_valid => mac_tx_valid,
-			mac_tx_last => mac_tx_last,
+			mac_tx_last  => mac_tx_last,
 			mac_tx_error => mac_tx_error,
 			mac_tx_ready => mac_tx_ready,
 			ipb_out => ipb_master_out,
-			ipb_in => ipb_master_in,
+			ipb_in  => ipb_master_in,
 			mac_addr => i2c_mac_adr,      -- MAC address from I2C EEPROM
-			ip_addr => i2c_ip_adr,        --  IP address from I2C EEPROM
-			enable => i2c_startup_done,
+			ip_addr  => i2c_ip_adr,       --  IP address from I2C EEPROM
+			enable   => i2c_startup_done,
 			pkt_rx => pkt_rx,
 			pkt_tx => pkt_tx,
 			pkt_rx_led => pkt_rx_led,
@@ -226,6 +227,7 @@ begin
 
 		    -- control register ports
 		    trigger_out        => trigger_out,
+	    	async_mode_out     => async_mode_out,
 		    ip_addr_rst_out    => ip_addr_rst_out,
 		    chan_done_out      => chan_done_out,
 		    chan_en_out        => chan_en_out,

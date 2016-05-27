@@ -97,10 +97,14 @@ module wfd_top (
 
     assign clk50 = clkin; // just to make the frequency explicit
 
-
     wire ipb_clk50_reset, clk50_reset;
     wire prog_chan_done; // channels have been programmed signal
 
+    // ======== operation mode signals ========
+    wire async_mode_from_ipbus; // asynchronous mode select
+    wire async_mode_stretch;
+    wire async_mode_clk50;
+    wire async_mode_ttc_clk;
 
     // ======== startup reset signals ========
     wire master_init_rst1_clk50, master_init_rst1_clk125;
@@ -171,6 +175,11 @@ module wfd_top (
     assign c2_io[2:1] = acq_enable[5:4];
     assign c3_io[2:1] = acq_enable[7:6];
     assign c4_io[2:1] = acq_enable[9:8];
+
+    // ======== pulse trigger FIFO ========
+    wire pulse_fifo_tready;
+    wire pulse_fifo_tvalid;
+    wire [127:0] pulse_fifo_tdata;
 
     // ======== TTC signals ========
     wire ttc_ready;
@@ -264,7 +273,7 @@ module wfd_top (
     signal_stretch reset_stretch (
         .signal_in(rst_from_ipb),
         .clk(clk125),
-        .n_extra_cycles(4'h8), // add more than enough extra clock cycles for synchronization into 50 MHz and 40 MHz clock domains
+        .n_extra_cycles(8'h08), // add more than enough extra clock cycles for synchronization into 50 MHz and 40 MHz clock domains
         .signal_out(ipb_rst_stretch)
     );
 
@@ -333,8 +342,8 @@ module wfd_top (
     //            7  Series
     // Xilinx HDL Libraries Guide, version 13.3
     STARTUPE2 #(
-        .PROG_USR("FALSE"),  // Activate program event security feature. Requires encrypted bitstreams.
-        .SIM_CCLK_FREQ(0.0)  // Set the Configuration Clock Frequency(ns) for simulation.
+        .PROG_USR("FALSE"), // Activate program event security feature. Requires encrypted bitstreams.
+        .SIM_CCLK_FREQ(0.0) // Set the Configuration Clock Frequency(ns) for simulation.
     ) STARTUPE2_inst (
         .CFGCLK(),          // 1-bit output: Configuration main clock output
         .CFGMCLK(),         // 1-bit output: Configuration internal oscillator clock output
@@ -472,7 +481,7 @@ module wfd_top (
 
     // reprog_trigger_mux[0] for golden image
     // reprog_trigger_mux[1] for master image
-    wire [1:0] reprog_trigger_mux; // combine ipbus and front panel triggers
+    wire [1:0] reprog_trigger_mux; // combine IPbus and front panel switch
     assign reprog_trigger_mux = fp_sw_master ? reprog_trigger_delayed : 2'b01;
     
     reprog reprog (
@@ -482,27 +491,57 @@ module wfd_top (
     );
    
 
+    // ======== operation modes ========
+
+    signal_stretch async_mode_stretch_module (
+        .signal_in(async_mode_from_ipbus),
+        .clk(clk125),
+        .n_extra_cycles(8'h08), // add more than enough extra clock cycles for synchronization into 40 and 50 MHz clock domain
+        .signal_out(async_mode_stretch)
+    );
+
+    sync_2stage async_mode_clk50_module (
+        .clk(clk50),
+        .in(async_mode_stretch),
+        .out(async_mode_clk50)
+    );
+
+    sync_2stage async_mode_ttc_clk_module (
+        .clk(ttc_clk),
+        .in(async_mode_stretch),
+        .out(async_mode_ttc_clk)
+    );
+
+
     // ======== triggers and data transfer ========
 
     // TTC trigger in 40 MHz TTC clock domain
     wire trigger_from_ttc;
 
     // put other trigger signals into 40 MHz TTC clock domain
+    wire ext_trig_stretch;
     wire ext_trig_sync;
     wire trigger_from_ipbus;
     wire trigger_from_ipbus_stretch;
     wire trigger_from_ipbus_sync;
 
+    signal_stretch ext_trig_stretch_module (
+        .signal_in(ext_trig),
+        .clk(clk125),
+        .n_extra_cycles(8'h04),
+        .signal_out(ext_trig_stretch)
+    );
+
     sync_2stage ext_trig_sync_module (
         .clk(ttc_clk),
-        .in(ext_trig),
+        .in(ext_trig_stretch),
         .out(ext_trig_sync)
     );
 
     signal_stretch trigger_from_ipbus_stretch_module (
         .signal_in(trigger_from_ipbus),
         .clk(clk125),
-        .n_extra_cycles(4'h4),
+        .n_extra_cycles(8'h04),
         .signal_out(trigger_from_ipbus_stretch)
     );
 
@@ -676,7 +715,8 @@ module wfd_top (
     wire ttc_chan_b_valid;           
     wire rst_trigger_num;
     wire rst_trigger_timestamp;
-    wire [1:0] fill_type;
+    wire [2:0] fill_type;
+    wire ttc_accept_pulse_triggers;
     
     // ======== status register signals ========
     wire [31:0] status_reg0,  status_reg1,  status_reg2,  status_reg3,  status_reg4, 
@@ -686,15 +726,17 @@ module wfd_top (
 
     // ======== finite state machine states ========
     wire [ 3:0] ttr_state;
+    wire [ 3:0] ptr_state;
     wire [ 3:0] cac_state;
+    wire [ 3:0] caca_state;
     wire [ 6:0] tp_state;
-    wire [30:0] cm_state;
+    wire [31:0] cm_state;
 
     // ======== trigger information signals ========
     wire [ 7:0] trig_settings;
     wire [23:0] ttc_event_num;
     wire [23:0] ttc_trig_num;
-    wire [ 1:0] ttc_trig_type;
+    wire [ 2:0] ttc_trig_type;
     wire [43:0] ttc_trig_timestamp;
     wire [23:0] trig_num;
     wire [43:0] trig_timestamp;
@@ -726,18 +768,19 @@ module wfd_top (
 
 
     // TTC Channel B information receiver
-    TTC_chanB_receiver chanb (
+    ttc_chanb_receiver chanb (
         .clk(ttc_clk),
         .reset(reset40),
 
         // TTC Channel B information
         .chan_b_info(ttc_chan_b_info),
+        .accept_pulse_triggers(ttc_accept_pulse_triggers),
         .evt_count_reset(ttc_evt_reset),
         .chan_b_valid(ttc_chan_b_valid),
         .ttc_loopback(ttc_loopback),
 
         // outputs to trigger logic
-        .fill_type(fill_type[1:0]), // output [1:0]
+        .fill_type(fill_type[2:0]), // output [2:0]
         .reset_trig_num(rst_trigger_num),
         .reset_trig_timestamp(rst_trigger_timestamp),
 
@@ -806,6 +849,7 @@ module wfd_top (
 
         // control signals
         .trigger_out(trigger_from_ipbus),               // IPbus trigger
+        .async_mode_out(async_mode_from_ipbus),         // asynchronous mode select
         .chan_done_out(),                               // channel done to trigger manager
         .chan_en_out(chan_en),                          // channel enable to command manager
         .prog_chan_out(prog_chan_start_from_ipbus),     // signal to start programming sequence for channel FPGAs
@@ -1033,20 +1077,40 @@ module wfd_top (
         .out(ttr_state_clk125)
     );
 
+    // synchronize ptr_state
+    wire [3:0] ptr_state_clk125;
+    sync_2stage #(
+        .WIDTH(4)
+    ) ptr_state_sync (
+        .clk(clk125),
+        .in(ptr_state),
+        .out(ptr_state_clk125)
+    );
+
     // synchronize cac_state
     wire [3:0] cac_state_clk125;
     sync_2stage #(
         .WIDTH(4)
-    ) cac_state_sync0 (
+    ) cac_state_sync (
         .clk(clk125),
         .in(cac_state),
         .out(cac_state_clk125)
     );
 
-    // synchronize fill_type
-    wire [1:0] fill_type_clk125;
+    // synchronize caca_state
+    wire [3:0] caca_state_clk125;
     sync_2stage #(
-        .WIDTH(2)
+        .WIDTH(4)
+    ) caca_state_sync (
+        .clk(clk125),
+        .in(caca_state),
+        .out(caca_state_clk125)
+    );
+
+    // synchronize fill_type
+    wire [2:0] fill_type_clk125;
+    sync_2stage #(
+        .WIDTH(3)
     ) fill_type_sync (
         .clk(clk125),
         .in(fill_type),
@@ -1110,7 +1174,9 @@ module wfd_top (
         .ttc_ready(ttc_ready_clk125),
         .cm_state(cm_state),
         .ttr_state(ttr_state_clk125),
+        .ptr_state(ptr_state_clk125),
         .cac_state(cac_state_clk125),
+        .caca_state(caca_state_clk125),
         .tp_state(tp_state),
         .acq_readout_pause(acq_readout_pause),
         .fill_type(fill_type_clk125),
@@ -1161,12 +1227,13 @@ module wfd_top (
         .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
 
         // trigger interface
-        .trigger(trigger_from_ttc),                // trigger signal
-        .trig_type(fill_type),                     // trigger type (muon fill, laser, pedestal)
-        .trig_settings(trig_settings),             // trigger settings
-        .chan_en(chan_en),                         // enabled channels
-        .trig_delay(trig_delay),                   // trigger delay
-        .thres_ddr3_overflow(thres_ddr3_overflow), // DDR3 overflow threshold
+        .trigger(trigger_from_ttc),                        // trigger signal
+        .accept_pulse_triggers(ttc_accept_pulse_triggers), // accept front panel triggers select
+        .trig_type(fill_type),                             // trigger type (muon fill, laser, pedestal)
+        .trig_settings(trig_settings),                     // trigger settings
+        .chan_en(chan_en),                                 // enabled channels
+        .trig_delay(trig_delay),                           // trigger delay
+        .thres_ddr3_overflow(thres_ddr3_overflow),         // DDR3 overflow threshold
 
         // channel interface
         .chan_dones(acq_dones),
@@ -1179,6 +1246,10 @@ module wfd_top (
         .readout_size(readout_size),         // burst count of readout event
         .send_empty_event(send_empty_event), // request an empty event
         .initiate_readout(initiate_readout), // request for the channels to be read out
+
+        .m_pulse_fifo_tready(pulse_fifo_tready), // input
+        .m_pulse_fifo_tvalid(pulse_fifo_tvalid), // output
+        .m_pulse_fifo_tdata(pulse_fifo_tdata),   // output [127:0]
 
         .ttc_event_num(ttc_event_num),           // channel's trigger number
         .ttc_trig_num(ttc_trig_num),             // global trigger number
@@ -1198,8 +1269,11 @@ module wfd_top (
         .wfm_count_chan4(wfm_count_chan4), // waveform count set for Channel 4
 
         // status connections
+        .async_mode(async_mode_ttc_clk), // asynchronous mode select
         .ttr_state(ttr_state),           // TTC trigger receiver state
+        .ptr_state(ptr_state),           // pulse trigger receiver state
         .cac_state(cac_state),           // channel acquisition controller state
+        .caca_state(caca_state),         // channel acquisition controller (asynchronous) state
         .tp_state(tp_state),             // trigger processor state
         .trig_num(trig_num),             // global trigger number
         .trig_timestamp(trig_timestamp), // timestamp for latest trigger received
@@ -1284,12 +1358,17 @@ module wfd_top (
         .wfm_count_chan3(wfm_count_chan3), // waveform count set for Channel 3
         .wfm_count_chan4(wfm_count_chan4), // waveform count set for Channel 4
 
+        // interface to pulse trigger FIFO (thru trigger top module)
+        .pulse_fifo_tvalid(pulse_fifo_tvalid), // input
+        .pulse_fifo_tdata(pulse_fifo_tdata),   // input  [127:0]
+        .pulse_fifo_tready(pulse_fifo_tready), // output
+
         // status connections
         .i2c_mac_adr(i2c_mac_adr[47:0]),         // input  [47:0], MAC address from EEPROM
         .chan_en(chan_en),                       // input  [ 4:0], enabled channels from IPbus
         .endianness_sel(endianness_sel),         // input, from IPbus
         .thres_data_corrupt(thres_data_corrupt), // input  [31:0], from IPbus
-        .state(cm_state),                        // output [30:0]
+        .state(cm_state),                        // output [31:0]
 
         // error connections
         .cs_mismatch_count(cs_mismatch_count),     // number of checksum mismatches
@@ -1301,7 +1380,7 @@ module wfd_top (
     
 
     // TTS state reported to DAQ link
-    TTS_reporter tts_reporter (
+    tts_reporter tts_reporter (
         .clk(clk125),
         .reset(rst_from_ipb),
 

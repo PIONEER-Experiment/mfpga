@@ -1,4 +1,4 @@
-// State machine for programming the channel FPGAs
+// State machine for programming the Channel FPGAs
 // using a bitstream stored in the flash memory
 //
 // The address for the start of the channel bitstream is 0xCE0000
@@ -24,14 +24,14 @@ module prog_channels (
     output reg prog_chan_done         // done programming the channels
 );
 
-assign c_clk = !clk;
+assign c_clk = ~clk;
 
 reg [4:0] initb_sync;
 reg [4:0] prog_done_sync;
 
 always @ (posedge clk)
 begin
-    initb_sync[4:0] <= initb[4:0];
+    initb_sync[4:0]     <= initb[4:0];
     prog_done_sync[4:0] <= prog_done[4:0];
 end
 

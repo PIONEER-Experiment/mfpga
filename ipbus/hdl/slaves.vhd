@@ -1,8 +1,8 @@
--- The ipbus slaves live in this entity - modify according to requirements
+-- The IPbus slaves live in this entity. Modify according to requirements.
 --
--- Ports can be added to give ipbus slaves access to the chip top level.
+-- Ports can be added to give IPbus slaves access to the chip top level.
 --
--- Dave Newbold, February 2011
+-- Template from Dave Newbold, February 2011
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -28,6 +28,7 @@ entity slaves is
 
 	    -- control signals
 	    trigger_out        : out std_logic;
+	    async_mode_out     : out std_logic;
 	    ip_addr_rst_out    : out std_logic;
 	    chan_done_out      : out std_logic_vector(4 downto 0);
 	    chan_en_out        : out std_logic_vector(4 downto 0);
@@ -104,9 +105,9 @@ begin
   fabric: entity work.ipbus_fabric
     generic map(NSLV => NSLV)
     port map(
-      ipb_in => ipb_in,
+      ipb_in  => ipb_in,
       ipb_out => ipb_out,
-      ipb_to_slaves => ipbw,
+      ipb_to_slaves   => ipbw,
       ipb_from_slaves => ipbr
     );
 
@@ -115,21 +116,21 @@ begin
 	slave0: entity work.ipbus_status_reg
 		generic map(addr_width => 5)
 		port map(
-			clk => ipb_clk,
+			clk   => ipb_clk,
 			reset => ipb_rst,
-			ipbus_in => ipbw(0),
+			ipbus_in  => ipbw(0),
 			ipbus_out => ipbr(0),
 			-- status registers
-			reg0 => status_reg0,
-			reg1 => status_reg1,
-			reg2 => status_reg2,
-			reg3 => status_reg3,
-			reg4 => status_reg4,
-			reg5 => status_reg5,
-			reg6 => status_reg6,
-			reg7 => status_reg7,
-			reg8 => status_reg8,
-			reg9 => status_reg9,
+			reg0  => status_reg0,
+			reg1  => status_reg1,
+			reg2  => status_reg2,
+			reg3  => status_reg3,
+			reg4  => status_reg4,
+			reg5  => status_reg5,
+			reg6  => status_reg6,
+			reg7  => status_reg7,
+			reg8  => status_reg8,
+			reg9  => status_reg9,
 			reg10 => status_reg10,
 			reg11 => status_reg11,
 			reg12 => status_reg12,
@@ -146,9 +147,9 @@ begin
 	slave1: entity work.ipbus_reg
 		generic map(addr_width => 4)
 		port map(
-			clk => ipb_clk,
+			clk   => ipb_clk,
 			reset => ipb_rst,
-			ipbus_in => ipbw(1),
+			ipbus_in  => ipbw(1),
 			ipbus_out => ipbr(1),
 			-- output registers
 			reg0 => ctrl_reg,
@@ -185,7 +186,7 @@ begin
         trig_settings_out(5)  <= ctrl_reg(24);
         trig_settings_out(6)  <= ctrl_reg(25);
         trig_settings_out(7)  <= ctrl_reg(26);
-        --                    <= ctrl_reg(27);
+        async_mode_out        <= ctrl_reg(27);
         --                    <= ctrl_reg(28);
         ttc_loopback_out      <= ctrl_reg(29);
 
@@ -194,9 +195,9 @@ begin
 	slave2: entity work.ipbus_write_only_reg
 		generic map(addr_width => 0)
 		port map(
-			clk => ipb_clk,
+			clk   => ipb_clk,
 			reset => ipb_rst,
-			ipbus_in => ipbw(2),
+			ipbus_in  => ipbw(2),
 			ipbus_out => ipbr(2),
 			q => wo_reg
 		);
@@ -217,13 +218,14 @@ begin
             -- addr bit 0 has unknown purpose; we get ipbus errors if we try to use an odd address
 	  )
 	  port map(
-	    clk => ipb_clk,
+	    clk   => ipb_clk,
 	    reset => ipb_rst,
-	    ipbus_in => ipbw(3),
+	    ipbus_in  => ipbw(3),
 	    ipbus_out => ipbr(3),
-	    axi_str_in => axi_stream_in,
-	    axi_str_in_tready => axi_stream_in_tready,
-	    axi_str_out => axi_stream_out,
+	    -- axi-stream interface
+	    axi_str_in         => axi_stream_in,
+	    axi_str_in_tready  => axi_stream_in_tready,
+	    axi_str_out        => axi_stream_out,
 	    axi_str_out_tready => axi_stream_out_tready
 	  );
 
@@ -232,20 +234,20 @@ begin
 	slave4: entity work.ipbus_flash
 		generic map(addr_width => 9)
 		port map(
-			clk => ipb_clk,
+			clk   => ipb_clk,
 			reset => ipb_rst,
-			ipbus_in => ipbw(4),
+			ipbus_in  => ipbw(4),
 			ipbus_out => ipbr(4),
 			-- flash interface
-			flash_wr_nBytes => flash_wr_nBytes,
-			flash_rd_nBytes => flash_rd_nBytes,
+			flash_wr_nBytes  => flash_wr_nBytes,
+			flash_rd_nBytes  => flash_rd_nBytes,
 			flash_cmd_strobe => flash_cmd_strobe,
-			flash_rbuf_en => flash_rbuf_en,
-			flash_rbuf_addr => flash_rbuf_addr,
-			flash_rbuf_data => flash_rbuf_data,
-			flash_wbuf_en => flash_wbuf_en,
-			flash_wbuf_addr => flash_wbuf_addr,
-			flash_wbuf_data => flash_wbuf_data
+			flash_rbuf_en    => flash_rbuf_en,
+			flash_rbuf_addr  => flash_rbuf_addr,
+			flash_rbuf_data  => flash_rbuf_data,
+			flash_wbuf_en    => flash_wbuf_en,
+			flash_wbuf_addr  => flash_wbuf_addr,
+			flash_wbuf_data  => flash_wbuf_data
 		);
 
 -- Slave 5: 24-MB user space
@@ -253,19 +255,19 @@ begin
 	slave5: entity work.ipbus_user
 		generic map(addr_width => 24)
 		port map(
-			clk => ipb_clk,
+			clk   => ipb_clk,
 			reset => ipb_rst,
-			ipbus_in => ipbw(5),
+			ipbus_in  => ipbw(5),
             ipbus_out => ipbr(5),
 			-- user interface
-            user_ipb_clk => user_ipb_clk,       -- programming clock
+            user_ipb_clk    => user_ipb_clk,    -- programming clock
             user_ipb_strobe => user_ipb_strobe, -- this ipb space is selected for an I/O operation 
-            user_ipb_addr => user_ipb_addr,     -- slave address, memory or register
-            user_ipb_write => user_ipb_write,   -- this is a write operation
-            user_ipb_wdata => user_ipb_wdata,   -- data to write for write operations
-            user_ipb_rdata => user_ipb_rdata,   -- data returned for read operations
-            user_ipb_ack => user_ipb_ack,       -- 'write' data has been stored, 'read' data is ready
-            user_ipb_err => user_ipb_err        -- '1' if error, '0' if OK?
+            user_ipb_addr   => user_ipb_addr,   -- slave address, memory or register
+            user_ipb_write  => user_ipb_write,  -- this is a write operation
+            user_ipb_wdata  => user_ipb_wdata,  -- data to write for write operations
+            user_ipb_rdata  => user_ipb_rdata,  -- data returned for read operations
+            user_ipb_ack    => user_ipb_ack,    -- 'write' data has been stored, 'read' data is ready
+            user_ipb_err    => user_ipb_err     -- '1' if error, '0' if OK?
 		);
 
 end rtl;
