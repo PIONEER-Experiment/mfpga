@@ -47,6 +47,7 @@ begin
 				reg(0)(8)  <= '1'; -- Channel 2 enabled by default
 				reg(0)(9)  <= '1'; -- Channel 3 enabled by default
 				reg(0)(10) <= '1'; -- Channel 4 enabled by default
+				reg(0)(18) <= '1'; -- Little-endian ADC-samples format by default
 				reg(1) <= x"0000000a"; -- Default threshold for data corruption is 10
 				reg(2) <= x"0000000a"; -- Default threshold for unknown TTC broadcast commands is 10
 				reg(3) <= x"00733334"; -- Default threshold for DDR3 overflow warning is 7,549,747 (90% full)
