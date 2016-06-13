@@ -707,8 +707,8 @@ module command_manager (
           end
           // this is the waveform header [95:64]
           else if ((data_count[31:0] == 2) & (data_wfm_count[11:0] != wfm_count[11:0])) begin
-            // keep waveform header format as it is
-            next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+            // convert waveform gap from # ADC-clock ticks to # samples
+            next_daq_data[63:0] = {31'h0000000, chan_rx_fifo_data[31:12], 1'b0, chan_rx_fifo_data[11:0]};
           end
           // this is an ADC data word
           else begin
@@ -753,8 +753,8 @@ module command_manager (
           end
           // this is the waveform header [127:96]
           else if ((data_count[31:0] == 3) & (data_wfm_count[11:0] != wfm_count[11:0])) begin
-            // keep waveform header format as it is
-            next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+            // continue converting waveform gap from # ADC-clock ticks to # samples
+            next_daq_data[63:0] = {chan_rx_fifo_data[31:1], daq_data[32:0]};
           end
           // this is the channel checksum [63:32]
           else if ((data_count[31:0] == 1) & (data_wfm_count[11:0] == wfm_count[11:0])) begin
@@ -817,8 +817,8 @@ module command_manager (
           end
           // this is the waveform header [127:96]
           else if ((data_count[31:0] == 3) & (data_wfm_count[11:0] != wfm_count[11:0])) begin
-            // keep waveform header format as it is
-            next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+            // continue converting waveform gap from # ADC-clock ticks to # samples
+            next_daq_data[63:0] = {chan_rx_fifo_data[31:1], daq_data[32:0]};
           end
           // this is an ADC data word
           else begin
@@ -983,26 +983,26 @@ module command_manager (
       chan_burst_count_type1[2] <= 23'd70000; // channel default is 70,000
       chan_burst_count_type1[3] <= 23'd70000; // channel default is 70,000
       chan_burst_count_type1[4] <= 23'd70000; // channel default is 70,000
-      chan_burst_count_type2[0] <= 23'd0;     // channel default is 0
-      chan_burst_count_type2[1] <= 23'd0;     // channel default is 0
-      chan_burst_count_type2[2] <= 23'd0;     // channel default is 0
-      chan_burst_count_type2[3] <= 23'd0;     // channel default is 0
-      chan_burst_count_type2[4] <= 23'd0;     // channel default is 0
-      chan_burst_count_type3[0] <= 23'd0;     // channel default is 0
-      chan_burst_count_type3[1] <= 23'd0;     // channel default is 0
-      chan_burst_count_type3[2] <= 23'd0;     // channel default is 0
-      chan_burst_count_type3[3] <= 23'd0;     // channel default is 0
-      chan_burst_count_type3[4] <= 23'd0;     // channel default is 0
+      chan_burst_count_type2[0] <= 23'd100;   // channel default is 100
+      chan_burst_count_type2[1] <= 23'd100;   // channel default is 100
+      chan_burst_count_type2[2] <= 23'd100;   // channel default is 100
+      chan_burst_count_type2[3] <= 23'd100;   // channel default is 100
+      chan_burst_count_type2[4] <= 23'd100;   // channel default is 100
+      chan_burst_count_type3[0] <= 23'd100;   // channel default is 100
+      chan_burst_count_type3[1] <= 23'd100;   // channel default is 100
+      chan_burst_count_type3[2] <= 23'd100;   // channel default is 100
+      chan_burst_count_type3[3] <= 23'd100;   // channel default is 100
+      chan_burst_count_type3[4] <= 23'd100;   // channel default is 100
       chan_wfm_count_type1[0]   <= 12'd1;     // channel default is 1
       chan_wfm_count_type1[1]   <= 12'd1;     // channel default is 1
       chan_wfm_count_type1[2]   <= 12'd1;     // channel default is 1
       chan_wfm_count_type1[3]   <= 12'd1;     // channel default is 1
       chan_wfm_count_type1[4]   <= 12'd1;     // channel default is 1
-      chan_wfm_count_type2[0]   <= 12'd1;     // channel default is 1
-      chan_wfm_count_type2[1]   <= 12'd1;     // channel default is 1
-      chan_wfm_count_type2[2]   <= 12'd1;     // channel default is 1
-      chan_wfm_count_type2[3]   <= 12'd1;     // channel default is 1
-      chan_wfm_count_type2[4]   <= 12'd1;     // channel default is 1
+      chan_wfm_count_type2[0]   <= 12'd4;     // channel default is 4
+      chan_wfm_count_type2[1]   <= 12'd4;     // channel default is 4
+      chan_wfm_count_type2[2]   <= 12'd4;     // channel default is 4
+      chan_wfm_count_type2[3]   <= 12'd4;     // channel default is 4
+      chan_wfm_count_type2[4]   <= 12'd4;     // channel default is 4
       chan_wfm_count_type3[0]   <= 12'd1;     // channel default is 1
       chan_wfm_count_type3[1]   <= 12'd1;     // channel default is 1
       chan_wfm_count_type3[2]   <= 12'd1;     // channel default is 1

@@ -27,7 +27,7 @@ module TTC_chanB_receiver (
   reg [ 1:0] next_fill_type;
   reg [31:0] next_unknown_cmd_count;
 
-  assign reset_trig_num = evt_count_reset & chan_b_valid;
+  assign reset_trig_num = evt_count_reset;
   // reset trigger timestamp for valid signals of form 001X1X
   assign reset_trig_timestamp = chan_b_valid && chan_b_info[1] && (chan_b_info[5:3] == 3'b001);
   assign error_unknown_ttc = (unknown_cmd_count[31:0] > thres_unknown_ttc[31:0]);
@@ -46,7 +46,7 @@ module TTC_chanB_receiver (
       next_unknown_cmd_count[31:0] <= unknown_cmd_count[31:0];
     end
     // invalid broadcast command
-    else if (chan_b_valid) begin
+    else if (chan_b_valid & ~evt_count_reset & ~reset_trig_timestamp) begin
       next_fill_type[1:0] <= fill_type[1:0];
       next_unknown_cmd_count[31:0] <= unknown_cmd_count[31:0] + 1; // increment soft error counter
     end

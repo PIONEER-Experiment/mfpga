@@ -202,12 +202,21 @@ module wfd_top (
     );
 
 
+    // ======== TTC Channel B information signals ========
+    wire [5:0] ttc_chan_b_info;      
+    wire ttc_evt_reset;         
+    wire ttc_chan_b_valid;           
+    wire rst_trigger_num;
+    wire rst_trigger_timestamp;
+    wire [1:0] fill_type;
+
+
     // active-high reset signal to channels
-    assign c0_io[3] = rst_from_ipb | rst_trigger_num;
-    assign c1_io[3] = rst_from_ipb | rst_trigger_num;
-    assign c2_io[3] = rst_from_ipb | rst_trigger_num;
-    assign c3_io[3] = rst_from_ipb | rst_trigger_num;
-    assign c4_io[3] = rst_from_ipb | rst_trigger_num;
+    assign c0_io[3] = (rst_from_ipb | rst_trigger_num);
+    assign c1_io[3] = (rst_from_ipb | rst_trigger_num);
+    assign c2_io[3] = (rst_from_ipb | rst_trigger_num);
+    assign c3_io[3] = (rst_from_ipb | rst_trigger_num);
+    assign c4_io[3] = (rst_from_ipb | rst_trigger_num);
 
     // front panel clock: sel0 = 1'b1, sel1 = 1'b0
     assign ext_clk_sel0 = 1'b1;
@@ -669,14 +678,6 @@ module wfd_top (
     wire daq_valid, daq_ready;
     wire daq_almost_full;
     wire [63:0] daq_data;
-
-    // ======== TTC Channel B information signals ========
-    wire [5:0] ttc_chan_b_info;      
-    wire ttc_evt_reset;         
-    wire ttc_chan_b_valid;           
-    wire rst_trigger_num;
-    wire rst_trigger_timestamp;
-    wire [1:0] fill_type;
     
     // ======== status register signals ========
     wire [31:0] status_reg0,  status_reg1,  status_reg2,  status_reg3,  status_reg4, 
@@ -1324,6 +1325,8 @@ module wfd_top (
         .tts_state(tts_state)
     );
 
+    wire daq_link_reset;
+    assign daq_link_reset = ttc_evt_reset | rst_from_ipb;
 
     // DAQ Link to AMC13, version 0x10
     DAQ_LINK_Kintex #(
@@ -1341,7 +1344,7 @@ module wfd_top (
         .SYSCLK_IN(clk125),
 
         .TTCclk(clk125),
-        .BcntRes(rst_from_ipb),
+        .BcntRes(daq_link_reset),
         .trig({ 8{trigger_from_ttc} }),
 
         .TTSclk(clk125),
