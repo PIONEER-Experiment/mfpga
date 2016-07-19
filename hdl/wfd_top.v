@@ -531,7 +531,7 @@ module wfd_top (
     wire [4:0] chan_en;
 
     // delay between receiving the trigger and passing it onto the channels                                                                                                                                                   
-    wire [3:0] trig_delay;
+    wire [31:0] trig_delay;
 
     // ======== wires for interface to channel serial link ========
     // User IPbus interface. Used by Charlie's Aurora block.
@@ -811,7 +811,7 @@ module wfd_top (
         .chan_en_out(chan_en),                          // channel enable to command manager
         .prog_chan_out(prog_chan_start_from_ipbus),     // signal to start programming sequence for channel FPGAs
         .reprog_trigger_out(reprog_trigger_from_ipbus), // signal to issue IPROG command to re-program FPGA from flash
-        .trig_delay_out(trig_delay[3:0]),               // set trigger delay in the trigger manager
+        .trig_delay_out(trig_delay[31:0]),              // set trigger delay in the trigger manager
         .endianness_out(endianness_sel),                // select signal for the ADC data's endianness
         .trig_settings_out(trig_settings),              // select which trigger types are enabled
         .ttc_loopback_out(ttc_loopback),                // select whether TTC/TTS is in loopback mode
@@ -1166,7 +1166,7 @@ module wfd_top (
         .trig_type(fill_type),                     // trigger type (muon fill, laser, pedestal)
         .trig_settings(trig_settings),             // trigger settings
         .chan_en(chan_en),                         // enabled channels
-        .trig_delay(trig_delay),                   // trigger delay
+        .trig_delay(trig_delay[31:0]),             // trigger delay
         .thres_ddr3_overflow(thres_ddr3_overflow), // DDR3 overflow threshold
 
         // channel interface

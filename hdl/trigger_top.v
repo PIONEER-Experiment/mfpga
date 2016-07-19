@@ -18,7 +18,7 @@ module trigger_top (
     input wire [ 1:0] trig_type,           // trigger type (muon fill, laser, pedestal)
     input wire [ 7:0] trig_settings,       // trigger settings
     input wire [ 4:0] chan_en,             // enabled channels
-    input wire [ 3:0] trig_delay,          // trigger delay
+    input wire [31:0] trig_delay,          // trigger delay
     input wire [31:0] thres_ddr3_overflow, // DDR3 overflow threshold
 
     // channel interface

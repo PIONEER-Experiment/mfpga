@@ -70,7 +70,7 @@ module status_reg_block (
   // trigger
   input wire trig_fifo_full,
   input wire acq_fifo_full,
-  input wire [ 3:0] trig_delay,
+  input wire [31:0] trig_delay,
   input wire [ 7:0] trig_settings,
   input wire [23:0] trig_num,
   input wire [43:0] trig_timestamp,
