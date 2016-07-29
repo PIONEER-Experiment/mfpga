@@ -7,7 +7,7 @@ module status_reg_block (
   input wire clk,
   input wire reset,
 
-  // fpga status
+  // FPGA status
   input wire prog_chan_done,
 
   // soft error thresholds
@@ -75,10 +75,13 @@ module status_reg_block (
   input wire [23:0] trig_num,
   input wire [43:0] trig_timestamp,
 
+  // other
+  input wire [11:0] i2c_temp,
+
   // outputs to IPbus
   output wire [31:0] status_reg0,  // firmware version
   output wire [31:0] status_reg1,  // error / warning
-  output wire [31:0] status_reg2,  // external clock
+  output wire [31:0] status_reg2,  // external clock and temperature
   output wire [31:0] status_reg3,  // clock synthesizer
   output wire [31:0] status_reg4,  // DAQ link
   output wire [31:0] status_reg5,  // TTC/TTS
@@ -103,8 +106,8 @@ assign status_reg0 = {1'b0, prog_chan_done, 6'd0, `MAJOR_REV, `MINOR_REV, `PATCH
 // Register 01: Error
 assign status_reg1  = {27'd0, chan_error_rc[4:0], error_trig_type_from_cm, error_trig_type_from_tt, error_trig_num_from_cm, error_trig_num_from_tt, error_data_corrupt, error_trig_rate, error_unknown_ttc, error_pll_unlock};
 
-// Register 02: External clock
-assign status_reg2  = {30'd0, daq_clk_sel, daq_clk_en};
+// Register 02: External clock and temperature
+assign status_reg2  = {i2c_temp[11:0], 18'd0, daq_clk_sel, daq_clk_en};
 
 // Register 03: Clock synthesizer
 assign status_reg3  = {28'd0, adcclk_clkin1_stat, adcclk_clkin0_stat, adcclk_stat_ld, adcclk_stat};

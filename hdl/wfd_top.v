@@ -295,9 +295,10 @@ module wfd_top (
 
 
 	// connect a module that will read from the I2C temperature/memory chip.
-	// Since the MAC and IP address are used with IP bus, run the block with 'clk125'
+	// since the MAC and IP address are used with IP bus, run the block with 'clk125'
 	wire [47:0] i2c_mac_adr; // MAC address read from I2C EEPROM
-	wire [31:0] i2c_ip_adr;  //  IP address read from I2C EEPROM
+	wire [31:0] i2c_ip_adr;  // IP  address read from I2C EEPROM
+    wire [11:0] i2c_temp;    // temperature reading from I2C EEPROM
     wire i2c_startup_done;
 
     wire bbus_scl_oen;
@@ -308,9 +309,10 @@ module wfd_top (
 		.clk(clk125),
         .reset(ip_addr_rst),                 // IPbus reset for reloading addresses from EEPROM
         // outputs
-        .i2c_startup_done(i2c_startup_done), // MAC andIP will be valid when this is asserted
+        .i2c_startup_done(i2c_startup_done), // MAC and IP will be valid when this is asserted
 		.i2c_mac_adr(i2c_mac_adr[47:0]),	 // MAC address read from I2C EEPROM
-		.i2c_ip_adr(i2c_ip_adr[31:0]),	     // IP address read from I2C EEPROM
+		.i2c_ip_adr(i2c_ip_adr[31:0]),	     // IP  address read from I2C EEPROM
+        .i2c_temp(i2c_temp[11:0]),           // temperature reading from I2C EEPROM
 		// I2C signals
 		.scl_pad_i(bbus_scl),				 // input from external pin
 		.scl_pad_o(bbus_scl_o),			     // output to tri-state driver
@@ -1123,6 +1125,7 @@ module wfd_top (
         .trig_settings(trig_settings),
         .trig_num(trig_num_clk125),
         .trig_timestamp(trig_timestamp_clk125),
+        .i2c_temp(i2c_temp),
 
         // status register outputs
         .status_reg0(status_reg0),
