@@ -12,7 +12,7 @@ use work.axi.all;
 library unisim;
 use unisim.VComponents.all;
 
-entity ipbus_top is port(
+entity ipbus_top is port (
 	gt_clkp, gt_clkn : in  std_logic;
 	gt_txp, gt_txn   : out std_logic;
 	gt_rxp, gt_rxn   : in  std_logic;
@@ -48,33 +48,33 @@ entity ipbus_top is port(
     -- channel link
     axi_stream_in_tvalid : in  std_logic;
     axi_stream_in_tdata  : in  std_logic_vector(31 downto 0);
-    axi_stream_in_tstrb  : in  std_logic_vector(3 downto 0);
-    axi_stream_in_tkeep  : in  std_logic_vector(3 downto 0);
+    axi_stream_in_tstrb  : in  std_logic_vector( 3 downto 0);
+    axi_stream_in_tkeep  : in  std_logic_vector( 3 downto 0);
     axi_stream_in_tlast  : in  std_logic;
-    axi_stream_in_tid    : in  std_logic_vector(3 downto 0);
-    axi_stream_in_tdest  : in  std_logic_vector(3 downto 0);
+    axi_stream_in_tid    : in  std_logic_vector( 3 downto 0);
+    axi_stream_in_tdest  : in  std_logic_vector( 3 downto 0);
     axi_stream_in_tready : out std_logic;
 
     axi_stream_out_tvalid : out std_logic;
     axi_stream_out_tdata  : out std_logic_vector(31 downto 0);
-    axi_stream_out_tstrb  : out std_logic_vector(3 downto 0);
-    axi_stream_out_tkeep  : out std_logic_vector(3 downto 0);
+    axi_stream_out_tstrb  : out std_logic_vector( 3 downto 0);
+    axi_stream_out_tkeep  : out std_logic_vector( 3 downto 0);
     axi_stream_out_tlast  : out std_logic;
-    axi_stream_out_tid    : out std_logic_vector(3 downto 0);
-    axi_stream_out_tdest  : out std_logic_vector(3 downto 0);
+    axi_stream_out_tid    : out std_logic_vector( 3 downto 0);
+    axi_stream_out_tdest  : out std_logic_vector( 3 downto 0);
     axi_stream_out_tready : in  std_logic;
 
     -- control signals
-    trigger_out        : out std_logic;                    -- trigger
-    async_mode_out     : out std_logic;                    -- enable asynchronous mode
-    chan_done_out      : out std_logic_vector(4 downto 0); -- channel done to trigger manager
-    chan_en_out        : out std_logic_vector(4 downto 0); -- enable channels in command manager
-    prog_chan_out      : out std_logic;                    -- signal to start programming sequence for channel FPGAs
-    reprog_trigger_out : out std_logic_vector(1 downto 0); -- signal to issue IPROG command to re-program FPGA from flash
-    trig_delay_out     : out std_logic_vector(3 downto 0); -- tells trigger manager how long to wait before passing the trigger onto channels
-	endianness_out     : out std_logic;                    -- indicates the endianness of the ADC data sent to the DAQ
-	trig_settings_out  : out std_logic_vector(7 downto 0); -- indicates whether or not to respond to a given trigger type
-	ttc_loopback_out   : out std_logic;                    -- indicates which the TTS/TTC is in loopback mode
+    trigger_out        : out std_logic;                     -- trigger
+    async_mode_out     : out std_logic;                     -- enable asynchronous mode
+    chan_done_out      : out std_logic_vector( 4 downto 0); -- channel done to trigger manager
+    chan_en_out        : out std_logic_vector( 4 downto 0); -- enable channels in command manager
+    prog_chan_out      : out std_logic;                     -- signal to start programming sequence for channel FPGAs
+    reprog_trigger_out : out std_logic_vector( 1 downto 0); -- signal to issue IPROG command to re-program FPGA from flash
+    trig_delay_out     : out std_logic_vector(31 downto 0); -- tells trigger manager how long to wait before passing the trigger onto channels
+	endianness_out     : out std_logic;                     -- indicates the endianness of the ADC data sent to the DAQ
+	trig_settings_out  : out std_logic_vector( 7 downto 0); -- indicates whether or not to respond to a given trigger type
+	ttc_loopback_out   : out std_logic;                     -- indicates which the TTS/TTC is in loopback mode
 
     -- threshold registers
     thres_data_corrupt  : out std_logic_vector(31 downto 0); -- data corruption

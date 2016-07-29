@@ -43,8 +43,8 @@ module ttc_chanb_receiver (
   reg next_accept_pulse_triggers;
   reg [31:0] next_unknown_cmd_count;
 
+  assign reset_trig_num = evt_count_reset;
 
-  assign reset_trig_num = evt_count_reset & chan_b_valid;
   // reset trigger timestamp for valid signals of form 001X1X
   assign reset_trig_timestamp = chan_b_valid && chan_b_info[1] && (chan_b_info[5:3] == 3'b001);
   assign error_unknown_ttc = (unknown_cmd_count[31:0] > thres_unknown_ttc[31:0]);
@@ -76,8 +76,8 @@ module ttc_chanb_receiver (
       next_unknown_cmd_count[31:0] <= unknown_cmd_count[31:0];
     end
     // invalid broadcast command
-    else if (chan_b_valid) begin
-      next_fill_type[2:0]          <= fill_type[2:0];
+    else if (chan_b_valid & ~evt_count_reset & ~reset_trig_timestamp) begin
+      next_fill_type[1:0]          <= fill_type[1:0];
       next_accept_pulse_triggers   <= accept_pulse_triggers;
       next_unknown_cmd_count[31:0] <= unknown_cmd_count[31:0] + 1; // increment soft error counter
     end

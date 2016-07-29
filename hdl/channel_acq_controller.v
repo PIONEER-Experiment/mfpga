@@ -6,8 +6,8 @@ module channel_acq_controller (
   input wire reset,
 
   // trigger configuration
-  input wire [4:0] chan_en,    // which channels should receive the trigger
-  input wire [3:0] trig_delay, // delay between receiving trigger and passing it onto channels
+  input wire [ 4:0] chan_en,    // which channels should receive the trigger
+  input wire [31:0] trig_delay, // delay between receiving trigger and passing it onto channels
 
   // interface from TTC trigger receiver
   input wire trigger,          // trigger signal
@@ -44,7 +44,7 @@ module channel_acq_controller (
   reg [ 2:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
 
-  reg [3:0] delay_cnt; // counter to keep track of trigger delay 
+  reg [31:0] delay_cnt; // counter to keep track of trigger delay 
 
 
   // combinational always block
@@ -64,7 +64,7 @@ module channel_acq_controller (
           next_acq_trig_type[ 2:0] = trig_type[ 2:0]; // latch trigger type
           next_acq_trig_num [23:0] = trig_num [23:0]; // latch trigger number
 
-          if (trig_delay[3:0]) begin
+          if (trig_delay[31:0]) begin
             nextstate[DELAY] = 1'b1;
           end
           else begin
@@ -77,7 +77,7 @@ module channel_acq_controller (
       end
       // wait before passing trigger signal onto the channels
       state[DELAY] : begin
-        if (trig_delay[3:0] - delay_cnt[3:0] - 1) begin
+        if (trig_delay[31:0] - delay_cnt[31:0] - 1) begin
           nextstate[DELAY] = 1'b1;
         end
         else begin
@@ -130,10 +130,10 @@ module channel_acq_controller (
 
     // reset trigger delay counter
     if (reset | trigger) begin
-      delay_cnt[3:0] <= 4'd0;
+      delay_cnt[31:0] <= 32'd0;
     end
     else begin
-      delay_cnt[3:0] <= delay_cnt[3:0] + 1;
+      delay_cnt[31:0] <= delay_cnt[31:0] + 1;
     end
   end
   

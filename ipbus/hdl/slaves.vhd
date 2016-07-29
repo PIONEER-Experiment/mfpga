@@ -34,7 +34,7 @@ entity slaves is
 	    chan_en_out        : out std_logic_vector(4 downto 0);
 	    prog_chan_out      : out std_logic;
 	    reprog_trigger_out : out std_logic_vector(1 downto 0);
-        trig_delay_out     : out std_logic_vector(3 downto 0);
+        trig_delay_out     : out std_logic_vector(31 downto 0);
         endianness_out     : out std_logic;
         trig_settings_out  : out std_logic_vector(7 downto 0);
         ttc_loopback_out   : out std_logic;
@@ -155,7 +155,8 @@ begin
 			reg0 => ctrl_reg,
 			reg1 => thres_data_corrupt,
 			reg2 => thres_unknown_ttc,
-			reg3 => thres_ddr3_overflow
+			reg3 => thres_ddr3_overflow,
+			reg4 => trig_delay_out
 		);
 
 		-- control register
@@ -173,10 +174,10 @@ begin
 		prog_chan_out         <= ctrl_reg(11);
 		reprog_trigger_out(0) <= ctrl_reg(12);
 		reprog_trigger_out(1) <= ctrl_reg(13);
-        trig_delay_out(0)     <= ctrl_reg(14);
-        trig_delay_out(1)     <= ctrl_reg(15);
-        trig_delay_out(2)     <= ctrl_reg(16);
-        trig_delay_out(3)     <= ctrl_reg(17);
+        --trig_delay_out(0)     <= ctrl_reg(14);
+        --trig_delay_out(1)     <= ctrl_reg(15);
+        --trig_delay_out(2)     <= ctrl_reg(16);
+        --trig_delay_out(3)     <= ctrl_reg(17);
         endianness_out        <= ctrl_reg(18);
         trig_settings_out(0)  <= ctrl_reg(19);
         trig_settings_out(1)  <= ctrl_reg(20);

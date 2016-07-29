@@ -21,14 +21,15 @@ entity ipbus_reg is
 		reg0      : out STD_LOGIC_VECTOR(31 downto 0);
 		reg1      : out STD_LOGIC_VECTOR(31 downto 0);
 		reg2      : out STD_LOGIC_VECTOR(31 downto 0);
-		reg3      : out STD_LOGIC_VECTOR(31 downto 0)
+		reg3      : out STD_LOGIC_VECTOR(31 downto 0);
+		reg4      : out STD_LOGIC_VECTOR(31 downto 0)
 	);
 	
 end ipbus_reg;
 
 architecture rtl of ipbus_reg is
 
-	type reg_array is array(3 downto 0) of std_logic_vector(31 downto 0);
+	type reg_array is array(4 downto 0) of std_logic_vector(31 downto 0);
 	signal reg: reg_array;
 	signal sel: integer;
 	signal ack: std_logic;
@@ -47,9 +48,11 @@ begin
 				reg(0)(8)  <= '1'; -- Channel 2 enabled by default
 				reg(0)(9)  <= '1'; -- Channel 3 enabled by default
 				reg(0)(10) <= '1'; -- Channel 4 enabled by default
+				reg(0)(18) <= '1'; -- Little-endian ADC-samples format by default
 				reg(1) <= x"0000000a"; -- Default threshold for data corruption is 10
 				reg(2) <= x"0000000a"; -- Default threshold for unknown TTC broadcast commands is 10
 				reg(3) <= x"00733334"; -- Default threshold for DDR3 overflow warning is 7,549,747 (90% full)
+				reg(4) <= x"00000000";
 			elsif ipbus_in.ipb_strobe='1' and ipbus_in.ipb_write='1' then
 				reg(sel) <= ipbus_in.ipb_wdata;
 			end if;
@@ -68,5 +71,6 @@ begin
 	reg1 <= reg(1);
 	reg2 <= reg(2);
 	reg3 <= reg(3);
+	reg4 <= reg(4);
 
 end rtl;

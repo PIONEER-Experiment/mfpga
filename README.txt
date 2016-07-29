@@ -63,24 +63,24 @@ Repository File Structure
 This repository is structured as follows:
 
 WFD_Master/
-	|-- .gitignore
-	|-- bitstreams/
-	|		|-- .gitignore
-	|		`-- <generated bitstreams>
-	|-- constraints/
-	|		`-- <constraint XDC files>
-	|-- DAQ_Link_7S/
-	|		`-- <BU DAQ link files>
-	|-- debugs/
-	|		|-- .gitignore
-	|		`-- <generated debugs>
-	|-- hdl/
-	|		`-- <main source files>
-	|-- ip/
-	|		`-- <generated IP files>
-	|-- ipbus/
-	|		`-- <IPbus files>
-	|-- scripts/
-	|		|-- build_project.tcl
-	|		`-- export_bitstream.tcl 
-	`-- README.txt
+    |-- .gitignore
+    |-- bitstreams/
+    |       |-- .gitignore
+    |       `-- <generated bitstreams>
+    |-- constraints/
+    |       `-- <constraint XDC files>
+    |-- DAQ_Link_7S/
+    |       `-- <BU DAQ link files>
+    |-- debugs/
+    |       |-- .gitignore
+    |       `-- <generated debugs>
+    |-- hdl/
+    |       `-- <main source files>
+    |-- ip/
+    |       `-- <generated IP files>
+    |-- ipbus/
+    |       `-- <IPbus files>
+    |-- scripts/
+    |       |-- build_project.tcl
+    |       `-- export_bitstream.tcl 
+    `-- README.txt

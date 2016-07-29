@@ -211,12 +211,22 @@ module wfd_top (
     );
 
 
+    // ======== TTC Channel B information signals ========
+    wire [5:0] ttc_chan_b_info;      
+    wire ttc_evt_reset;         
+    wire ttc_chan_b_valid;           
+    wire rst_trigger_num;
+    wire rst_trigger_timestamp;
+    wire [2:0] fill_type;
+    wire ttc_accept_pulse_triggers;
+
+
     // active-high reset signal to channels
-    assign c0_io[3] = rst_from_ipb | rst_trigger_num;
-    assign c1_io[3] = rst_from_ipb | rst_trigger_num;
-    assign c2_io[3] = rst_from_ipb | rst_trigger_num;
-    assign c3_io[3] = rst_from_ipb | rst_trigger_num;
-    assign c4_io[3] = rst_from_ipb | rst_trigger_num;
+    assign c0_io[3] = (rst_from_ipb | rst_trigger_num);
+    assign c1_io[3] = (rst_from_ipb | rst_trigger_num);
+    assign c2_io[3] = (rst_from_ipb | rst_trigger_num);
+    assign c3_io[3] = (rst_from_ipb | rst_trigger_num);
+    assign c4_io[3] = (rst_from_ipb | rst_trigger_num);
 
     // front panel clock: sel0 = 1'b1, sel1 = 1'b0
     assign ext_clk_sel0 = 1'b1;
@@ -295,9 +305,10 @@ module wfd_top (
 
 
 	// connect a module that will read from the I2C temperature/memory chip.
-	// Since the MAC and IP address are used with IP bus, run the block with 'clk125'
+	// since the MAC and IP address are used with IP bus, run the block with 'clk125'
 	wire [47:0] i2c_mac_adr; // MAC address read from I2C EEPROM
-	wire [31:0] i2c_ip_adr;  //  IP address read from I2C EEPROM
+	wire [31:0] i2c_ip_adr;  // IP  address read from I2C EEPROM
+    wire [11:0] i2c_temp;    // temperature reading from I2C EEPROM
     wire i2c_startup_done;
 
     wire bbus_scl_oen;
@@ -308,9 +319,10 @@ module wfd_top (
 		.clk(clk125),
         .reset(ip_addr_rst),                 // IPbus reset for reloading addresses from EEPROM
         // outputs
-        .i2c_startup_done(i2c_startup_done), // MAC andIP will be valid when this is asserted
+        .i2c_startup_done(i2c_startup_done), // MAC and IP will be valid when this is asserted
 		.i2c_mac_adr(i2c_mac_adr[47:0]),	 // MAC address read from I2C EEPROM
-		.i2c_ip_adr(i2c_ip_adr[31:0]),	     // IP address read from I2C EEPROM
+		.i2c_ip_adr(i2c_ip_adr[31:0]),	     // IP  address read from I2C EEPROM
+        .i2c_temp(i2c_temp[11:0]),           // temperature reading from I2C EEPROM
 		// I2C signals
 		.scl_pad_i(bbus_scl),				 // input from external pin
 		.scl_pad_o(bbus_scl_o),			     // output to tri-state driver
@@ -562,7 +574,7 @@ module wfd_top (
     wire [4:0] chan_en;
 
     // delay between receiving the trigger and passing it onto the channels                                                                                                                                                   
-    wire [3:0] trig_delay;
+    wire [31:0] trig_delay;
 
     // ======== wires for interface to channel serial link ========
     // User IPbus interface. Used by Charlie's Aurora block.
@@ -709,15 +721,6 @@ module wfd_top (
     wire daq_valid, daq_ready;
     wire daq_almost_full;
     wire [63:0] daq_data;
-
-    // ======== TTC Channel B information signals ========
-    wire [5:0] ttc_chan_b_info;      
-    wire ttc_evt_reset;         
-    wire ttc_chan_b_valid;           
-    wire rst_trigger_num;
-    wire rst_trigger_timestamp;
-    wire [2:0] fill_type;
-    wire ttc_accept_pulse_triggers;
     
     // ======== status register signals ========
     wire [31:0] status_reg0,  status_reg1,  status_reg2,  status_reg3,  status_reg4, 
@@ -855,7 +858,7 @@ module wfd_top (
         .chan_en_out(chan_en),                          // channel enable to command manager
         .prog_chan_out(prog_chan_start_from_ipbus),     // signal to start programming sequence for channel FPGAs
         .reprog_trigger_out(reprog_trigger_from_ipbus), // signal to issue IPROG command to re-program FPGA from flash
-        .trig_delay_out(trig_delay[3:0]),               // set trigger delay in the trigger manager
+        .trig_delay_out(trig_delay[31:0]),              // set trigger delay in the trigger manager
         .endianness_out(endianness_sel),                // select signal for the ADC data's endianness
         .trig_settings_out(trig_settings),              // select which trigger types are enabled
         .ttc_loopback_out(ttc_loopback),                // select whether TTC/TTS is in loopback mode
@@ -1189,6 +1192,7 @@ module wfd_top (
         .trig_settings(trig_settings),
         .trig_num(trig_num_clk125),
         .trig_timestamp(trig_timestamp_clk125),
+        .i2c_temp(i2c_temp),
 
         // status register outputs
         .status_reg0(status_reg0),
@@ -1412,6 +1416,8 @@ module wfd_top (
         .tts_state(tts_state)
     );
 
+    wire daq_link_reset;
+    assign daq_link_reset = ttc_evt_reset | rst_from_ipb;
 
     // DAQ Link to AMC13, version 0x10
     DAQ_LINK_Kintex #(
@@ -1429,7 +1435,7 @@ module wfd_top (
         .SYSCLK_IN(clk125),
 
         .TTCclk(clk125),
-        .BcntRes(rst_from_ipb),
+        .BcntRes(daq_link_reset),
         .trig({ 8{trigger_from_ttc} }),
 
         .TTSclk(clk125),
