@@ -8,7 +8,7 @@ module channel_acq_controller_async (
   input wire reset,
 
   // trigger configuration
-  input wire [4:0] chan_en,         // which channels should receive the trigger
+  (* mark_debug = "true" *) input wire [4:0] chan_en,         // which channels should receive the trigger
   input wire accept_pulse_triggers, // accept front panel triggers select
 
   // command manager interface
@@ -24,9 +24,9 @@ module channel_acq_controller_async (
   input wire pulse_trigger, // trigger signal
 
   // interface to Channel FPGAs
-  input wire [4:0] acq_dones,
-  output reg [9:0] acq_enable,
-  output reg [4:0] acq_trig,
+  (* mark_debug = "true" *) input wire [4:0] acq_dones,
+  (* mark_debug = "true" *) output reg [9:0] acq_enable,
+  (* mark_debug = "true" *) output reg [4:0] acq_trig,
 
   // interface to Acquisition Event FIFO
   input wire fifo_ready,
@@ -34,7 +34,7 @@ module channel_acq_controller_async (
   output reg [31:0] fifo_data,
 
   // status connections
-  input wire async_mode, // asynchronous mode select
+  (* mark_debug = "true" *) input wire async_mode, // asynchronous mode select
   output reg [3:0] state // state of finite state machine
 );
 
@@ -45,12 +45,14 @@ module channel_acq_controller_async (
   parameter READOUT        = 3;
   
 
-  reg [ 2:0] acq_trig_type; // latched trigger type
-  reg [23:0] acq_trig_num;  // latched trigger number
+  reg [ 2:0] acq_trig_type;     // latched trigger type
+  reg [23:0] acq_trig_num;      // latched trigger number
+  (* mark_debug = "true" *) reg [ 4:0] acq_dones_latched; // latched channel dones reported
 
   reg [ 3:0] nextstate;
   reg [ 2:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
+  reg [ 4:0] next_acq_dones_latched;
 
 
   // combinational always block
@@ -68,6 +70,8 @@ module channel_acq_controller_async (
       state[IDLE] : begin
         // asynchronous readout trigger received
         if (ttc_trigger & async_mode) begin
+          next_acq_dones_latched[4:0] = 5'd0;
+
           next_acq_trig_type[ 2:0] = ttc_trig_type[ 2:0]; // latch trigger type
           next_acq_trig_num [23:0] = ttc_trig_num [23:0]; // latch trigger number
 
@@ -76,7 +80,7 @@ module channel_acq_controller_async (
         // pass on front panel trigger to channels
         else if (accept_pulse_triggers & async_mode) begin
           acq_enable[9:0] = { 5{2'b11} };
-          acq_trig  [4:0] = pulse_trigger;
+          acq_trig  [4:0] = (pulse_trigger) ? chan_en[4:0] : 5'b0;
 
           nextstate[IDLE] = 1'b1;
         end
@@ -87,8 +91,11 @@ module channel_acq_controller_async (
       // end the acquisitions in channels, and
       // wait for channels to report back done
       state[WAIT] : begin
+        // update latched channel dones
+        next_acq_dones_latched[4:0] = acq_dones_latched[4:0] | acq_dones[4:0];
+
         // check if all channels report done
-        if (acq_dones[4:0] == chan_en[4:0]) begin
+        if (acq_dones_latched[4:0] == chan_en[4:0]) begin
           nextstate[STORE_ACQ_INFO] = 1'b1;
         end
         else begin
@@ -99,7 +106,7 @@ module channel_acq_controller_async (
       state[STORE_ACQ_INFO] : begin
         // FIFO accepted the data word
         if (fifo_ready) begin
-          nextstate[IDLE] = 1'b1;
+          nextstate[READOUT] = 1'b1;
         end
         // FIFO is not ready for data word
         else begin
@@ -127,14 +134,16 @@ module channel_acq_controller_async (
     if (reset) begin
       state <= 4'd1 << IDLE;
 
-      acq_trig_type[ 2:0] <=  3'd0;
-      acq_trig_num [23:0] <= 24'd0;
+      acq_trig_type    [ 2:0] <=  3'd0;
+      acq_trig_num     [23:0] <= 24'd0;
+      acq_dones_latched[ 4:0] <=  5'd0;
     end
     else begin
       state <= nextstate;
 
-      acq_trig_type[ 2:0] <= next_acq_trig_type[ 2:0];
-      acq_trig_num [23:0] <= next_acq_trig_num [23:0];
+      acq_trig_type    [ 2:0] <= next_acq_trig_type    [ 2:0];
+      acq_trig_num     [23:0] <= next_acq_trig_num     [23:0];
+      acq_dones_latched[ 4:0] <= next_acq_dones_latched[ 4:0];
     end
   end
   

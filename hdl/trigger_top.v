@@ -14,8 +14,9 @@ module trigger_top (
     input wire rst_trigger_timestamp, // from TTC Channel B
 
     // trigger interface
-    input wire trigger,                    // trigger signal
-    input wire accept_pulse_triggers,      // accept front panel triggers select
+    (* mark_debug = "true" *) input wire ttc_trigger,                // TTC trigger signal
+    input wire ext_trigger,                // front panel trigger signal
+    (* mark_debug = "true" *) input wire accept_pulse_triggers,      // accept front panel triggers select
     input wire [ 2:0] trig_type,           // trigger type (muon fill, laser, pedestal, async)
     input wire [ 7:0] trig_settings,       // trigger settings
     input wire [ 4:0] chan_en,             // enabled channels
@@ -23,13 +24,13 @@ module trigger_top (
     input wire [31:0] thres_ddr3_overflow, // DDR3 overflow threshold
 
     // channel interface
-    input  wire [4:0] chan_dones,
+    (* mark_debug = "true" *) input  wire [4:0] chan_dones,
     output wire [9:0] chan_enable,
     output wire [4:0] chan_trig,
 
     // command manager interface
     input  wire readout_ready,       // command manager is idle
-    input  wire readout_done,        // initiated readout has finished
+    (* mark_debug = "true" *) input  wire readout_done,        // initiated readout has finished
     input  wire [21:0] readout_size, // burst count of readout event
     output wire send_empty_event,    // request an empty event
     output wire initiate_readout,    // request for the channels to be read out
@@ -91,7 +92,7 @@ module trigger_top (
     wire [23:0] acq_trig_num;
 
     // signals between Pulse Trigger Receiver and Channel Acquisition Controllers
-    wire pulse_trigger;
+    (* mark_debug = "true" *) wire pulse_trigger;
 
     // signals to/from TTC Trigger FIFO
     wire s_trig_fifo_tready;
@@ -103,9 +104,9 @@ module trigger_top (
     wire [127:0] m_trig_fifo_tdata;
 
     // signals to/from Pulse Trigger FIFO
-    wire s_pulse_fifo_tready;
-    wire s_pulse_fifo_tvalid;
-    wire [127:0] s_pulse_fifo_tdata;
+    (* mark_debug = "true" *) wire s_pulse_fifo_tready;
+    (* mark_debug = "true" *) wire s_pulse_fifo_tvalid;
+    (* mark_debug = "true" *) wire [127:0] s_pulse_fifo_tdata;
 
     // signals to/from Acquisition Event FIFO
     wire s_acq_fifo_tready;
@@ -126,8 +127,17 @@ module trigger_top (
     // synchronizations
     // ----------------
 
+    /*
+    (* mark_debug = "true" *) wire [4:0] chan_dones_stretch;
+    signal_stretch reset_stretch0 ( .signal_in(chan_dones[0]), .clk(clk125), .n_extra_cycles(8'h08), .signal_out(chan_dones_stretch[0]) );
+    signal_stretch reset_stretch1 ( .signal_in(chan_dones[1]), .clk(clk125), .n_extra_cycles(8'h08), .signal_out(chan_dones_stretch[1]) );
+    signal_stretch reset_stretch2 ( .signal_in(chan_dones[2]), .clk(clk125), .n_extra_cycles(8'h08), .signal_out(chan_dones_stretch[2]) );
+    signal_stretch reset_stretch3 ( .signal_in(chan_dones[3]), .clk(clk125), .n_extra_cycles(8'h08), .signal_out(chan_dones_stretch[3]) );
+    signal_stretch reset_stretch4 ( .signal_in(chan_dones[4]), .clk(clk125), .n_extra_cycles(8'h08), .signal_out(chan_dones_stretch[4]) );
+    */
+
     // synchronize chan_dones
-    wire [4:0] chan_dones_clk40;
+    (* mark_debug = "true" *) wire [4:0] chan_dones_clk40;
     sync_2stage #(
         .WIDTH(5)
     ) chan_dones_sync (
@@ -137,7 +147,7 @@ module trigger_top (
     );
 
     // synchronize chan_en
-    wire [4:0] chan_en_clk40;
+    (* mark_debug = "true" *) wire [4:0] chan_en_clk40;
     sync_2stage #(
         .WIDTH(5)
     ) chan_en_sync (
@@ -147,7 +157,7 @@ module trigger_top (
     );
 
     // toggle synchronize readout_done
-    wire readout_done_clk40;
+    (* mark_debug = "true" *) wire readout_done_clk40;
     toggle_sync_2stage readout_done_sync (
         .clk_in(clk125),
         .clk_out(ttc_clk),
@@ -156,7 +166,7 @@ module trigger_top (
     );
 
     // synchronize readout_size
-    wire [21:0] readout_size_clk40;
+    (* mark_debug = "true" *) wire [21:0] readout_size_clk40;
     sync_2stage #(
         .WIDTH(22)
     ) readout_size_sync (
@@ -195,7 +205,7 @@ module trigger_top (
         .reset_trig_timestamp(rst_trigger_timestamp),
 
         // trigger interface
-        .trigger(trigger),                         // trigger signal
+        .trigger(ttc_trigger),                     // TTC trigger signal
         .trig_type(trig_type),                     // trigger type (muon fill, laser, pedestal)
         .trig_settings(trig_settings),             // trigger settings
         .thres_ddr3_overflow(thres_ddr3_overflow), // DDR3 overflow threshold
@@ -229,7 +239,7 @@ module trigger_top (
         .fifo_data(s_trig_fifo_tdata),
 
         // status connections
-        .async_mode(async_mode),         // asynchronous mode select
+        .async_mode(async_mode),          // asynchronous mode select
         .state(ttr_state),                // state of finite state machine
         .trig_num(trig_num),              // global trigger number
         .trig_timestamp(trig_timestamp),  // global trigger timestamp
@@ -252,7 +262,7 @@ module trigger_top (
         .reset_trig_timestamp(rst_trigger_timestamp),
 
         // trigger interface
-        .trigger(trigger),             // front panel trigger signal
+        .trigger(ext_trigger),         // front panel trigger signal
         .pulse_trigger(pulse_trigger), // channel trigger signal
 
         // interface to Pulse Trigger FIFO
@@ -323,7 +333,8 @@ module trigger_top (
         .pulse_trigger(pulse_trigger), // trigger signal
 
         // interface to Channel FPGAs
-        .acq_dones(chan_dones_clk40),
+        //.acq_dones(chan_dones_clk40),
+        .acq_dones(chan_dones),
         .acq_enable(chan_enable_async),
         .acq_trig(chan_trig_async),
 

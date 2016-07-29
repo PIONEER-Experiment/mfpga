@@ -81,7 +81,7 @@ module wfd_top (
     input  wire spi_miso,             // serial data from SPI flash memory
     output wire spi_mosi,             // serial data (commands) to SPI flash memory
     output wire spi_ss,               // SPI flash memory chip select
-    input  wire fp_sw_master          // front panel switch
+    (* mark_debug = "true" *) input  wire fp_sw_master          // front panel switch
 );
 
     // ======== clock signals ========
@@ -482,8 +482,9 @@ module wfd_top (
     // reprog_trigger_mux[0] for golden image
     // reprog_trigger_mux[1] for master image
     wire [1:0] reprog_trigger_mux; // combine IPbus and front panel switch
-    assign reprog_trigger_mux = fp_sw_master ? reprog_trigger_delayed : 2'b01;
-    
+    //assign reprog_trigger_mux = fp_sw_master ? reprog_trigger_delayed : 2'b01;
+    assign reprog_trigger_mux = reprog_trigger_delayed;
+
     reprog reprog (
         .clk(clk50),
         .reset(clk50_reset),
@@ -520,8 +521,8 @@ module wfd_top (
 
     // put other trigger signals into 40 MHz TTC clock domain
     wire ext_trig_stretch;
-    wire ext_trig_sync;
-    wire trigger_from_ipbus;
+    (* mark_debug = "true" *) wire ext_trig_sync;
+    (* mark_debug = "true" *) wire trigger_from_ipbus;
     wire trigger_from_ipbus_stretch;
     wire trigger_from_ipbus_sync;
 
@@ -725,12 +726,12 @@ module wfd_top (
                 status_reg15, status_reg16, status_reg17, status_reg18;
 
     // ======== finite state machine states ========
-    wire [ 3:0] ttr_state;
-    wire [ 3:0] ptr_state;
-    wire [ 3:0] cac_state;
-    wire [ 3:0] caca_state;
-    wire [ 6:0] tp_state;
-    wire [31:0] cm_state;
+    (* mark_debug = "true" *) wire [ 3:0] ttr_state;
+    (* mark_debug = "true" *) wire [ 3:0] ptr_state;
+    (* mark_debug = "true" *) wire [ 3:0] cac_state;
+    (* mark_debug = "true" *) wire [ 3:0] caca_state;
+    (* mark_debug = "true" *) wire [ 6:0] tp_state;
+    (* mark_debug = "true" *) wire [31:0] cm_state;
 
     // ======== trigger information signals ========
     wire [ 7:0] trig_settings;
@@ -1211,6 +1212,8 @@ module wfd_top (
         .status_reg18(status_reg18)
     );
 
+    wire fp_sw_master_n;
+    assign fp_sw_master_n = ~fp_sw_master;
 
     // trigger top module
     trigger_top trigger_top (
@@ -1227,9 +1230,14 @@ module wfd_top (
         .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
 
         // trigger interface
-        .trigger(trigger_from_ttc),                        // trigger signal
-        .accept_pulse_triggers(ttc_accept_pulse_triggers), // accept front panel triggers select
-        .trig_type(fill_type),                             // trigger type (muon fill, laser, pedestal)
+        .ttc_trigger(trigger_from_ttc),                    // TTC trigger signal
+        //.ttc_trigger(fp_sw_master_n),                    // TTC trigger signal
+        .ext_trigger(ext_trig_sync),                       // front panel trigger signal
+        //.ext_trigger(fp_sw_master_n),                      // front panel trigger signal
+        //.accept_pulse_triggers(ttc_accept_pulse_triggers), // accept front panel triggers select
+        .accept_pulse_triggers(1'b1), // accept front panel triggers select
+        //.trig_type(fill_type),                             // trigger type (muon fill, laser, pedestal)
+        .trig_type(3'b100),                             // trigger type (muon fill, laser, pedestal)
         .trig_settings(trig_settings),                     // trigger settings
         .chan_en(chan_en),                                 // enabled channels
         .trig_delay(trig_delay),                           // trigger delay
@@ -1269,7 +1277,8 @@ module wfd_top (
         .wfm_count_chan4(wfm_count_chan4), // waveform count set for Channel 4
 
         // status connections
-        .async_mode(async_mode_ttc_clk), // asynchronous mode select
+        //.async_mode(async_mode_ttc_clk), // asynchronous mode select
+        .async_mode(1'b1), // asynchronous mode select
         .ttr_state(ttr_state),           // TTC trigger receiver state
         .ptr_state(ptr_state),           // pulse trigger receiver state
         .cac_state(cac_state),           // channel acquisition controller state

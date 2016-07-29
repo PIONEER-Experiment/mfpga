@@ -12,17 +12,17 @@ module command_manager (
   input wire rst,
 
   // interface to TX channel FIFO (through AXI4-Stream TX Switch)
-  input wire chan_tx_fifo_ready,
-  output reg chan_tx_fifo_valid,
-  output reg chan_tx_fifo_last,
+  (* mark_debug = "true" *) input wire chan_tx_fifo_ready,
+  (* mark_debug = "true" *) output reg chan_tx_fifo_valid,
+  (* mark_debug = "true" *) output reg chan_tx_fifo_last,
   output reg [ 3:0] chan_tx_fifo_dest,
-  output reg [31:0] chan_tx_fifo_data,
+  (* mark_debug = "true" *) output reg [31:0] chan_tx_fifo_data,
 
   // interface to RX channel FIFO (through AXI4-Stream RX Switch)
-  input wire chan_rx_fifo_valid,
-  input wire chan_rx_fifo_last,
-  input wire [31:0] chan_rx_fifo_data,
-  output reg chan_rx_fifo_ready,
+  (* mark_debug = "true" *) input wire chan_rx_fifo_valid,
+  (* mark_debug = "true" *) input wire chan_rx_fifo_last,
+  (* mark_debug = "true" *) input wire [31:0] chan_rx_fifo_data,
+  (* mark_debug = "true" *) output reg chan_rx_fifo_ready,
 
   // interface to IPbus AXI output
   input wire ipbus_cmd_valid,
@@ -40,22 +40,22 @@ module command_manager (
   // interface to AMC13 DAQ Link
   input wire daq_ready,
   input wire daq_almost_full,
-  output reg daq_valid,
-  output reg daq_header,
-  output reg daq_trailer,
-  output reg [63:0] daq_data,
+  (* mark_debug = "true" *) output reg daq_valid,
+  (* mark_debug = "true" *) output reg daq_header,
+  (* mark_debug = "true" *) output reg daq_trailer,
+  (* mark_debug = "true" *) output reg [63:0] daq_data,
 
   // interface to trigger processor
   input wire send_empty_event,      // request to send an empty event
-  input wire initiate_readout,      // request for the channels to be read out
-  input wire [23:0] event_num,      // channel's trigger number
-  input wire [23:0] trig_num,       // global trigger number, starts at 1
-  input wire [ 2:0] trig_type,      // trigger type
-  input wire [43:0] trig_timestamp, // trigger timestamp, defined by when trigger is received by trigger receiver module
+  (* mark_debug = "true" *) input wire initiate_readout,      // request for the channels to be read out
+  (* mark_debug = "true" *) input wire [23:0] event_num,      // channel's trigger number
+  (* mark_debug = "true" *) input wire [23:0] trig_num,       // global trigger number, starts at 1
+  (* mark_debug = "true" *) input wire [ 2:0] trig_type,      // trigger type
+  (* mark_debug = "true" *) input wire [43:0] trig_timestamp, // trigger timestamp, defined by when trigger is received by trigger receiver module
   input wire [ 2:0] curr_trig_type, // currently set trigger type
   output wire readout_ready,        // ready to readout data, i.e., when in idle state
   output reg  readout_done,         // finished readout flag
-  output wire [21:0] readout_size,  // burst count of readout event
+  (* mark_debug = "true" *) output wire [21:0] readout_size,  // burst count of readout event
 
   // set burst count for each channel
   output wire [22:0] burst_count_chan0,
@@ -86,7 +86,7 @@ module command_manager (
   // error connections
   output reg [31:0] cs_mismatch_count, // number of checksum mismatches
   output reg error_data_corrupt,       // data corruption error
-  output reg error_trig_num,           // trigger number mismatch between channel and master
+  (* mark_debug = "true" *) output reg error_trig_num,           // trigger number mismatch between channel and master
   output reg error_trig_type,          // trigger type mismatch between channel and master
   output reg [ 4:0] chan_error_rc      // master received an error response code, one bit for each channel
 );
