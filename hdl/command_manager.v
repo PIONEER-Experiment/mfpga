@@ -588,8 +588,13 @@ module command_manager (
             // trigger numbers aren't synchronized; throw an error
             nextstate[ERROR_TRIG_NUM] = 1'b1;
           end
-          // check that trigger type from channel header and trigger logic match
-          else if (trig_type[1:0] != chan_rx_fifo_data[25:24]) begin
+          // check the sync/async mode types match
+          else if (trig_type[2] != chan_rx_fifo_data[26]) begin
+            // tsync/async mode types aren't synchronized; throw an error
+            nextstate[ERROR_TRIG_TYPE] = 1'b1;
+          end
+          // in synchronous mode, check that trigger type from channel header and trigger logic match
+          else if (~chan_rx_fifo_data[26] && (trig_type[1:0] != chan_rx_fifo_data[25:24])) begin
             // trigger types aren't synchronized; throw an error
             nextstate[ERROR_TRIG_TYPE] = 1'b1;
           end

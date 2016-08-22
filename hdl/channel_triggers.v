@@ -1,11 +1,10 @@
 // Simple module to fan out a single trigger line to all five channels
 
-
-module channel_triggers(
+module channel_triggers (
     input wire ipb_clk,
 	input wire trigger_in,
-	output reg[4:0] chan_trigger_out
-	);
+	output reg [4:0] chan_trigger_out
+);
 
 always @(posedge ipb_clk)
 begin
