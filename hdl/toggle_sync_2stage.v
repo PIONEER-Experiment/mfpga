@@ -2,10 +2,10 @@
 // for a 1-bit pulse
 
 module toggle_sync_2stage (
-    input wire clk_in,  // source clock
-    input wire clk_out, // destination clock
-    input wire in,      // input pulse
-    output wire out     // output pulse
+    input  wire clk_in,  // source clock
+    input  wire clk_out, // destination clock
+    input  wire in,      // input pulse
+    output wire out      // output pulse
 );
     
     reg toggle1 = 1'b0;

@@ -538,18 +538,30 @@ module wfd_top (
     wire trigger_from_ipbus_stretch;
     wire trigger_from_ipbus_sync;
 
-    signal_stretch ext_trig_stretch_module (
-        .signal_in(ext_trig),
-        .clk(clk125),
-        .n_extra_cycles(8'h04),
-        .signal_out(ext_trig_stretch)
-    );
+    // signal_stretch ext_trig_stretch_module (
+    //     .signal_in(ext_trig),
+    //     .clk(clk125),
+    //     .n_extra_cycles(8'h04),
+    //     .signal_out(ext_trig_stretch)
+    // );
+    //
+    // sync_2stage ext_trig_sync_module (
+    //     .clk(ttc_clk),
+    //     .in(ext_trig_stretch),
+    //     .out(ext_trig_sync)
+    // );
 
-    sync_2stage ext_trig_sync_module (
-        .clk(ttc_clk),
-        .in(ext_trig_stretch),
-        .out(ext_trig_sync)
-    );
+    // ----- TEMPORARY, FOR DEBUGGING -------
+    reg enable_reading_sync1, enable_reading_sync2, enable_reading_sync3;
+    reg enable_reading_pulse;
+    always @(posedge ttc_clk) begin
+        enable_reading_sync1 <= ext_trig;
+        enable_reading_sync2 <= enable_reading_sync1;
+        enable_reading_sync3 <= enable_reading_sync2;
+        // make single period pulse
+        enable_reading_pulse <= enable_reading_sync2 & !enable_reading_sync3;
+    end
+    // --------------------------------------
 
     signal_stretch trigger_from_ipbus_stretch_module (
         .signal_in(trigger_from_ipbus),
@@ -1233,19 +1245,26 @@ module wfd_top (
         .rst_trigger_num(rst_trigger_num),             // from TTC Channel B
         .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
 
+
         // trigger interface
         .ttc_trigger(trigger_from_ttc),                    // TTC trigger signal
         //.ttc_trigger(fp_sw_master_n),                    // TTC trigger signal
-        .ext_trigger(ext_trig_sync),                       // front panel trigger signal
-        //.ext_trigger(fp_sw_master_n),                      // front panel trigger signal
+
+        .ext_trigger(enable_reading_pulse),
+        //.ext_trigger(ext_trig_sync),                       // front panel trigger signal
+        //.ext_trigger(fp_sw_master_n),                    // front panel trigger signal
+
+        .accept_pulse_triggers(1'b1),                        // accept front panel triggers select
         //.accept_pulse_triggers(ttc_accept_pulse_triggers), // accept front panel triggers select
-        .accept_pulse_triggers(1'b1), // accept front panel triggers select
+
+        .trig_type(3'b100),                                  // trigger type (muon fill, laser, pedestal)
         //.trig_type(fill_type),                             // trigger type (muon fill, laser, pedestal)
-        .trig_type(3'b100),                             // trigger type (muon fill, laser, pedestal)
+
         .trig_settings(trig_settings),                     // trigger settings
         .chan_en(chan_en),                                 // enabled channels
         .trig_delay(trig_delay),                           // trigger delay
         .thres_ddr3_overflow(thres_ddr3_overflow),         // DDR3 overflow threshold
+
 
         // channel interface
         .chan_dones(acq_dones),

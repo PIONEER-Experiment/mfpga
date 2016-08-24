@@ -262,7 +262,7 @@ module trigger_top (
         .fifo_data(s_pulse_fifo_tdata),
 
         // command manager interface
-        .readout_done(readout_done), // for counter reset
+        .readout_done(readout_done_clk40), // for counter reset
 
         // status connections
         .state(ptr_state) // state of finite state machine
@@ -276,7 +276,7 @@ module trigger_top (
         .reset(reset40),
 
         // trigger configuration
-        .chan_en(chan_en),       // which channels should receive the trigger
+        .chan_en(chan_en_clk40), // which channels should receive the trigger
         .trig_delay(trig_delay), // delay between receiving trigger and passing it onto channels
 
         // interface from TTC trigger receiver
@@ -308,11 +308,11 @@ module trigger_top (
         .reset(reset40),
 
         // trigger configuration
-        .chan_en(chan_en),                             // which channels should receive the trigger
+        .chan_en(chan_en_clk40),                       // which channels should receive the trigger
         .accept_pulse_triggers(accept_pulse_triggers), // accept front panel triggers select
 
         // command manager interface
-        .readout_done(readout_done), // a readout has completed
+        .readout_done(readout_done_clk40), // a readout has completed
 
         // interface from TTC trigger receiver
         .ttc_trigger(acq_trigger),       // trigger signal
@@ -357,7 +357,7 @@ module trigger_top (
 
         // interface to command manager
         .readout_ready(readout_ready),       // command manager is idle
-        .readout_done(readout_done),         // initiated readout has finished
+        .readout_done(readout_done_clk40),         // initiated readout has finished
         .send_empty_event(send_empty_event), // request an empty event
         .initiate_readout(initiate_readout), // request for the channels to be read out
 
