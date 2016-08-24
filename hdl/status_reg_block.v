@@ -56,7 +56,7 @@ module status_reg_block (
   input wire ttc_ready,
 
   // FSM state
-  input wire [31:0] cm_state,
+  input wire [33:0] cm_state,
   input wire [ 3:0] ttr_state,
   input wire [ 3:0] ptr_state,
   input wire [ 3:0] cac_state,

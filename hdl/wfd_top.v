@@ -734,7 +734,7 @@ module wfd_top (
     (* mark_debug = "true" *) wire [ 3:0] cac_state;
     (* mark_debug = "true" *) wire [ 3:0] caca_state;
     (* mark_debug = "true" *) wire [ 6:0] tp_state;
-    (* mark_debug = "true" *) wire [31:0] cm_state;
+    (* mark_debug = "true" *) wire [33:0] cm_state;
 
     // ======== trigger information signals ========
     wire [ 7:0] trig_settings;
@@ -1381,7 +1381,7 @@ module wfd_top (
         .chan_en(chan_en),                       // input  [ 4:0], enabled channels from IPbus
         .endianness_sel(endianness_sel),         // input, from IPbus
         .thres_data_corrupt(thres_data_corrupt), // input  [31:0], from IPbus
-        .state(cm_state),                        // output [31:0]
+        .state(cm_state),                        // output [33:0]
 
         // error connections
         .cs_mismatch_count(cs_mismatch_count),     // number of checksum mismatches

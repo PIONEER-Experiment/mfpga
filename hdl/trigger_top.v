@@ -127,15 +127,6 @@ module trigger_top (
     // synchronizations
     // ----------------
 
-    /*
-    (* mark_debug = "true" *) wire [4:0] chan_dones_stretch;
-    signal_stretch reset_stretch0 ( .signal_in(chan_dones[0]), .clk(clk125), .n_extra_cycles(8'h08), .signal_out(chan_dones_stretch[0]) );
-    signal_stretch reset_stretch1 ( .signal_in(chan_dones[1]), .clk(clk125), .n_extra_cycles(8'h08), .signal_out(chan_dones_stretch[1]) );
-    signal_stretch reset_stretch2 ( .signal_in(chan_dones[2]), .clk(clk125), .n_extra_cycles(8'h08), .signal_out(chan_dones_stretch[2]) );
-    signal_stretch reset_stretch3 ( .signal_in(chan_dones[3]), .clk(clk125), .n_extra_cycles(8'h08), .signal_out(chan_dones_stretch[3]) );
-    signal_stretch reset_stretch4 ( .signal_in(chan_dones[4]), .clk(clk125), .n_extra_cycles(8'h08), .signal_out(chan_dones_stretch[4]) );
-    */
-
     // synchronize chan_dones
     (* mark_debug = "true" *) wire [4:0] chan_dones_clk40;
     sync_2stage #(
@@ -239,10 +230,10 @@ module trigger_top (
         .fifo_data(s_trig_fifo_tdata),
 
         // status connections
-        .async_mode(async_mode),          // asynchronous mode select
-        .state(ttr_state),                // state of finite state machine
-        .trig_num(trig_num),              // global trigger number
-        .trig_timestamp(trig_timestamp),  // global trigger timestamp
+        .async_mode(async_mode),         // asynchronous mode select
+        .state(ttr_state),               // state of finite state machine
+        .trig_num(trig_num),             // global trigger number
+        .trig_timestamp(trig_timestamp), // global trigger timestamp
 
         // error connections
         .ddr3_overflow_count(ddr3_overflow_count),     // number of triggers received that would overflow DDR3
@@ -333,8 +324,7 @@ module trigger_top (
         .pulse_trigger(pulse_trigger), // trigger signal
 
         // interface to Channel FPGAs
-        //.acq_dones(chan_dones_clk40),
-        .acq_dones(chan_dones),
+        .acq_dones(chan_dones_clk40),
         .acq_enable(chan_enable_async),
         .acq_trig(chan_trig_async),
 
@@ -383,7 +373,7 @@ module trigger_top (
     );
 
 
-    // TTC Trigger FIFO : 1024 depth, 512 almost full threshold, 16-byte data width
+    // TTC Trigger FIFO : 2048 depth, 1024 almost full threshold, 16-byte data width
     // holds the trigger timestamp, trigger number, acquired event number, and trigger type
     ttc_trigger_fifo ttc_trigger_fifo (
         // writing side
@@ -404,7 +394,7 @@ module trigger_top (
     );
 
 
-    // Pulse Trigger FIFO : 1024 depth, 512 almost full threshold, 16-byte data width
+    // Pulse Trigger FIFO : 2048 depth, 1024 almost full threshold, 16-byte data width
     // holds the trigger timestamp, trigger nuber, and trigger type from the front panel
     pulse_trigger_fifo pulse_trigger_fifo (
         // writing side
@@ -425,7 +415,7 @@ module trigger_top (
     );
 
 
-    // Acquisition Event FIFO : 1024 depth, 512 almost full threshold, 4-byte data width
+    // Acquisition Event FIFO : 2048 depth, 1024 almost full threshold, 4-byte data width
     // holds the trigger number and trigger type
     acq_event_fifo acq_event_fifo (
         // writing side
