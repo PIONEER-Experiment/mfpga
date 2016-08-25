@@ -65,7 +65,7 @@ module ttc_chanb_receiver (
     end
     // transfer information on asynchronous fill type
     else if (chan_b_valid && (chan_b_info[1] == 1'b0) && (chan_b_info[5:3] == 3'b100)) begin
-      next_fill_type[2:0]          <= 3'b100;
+      next_fill_type[2:0]          <= 3'b111;
       next_accept_pulse_triggers   <= accept_pulse_triggers;
       next_unknown_cmd_count[31:0] <= unknown_cmd_count[31:0];
     end

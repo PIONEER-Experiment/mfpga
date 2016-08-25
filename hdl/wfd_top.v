@@ -648,24 +648,28 @@ module wfd_top (
     assign c2_axi_stream_to_channel_tvalid = c_axi_stream_to_channel_tvalid[2];
     assign c3_axi_stream_to_channel_tvalid = c_axi_stream_to_channel_tvalid[3];
     assign c4_axi_stream_to_channel_tvalid = c_axi_stream_to_channel_tvalid[4];
+
     assign c0_axi_stream_to_channel_tlast = c_axi_stream_to_channel_tlast[0];
     assign c1_axi_stream_to_channel_tlast = c_axi_stream_to_channel_tlast[1];
     assign c2_axi_stream_to_channel_tlast = c_axi_stream_to_channel_tlast[2];
     assign c3_axi_stream_to_channel_tlast = c_axi_stream_to_channel_tlast[3];
     assign c4_axi_stream_to_channel_tlast = c_axi_stream_to_channel_tlast[4];
+
     assign c_axi_stream_to_channel_tready[0] = c0_axi_stream_to_channel_tready;
     assign c_axi_stream_to_channel_tready[1] = c1_axi_stream_to_channel_tready;
     assign c_axi_stream_to_channel_tready[2] = c2_axi_stream_to_channel_tready;
     assign c_axi_stream_to_channel_tready[3] = c3_axi_stream_to_channel_tready;
     assign c_axi_stream_to_channel_tready[4] = c4_axi_stream_to_channel_tready;
-    assign c0_axi_stream_to_channel_tdata = c_axi_stream_to_channel_tdata[31:0];
-    assign c1_axi_stream_to_channel_tdata = c_axi_stream_to_channel_tdata[63:32];
-    assign c2_axi_stream_to_channel_tdata = c_axi_stream_to_channel_tdata[95:64];
-    assign c3_axi_stream_to_channel_tdata = c_axi_stream_to_channel_tdata[127:96];
+
+    assign c0_axi_stream_to_channel_tdata = c_axi_stream_to_channel_tdata[ 31:  0];
+    assign c1_axi_stream_to_channel_tdata = c_axi_stream_to_channel_tdata[ 63: 32];
+    assign c2_axi_stream_to_channel_tdata = c_axi_stream_to_channel_tdata[ 95: 64];
+    assign c3_axi_stream_to_channel_tdata = c_axi_stream_to_channel_tdata[127: 96];
     assign c4_axi_stream_to_channel_tdata = c_axi_stream_to_channel_tdata[159:128];
-    assign c0_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[3:0];
-    assign c1_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[7:4];
-    assign c2_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[11:8];
+
+    assign c0_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[ 3: 0];
+    assign c1_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[ 7: 4];
+    assign c2_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[11: 8];
     assign c3_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[15:12];
     assign c4_axi_stream_to_channel_tdest = c_axi_stream_to_channel_tdest[19:16];
 
@@ -685,20 +689,23 @@ module wfd_top (
     assign c_axi_stream_to_cm_tvalid[2] = c2_axi_stream_to_cm_tvalid;
     assign c_axi_stream_to_cm_tvalid[3] = c3_axi_stream_to_cm_tvalid;
     assign c_axi_stream_to_cm_tvalid[4] = c4_axi_stream_to_cm_tvalid;
+
     assign c_axi_stream_to_cm_tlast[0] = c0_axi_stream_to_cm_tlast;
     assign c_axi_stream_to_cm_tlast[1] = c1_axi_stream_to_cm_tlast;
     assign c_axi_stream_to_cm_tlast[2] = c2_axi_stream_to_cm_tlast;
     assign c_axi_stream_to_cm_tlast[3] = c3_axi_stream_to_cm_tlast;
     assign c_axi_stream_to_cm_tlast[4] = c4_axi_stream_to_cm_tlast;
+
     assign c0_axi_stream_to_cm_tready = c_axi_stream_to_cm_tready[0];
     assign c1_axi_stream_to_cm_tready = c_axi_stream_to_cm_tready[1];
     assign c2_axi_stream_to_cm_tready = c_axi_stream_to_cm_tready[2];
     assign c3_axi_stream_to_cm_tready = c_axi_stream_to_cm_tready[3];
     assign c4_axi_stream_to_cm_tready = c_axi_stream_to_cm_tready[4];
-    assign c_axi_stream_to_cm_tdata[31:0]    = c0_axi_stream_to_cm_tdata;
-    assign c_axi_stream_to_cm_tdata[63:32]   = c1_axi_stream_to_cm_tdata;
-    assign c_axi_stream_to_cm_tdata[95:64]   = c2_axi_stream_to_cm_tdata;
-    assign c_axi_stream_to_cm_tdata[127:96]  = c3_axi_stream_to_cm_tdata;
+
+    assign c_axi_stream_to_cm_tdata[ 31:  0] = c0_axi_stream_to_cm_tdata;
+    assign c_axi_stream_to_cm_tdata[ 63: 32] = c1_axi_stream_to_cm_tdata;
+    assign c_axi_stream_to_cm_tdata[ 95: 64] = c2_axi_stream_to_cm_tdata;
+    assign c_axi_stream_to_cm_tdata[127: 96] = c3_axi_stream_to_cm_tdata;
     assign c_axi_stream_to_cm_tdata[159:128] = c4_axi_stream_to_cm_tdata;
 
     // connections from AXIS RX Switch to command manager
@@ -1228,9 +1235,6 @@ module wfd_top (
         .status_reg18(status_reg18)
     );
 
-    wire fp_sw_master_n;
-    assign fp_sw_master_n = ~fp_sw_master;
-
     // trigger top module
     trigger_top trigger_top (
         // clocks
@@ -1248,16 +1252,14 @@ module wfd_top (
 
         // trigger interface
         .ttc_trigger(trigger_from_ttc),                    // TTC trigger signal
-        //.ttc_trigger(fp_sw_master_n),                    // TTC trigger signal
 
         .ext_trigger(enable_reading_pulse),
         //.ext_trigger(ext_trig_sync),                       // front panel trigger signal
-        //.ext_trigger(fp_sw_master_n),                    // front panel trigger signal
 
         .accept_pulse_triggers(1'b1),                        // accept front panel triggers select
         //.accept_pulse_triggers(ttc_accept_pulse_triggers), // accept front panel triggers select
 
-        .trig_type(3'b100),                                  // trigger type (muon fill, laser, pedestal)
+        .trig_type(3'b111),                                  // trigger type (muon fill, laser, pedestal)
         //.trig_type(fill_type),                             // trigger type (muon fill, laser, pedestal)
 
         .trig_settings(trig_settings),                     // trigger settings

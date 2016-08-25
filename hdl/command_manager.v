@@ -92,15 +92,15 @@ module command_manager (
 );
 
   // idle state bit
-  parameter IDLE                  =  0;
+  parameter IDLE                  =  0; // 0x 0_0000_0001
   // configuration manager state bits
-  parameter SEND_IPBUS_CSN        =  1;
-  parameter READ_IPBUS_CMD        =  2;
-  parameter CHECK_LAST            =  3;
-  parameter SEND_IPBUS_CMD        =  4;
-  parameter READ_IPBUS_RSN        =  5;
-  parameter READ_IPBUS_RES        =  6;
-  parameter SEND_IPBUS_RES        =  7;
+  parameter SEND_IPBUS_CSN        =  1; // 0x 0_0000_0002
+  parameter READ_IPBUS_CMD        =  2; // 0x 0_0000_0004
+  parameter CHECK_LAST            =  3; // 0x 0_0000_0008
+  parameter SEND_IPBUS_CMD        =  4; // 0x 0_0000_0010
+  parameter READ_IPBUS_RSN        =  5; // 0x 0_0000_0020
+  parameter READ_IPBUS_RES        =  6; // 0x 0_0000_0040
+  parameter SEND_IPBUS_RES        =  7; // 0x 0_0000_0080
   // event builder state bits
   parameter CHECK_CHAN_EN         =  8; // 0x 0_0000_0100
   parameter SEND_CHAN_CSN         =  9; // 0x 0_0000_0200
@@ -126,9 +126,9 @@ module command_manager (
   parameter READY_AMC13_TRAILER   = 29; // 0x 0_2000_0000
   parameter SEND_AMC13_TRAILER    = 30; // 0x 0_4000_0000
   // error state bits
-  parameter ERROR_DATA_CORRUPTION = 31;
-  parameter ERROR_TRIG_NUM        = 32;
-  parameter ERROR_TRIG_TYPE       = 33;
+  parameter ERROR_DATA_CORRUPTION = 31; // 0x 0_8000_0000
+  parameter ERROR_TRIG_NUM        = 32; // 0x 1_0000_0000
+  parameter ERROR_TRIG_TYPE       = 33; // 0x 2_0000_0000
 
 
   // channel header regs sorted the way they will be used: first chan_trig_num, then fill_type, ...
@@ -163,11 +163,11 @@ module command_manager (
   // other internal regs
   (* mark_debug = "true" *) reg empty_event;                         // flag to indicate if this should be an empty event
   reg [22:0] chan_burst_count_type1 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 1
-  reg [22:0] chan_burst_count_type2 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 1
-  reg [22:0] chan_burst_count_type3 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 1
+  reg [22:0] chan_burst_count_type2 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 2
+  reg [22:0] chan_burst_count_type3 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 3
   reg [11:0] chan_wfm_count_type1   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 1
-  reg [11:0] chan_wfm_count_type2   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 1
-  reg [11:0] chan_wfm_count_type3   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 1
+  reg [11:0] chan_wfm_count_type2   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 2
+  reg [11:0] chan_wfm_count_type3   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 3
   reg [31:0] ipbus_chan_cmd;               // buffer for issued channel command
   reg [31:0] ipbus_chan_reg;               // buffer for issued channel register
   
@@ -246,7 +246,7 @@ module command_manager (
   assign event_size = (fill_type[2:0] == 3'b001) ? event_size_type1[19:0] :
                       (fill_type[2:0] == 3'b010) ? event_size_type2[19:0] :
                       (fill_type[2:0] == 3'b011) ? event_size_type3[19:0] : 
-                      (fill_type[2:0] == 3'b100) ? event_size_type4[19:0] :
+                      (fill_type[2:0] == 3'b111) ? event_size_type4[19:0] :
                                                    20'hfffff;
 
   // number of 128-bit bursts read out of DDR3

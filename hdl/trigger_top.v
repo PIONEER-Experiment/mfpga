@@ -357,7 +357,7 @@ module trigger_top (
 
         // interface to command manager
         .readout_ready(readout_ready),       // command manager is idle
-        .readout_done(readout_done_clk40),         // initiated readout has finished
+        .readout_done(readout_done_clk40),   // initiated readout has finished
         .send_empty_event(send_empty_event), // request an empty event
         .initiate_readout(initiate_readout), // request for the channels to be read out
 

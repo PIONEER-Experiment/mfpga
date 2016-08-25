@@ -84,11 +84,11 @@ module trigger_processor (
       state[IDLE] : begin
         // watch for unread triggers
         if (trig_fifo_valid) begin
-          next_ttc_empty_event          = trig_fifo_data[95];
+          next_ttc_empty_event          = trig_fifo_data[   95];
           next_ttc_trig_type     [ 2:0] = trig_fifo_data[94:92];
           next_ttc_event_num     [23:0] = trig_fifo_data[91:68];
           next_ttc_trig_num      [23:0] = trig_fifo_data[67:44];
-          next_ttc_trig_timestamp[43:0] = trig_fifo_data[43:0];
+          next_ttc_trig_timestamp[43:0] = trig_fifo_data[43: 0];
 
           trig_fifo_ready = 1'b1; // acknowledge the data word
           nextstate[READ_TRIG_FIFO] = 1'b1;
@@ -108,7 +108,7 @@ module trigger_processor (
         // watch for unread acquisitions
         else if (acq_fifo_valid & ~ttc_empty_event) begin
           next_acq_trig_type[ 2:0] = acq_fifo_data[26:24];
-          next_acq_trig_num [23:0] = acq_fifo_data[23:0];
+          next_acq_trig_num [23:0] = acq_fifo_data[23: 0];
 
           acq_fifo_ready = 1'b1; // acknowledge the data word
           nextstate[READ_ACQ_FIFO] = 1'b1;
