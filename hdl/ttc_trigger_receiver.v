@@ -247,7 +247,7 @@ module ttc_trigger_receiver (
     end
 
     // reset stored bursts
-    if (reset) begin
+    if (reset | async_mode) begin
       stored_bursts_chan0[21:0] <= 22'd0;
       stored_bursts_chan1[21:0] <= 22'd0;
       stored_bursts_chan2[21:0] <= 22'd0;

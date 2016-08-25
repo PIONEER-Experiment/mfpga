@@ -1016,7 +1016,7 @@ module command_manager (
       // grab pulse information from Pulse Trigger FIFO
       state[READ_PULSE_FIFO] : begin
         if (pulse_fifo_tvalid) begin
-          next_pulse_timestamp[43:0]  = pulse_fifo_tdata[43:0];
+          next_pulse_timestamp[43:0]  = pulse_fifo_tdata[43: 0];
           next_pulse_trig_num[23:0]   = pulse_fifo_tdata[67:44];
           next_pulse_trig_length[1:0] = pulse_fifo_tdata[69:68];
 
@@ -1037,7 +1037,7 @@ module command_manager (
       // grab pulse information from Pulse Redout FIFO
       state[READ_READOUT_FIFO] : begin
         if (m_readout_fifo_tvalid) begin
-          next_pulse_timestamp[43:0]  = m_readout_fifo_tdata[43:0];
+          next_pulse_timestamp[43:0]  = m_readout_fifo_tdata[43: 0];
           next_pulse_trig_num[23:0]   = m_readout_fifo_tdata[67:44];
           next_pulse_trig_length[1:0] = m_readout_fifo_tdata[69:68];
           

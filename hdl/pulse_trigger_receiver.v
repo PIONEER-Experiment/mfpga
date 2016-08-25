@@ -88,6 +88,8 @@ module pulse_trigger_receiver (
       state[WAIT] : begin
         // wait period is over
         if (wait_cnt[3:0] == 4'd3) begin
+          next_wait_cnt[3:0] = wait_cnt[3:0] + 1;
+          
           // determine trigger length
           if (~trigger) begin
             next_trig_length[1:0] = 2'b10; // laser only
@@ -99,12 +101,17 @@ module pulse_trigger_receiver (
             next_trig_length[1:0] = 2'b11; // laser + Am
           end
 
+          // wait one more cycle to ready trigger information
+          nextstate[WAIT] = 1'b1;
+        end
+        else if (wait_cnt[3:0] == 4'd4) begin
+          // trigger information is ready for storage
           nextstate[STORE_TRIG_INFO] = 1'b1;
         end
         // keep waiting
         else begin
-          next_trig_history[wait_cnt] = trigger; // store trigger level
           next_wait_cnt[3:0] = wait_cnt[3:0] + 1;
+          next_trig_history[wait_cnt] = trigger; // store trigger level
 
           nextstate[WAIT] = 1'b1;
         end
