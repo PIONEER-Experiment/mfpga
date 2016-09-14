@@ -42,7 +42,7 @@ foreach file [glob $origin_dir/ip/*/*.xci] {
 }
 
 foreach file [glob $origin_dir/hdl/*.txt] {
-  set file [file normalize $file]
+  	set file [file normalize $file]
 	set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 	set_property "file_type" "Verilog Header" $file_obj
 }
