@@ -149,9 +149,9 @@ module command_manager (
   reg sent_amc13_header;        // flag to indicate that the AMC13 header has been sent
 
   // regs for channel checksum verification
-  reg update_mcs_lsb;           // flag to update the 64 LSBs of the 128-bit master checksum (mcs)
-  reg [127:0] master_checksum;  // checksum calculated in this module
-  reg [127:0] channel_checksum; // checksum from received channel data
+  (* mark_debug = "true" *) reg update_mcs_lsb;           // flag to update the 64 LSBs of the 128-bit master checksum (mcs)
+  (* mark_debug = "true" *) reg [127:0] master_checksum;  // checksum calculated in this module
+  (* mark_debug = "true" *) reg [127:0] channel_checksum; // checksum from received channel data
 
   // regs for asynchronous mode
   reg [22:0] pulse_data_size;   // burst count covering channel headers, waveform headers, waveforms, and checksums
@@ -638,12 +638,12 @@ module command_manager (
             nextstate[ERROR_TRIG_TYPE] = 1'b1;
           end
           // in synchronous mode, check that trigger type from channel header and trigger logic match
-          else if (~chan_rx_fifo_data[26] && (trig_type[1:0] != chan_rx_fifo_data[25:24])) begin
+          else if (~chan_rx_fifo_data[26] & (trig_type[1:0] != chan_rx_fifo_data[25:24])) begin
             // trigger types aren't synchronized; throw an error
             nextstate[ERROR_TRIG_TYPE] = 1'b1;
           end
           else begin
-            next_chan_trig_num[23:0] = chan_rx_fifo_data[23:0];
+            next_chan_trig_num[23:0] = chan_rx_fifo_data[23: 0];
             next_fill_type[2:0]      = chan_rx_fifo_data[26:24];
 
             // synchronous mode
@@ -837,6 +837,16 @@ module command_manager (
               next_daq_data[63:0] = {32'h00000000, pulse_timestamp[20:0], chan_rx_fifo_data[10:0]};
             end
           end
+          // this is the channel checksum [31:0]
+          else if ((data_count[31:0] == 1) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
+            // keep channel checksum format as it is
+            next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+          end
+          // this is the channel checksum [95:64]
+          else if ((data_count[31:0] == 3) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
+            // keep channel checksum format as it is
+            next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+          end
           // this is an ADC data word
           else begin
             // big-endian data format, can be switched in next state
@@ -907,8 +917,8 @@ module command_manager (
             // keep channel checksum format as it is
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
-          // this is the channel checksum [127:64]
-          else if ((data_count[31:0] == 1) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
+          // this is the channel checksum [127:96]
+          else if ((data_count[31:0] == 3) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
             // keep channel checksum format as it is
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
@@ -963,8 +973,25 @@ module command_manager (
           end
           // this is the waveform header [127:96]
           else if ((data_count[31:0] == 3) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
-            // continue converting waveform gap from # ADC-clock ticks to # samples
-            next_daq_data[63:0] = {chan_rx_fifo_data[31:1], daq_data[32:0]};
+            // synchronous mode
+            if (~fill_type[2]) begin
+              // continue converting waveform gap from # ADC-clock ticks to # samples
+              next_daq_data[63:0] = {chan_rx_fifo_data[31:1], daq_data[32:0]};
+            end
+            // asynchronous mode
+            else begin
+              next_daq_data[63:0] = {chan_rx_fifo_data[31:30], chan_rx_fifo_data[6:2], pulse_trig_length[1:0], pulse_timestamp[43:21], daq_data[31:0]};
+            end
+          end
+          // this is the channel checksum [63:32]
+          else if ((data_count[31:0] == 1) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
+            // keep channel checksum format as it is
+            next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+          end
+          // this is the channel checksum [127:96]
+          else if ((data_count[31:0] == 3) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
+            // keep channel checksum format as it is
+            next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
           end
           // this is an ADC data word
           else begin

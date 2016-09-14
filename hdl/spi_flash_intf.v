@@ -2,7 +2,7 @@
 
 // IPbus interface to flash memory
 // 
-// Our flash memory chip: Micron model N25Q256A
+// Written for flash memory chip: Micron N25Q256A
 // 
 // WBUF = block RAM to hold commands & data to be sent to flash
 //        write to this buffer using IPbus address FLASH.WBUF
@@ -20,7 +20,7 @@
 //
 // prog_channels.v can also take over the interface to read the channel bitstream
 
-module spi_flash_intf(
+module spi_flash_intf (
 	input clk,
     input ipb_clk,
 	input reset,
@@ -46,7 +46,7 @@ module spi_flash_intf(
 );
 
 
-assign spi_clk = !clk;
+assign spi_clk = ~clk;
 
 reg [8:0] flash_wr_nBytes;
 reg [8:0] flash_rd_nBytes;
@@ -65,15 +65,15 @@ wire [13:0] rbuf_wr_addr;
 wire rbuf_data_in;
 
 wire rbuf_rd_en;
-wire [6:0] rbuf_rd_addr;
+wire [6: 0] rbuf_rd_addr;
 wire [31:0] rbuf_data_out;
 
 
-// =========================================================================
-// bring IPbus signals into the 50 MHz clk domain 
-// =========================================================================
+// ================================================
+// bring IPbus signals into the 50 MHz clock domain 
+// ================================================
 
-sync_2stage flash_cmd_sync(
+sync_2stage flash_cmd_sync (
     .clk(clk),
     .in(ipb_flash_cmd_strobe),
     .out(flash_cmd_strobe)
@@ -81,8 +81,7 @@ sync_2stage flash_cmd_sync(
 
 reg [8:0] flash_wr_nBytes_sync;
 reg [8:0] flash_rd_nBytes_sync;
-always @ (posedge clk)
-begin
+always @(posedge clk) begin
     flash_wr_nBytes_sync <= ipb_flash_wr_nBytes;
     flash_wr_nBytes <= flash_wr_nBytes_sync;
     flash_rd_nBytes_sync <= ipb_flash_rd_nBytes;
@@ -90,29 +89,29 @@ begin
 end
 
 
-// =========================================================================
+// ===============================================================
 // bring prog_channels signals into the IPbus 125 MHz clock domain
-// =========================================================================
+// ===============================================================
 
 wire prog_chan_in_progress_125;
 wire pc_wbuf_wr_en_125;
 
-sync_2stage prog_chan_sync(
+sync_2stage prog_chan_sync (
     .clk(ipb_clk),
     .in(prog_chan_in_progress),
     .out(prog_chan_in_progress_125)
 );
 
-sync_2stage pc_wbur_wr_en_sync(
+sync_2stage pc_wbur_wr_en_sync (
     .clk(ipb_clk),
     .in(pc_wbuf_wr_en),
     .out(pc_wbuf_wr_en_125)
 );
 
 
-// =========================================================================
+// ========================================
 // determine control of WBUF and RBUF ports
-// =========================================================================
+// ========================================
 
 // only IPbus communicates with the read port of RBUF
 assign rbuf_rd_en = ipb_rbuf_rd_en;
@@ -120,37 +119,33 @@ assign rbuf_rd_addr = ipb_rbuf_rd_addr;
 assign ipb_rbuf_data_out = rbuf_data_out;
 
 // select whether IPbus or prog_channels controls the write port of WBUF
-always @ (posedge ipb_clk)
-begin
-    if (prog_chan_in_progress_125)
-        begin
-            wbuf_wr_en <= pc_wbuf_wr_en_125;
-            wbuf_wr_addr <= pc_wbuf_wr_addr;
-            wbuf_data_in <= pc_wbuf_data_in;
-        end
-    else
-        begin
-            wbuf_wr_en <= ipb_wbuf_wr_en;
-            wbuf_wr_addr <= ipb_wbuf_wr_addr;
-            wbuf_data_in <= ipb_wbuf_data_in;
-        end
+always @(posedge ipb_clk) begin
+    if (prog_chan_in_progress_125) begin
+        wbuf_wr_en <= pc_wbuf_wr_en_125;
+        wbuf_wr_addr <= pc_wbuf_wr_addr;
+        wbuf_data_in <= pc_wbuf_data_in;
+    end
+    else begin
+        wbuf_wr_en <= ipb_wbuf_wr_en;
+        wbuf_wr_addr <= ipb_wbuf_wr_addr;
+        wbuf_data_in <= ipb_wbuf_data_in;
+    end
 end
 
 
-// =========================================================================
+// ====================================================
 // counter for addresses on flash side of WBUF and RBUF
-// =========================================================================
+// ====================================================
 
 reg [11:0] bit_cnt = 12'b0;
 wire bit_cnt_reset;
 
 wire [11:0] bit_cnt_wr_max;
 wire [11:0] bit_cnt_rd_max;
-assign bit_cnt_wr_max[11:0] = {flash_wr_nBytes[8:0],3'b000} - 1'b1;
-assign bit_cnt_rd_max[11:0] = {flash_rd_nBytes[8:0],3'b000} - 1'b1;
+assign bit_cnt_wr_max[11:0] = {flash_wr_nBytes[8:0], 3'b000} - 1'b1;
+assign bit_cnt_rd_max[11:0] = {flash_rd_nBytes[8:0], 3'b000} - 1'b1;
 
-always @ (posedge clk)
-begin
+always @(posedge clk) begin
     if (bit_cnt_reset)
         bit_cnt[11:0] <= 12'b0;
     else
@@ -158,9 +153,9 @@ begin
 end
 
 
-// =========================================================================
+// =========================
 // channel bitstream counter
-// =========================================================================
+// =========================
 
 reg [24:0] chan_bs_bit_cnt = 25'b0;
 wire chan_bs_bit_cnt_reset;
@@ -169,8 +164,7 @@ wire chan_bs_bit_cnt_reset;
 //     so counter needs to go from 0 to 24,090,591 = 0x16F97DF
 wire [24:0] chan_bs_bit_cnt_max = 25'h16F97DF;
 
-always @ (posedge clk)
-begin
+always @(posedge clk) begin
     if (chan_bs_bit_cnt_reset)
         chan_bs_bit_cnt[24:0] <= 12'b0;
     else
@@ -178,23 +172,23 @@ begin
 end
 
 
-// =========================================================================
+// ==========================================
 // state machine for communicating with flash
-// =========================================================================
+// ==========================================
 
 // declare symbolic name for each state
 // simplified one-hot encoding (each constant is an index into an array of bits)
 parameter [3:0]
-    IDLE                = 4'd0,
-    START_CMD           = 4'd1,
-    SEND_CMD            = 4'd2,
-    FINISH_CMD          = 4'd3,
-    RECEIVE_RSP         = 4'd4,
-    START_CHAN_BS_CMD   = 4'd5,
-    SEND_CHAN_BS_CMD    = 4'd6,
-    FINISH_CHAN_BS_CMD  = 4'd7,
-    READ_CHAN_BS        = 4'd8,
-    CHAN_BS_DONE        = 4'd9;
+    IDLE               = 4'd0,
+    START_CMD          = 4'd1,
+    SEND_CMD           = 4'd2,
+    FINISH_CMD         = 4'd3,
+    RECEIVE_RSP        = 4'd4,
+    START_CHAN_BS_CMD  = 4'd5,
+    SEND_CHAN_BS_CMD   = 4'd6,
+    FINISH_CHAN_BS_CMD = 4'd7,
+    READ_CHAN_BS       = 4'd8,
+    CHAN_BS_DONE       = 4'd9;
 
 
 // declare current state and next state variables
@@ -202,21 +196,19 @@ reg [9:0] CS;
 reg [9:0] NS;
 
 // sequential always block for state transitions (use non-blocking [<=] assignments)
-always @ (posedge clk)
-begin
-    if (reset)
-        begin
-            CS <= 5'b0;            // set all state bits to 0
-            CS[IDLE] <= 1'b1;      // enter IDLE state
-        end
+always @(posedge clk) begin
+    if (reset) begin
+        CS <= 5'b0;       // set all state bits to 0
+        CS[IDLE] <= 1'b1; // enter IDLE state
+    end
     else
-        CS <= NS;                  // go to the next state
+        CS <= NS;         // go to the next state
 end
 
 // combinational always block to determine next state (use blocking [=] assignments)
-always @*
-begin
+always @* begin
     NS = 12'b0; // one bit will be set to 1 by case statement
+
     case (1'b1)
 
         CS[IDLE] : begin
@@ -287,11 +279,11 @@ end
 // assign outputs based on states
 
 // bit_cnt_reset is high when the bit counter does not need to increment
-assign bit_cnt_reset = (CS[IDLE]                == 1'b1)  || 
-                       (CS[FINISH_CMD]          == 1'b1)  || 
-                       (CS[FINISH_CHAN_BS_CMD]  == 1'b1)  || 
-                       (CS[READ_CHAN_BS]        == 1'b1)  || 
-                       (CS[CHAN_BS_DONE]        == 1'b1);
+assign bit_cnt_reset = (CS[IDLE]               == 1'b1)  || 
+                       (CS[FINISH_CMD]         == 1'b1)  || 
+                       (CS[FINISH_CHAN_BS_CMD] == 1'b1)  || 
+                       (CS[READ_CHAN_BS]       == 1'b1)  || 
+                       (CS[CHAN_BS_DONE]       == 1'b1);
 
 // chan_bs_bit_cnt_reset is high whenever the bitstream is not being read
 assign chan_bs_bit_cnt_reset = !(CS[READ_CHAN_BS] == 1'b1);
@@ -315,9 +307,9 @@ assign spi_ss = (CS[IDLE]              == 1'b1)  ||
 assign end_bitstream = (CS[CHAN_BS_DONE] == 1'b1);
 
 
-// =========================================================================
+// ====================
 // dual port block RAMs
-// =========================================================================
+// ====================
 
 // WBUF: for writing to flash
 //      32-bit port = input from IPbus
@@ -347,9 +339,8 @@ end
 RAMB18E1 #(
     .RAM_MODE("SDP"),
     .READ_WIDTH_A(1),
-    .WRITE_WIDTH_B(36) // 32 data bits, 4 (unused) parity bits
-)
-wbuf (
+    .WRITE_WIDTH_B(36)              // 32 data bits, 4 (unused) parity bits
+) wbuf (
     .CLKARDCLK(clk),                // 1-bit input: Read clk (port A)
     .CLKBWRCLK(ipb_clk),            // 1-bit input: Write clk (port B)
 
@@ -376,10 +367,9 @@ wbuf (
 
 RAMB18E1 #(
     .RAM_MODE("SDP"),
-    .READ_WIDTH_A(36),  // 32 data bits, 4 (unused) parity bits
+    .READ_WIDTH_A(36),              // 32 data bits, 4 (unused) parity bits
     .WRITE_WIDTH_B(1)
-)
-rbuf (
+) rbuf (
     .CLKARDCLK(ipb_clk),            // 1-bit input: Read clk (port A)
     .CLKBWRCLK(clk),                // 1-bit input: Write clk (port B)
 

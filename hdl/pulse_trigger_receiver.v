@@ -12,19 +12,19 @@ module pulse_trigger_receiver (
   input wire reset_trig_timestamp,
 
   // trigger interface
-  input wire trigger,       // front panel trigger signal
-  output reg pulse_trigger, // channel trigger signal
+  (* mark_debug = "true" *) input wire trigger,       // front panel trigger signal
+  (* mark_debug = "true" *) output reg pulse_trigger, // channel trigger signal
 
   // interface to Pulse Trigger FIFO
-  input wire fifo_ready,
-  output reg fifo_valid,
-  output reg [127:0] fifo_data,
+  (* mark_debug = "true" *) input wire fifo_ready,
+  (* mark_debug = "true" *) output reg fifo_valid,
+  (* mark_debug = "true" *) output reg [127:0] fifo_data,
 
   // command manager interface
   input wire readout_done, // a readout has completed
 
   // status connections
-  output reg [3:0] state // state of finite state machine
+  (* mark_debug = "true" *) output reg [3:0] state // state of finite state machine
 );
 
   // state bits, with one-hot encoding
@@ -34,12 +34,12 @@ module pulse_trigger_receiver (
   parameter STORE_TRIG_INFO = 3;
 
 
-  reg [23:0] trig_num;           // global trigger number
-  reg [43:0] trig_timestamp;     // global trigger timestamp
-  reg [ 3:0] trig_history;       // record of past trigger levels
-  reg [ 3:0] wait_cnt;           // wait state count
-  reg [ 1:0] trig_length;        // short or long trigger type
-  reg [43:0] trig_timestamp_cnt; // clock cycle count
+  (* mark_debug = "true" *) reg [23:0] trig_num;           // global trigger number
+  (* mark_debug = "true" *) reg [43:0] trig_timestamp;     // global trigger timestamp
+  (* mark_debug = "true" *) reg [ 3:0] trig_history;       // record of past trigger levels
+  (* mark_debug = "true" *) reg [ 3:0] wait_cnt;           // wait state count
+  (* mark_debug = "true" *) reg [ 1:0] trig_length;        // short or long trigger type
+  (* mark_debug = "true" *) reg [43:0] trig_timestamp_cnt; // clock cycle count
 
   reg [ 3:0] nextstate;
   reg [ 3:0] next_trig_history;
