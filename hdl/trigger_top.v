@@ -31,9 +31,10 @@ module trigger_top (
     // command manager interface
     input  wire readout_ready,       // command manager is idle
     (* mark_debug = "true" *) input  wire readout_done,        // initiated readout has finished
-    input  wire [21:0] readout_size, // burst count of readout event
+    input  wire [22:0] readout_size, // burst count of readout event
     output wire send_empty_event,    // request an empty event
     output wire initiate_readout,    // request for the channels to be read out
+    (* mark_debug = "true" *) output wire [23:0] pulse_trig_num, // pulse trigger number
 
     input  wire m_pulse_fifo_tready,
     output wire m_pulse_fifo_tvalid,
@@ -123,6 +124,13 @@ module trigger_top (
     wire m_acq_fifo_tvalid;
     wire [31:0] m_acq_fifo_tdata;
 
+    // error signals
+    wire [31:0] ddr3_overflow_count_ttr;
+    wire [31:0] ddr3_overflow_count_ptr;
+
+    wire ddr3_overflow_warning_ttr;
+    wire ddr3_overflow_warning_ptr;
+
     // ----------------
     // synchronizations
     // ----------------
@@ -157,9 +165,9 @@ module trigger_top (
     );
 
     // synchronize readout_size
-    (* mark_debug = "true" *) wire [21:0] readout_size_clk40;
+    (* mark_debug = "true" *) wire [22:0] readout_size_clk40;
     sync_2stage #(
-        .WIDTH(22)
+        .WIDTH(23)
     ) readout_size_sync (
         .clk(ttc_clk),
         .in(readout_size),
@@ -181,6 +189,10 @@ module trigger_top (
     assign s_acq_fifo_tvalid      = (async_mode) ? s_acq_fifo_tvalid_async      : s_acq_fifo_tvalid_sync;
     assign s_acq_fifo_tdata[31:0] = (async_mode) ? s_acq_fifo_tdata_async[31:0] : s_acq_fifo_tdata_sync[31:0];
 
+    // error signals
+    assign ddr3_overflow_count[31:0] = (async_mode) ? ddr3_overflow_count_ptr[31:0] : ddr3_overflow_count_ttr[31:0];
+    assign ddr3_overflow_warning     = (async_mode) ? ddr3_overflow_warning_ptr     : ddr3_overflow_warning_ttr;
+    
     // ----------------
     // module instances
     // ----------------
@@ -196,11 +208,11 @@ module trigger_top (
         .reset_trig_timestamp(rst_trigger_timestamp),
 
         // trigger interface
-        .trigger(ttc_trigger),                     // TTC trigger signal
-        .trig_type(trig_type),                     // trigger type (muon fill, laser, pedestal)
-        .trig_settings(trig_settings),             // trigger settings
-        .thres_ddr3_overflow(thres_ddr3_overflow), // DDR3 overflow threshold
-        .chan_en(chan_en_clk40),                   // enabled channels
+        .trigger(ttc_trigger),                           // TTC trigger signal
+        .trig_type(trig_type),                           // trigger type (muon fill, laser, pedestal)
+        .trig_settings(trig_settings),                   // trigger settings
+        .thres_ddr3_overflow(thres_ddr3_overflow[22:0]), // DDR3 overflow threshold
+        .chan_en(chan_en_clk40),                         // enabled channels
 
         // command manager interface
         .readout_done(readout_done_clk40), // a readout has completed
@@ -236,9 +248,9 @@ module trigger_top (
         .trig_timestamp(trig_timestamp), // global trigger timestamp
 
         // error connections
-        .ddr3_overflow_count(ddr3_overflow_count),     // number of triggers received that would overflow DDR3
-        .ddr3_overflow_warning(ddr3_overflow_warning), // DDR3 overflow warning
-        .error_trig_rate(error_trig_rate)              // trigger rate error
+        .ddr3_overflow_count(ddr3_overflow_count_ttr),     // number of triggers received that would overflow DDR3
+        .ddr3_overflow_warning(ddr3_overflow_warning_ttr), // DDR3 overflow warning
+        .error_trig_rate(error_trig_rate)                  // trigger rate error
     );
 
 
@@ -253,8 +265,11 @@ module trigger_top (
         .reset_trig_timestamp(rst_trigger_timestamp),
 
         // trigger interface
-        .trigger(ext_trigger),         // front panel trigger signal
-        .pulse_trigger(pulse_trigger), // channel trigger signal
+        .trigger(ext_trigger),                           // front panel trigger signal
+        .thres_ddr3_overflow(thres_ddr3_overflow[22:0]), // DDR3 overflow threshold
+        .chan_en(chan_en_clk40),                         // enabled channels
+        .pulse_trigger(pulse_trigger),                   // channel trigger signal
+        .trig_num(pulse_trig_num),                       // pulse trigger number
 
         // interface to Pulse Trigger FIFO
         .fifo_ready(s_pulse_fifo_tready),
@@ -264,8 +279,19 @@ module trigger_top (
         // command manager interface
         .readout_done(readout_done_clk40), // for counter reset
 
+        // set burst count for each channel
+        .burst_count_chan0(burst_count_chan0), // burst count set for Channel 0
+        .burst_count_chan1(burst_count_chan1), // burst count set for Channel 1
+        .burst_count_chan2(burst_count_chan2), // burst count set for Channel 2
+        .burst_count_chan3(burst_count_chan3), // burst count set for Channel 3
+        .burst_count_chan4(burst_count_chan4), // burst count set for Channel 4
+
         // status connections
-        .state(ptr_state) // state of finite state machine
+        .state(ptr_state), // state of finite state machine
+
+        // error connections
+        .ddr3_overflow_count(ddr3_overflow_count_ptr),    // number of triggers received that would overflow DDR3
+        .ddr3_overflow_warning(ddr3_overflow_warning_ptr) // DDR3 overflow warning
     );
 
     

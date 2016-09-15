@@ -103,8 +103,8 @@ module wfd_top (
     // ======== operation mode signals ========
     wire async_mode_from_ipbus; // asynchronous mode select
     wire async_mode_stretch;
-    wire async_mode_clk50;
     wire async_mode_ttc_clk;
+    wire async_mode_clk125;
 
     // ======== startup reset signals ========
     wire master_init_rst1_clk50, master_init_rst1_clk125;
@@ -212,9 +212,9 @@ module wfd_top (
 
 
     // ======== TTC Channel B information signals ========
-    wire [5:0] ttc_chan_b_info;      
-    wire ttc_evt_reset;         
-    wire ttc_chan_b_valid;           
+    wire [5:0] ttc_chan_b_info;
+    wire ttc_evt_reset;
+    wire ttc_chan_b_valid;
     wire rst_trigger_num;
     wire rst_trigger_timestamp;
     wire [2:0] fill_type;
@@ -237,7 +237,7 @@ module wfd_top (
     assign daq_clk_sel = 1'b0;
     assign daq_clk_en  = 1'b1;
 
-    OBUFDS ttc_tx_buf(.I(ttc_rx), .O(ttc_txp), .OB(ttc_txn)); 
+    OBUFDS ttc_tx_buf (.I(ttc_rx), .O(ttc_txp), .OB(ttc_txn)); 
 
     // Generate clocks from the 50 MHz input clock
     // Most of the design is run from the 125 MHz clock (Don't confuse it with the 125 MHz GTREFCLK)
@@ -513,16 +513,16 @@ module wfd_top (
         .signal_out(async_mode_stretch)
     );
 
-    sync_2stage async_mode_clk50_module (
-        .clk(clk50),
-        .in(async_mode_stretch),
-        .out(async_mode_clk50)
-    );
-
     sync_2stage async_mode_ttc_clk_module (
         .clk(ttc_clk),
         .in(async_mode_stretch),
         .out(async_mode_ttc_clk)
+    );
+
+    sync_2stage async_mode_clk125_module (
+        .clk(clk125),
+        .in(async_mode_stretch),
+        .out(async_mode_clk125)
     );
 
 
@@ -728,7 +728,7 @@ module wfd_top (
     ////////////////////////////////////////////////////////
     // trigger top and command manager interface connections
     wire readout_ready, readout_done;
-    wire [21:0] readout_size;
+    wire [22:0] readout_size;
     wire send_empty_event;
     wire initiate_readout;
 
@@ -763,6 +763,7 @@ module wfd_top (
     wire [43:0] ttc_trig_timestamp;
     wire [23:0] trig_num;
     wire [43:0] trig_timestamp;
+    wire [23:0] pulse_trig_num;
 
     // ======== FIFO signals ========
     wire trig_fifo_full;
@@ -873,7 +874,6 @@ module wfd_top (
         // control signals
         .trigger_out(trigger_from_ipbus),               // IPbus trigger
         .async_mode_out(async_mode_from_ipbus),         // asynchronous mode select
-        .chan_done_out(),                               // channel done to trigger manager
         .chan_en_out(chan_en),                          // channel enable to command manager
         .prog_chan_out(prog_chan_start_from_ipbus),     // signal to start programming sequence for channel FPGAs
         .reprog_trigger_out(reprog_trigger_from_ipbus), // signal to issue IPROG command to re-program FPGA from flash
@@ -1168,6 +1168,7 @@ module wfd_top (
 
         // status inputs
         .prog_chan_done(prog_chan_done),
+        .async_mode(async_mode_clk125),
         .thres_data_corrupt(thres_data_corrupt),
         .thres_unknown_ttc(thres_unknown_ttc),
         .thres_ddr3_overflow(thres_ddr3_overflow),
@@ -1249,6 +1250,7 @@ module wfd_top (
         .rst_trigger_num(rst_trigger_num),             // from TTC Channel B
         .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
 
+        // ----------------------------
 
         // trigger interface
         .ttc_trigger(trigger_from_ttc),                    // TTC trigger signal
@@ -1267,6 +1269,7 @@ module wfd_top (
         .trig_delay(trig_delay),                           // trigger delay
         .thres_ddr3_overflow(thres_ddr3_overflow),         // DDR3 overflow threshold
 
+        // ----------------------------
 
         // channel interface
         .chan_dones(acq_dones),
@@ -1279,6 +1282,7 @@ module wfd_top (
         .readout_size(readout_size),         // burst count of readout event
         .send_empty_event(send_empty_event), // request an empty event
         .initiate_readout(initiate_readout), // request for the channels to be read out
+        .pulse_trig_num(pulse_trig_num),     // asynchronous pulse trigger number
 
         .m_pulse_fifo_tready(pulse_fifo_tready), // input
         .m_pulse_fifo_tvalid(pulse_fifo_tvalid), // output
@@ -1302,8 +1306,7 @@ module wfd_top (
         .wfm_count_chan4(wfm_count_chan4), // waveform count set for Channel 4
 
         // status connections
-        //.async_mode(async_mode_ttc_clk), // asynchronous mode select
-        .async_mode(1'b1), // asynchronous mode select
+        .async_mode(async_mode_ttc_clk), // asynchronous mode select
         .ttr_state(ttr_state),           // TTC trigger receiver state
         .ptr_state(ptr_state),           // pulse trigger receiver state
         .cac_state(cac_state),           // channel acquisition controller state
@@ -1375,7 +1378,8 @@ module wfd_top (
         .trig_num(ttc_trig_num),             // global trigger number, starts at 1
         .trig_type(ttc_trig_type),           // trigger type
         .trig_timestamp(ttc_trig_timestamp), // trigger timestamp, defined by when trigger is received by trigger receiver module
-        .curr_trig_type(fill_type),          // currently set trigger type
+        .curr_trig_type(3'b111), // temporary hack for testing purposes
+        //.curr_trig_type(fill_type_clk125),   // currently set trigger type
         .readout_ready(readout_ready),       // ready to readout data, i.e., when in idle state
         .readout_done(readout_done),         // finished readout flag
         .readout_size(readout_size),         // burst count of readout event
@@ -1391,6 +1395,8 @@ module wfd_top (
         .wfm_count_chan2(wfm_count_chan2), // waveform count set for Channel 2
         .wfm_count_chan3(wfm_count_chan3), // waveform count set for Channel 3
         .wfm_count_chan4(wfm_count_chan4), // waveform count set for Channel 4
+
+        .total_fp_triggers(pulse_trig_num), // asynchronous front panel trigger number
 
         // interface to pulse trigger FIFO (thru trigger top module)
         .pulse_fifo_tvalid(pulse_fifo_tvalid), // input

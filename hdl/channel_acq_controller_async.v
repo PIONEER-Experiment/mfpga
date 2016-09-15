@@ -80,7 +80,7 @@ module channel_acq_controller_async (
         // pass on front panel trigger to channels
         else if (accept_pulse_triggers & async_mode) begin
           acq_enable[9:0] = { 5{2'b11} };
-          acq_trig  [4:0] = (pulse_trigger) ? chan_en[4:0] : 5'b0;
+          acq_trig  [4:0] = (pulse_trigger) ? chan_en[4:0] : 5'b00000;
 
           nextstate[IDLE] = 1'b1;
         end

@@ -12,8 +12,11 @@ module pulse_trigger_receiver (
   input wire reset_trig_timestamp,
 
   // trigger interface
-  (* mark_debug = "true" *) input wire trigger,       // front panel trigger signal
-  (* mark_debug = "true" *) output reg pulse_trigger, // channel trigger signal
+  (* mark_debug = "true" *) input wire trigger,                    // front panel trigger signal
+  (* mark_debug = "true" *) input wire [22:0] thres_ddr3_overflow, // DDR3 overflow threshold
+  (* mark_debug = "true" *) input wire [ 4:0] chan_en,             // enabled channels
+  (* mark_debug = "true" *) output reg pulse_trigger,              // channel trigger signal
+  (* mark_debug = "true" *) output reg [23:0] trig_num,            // global trigger number
 
   // interface to Pulse Trigger FIFO
   (* mark_debug = "true" *) input wire fifo_ready,
@@ -23,8 +26,19 @@ module pulse_trigger_receiver (
   // command manager interface
   input wire readout_done, // a readout has completed
 
+  // set burst count for each channel
+  input wire [22:0] burst_count_chan0,
+  input wire [22:0] burst_count_chan1,
+  input wire [22:0] burst_count_chan2,
+  input wire [22:0] burst_count_chan3,
+  input wire [22:0] burst_count_chan4,
+
   // status connections
-  (* mark_debug = "true" *) output reg [3:0] state // state of finite state machine
+  (* mark_debug = "true" *) output reg [3:0] state, // state of finite state machine
+
+  // error connections
+  (* mark_debug = "true" *) output reg [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
+  (* mark_debug = "true" *) output wire ddr3_overflow_warning      // DDR3 overflow warning, combined for all channels
 );
 
   // state bits, with one-hot encoding
@@ -34,12 +48,33 @@ module pulse_trigger_receiver (
   parameter STORE_TRIG_INFO = 3;
 
 
-  (* mark_debug = "true" *) reg [23:0] trig_num;           // global trigger number
   (* mark_debug = "true" *) reg [43:0] trig_timestamp;     // global trigger timestamp
   (* mark_debug = "true" *) reg [ 3:0] trig_history;       // record of past trigger levels
   (* mark_debug = "true" *) reg [ 3:0] wait_cnt;           // wait state count
   (* mark_debug = "true" *) reg [ 1:0] trig_length;        // short or long trigger type
   (* mark_debug = "true" *) reg [43:0] trig_timestamp_cnt; // clock cycle count
+
+  // number of bursts yet to be read out of DDR3
+  (* mark_debug = "true" *) reg [22:0] stored_bursts_chan0;
+  (* mark_debug = "true" *) reg [22:0] stored_bursts_chan1;
+  (* mark_debug = "true" *) reg [22:0] stored_bursts_chan2;
+  (* mark_debug = "true" *) reg [22:0] stored_bursts_chan3;
+  (* mark_debug = "true" *) reg [22:0] stored_bursts_chan4;
+
+  // mux overflow warnings for all channels
+  assign ddr3_overflow_warning = (stored_bursts_chan0[22:0] > thres_ddr3_overflow[22:0]) |
+                                 (stored_bursts_chan1[22:0] > thres_ddr3_overflow[22:0]) |
+                                 (stored_bursts_chan2[22:0] > thres_ddr3_overflow[22:0]) |
+                                 (stored_bursts_chan3[22:0] > thres_ddr3_overflow[22:0]) |
+                                 (stored_bursts_chan4[22:0] > thres_ddr3_overflow[22:0]);
+
+  // DDR3 is full in a channel
+  (* mark_debug = "true" *) wire ddr3_full;
+  assign ddr3_full = ((8388608 - stored_bursts_chan0[22:0]) < chan_en[0]*(burst_count_chan0[22:0] + 1)) |
+                     ((8388608 - stored_bursts_chan1[22:0]) < chan_en[1]*(burst_count_chan1[22:0] + 1)) |
+                     ((8388608 - stored_bursts_chan2[22:0]) < chan_en[2]*(burst_count_chan2[22:0] + 1)) |
+                     ((8388608 - stored_bursts_chan3[22:0]) < chan_en[3]*(burst_count_chan3[22:0] + 1)) |
+                     ((8388608 - stored_bursts_chan4[22:0]) < chan_en[4]*(burst_count_chan4[22:0] + 1));
 
   reg [ 3:0] nextstate;
   reg [ 3:0] next_trig_history;
@@ -47,6 +82,7 @@ module pulse_trigger_receiver (
   reg [ 1:0] next_trig_length;
   reg [23:0] next_trig_num;
   reg [43:0] next_trig_timestamp;
+  reg [31:0] next_ddr3_overflow_count;
 
 
   // combinational always block
@@ -59,18 +95,29 @@ module pulse_trigger_receiver (
     next_trig_num      [23:0] = trig_num      [23:0];
     next_trig_timestamp[43:0] = trig_timestamp[43:0];
 
+    next_ddr3_overflow_count[31:0] = ddr3_overflow_count[31:0];
+
     pulse_trigger = 1'b0; // default
 
     case (1'b1) // synopsys parallel_case full_case
       // idle state
       state[IDLE] : begin
         if (trigger) begin
-          next_trig_num      [23:0] = trig_num[23:0] + 1;       // increment trigger counter, starts at zero
-          next_trig_timestamp[43:0] = trig_timestamp_cnt[43:0]; // latch trigger timestamp counter
-          next_trig_history  [   0] = trigger;                  // start recording trigger level history
-          next_wait_cnt      [ 3:0] = wait_cnt[3:0] + 1;
+          // this trigger would overwrite valid data in DDR3, ignore this trigger
+          if (ddr3_full) begin
+            next_ddr3_overflow_count[31:0] = ddr3_overflow_count[31:0] + 1; // increment overflow error counter
 
-          nextstate[SEND_TRIGGER] = 1'b1;
+            nextstate[IDLE] = 1'b1;
+          end
+          // pass along the trigger to channels
+          else begin
+            next_trig_num      [23:0] = trig_num[23:0] + 1;       // increment trigger counter, starts at zero
+            next_trig_timestamp[43:0] = trig_timestamp_cnt[43:0]; // latch trigger timestamp counter
+            next_trig_history  [   0] = trigger;                  // start recording trigger level history
+            next_wait_cnt      [ 3:0] = wait_cnt[3:0] + 1;
+
+            nextstate[SEND_TRIGGER] = 1'b1;
+          end
         end
         else begin
           nextstate[IDLE] = 1'b1;
@@ -143,6 +190,8 @@ module pulse_trigger_receiver (
       trig_history[3:0] <= 3'd0;
       wait_cnt    [3:0] <= 3'd0;
       trig_length [1:0] <= 2'd0;
+
+      ddr3_overflow_count[31:0] <= 32'd0;
     end
     else begin
       state <= nextstate;
@@ -150,6 +199,8 @@ module pulse_trigger_receiver (
       trig_history[3:0] <= next_trig_history[3:0];
       wait_cnt    [3:0] <= next_wait_cnt    [3:0];
       trig_length [1:0] <= next_trig_length [1:0];
+
+      ddr3_overflow_count[31:0] <= next_ddr3_overflow_count[31:0];
     end
 
     // reset trigger number
@@ -168,6 +219,22 @@ module pulse_trigger_receiver (
     else begin
       trig_timestamp    [43:0] <= next_trig_timestamp[43:0];
       trig_timestamp_cnt[43:0] <= trig_timestamp_cnt [43:0] + 1;
+    end
+
+    // reset stored bursts
+    if (reset | readout_done) begin
+      stored_bursts_chan0[22:0] <= 23'd0;
+      stored_bursts_chan1[22:0] <= 23'd0;
+      stored_bursts_chan2[22:0] <= 23'd0;
+      stored_bursts_chan3[22:0] <= 23'd0;
+      stored_bursts_chan4[22:0] <= 23'd0;
+    end
+    else if (pulse_trigger) begin
+      stored_bursts_chan0[22:0] <= stored_bursts_chan0[22:0] + chan_en[0]*(burst_count_chan0[22:0] + 1);
+      stored_bursts_chan1[22:0] <= stored_bursts_chan1[22:0] + chan_en[1]*(burst_count_chan1[22:0] + 1);
+      stored_bursts_chan2[22:0] <= stored_bursts_chan2[22:0] + chan_en[2]*(burst_count_chan2[22:0] + 1);
+      stored_bursts_chan3[22:0] <= stored_bursts_chan3[22:0] + chan_en[3]*(burst_count_chan3[22:0] + 1);
+      stored_bursts_chan4[22:0] <= stored_bursts_chan4[22:0] + chan_en[4]*(burst_count_chan4[22:0] + 1);
     end
   end
   

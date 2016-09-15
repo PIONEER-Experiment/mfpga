@@ -13,12 +13,12 @@ module ttc_trigger_receiver (
   input wire trigger,                    // TTC trigger signal
   input wire [ 2:0] trig_type,           // trigger type (muon fill, laser, pedestal, async)
   input wire [ 7:0] trig_settings,       // trigger settings
-  input wire [31:0] thres_ddr3_overflow, // DDR3 overflow threshold
+  input wire [22:0] thres_ddr3_overflow, // DDR3 overflow threshold
   input wire [ 4:0] chan_en,             // enabled channels
 
   // command manager interface
   input wire readout_done,        // a readout has completed
-  input wire [21:0] readout_size, // burst count of readout event
+  input wire [22:0] readout_size, // burst count of readout event
 
   // set burst count for each channel
   input wire [22:0] burst_count_chan0,
@@ -69,11 +69,11 @@ module ttc_trigger_receiver (
   reg [23:0] acq_event_cnt;      // channel's trigger number, starts at 1
 
   // burst count of initiated acquisitions
-  wire [21:0] acq_size_chan0;
-  wire [21:0] acq_size_chan1;
-  wire [21:0] acq_size_chan2;
-  wire [21:0] acq_size_chan3;
-  wire [21:0] acq_size_chan4;
+  wire [22:0] acq_size_chan0;
+  wire [22:0] acq_size_chan1;
+  wire [22:0] acq_size_chan2;
+  wire [22:0] acq_size_chan3;
+  wire [22:0] acq_size_chan4;
 
   assign acq_size_chan0 = (burst_count_chan0[22:0] + 1)*wfm_count_chan0[11:0] + 2;
   assign acq_size_chan1 = (burst_count_chan1[22:0] + 1)*wfm_count_chan1[11:0] + 2;
@@ -82,18 +82,26 @@ module ttc_trigger_receiver (
   assign acq_size_chan4 = (burst_count_chan4[22:0] + 1)*wfm_count_chan4[11:0] + 2;
 
   // number of bursts yet to be read out of DDR3
-  reg [21:0] stored_bursts_chan0;
-  reg [21:0] stored_bursts_chan1;
-  reg [21:0] stored_bursts_chan2;
-  reg [21:0] stored_bursts_chan3;
-  reg [21:0] stored_bursts_chan4;
+  reg [22:0] stored_bursts_chan0;
+  reg [22:0] stored_bursts_chan1;
+  reg [22:0] stored_bursts_chan2;
+  reg [22:0] stored_bursts_chan3;
+  reg [22:0] stored_bursts_chan4;
 
   // mux overflow warnings for all channels
-  assign ddr3_overflow_warning = (stored_bursts_chan0[21:0] > thres_ddr3_overflow[31:0]) |
-                                 (stored_bursts_chan1[21:0] > thres_ddr3_overflow[31:0]) |
-                                 (stored_bursts_chan2[21:0] > thres_ddr3_overflow[31:0]) |
-                                 (stored_bursts_chan3[21:0] > thres_ddr3_overflow[31:0]) |
-                                 (stored_bursts_chan4[21:0] > thres_ddr3_overflow[31:0]);
+  assign ddr3_overflow_warning = (stored_bursts_chan0[22:0] > thres_ddr3_overflow[22:0]) |
+                                 (stored_bursts_chan1[22:0] > thres_ddr3_overflow[22:0]) |
+                                 (stored_bursts_chan2[22:0] > thres_ddr3_overflow[22:0]) |
+                                 (stored_bursts_chan3[22:0] > thres_ddr3_overflow[22:0]) |
+                                 (stored_bursts_chan4[22:0] > thres_ddr3_overflow[22:0]);
+
+  // DDR3 is full in a channel
+  wire ddr3_full;
+  assign ddr3_full = ((8388608 - stored_bursts_chan0[22:0]) < chan_en[0]*acq_size_chan0[22:0]) |
+                     ((8388608 - stored_bursts_chan1[22:0]) < chan_en[1]*acq_size_chan1[22:0]) |
+                     ((8388608 - stored_bursts_chan2[22:0]) < chan_en[2]*acq_size_chan2[22:0]) |
+                     ((8388608 - stored_bursts_chan3[22:0]) < chan_en[3]*acq_size_chan3[22:0]) |
+                     ((8388608 - stored_bursts_chan4[22:0]) < chan_en[4]*acq_size_chan4[22:0]);
 
   reg [ 3:0] nextstate;
   reg [ 2:0] next_acq_trig_type;
@@ -104,25 +112,18 @@ module ttc_trigger_receiver (
   reg [23:0] next_acq_event_cnt;
   reg [31:0] next_ddr3_overflow_count;
 
-  // DDR3 is full in a channel
-  wire ddr3_full;
-  assign ddr3_full = ((8388608 - stored_bursts_chan0[21:0]) < chan_en[0]*acq_size_chan0[21:0]) |
-                     ((8388608 - stored_bursts_chan1[21:0]) < chan_en[1]*acq_size_chan1[21:0]) |
-                     ((8388608 - stored_bursts_chan2[21:0]) < chan_en[2]*acq_size_chan2[21:0]) |
-                     ((8388608 - stored_bursts_chan3[21:0]) < chan_en[3]*acq_size_chan3[21:0]) |
-                     ((8388608 - stored_bursts_chan4[21:0]) < chan_en[4]*acq_size_chan4[21:0]);
-
 
   // combinational always block
   always @* begin
     nextstate = 4'd0;
 
-    next_acq_trig_type      [ 2:0] = acq_trig_type[ 2:0];
-    next_acq_trig_num       [23:0] = acq_trig_num [23:0];
-    next_empty_event               = empty_event;
-    next_trig_num           [23:0] = trig_num      [23:0];
-    next_trig_timestamp     [43:0] = trig_timestamp[43:0];
-    next_acq_event_cnt      [23:0] = acq_event_cnt [23:0];
+    next_acq_trig_type [ 2:0] = acq_trig_type [ 2:0];
+    next_acq_trig_num  [23:0] = acq_trig_num  [23:0];
+    next_empty_event          = empty_event;
+    next_trig_num      [23:0] = trig_num      [23:0];
+    next_trig_timestamp[43:0] = trig_timestamp[43:0];
+    next_acq_event_cnt [23:0] = acq_event_cnt [23:0];
+
     next_ddr3_overflow_count[31:0] = ddr3_overflow_count[31:0];
 
     acq_trigger = 1'b0; // default
@@ -248,25 +249,25 @@ module ttc_trigger_receiver (
 
     // reset stored bursts
     if (reset | async_mode) begin
-      stored_bursts_chan0[21:0] <= 22'd0;
-      stored_bursts_chan1[21:0] <= 22'd0;
-      stored_bursts_chan2[21:0] <= 22'd0;
-      stored_bursts_chan3[21:0] <= 22'd0;
-      stored_bursts_chan4[21:0] <= 22'd0;
+      stored_bursts_chan0[22:0] <= 23'd0;
+      stored_bursts_chan1[22:0] <= 23'd0;
+      stored_bursts_chan2[22:0] <= 23'd0;
+      stored_bursts_chan3[22:0] <= 23'd0;
+      stored_bursts_chan4[22:0] <= 23'd0;
     end
     else if (acq_trigger & ~readout_done) begin
-      stored_bursts_chan0[21:0] <= stored_bursts_chan0[21:0] + chan_en[0]*acq_size_chan0[21:0];
-      stored_bursts_chan1[21:0] <= stored_bursts_chan1[21:0] + chan_en[1]*acq_size_chan1[21:0];
-      stored_bursts_chan2[21:0] <= stored_bursts_chan2[21:0] + chan_en[2]*acq_size_chan2[21:0];
-      stored_bursts_chan3[21:0] <= stored_bursts_chan3[21:0] + chan_en[3]*acq_size_chan3[21:0];
-      stored_bursts_chan4[21:0] <= stored_bursts_chan4[21:0] + chan_en[4]*acq_size_chan4[21:0];
+      stored_bursts_chan0[22:0] <= stored_bursts_chan0[22:0] + chan_en[0]*acq_size_chan0[22:0];
+      stored_bursts_chan1[22:0] <= stored_bursts_chan1[22:0] + chan_en[1]*acq_size_chan1[22:0];
+      stored_bursts_chan2[22:0] <= stored_bursts_chan2[22:0] + chan_en[2]*acq_size_chan2[22:0];
+      stored_bursts_chan3[22:0] <= stored_bursts_chan3[22:0] + chan_en[3]*acq_size_chan3[22:0];
+      stored_bursts_chan4[22:0] <= stored_bursts_chan4[22:0] + chan_en[4]*acq_size_chan4[22:0];
     end
     else if (readout_done & ~acq_trigger) begin
-      stored_bursts_chan0[21:0] <= stored_bursts_chan0[21:0] - chan_en[0]*readout_size[21:0];
-      stored_bursts_chan1[21:0] <= stored_bursts_chan1[21:0] - chan_en[1]*readout_size[21:0];
-      stored_bursts_chan2[21:0] <= stored_bursts_chan2[21:0] - chan_en[2]*readout_size[21:0];
-      stored_bursts_chan3[21:0] <= stored_bursts_chan3[21:0] - chan_en[3]*readout_size[21:0];
-      stored_bursts_chan4[21:0] <= stored_bursts_chan4[21:0] - chan_en[4]*readout_size[21:0];
+      stored_bursts_chan0[22:0] <= stored_bursts_chan0[22:0] - chan_en[0]*readout_size[22:0];
+      stored_bursts_chan1[22:0] <= stored_bursts_chan1[22:0] - chan_en[1]*readout_size[22:0];
+      stored_bursts_chan2[22:0] <= stored_bursts_chan2[22:0] - chan_en[2]*readout_size[22:0];
+      stored_bursts_chan3[22:0] <= stored_bursts_chan3[22:0] - chan_en[3]*readout_size[22:0];
+      stored_bursts_chan4[22:0] <= stored_bursts_chan4[22:0] - chan_en[4]*readout_size[22:0];
     end
   end
   

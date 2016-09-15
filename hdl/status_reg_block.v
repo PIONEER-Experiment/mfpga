@@ -9,6 +9,7 @@ module status_reg_block (
 
   // FPGA status
   input wire prog_chan_done,
+  input wire async_mode,
 
   // soft error thresholds
   input wire [31:0] thres_data_corrupt,  // data corruption
@@ -77,11 +78,11 @@ module status_reg_block (
   input wire [23:0] trig_num,
   input wire [43:0] trig_timestamp,
 
-  // other
+  // temperature
   input wire [11:0] i2c_temp,
 
   // outputs to IPbus
-  output wire [31:0] status_reg0,  // firmware version
+  output wire [31:0] status_reg0,  // FPGA status and firmware version
   output wire [31:0] status_reg1,  // error / warning
   output wire [31:0] status_reg2,  // external clock and temperature
   output wire [31:0] status_reg3,  // clock synthesizer
@@ -102,11 +103,11 @@ module status_reg_block (
   output wire [31:0] status_reg18  // DDR3 overflow count
 );
 
-// Register 00: Firmware version
-assign status_reg0 = {1'b0, prog_chan_done, 6'd0, `MAJOR_REV, `MINOR_REV, `PATCH_REV};
+// Register 00: FPGA status and firmware version
+assign status_reg0  = {1'b0, prog_chan_done, async_mode, 5'd0, `MAJOR_REV, `MINOR_REV, `PATCH_REV};
 
 // Register 01: Error
-assign status_reg1  = {27'd0, chan_error_rc[4:0], error_trig_type_from_cm, error_trig_type_from_tt, error_trig_num_from_cm, error_trig_num_from_tt, error_data_corrupt, error_trig_rate, error_unknown_ttc, error_pll_unlock};
+assign status_reg1  = {26'd0, ddr3_overflow_warning, chan_error_rc[4:0], error_trig_type_from_cm, error_trig_type_from_tt, error_trig_num_from_cm, error_trig_num_from_tt, error_data_corrupt, error_trig_rate, error_unknown_ttc, error_pll_unlock};
 
 // Register 02: External clock and temperature
 assign status_reg2  = {i2c_temp[11:0], 18'd0, daq_clk_sel, daq_clk_en};
@@ -124,7 +125,7 @@ assign status_reg5  = {21'd0, tts_state[3:0], ttc_chan_b_info[5:0], ttc_ready};
 assign status_reg6  = cm_state[31:0];
 
 // Register 07: FSM state 1
-assign status_reg7  = {9'd0, tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
+assign status_reg7  = {7'd0, cm_state[33:32], tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
 
 // Register 08: Acquisition
 assign status_reg8  = {18'd0, endianness_sel, acq_readout_pause[4:0], fill_type[2:0], chan_en[4:0]};
