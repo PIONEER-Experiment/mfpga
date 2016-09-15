@@ -16,8 +16,8 @@ several tasks:
 Firmware Developers
 -------------------
 
-The firmware was developed by the following persons.  Feel free to contact any
-one of us with comments and/or questions.
+The firmware was developed by the following persons (in alphabetical order).
+Feel free to contact any one of us with comments and/or questions.
 
   Bjorkquist, Robin    | rb532 @cornell.edu
   Chapelain,  Antoine  | atc93 @cornell.edu

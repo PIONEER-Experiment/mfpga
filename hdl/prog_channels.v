@@ -8,29 +8,29 @@
 // To start state machine, write '1' to the appropriate IPbus address
 
 module prog_channels (
-	input clk,
-	input reset,
-    input prog_chan_start,            // start signal from IPbus
+	input  clk,
+	input  reset,
+    input  prog_chan_start,           // start signal from IPbus
     output reg c_progb,               // configuration signal to all five channels
     output c_clk,                     // configuration clock to all five channels
     output reg c_din,                 // configuration bitstream to all five channels
-    input [4:0] initb,                // configuration signals from each channel
-    input [4:0] prog_done,            // configuration signals from each channel
-    input bitstream,                  // from SPI flash
+    input  [4:0] initb,               // configuration signals from each channel
+    input  [4:0] prog_done,           // configuration signals from each channel
+    input  bitstream,                 // from SPI flash
     output reg prog_chan_in_progress, // signal to spi_flash_intf
     output reg store_flash_command,   // signal to spi_flash_intf
     output reg read_bitstream,        // start command to spi_flash_intf
-    input end_bitstream,              // done signal from spi_flash_intf
+    input  end_bitstream,             // done signal from spi_flash_intf
     output reg prog_chan_done         // done programming the channels
 );
+
 
 assign c_clk = ~clk;
 
 reg [4:0] initb_sync;
 reg [4:0] prog_done_sync;
 
-always @ (posedge clk)
-begin
+always @ (posedge clk) begin
     initb_sync[4:0]     <= initb[4:0];
     prog_done_sync[4:0] <= prog_done[4:0];
 end
@@ -50,8 +50,7 @@ reg [2:0] state = IDLE;
 reg [3:0] counter = 4'h0;
 
 
-always @ (posedge clk)
-begin
+always @(posedge clk) begin
     if (reset) begin
         c_progb <= 1'b1;
         c_din   <= 1'b0;
@@ -96,7 +95,7 @@ begin
                 if (initb_sync[4:0] == 5'b00000)
                     state <= INIT1;
                 else
-                    state <= START;                
+                    state <= START;
             end
             
             INIT1 : begin
@@ -145,7 +144,7 @@ begin
 
             WAIT_FOR_DONE : begin
                 c_progb <= 1'b1;
-                c_din  <= 1'b1;
+                c_din   <= 1'b1;
                 prog_chan_in_progress <= 1'b1;
                 store_flash_command   <= 1'b0;
                 read_bitstream        <= 1'b0;

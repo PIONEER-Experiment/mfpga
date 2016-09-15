@@ -21,28 +21,28 @@
 // prog_channels.v can also take over the interface to read the channel bitstream
 
 module spi_flash_intf (
-	input clk,
-    input ipb_clk,
-	input reset,
+	input  clk,
+    input  ipb_clk,
+	input  reset,
 	output spi_clk,
 	output spi_mosi,
-	input spi_miso,
+	input  spi_miso,
 	output spi_ss,
-    input prog_chan_in_progress,
-    input read_bitstream,
+    input  prog_chan_in_progress,
+    input  read_bitstream,
     output end_bitstream,
-    input [8:0] ipb_flash_wr_nBytes,
-    input [8:0] ipb_flash_rd_nBytes,
-    input ipb_flash_cmd_strobe,
-    input ipb_rbuf_rd_en,
-    input [6:0] ipb_rbuf_rd_addr,
+    input  [8:0] ipb_flash_wr_nBytes,
+    input  [8:0] ipb_flash_rd_nBytes,
+    input  ipb_flash_cmd_strobe,
+    input  ipb_rbuf_rd_en,
+    input  [ 6:0] ipb_rbuf_rd_addr,
     output [31:0] ipb_rbuf_data_out,
-    input ipb_wbuf_wr_en,
-    input [6:0] ipb_wbuf_wr_addr,
-    input [31:0] ipb_wbuf_data_in,
-    input pc_wbuf_wr_en,
-    input [6:0] pc_wbuf_wr_addr,
-    input [31:0] pc_wbuf_data_in
+    input  ipb_wbuf_wr_en,
+    input  [ 6:0] ipb_wbuf_wr_addr,
+    input  [31:0] ipb_wbuf_data_in,
+    input  pc_wbuf_wr_en,
+    input  [ 6:0] pc_wbuf_wr_addr,
+    input  [31:0] pc_wbuf_data_in
 );
 
 
@@ -53,7 +53,7 @@ reg [8:0] flash_rd_nBytes;
 wire flash_cmd_strobe;
 
 reg wbuf_wr_en;
-reg [6:0] wbuf_wr_addr;
+reg [ 6:0] wbuf_wr_addr;
 reg [31:0] wbuf_data_in;
 
 wire wbuf_rd_en;
@@ -65,7 +65,7 @@ wire [13:0] rbuf_wr_addr;
 wire rbuf_data_in;
 
 wire rbuf_rd_en;
-wire [6: 0] rbuf_rd_addr;
+wire [ 6:0] rbuf_rd_addr;
 wire [31:0] rbuf_data_out;
 
 
@@ -333,7 +333,7 @@ genvar i;
 for (i=0; i<32; i=i+1)
 begin
     assign wbuf_data_in_r[i] = wbuf_data_in[31-i];
-    assign rbuf_data_out[i] = rbuf_data_out_r[31-i];
+    assign rbuf_data_out[i]  = rbuf_data_out_r[31-i];
 end 
 
 RAMB18E1 #(
