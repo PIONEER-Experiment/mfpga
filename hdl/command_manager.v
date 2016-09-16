@@ -12,17 +12,17 @@ module command_manager (
   input wire rst,
 
   // interface to TX channel FIFO (through AXI4-Stream TX Switch)
-  (* mark_debug = "true" *) input wire chan_tx_fifo_ready,
-  (* mark_debug = "true" *) output reg chan_tx_fifo_valid,
-  (* mark_debug = "true" *) output reg chan_tx_fifo_last,
+  input wire chan_tx_fifo_ready,
+  output reg chan_tx_fifo_valid,
+  output reg chan_tx_fifo_last,
   output reg [ 3:0] chan_tx_fifo_dest,
-  (* mark_debug = "true" *) output reg [31:0] chan_tx_fifo_data,
+  output reg [31:0] chan_tx_fifo_data,
 
   // interface to RX channel FIFO (through AXI4-Stream RX Switch)
-  (* mark_debug = "true" *) input wire chan_rx_fifo_valid,
-  (* mark_debug = "true" *) input wire chan_rx_fifo_last,
-  (* mark_debug = "true" *) input wire [31:0] chan_rx_fifo_data,
-  (* mark_debug = "true" *) output reg chan_rx_fifo_ready,
+  input wire chan_rx_fifo_valid,
+  input wire chan_rx_fifo_last,
+  input wire [31:0] chan_rx_fifo_data,
+  output reg chan_rx_fifo_ready,
 
   // interface to IPbus AXI output
   input wire ipbus_cmd_valid,
@@ -40,29 +40,29 @@ module command_manager (
   // interface to AMC13 DAQ Link
   input wire daq_ready,
   input wire daq_almost_full,
-  (* mark_debug = "true" *) output reg daq_valid,
-  (* mark_debug = "true" *) output reg daq_header,
-  (* mark_debug = "true" *) output reg daq_trailer,
-  (* mark_debug = "true" *) output reg [63:0] daq_data,
+  output reg daq_valid,
+  output reg daq_header,
+  output reg daq_trailer,
+  output reg [63:0] daq_data,
 
   // interface to trigger processor
   input wire send_empty_event,      // request to send an empty event
-  (* mark_debug = "true" *) input wire initiate_readout,      // request for the channels to be read out
-  (* mark_debug = "true" *) input wire [23:0] event_num,      // channel's trigger number
-  (* mark_debug = "true" *) input wire [23:0] trig_num,       // global trigger number, starts at 1
-  (* mark_debug = "true" *) input wire [ 2:0] trig_type,      // trigger type
-  (* mark_debug = "true" *) input wire [43:0] trig_timestamp, // trigger timestamp, defined by when trigger is received by trigger receiver module
+  input wire initiate_readout,      // request for the channels to be read out
+  input wire [23:0] event_num,      // channel's trigger number
+  input wire [23:0] trig_num,       // global trigger number, starts at 1
+  input wire [ 2:0] trig_type,      // trigger type
+  input wire [43:0] trig_timestamp, // trigger timestamp, defined by when trigger is received by trigger receiver module
   input wire [ 2:0] curr_trig_type, // currently set trigger type
   output wire readout_ready,        // ready to readout data, i.e., when in idle state
   output reg  readout_done,         // finished readout flag
-  (* mark_debug = "true" *) output wire [22:0] readout_size,  // burst count of readout event
+  output wire [22:0] readout_size,  // burst count of readout event
 
   // set burst count for each channel
-  (* mark_debug = "true" *) output wire [22:0] burst_count_chan0,
-  (* mark_debug = "true" *) output wire [22:0] burst_count_chan1,
-  (* mark_debug = "true" *) output wire [22:0] burst_count_chan2,
-  (* mark_debug = "true" *) output wire [22:0] burst_count_chan3,
-  (* mark_debug = "true" *) output wire [22:0] burst_count_chan4,
+  output wire [22:0] burst_count_chan0,
+  output wire [22:0] burst_count_chan1,
+  output wire [22:0] burst_count_chan2,
+  output wire [22:0] burst_count_chan3,
+  output wire [22:0] burst_count_chan4,
 
   // set waveform count for each channel
   output wire [11:0] wfm_count_chan0,
@@ -75,9 +75,9 @@ module command_manager (
   input wire [23:0] total_fp_triggers,
 
   // interface to pulse trigger FIFO (through trigger top)
-  (* mark_debug = "true" *) input wire pulse_fifo_tvalid,
-  (* mark_debug = "true" *) input wire [127:0] pulse_fifo_tdata,
-  (* mark_debug = "true" *) output reg pulse_fifo_tready,
+  input wire pulse_fifo_tvalid,
+  input wire [127:0] pulse_fifo_tdata,
+  output reg pulse_fifo_tready,
 
   // status connections
   input wire [47:0] i2c_mac_adr,        // this board's MAC address
@@ -89,7 +89,7 @@ module command_manager (
   // error connections
   output reg [31:0] cs_mismatch_count, // number of checksum mismatches
   output reg error_data_corrupt,       // data corruption error
-  (* mark_debug = "true" *) output reg error_trig_num,           // trigger number mismatch between channel and master
+  output reg error_trig_num,           // trigger number mismatch between channel and master
   output reg error_trig_type,          // trigger type mismatch between channel and master
   output reg [ 4:0] chan_error_rc      // master received an error response code, one bit for each channel
 );
@@ -135,40 +135,40 @@ module command_manager (
 
 
   // channel header regs sorted the way they will be used: first chan_trig_num, then fill_type, ...
-  (* mark_debug = "true" *) reg [23:0] chan_trig_num;     // trigger number from channel header, starts at 1
-  (* mark_debug = "true" *) reg [ 2:0] fill_type;         // fill type: muon, laser, pedestal, ...
-  (* mark_debug = "true" *) reg [22:0] burst_count;       // burst count for data acquisition, 1 burst count = 8 ADC samples
-  (* mark_debug = "true" *) reg [25:0] ddr3_start_addr;   // DDR3 start address (3 LSBs always zero)
-  (* mark_debug = "true" *) reg [22:0] wfm_count;         // number of waveform acquired
-  (* mark_debug = "true" *) reg [21:0] wfm_gap_length;    // gap in unit of 2.5 ns between two consecutive waveforms
-  (* mark_debug = "true" *) reg [15:0] chan_tag;          // channel tag
-  (* mark_debug = "true" *) reg [31:0] chan_num_buf;      // channel number
-  (* mark_debug = "true" *) reg [31:0] csn;               // channel serial number
-  (* mark_debug = "true" *) reg [31:0] data_count;        // # of 32-bit data words received from Aurora, per waveform
-  (* mark_debug = "true" *) reg [22:0] data_wfm_count;    // # of waveforms received from Aurora
+  reg [23:0] chan_trig_num;     // trigger number from channel header, starts at 1
+  reg [ 2:0] fill_type;         // fill type: muon, laser, pedestal, ...
+  reg [22:0] burst_count;       // burst count for data acquisition, 1 burst count = 8 ADC samples
+  reg [25:0] ddr3_start_addr;   // DDR3 start address (3 LSBs always zero)
+  reg [22:0] wfm_count;         // number of waveform acquired
+  reg [21:0] wfm_gap_length;    // gap in unit of 2.5 ns between two consecutive waveforms
+  reg [15:0] chan_tag;          // channel tag
+  reg [31:0] chan_num_buf;      // channel number
+  reg [31:0] csn;               // channel serial number
+  reg [31:0] data_count;        // # of 32-bit data words received from Aurora, per waveform
+  reg [22:0] data_wfm_count;    // # of waveforms received from Aurora
   reg [31:0] ipbus_buf;         // buffer for IPbus data
   reg [31:0] readout_timestamp; // channel data readout timestamp
-  (* mark_debug = "true" *) reg [ 2:0] num_chan_en;       // number of enabled channels
+  reg [ 2:0] num_chan_en;       // number of enabled channels
   reg sent_amc13_header;        // flag to indicate that the AMC13 header has been sent
 
   // regs for channel checksum verification
-  (* mark_debug = "true" *) reg update_mcs_lsb;           // flag to update the 64 LSBs of the 128-bit master checksum (mcs)
-  (* mark_debug = "true" *) reg [127:0] master_checksum;  // checksum calculated in this module
-  (* mark_debug = "true" *) reg [127:0] channel_checksum; // checksum from received channel data
+  reg update_mcs_lsb;           // flag to update the 64 LSBs of the 128-bit master checksum (mcs)
+  reg [127:0] master_checksum;  // checksum calculated in this module
+  reg [127:0] channel_checksum; // checksum from received channel data
 
   // regs for asynchronous mode
-  (* mark_debug = "true" *) reg [22:0] pulse_data_size;   // burst count covering channel headers, waveform headers, waveforms, and checksums
-  (* mark_debug = "true" *) reg [43:0] pulse_timestamp;   // 44-bit pulse trigger timestamp
-  (* mark_debug = "true" *) reg [23:0] pulse_trig_num;    // pulse trigger number
-  (* mark_debug = "true" *) reg [ 1:0] pulse_trig_length; // length of pulse trigger (short or long)
-  (* mark_debug = "true" *) reg [11:0] pretrigger_count; // pre-trigger count
+  reg [22:0] pulse_data_size;   // burst count covering channel headers, waveform headers, waveforms, and checksums
+  reg [43:0] pulse_timestamp;   // 44-bit pulse trigger timestamp
+  reg [23:0] pulse_trig_num;    // pulse trigger number
+  reg [ 1:0] pulse_trig_length; // length of pulse trigger (short or long)
+  reg [11:0] pretrigger_count;  // pre-trigger count
 
   // other internal regs
-  (* mark_debug = "true" *) reg empty_event;                         // flag to indicate if this should be an empty event
+  reg empty_event;                         // flag to indicate if this should be an empty event
   reg [22:0] chan_burst_count_type1 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 1
   reg [22:0] chan_burst_count_type2 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 2
   reg [22:0] chan_burst_count_type3 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 3
-  (* mark_debug = "true" *) reg [22:0] chan_burst_count_type7 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 7
+  reg [22:0] chan_burst_count_type7 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 7
   reg [11:0] chan_wfm_count_type1   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 1
   reg [11:0] chan_wfm_count_type2   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 2
   reg [11:0] chan_wfm_count_type3   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 3
@@ -180,7 +180,7 @@ module command_manager (
   reg next_sent_amc13_header;
   reg next_update_mcs_lsb;
   reg next_empty_event;
-  (* mark_debug = "true" *) reg [ 33:0] nextstate;
+  reg [ 33:0] nextstate;
   reg [ 22:0] next_burst_count;
   reg [ 31:0] next_chan_num_buf;
   reg [  2:0] next_fill_type;
@@ -224,7 +224,7 @@ module command_manager (
 
 
   // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
-  (* mark_debug = "true" *) wire [19:0] event_size_type1, event_size_type2, event_size_type3, event_size_type7;
+  wire [19:0] event_size_type1, event_size_type2, event_size_type3, event_size_type7;
 
   // muon fill trigger type
   assign event_size_type1 = ((chan_burst_count_type1[0]*2+2)*chan_wfm_count_type1[0]+5)*chan_en[0]+ 
@@ -255,7 +255,7 @@ module command_manager (
                             ((chan_burst_count_type7[4]*2+2)*total_fp_triggers[23:0]+5)*chan_en[4]+3;
 
   // mux the correct event size for this trigger type
-  (* mark_debug = "true" *) wire [19:0] event_size;
+  wire [19:0] event_size;
   assign event_size = (fill_type[2:0] == 3'b001) ? event_size_type1[19:0] :
                       (fill_type[2:0] == 3'b010) ? event_size_type2[19:0] :
                       (fill_type[2:0] == 3'b011) ? event_size_type3[19:0] : 
@@ -321,15 +321,15 @@ module command_manager (
 
 
   // signals to/from Pulse Readout FIFO
-  (* mark_debug = "true" *) wire readout_fifo_full;
+  wire readout_fifo_full;
 
-  (* mark_debug = "true" *) wire s_readout_fifo_tready;
-  (* mark_debug = "true" *) reg s_readout_fifo_tvalid;
-  (* mark_debug = "true" *) reg [127:0] s_readout_fifo_tdata;
+  wire s_readout_fifo_tready;
+  reg s_readout_fifo_tvalid;
+  reg [127:0] s_readout_fifo_tdata;
 
-  (* mark_debug = "true" *) reg m_readout_fifo_tready;
-  (* mark_debug = "true" *) wire m_readout_fifo_tvalid;
-  (* mark_debug = "true" *) wire [127:0] m_readout_fifo_tdata;
+  reg m_readout_fifo_tready;
+  wire m_readout_fifo_tvalid;
+  wire [127:0] m_readout_fifo_tdata;
 
   wire rst_n;
   assign rst_n = ~rst;

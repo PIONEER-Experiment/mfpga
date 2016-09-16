@@ -12,16 +12,16 @@ module pulse_trigger_receiver (
   input wire reset_trig_timestamp,
 
   // trigger interface
-  (* mark_debug = "true" *) input wire trigger,                    // front panel trigger signal
-  (* mark_debug = "true" *) input wire [22:0] thres_ddr3_overflow, // DDR3 overflow threshold
-  (* mark_debug = "true" *) input wire [ 4:0] chan_en,             // enabled channels
-  (* mark_debug = "true" *) output reg pulse_trigger,              // channel trigger signal
-  (* mark_debug = "true" *) output reg [23:0] trig_num,            // global trigger number
+  input wire trigger,                    // front panel trigger signal
+  input wire [22:0] thres_ddr3_overflow, // DDR3 overflow threshold
+  input wire [ 4:0] chan_en,             // enabled channels
+  output reg pulse_trigger,              // channel trigger signal
+  output reg [23:0] trig_num,            // global trigger number
 
   // interface to Pulse Trigger FIFO
-  (* mark_debug = "true" *) input wire fifo_ready,
-  (* mark_debug = "true" *) output reg fifo_valid,
-  (* mark_debug = "true" *) output reg [127:0] fifo_data,
+  input wire fifo_ready,
+  output reg fifo_valid,
+  output reg [127:0] fifo_data,
 
   // command manager interface
   input wire readout_done, // a readout has completed
@@ -34,11 +34,11 @@ module pulse_trigger_receiver (
   input wire [22:0] burst_count_chan4,
 
   // status connections
-  (* mark_debug = "true" *) output reg [3:0] state, // state of finite state machine
+  output reg [3:0] state, // state of finite state machine
 
   // error connections
-  (* mark_debug = "true" *) output reg [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
-  (* mark_debug = "true" *) output wire ddr3_overflow_warning      // DDR3 overflow warning, combined for all channels
+  output reg [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
+  output wire ddr3_overflow_warning      // DDR3 overflow warning, combined for all channels
 );
 
   // state bits, with one-hot encoding
@@ -48,18 +48,18 @@ module pulse_trigger_receiver (
   parameter STORE_TRIG_INFO = 3;
 
 
-  (* mark_debug = "true" *) reg [43:0] trig_timestamp;     // global trigger timestamp
-  (* mark_debug = "true" *) reg [ 3:0] trig_history;       // record of past trigger levels
-  (* mark_debug = "true" *) reg [ 3:0] wait_cnt;           // wait state count
-  (* mark_debug = "true" *) reg [ 1:0] trig_length;        // short or long trigger type
-  (* mark_debug = "true" *) reg [43:0] trig_timestamp_cnt; // clock cycle count
+  reg [43:0] trig_timestamp;     // global trigger timestamp
+  reg [ 3:0] trig_history;       // record of past trigger levels
+  reg [ 3:0] wait_cnt;           // wait state count
+  reg [ 1:0] trig_length;        // short or long trigger type
+  reg [43:0] trig_timestamp_cnt; // clock cycle count
 
   // number of bursts yet to be read out of DDR3
-  (* mark_debug = "true" *) reg [22:0] stored_bursts_chan0;
-  (* mark_debug = "true" *) reg [22:0] stored_bursts_chan1;
-  (* mark_debug = "true" *) reg [22:0] stored_bursts_chan2;
-  (* mark_debug = "true" *) reg [22:0] stored_bursts_chan3;
-  (* mark_debug = "true" *) reg [22:0] stored_bursts_chan4;
+  reg [22:0] stored_bursts_chan0;
+  reg [22:0] stored_bursts_chan1;
+  reg [22:0] stored_bursts_chan2;
+  reg [22:0] stored_bursts_chan3;
+  reg [22:0] stored_bursts_chan4;
 
   // mux overflow warnings for all channels
   assign ddr3_overflow_warning = (stored_bursts_chan0[22:0] > thres_ddr3_overflow[22:0]) |
@@ -69,7 +69,7 @@ module pulse_trigger_receiver (
                                  (stored_bursts_chan4[22:0] > thres_ddr3_overflow[22:0]);
 
   // DDR3 is full in a channel
-  (* mark_debug = "true" *) wire ddr3_full;
+  wire ddr3_full;
   assign ddr3_full = ((8388608 - stored_bursts_chan0[22:0]) < chan_en[0]*(burst_count_chan0[22:0] + 1)) |
                      ((8388608 - stored_bursts_chan1[22:0]) < chan_en[1]*(burst_count_chan1[22:0] + 1)) |
                      ((8388608 - stored_bursts_chan2[22:0]) < chan_en[2]*(burst_count_chan2[22:0] + 1)) |

@@ -8,7 +8,7 @@ module channel_acq_controller_async (
   input wire reset,
 
   // trigger configuration
-  (* mark_debug = "true" *) input wire [4:0] chan_en,         // which channels should receive the trigger
+  input wire [4:0] chan_en,         // which channels should receive the trigger
   input wire accept_pulse_triggers, // accept front panel triggers select
 
   // command manager interface
@@ -24,9 +24,9 @@ module channel_acq_controller_async (
   input wire pulse_trigger, // trigger signal
 
   // interface to Channel FPGAs
-  (* mark_debug = "true" *) input wire [4:0] acq_dones,
-  (* mark_debug = "true" *) output reg [9:0] acq_enable,
-  (* mark_debug = "true" *) output reg [4:0] acq_trig,
+  input wire [4:0] acq_dones,
+  output reg [9:0] acq_enable,
+  output reg [4:0] acq_trig,
 
   // interface to Acquisition Event FIFO
   input wire fifo_ready,
@@ -34,7 +34,7 @@ module channel_acq_controller_async (
   output reg [31:0] fifo_data,
 
   // status connections
-  (* mark_debug = "true" *) input wire async_mode, // asynchronous mode select
+  input wire async_mode, // asynchronous mode select
   output reg [3:0] state // state of finite state machine
 );
 
@@ -47,7 +47,7 @@ module channel_acq_controller_async (
 
   reg [ 2:0] acq_trig_type;     // latched trigger type
   reg [23:0] acq_trig_num;      // latched trigger number
-  (* mark_debug = "true" *) reg [ 4:0] acq_dones_latched; // latched channel dones reported
+  reg [ 4:0] acq_dones_latched; // latched channel dones reported
 
   reg [ 3:0] nextstate;
   reg [ 2:0] next_acq_trig_type;

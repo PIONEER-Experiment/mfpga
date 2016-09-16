@@ -6,14 +6,14 @@ module trigger_processor (
   input wire reset,
 
   // interface to TTC Trigger FIFO
-  (* mark_debug = "true" *) input wire trig_fifo_valid,
-  (* mark_debug = "true" *) input wire [127:0] trig_fifo_data,
-  (* mark_debug = "true" *) output reg trig_fifo_ready,
+  input wire trig_fifo_valid,
+  input wire [127:0] trig_fifo_data,
+  output reg trig_fifo_ready,
 
   // interface to Acquisition Event FIFO
-  (* mark_debug = "true" *) input wire acq_fifo_valid,
-  (* mark_debug = "true" *) input wire [31:0] acq_fifo_data,
-  (* mark_debug = "true" *) output reg acq_fifo_ready,
+  input wire acq_fifo_valid,
+  input wire [31:0] acq_fifo_data,
+  output reg acq_fifo_ready,
 
   // interface to command manager
   input wire readout_ready,    // command manager is idle

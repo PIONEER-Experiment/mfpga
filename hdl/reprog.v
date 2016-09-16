@@ -9,31 +9,31 @@ module reprog (
 	input [1:0] trigger // trigger[0] for golden image, trigger[1] for regular master image
 );
 
-// =========================================================================
+// ===============
 // declare signals
-// =========================================================================
+// ===============
 
-wire clk_180 = !clk;
-reg ICAP_enable;
+wire clk_180 = ~clk;
 wire [31:0] ICAP_input;
+
+reg ICAP_enable;
 reg [31:0] ICAP_value; // determined by state machine
 reg bitstream_select;  // 0 for golden image, 1 for regular master image
 
 
-// =========================================================================
+// ===============================================================
 // instantiate ICAPE2 primitive to access FPGA configuration logic 
-// =========================================================================
+// ===============================================================
 
 // ICAPE2: Internal Configuration Access Port
 //		   7 Series
 // Xilinx HDL Libraries Guide, version 13.4
 
 ICAPE2 #(
-	.DEVICE_ID(0'h3651093),    // Specifies the pre-programmed Device ID value to be used for simulation purposes
-	.ICAP_WIDTH("X32"),        // Specifies the input and output data width
-	.SIM_CFG_FILE_NAME("NONE") // Specifies the Raw Bitstream (RBT) file to be parsed by the simulation model
-)
-ICAPE2_inst (
+	.DEVICE_ID(0'h3651093),    // specifies the pre-programmed Device ID value to be used for simulation purposes
+	.ICAP_WIDTH("X32"),        // specifies the input and output data width
+	.SIM_CFG_FILE_NAME("NONE") // specifies the Raw Bitstream (RBT) file to be parsed by the simulation model
+) ICAPE2_inst (
 	.O(),               // 32-bit output: Configuration data output bus (not used here)
 	.CLK(clk_180),      //  1-bit  input: Clock Input
 	.CSIB(ICAP_enable), //  1-bit  input: Active-Low ICAP Enable
@@ -44,9 +44,9 @@ ICAPE2_inst (
 // End of ICAPE2_inst instantiation
 
 
-// =========================================================================
+// ====================================
 // create bit ordering required by ICAP
-// =========================================================================
+// ====================================
 
 assign ICAP_input[31] = ICAP_value[24];
 assign ICAP_input[30] = ICAP_value[25];
@@ -85,9 +85,9 @@ assign ICAP_input[1]  = ICAP_value[6];
 assign ICAP_input[0]  = ICAP_value[7];
 
 
-// =========================================================================
+// ==========================================
 // state machine for sending commands to ICAP
-// =========================================================================
+// ==========================================
 
 parameter IDLE       = 4'd0;
 parameter SEND_WORD1 = 4'd1;
@@ -102,95 +102,89 @@ parameter DONE       = 4'd9;
 
 reg [3:0] state = IDLE;
 
-always @ (posedge clk)
-begin
-    if (reset)
-        begin
-        	ICAP_value <= `ICAP_DUMMY_WORD;
-        	ICAP_enable <= 1'b1; // disabled
-            state <= IDLE;
-        end
-    else
-        begin
-            case (state)
-                IDLE : begin
-        			ICAP_value <= `ICAP_DUMMY_WORD;
-        			ICAP_enable <= 1'b1; // disabled
-                    if (trigger[0])
-                        begin
-                            bitstream_select <= 1'b0; // select golden image
-                            state <= SEND_WORD1;
-                        end
-                    else if (trigger[1])
-                        begin
-                            bitstream_select <= 1'b1; // select regular master image
-                            state <= SEND_WORD1;
-                        end
-                    else
-                        begin
-                            state <= IDLE;
-                        end
-                end
+always @(posedge clk) begin
+    if (reset) begin
+    	ICAP_value  <= `ICAP_DUMMY_WORD;
+    	ICAP_enable <= 1'b1; // disabled
+        state <= IDLE;
+    end
+    else begin
+        case (state)
+            IDLE : begin
+    			ICAP_value  <= `ICAP_DUMMY_WORD;
+    			ICAP_enable <= 1'b1; // disabled
 
-                SEND_WORD1 : begin
-        			ICAP_value <= `ICAP_DUMMY_WORD;
-        			ICAP_enable <= 1'b0; // enabled
-                    state <= SEND_WORD2;
+                if (trigger[0]) begin
+                    bitstream_select <= 1'b0; // select golden image
+                    state <= SEND_WORD1;
                 end
-
-                SEND_WORD2 : begin
-        			ICAP_value <= `ICAP_SYNC_WORD;
-        			ICAP_enable <= 1'b0; // enabled
-                    state <= SEND_WORD3;
+                else if (trigger[1]) begin
+                    bitstream_select <= 1'b1; // select regular master image
+                    state <= SEND_WORD1;
                 end
-
-                SEND_WORD3 : begin
-        			ICAP_value <= `ICAP_NO_OP;
-        			ICAP_enable <= 1'b0; // enabled
-                    state <= SEND_WORD4;
+                else begin
+                    state <= IDLE;
                 end
+            end
 
-                SEND_WORD4 : begin
-        			ICAP_value <= `ICAP_WRITE_WBSTAR;
-        			ICAP_enable <= 1'b0; // enabled
-                    state <= SEND_WORD5;
-                end
+            SEND_WORD1 : begin
+    			ICAP_value  <= `ICAP_DUMMY_WORD;
+    			ICAP_enable <= 1'b0; // enabled
+                state <= SEND_WORD2;
+            end
 
-                SEND_WORD5 : begin
-                    if (bitstream_select == 0)
-        			    ICAP_value <= `GOLDEN_FLASH_ADDR;
-                    else
-                        ICAP_value <= `MASTER_FLASH_ADDR;
-        			ICAP_enable <= 1'b0; // enabled
-                    state <= SEND_WORD6;
-                end
+            SEND_WORD2 : begin
+    			ICAP_value  <= `ICAP_SYNC_WORD;
+    			ICAP_enable <= 1'b0; // enabled
+                state <= SEND_WORD3;
+            end
 
-                SEND_WORD6 : begin
-        			ICAP_value <= `ICAP_WRITE_CMD;
-        			ICAP_enable <= 1'b0; // enabled
-                    state <= SEND_WORD7;
-                end
+            SEND_WORD3 : begin
+    			ICAP_value  <= `ICAP_NO_OP;
+    			ICAP_enable <= 1'b0; // enabled
+                state <= SEND_WORD4;
+            end
 
-                SEND_WORD7 : begin
-        			ICAP_value <= `ICAP_IPROG;
-        			ICAP_enable <= 1'b0; // enabled
-                    state <= SEND_WORD8;
-                end
+            SEND_WORD4 : begin
+    			ICAP_value  <= `ICAP_WRITE_WBSTAR;
+    			ICAP_enable <= 1'b0; // enabled
+                state <= SEND_WORD5;
+            end
 
-                SEND_WORD8 : begin
-        			ICAP_value <= `ICAP_NO_OP;
-        			ICAP_enable <= 1'b0; // enabled
-                    state <= DONE;
-                end
+            SEND_WORD5 : begin
+                if (bitstream_select == 0)
+    			    ICAP_value <= `GOLDEN_FLASH_ADDR;
+                else
+                    ICAP_value <= `MASTER_FLASH_ADDR;
+    			ICAP_enable <= 1'b0; // enabled
+                state <= SEND_WORD6;
+            end
 
-                DONE : begin
-        			ICAP_value <= `ICAP_NO_OP;
-        			ICAP_enable <= 1'b1; // disabled
-                    state <= DONE; // stay here (except not, because FPGA should re-configure now)
-                end
+            SEND_WORD6 : begin
+    			ICAP_value  <= `ICAP_WRITE_CMD;
+    			ICAP_enable <= 1'b0; // enabled
+                state <= SEND_WORD7;
+            end
 
-            endcase
-        end
+            SEND_WORD7 : begin
+    			ICAP_value  <= `ICAP_IPROG;
+    			ICAP_enable <= 1'b0; // enabled
+                state <= SEND_WORD8;
+            end
+
+            SEND_WORD8 : begin
+    			ICAP_value  <= `ICAP_NO_OP;
+    			ICAP_enable <= 1'b0; // enabled
+                state <= DONE;
+            end
+
+            DONE : begin
+    			ICAP_value  <= `ICAP_NO_OP;
+    			ICAP_enable <= 1'b1; // disabled
+                state <= DONE; // stay here (except not, because FPGA should re-configure now)
+            end
+        endcase
+    end
 end
 
 endmodule

@@ -31,8 +31,8 @@ module spi_flash_intf (
     input  prog_chan_in_progress,
     input  read_bitstream,
     output end_bitstream,
-    input  [8:0] ipb_flash_wr_nBytes,
-    input  [8:0] ipb_flash_rd_nBytes,
+    input  [ 8:0] ipb_flash_wr_nBytes,
+    input  [ 8:0] ipb_flash_rd_nBytes,
     input  ipb_flash_cmd_strobe,
     input  ipb_rbuf_rd_en,
     input  [ 6:0] ipb_rbuf_rd_addr,
@@ -81,11 +81,13 @@ sync_2stage flash_cmd_sync (
 
 reg [8:0] flash_wr_nBytes_sync;
 reg [8:0] flash_rd_nBytes_sync;
+
 always @(posedge clk) begin
     flash_wr_nBytes_sync <= ipb_flash_wr_nBytes;
-    flash_wr_nBytes <= flash_wr_nBytes_sync;
+    flash_wr_nBytes      <= flash_wr_nBytes_sync;
+    
     flash_rd_nBytes_sync <= ipb_flash_rd_nBytes;
-    flash_rd_nBytes <= flash_rd_nBytes_sync;
+    flash_rd_nBytes      <= flash_rd_nBytes_sync;
 end
 
 
@@ -121,12 +123,12 @@ assign ipb_rbuf_data_out = rbuf_data_out;
 // select whether IPbus or prog_channels controls the write port of WBUF
 always @(posedge ipb_clk) begin
     if (prog_chan_in_progress_125) begin
-        wbuf_wr_en <= pc_wbuf_wr_en_125;
+        wbuf_wr_en   <= pc_wbuf_wr_en_125;
         wbuf_wr_addr <= pc_wbuf_wr_addr;
         wbuf_data_in <= pc_wbuf_data_in;
     end
     else begin
-        wbuf_wr_en <= ipb_wbuf_wr_en;
+        wbuf_wr_en   <= ipb_wbuf_wr_en;
         wbuf_wr_addr <= ipb_wbuf_wr_addr;
         wbuf_data_in <= ipb_wbuf_data_in;
     end
@@ -161,7 +163,7 @@ reg [24:0] chan_bs_bit_cnt = 25'b0;
 wire chan_bs_bit_cnt_reset;
 
 // channel bitstream has 24,090,592 bits, 
-//     so counter needs to go from 0 to 24,090,591 = 0x16F97DF
+// so counter needs to go from 0 to 24,090,591 = 0x16F97DF
 wire [24:0] chan_bs_bit_cnt_max = 25'h16F97DF;
 
 always @(posedge clk) begin
@@ -212,9 +214,9 @@ always @* begin
     case (1'b1)
 
         CS[IDLE] : begin
-            if (flash_cmd_strobe && bit_cnt_wr_max != 12'hFFF && !prog_chan_in_progress)
-                                     // stay in IDLE if flash_wr_nBytes = 0
-                                     // prog_channels overrides IPbus if there is a conflict
+            // stay in IDLE if flash_wr_nBytes = 0
+            // prog_channels overrides IPbus if there is a conflict
+            if (flash_cmd_strobe && bit_cnt_wr_max != 12'hfff && !prog_chan_in_progress)
                 NS[START_CMD] = 1'b1;
             else if (read_bitstream)
                 NS[START_CHAN_BS_CMD] = 1'b1;
@@ -234,7 +236,7 @@ always @* begin
         end
 
         CS[FINISH_CMD] : begin
-            if (bit_cnt_rd_max == 12'hFFF) // flash_rd_nBytes = 0
+            if (bit_cnt_rd_max == 12'hfff) // flash_rd_nBytes = 0
                 NS[IDLE] = 1'b1;
             else
                 NS[RECEIVE_RSP] = 1'b1;
@@ -318,8 +320,8 @@ assign end_bitstream = (CS[CHAN_BS_DONE] == 1'b1);
 //       1-bit port = input from flash
 //      32-bit port = output to IPbus
 
-assign wbuf_rd_addr[13:0] = {2'b00,bit_cnt[11:0]};
-assign rbuf_wr_addr[13:0] = {2'b00,bit_cnt[11:0]};
+assign wbuf_rd_addr[13:0] = {2'b00, bit_cnt[11:0]};
+assign rbuf_wr_addr[13:0] = {2'b00, bit_cnt[11:0]};
 assign spi_mosi = wbuf_data_out;
 assign rbuf_data_in = spi_miso;
 

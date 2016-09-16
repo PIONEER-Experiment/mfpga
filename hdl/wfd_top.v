@@ -81,7 +81,7 @@ module wfd_top (
     input  wire spi_miso,             // serial data from SPI flash memory
     output wire spi_mosi,             // serial data (commands) to SPI flash memory
     output wire spi_ss,               // SPI flash memory chip select
-    (* mark_debug = "true" *) input  wire fp_sw_master          // front panel switch
+    input  wire fp_sw_master          // front panel switch
 );
 
     // ======== clock signals ========
@@ -533,8 +533,8 @@ module wfd_top (
 
     // put other trigger signals into 40 MHz TTC clock domain
     wire ext_trig_stretch;
-    (* mark_debug = "true" *) wire ext_trig_sync;
-    (* mark_debug = "true" *) wire trigger_from_ipbus;
+    wire ext_trig_sync;
+    wire trigger_from_ipbus;
     wire trigger_from_ipbus_stretch;
     wire trigger_from_ipbus_sync;
 
@@ -748,12 +748,12 @@ module wfd_top (
                 status_reg15, status_reg16, status_reg17, status_reg18;
 
     // ======== finite state machine states ========
-    (* mark_debug = "true" *) wire [ 3:0] ttr_state;
-    (* mark_debug = "true" *) wire [ 3:0] ptr_state;
-    (* mark_debug = "true" *) wire [ 3:0] cac_state;
-    (* mark_debug = "true" *) wire [ 3:0] caca_state;
-    (* mark_debug = "true" *) wire [ 6:0] tp_state;
-    (* mark_debug = "true" *) wire [33:0] cm_state;
+    wire [ 3:0] ttr_state;
+    wire [ 3:0] ptr_state;
+    wire [ 3:0] cac_state;
+    wire [ 3:0] caca_state;
+    wire [ 6:0] tp_state;
+    wire [33:0] cm_state;
 
     // ======== trigger information signals ========
     wire [ 7:0] trig_settings;
