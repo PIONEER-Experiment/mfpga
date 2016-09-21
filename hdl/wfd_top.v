@@ -3,13 +3,14 @@
 // This is the Golden image.
 // Currently identical to master firmware (05/13/2016 version from WFD5_rev1 branch)
 //   Except for:
-//   1. Use of Master FPGA's front panel LED: solid orange for Golden image
-//   2. Report Error TTS state to notify upstream users
-//   3. Disconnected the trigger to prevent data collection
-//   4. Disconnected the TTC Channel B information decoder
-//   5. Disconnected the channel programming initiation via IPbus
-//   6. Report that this is the golden image in MSB of Status Register 0
-//   7. Don't program the DAC offsets on the AFE
+//   1. Use of 'MASTER'   front panel LED: solid orange for Golden image
+//   2. Use of 'PLL LOCK' front panel LED: solid orange for Golden image
+//   3. Report Error TTS state to notify upstream users
+//   4. Disconnected the trigger to prevent data collection
+//   5. Disconnected the TTC Channel B information decoder
+//   6. Disconnected the channel programming initiation via IPbus
+//   7. Report that this is the golden image in MSB of Status Register 0
+//   8. Don't program the DAC offsets on the AFE
 
 // As a useful reference, here's the syntax to mark signals for debug:
 // (* mark_debug = "true" *) 
@@ -169,16 +170,9 @@ module wfd_top (
     assign master_led1 = 1'b0;
 
     // ======== front panel LED for clk synth ========
-    led_clksynth_status led_clksynth_status (
-        .clk(clk50),
-        .red_led(clksynth_led1),
-        .green_led(clksynth_led0),
-        // status input signals
-        .adcclk_ld(adcclk_stat_ld),
-        .adcclk_stat(adcclk_stat),
-        .adcclk_clkin0_stat(adcclk_clkin0_stat)
-    );
-
+    // red and green LEDs are both on to indicated that this is the Golden image
+    assign clksynth_led0 = 1'b0;
+    assign clksynth_led1 = 1'b0;
 
 
     // dummy use of signals
@@ -446,7 +440,7 @@ module wfd_top (
     // reprog_trigger_mux[0] for golden image
     // reprog_trigger_mux[1] for master image
     wire [1:0] reprog_trigger_mux; // combine ipbus and front panel triggers
-    assign reprog_trigger_mux = fp_sw_master ? reprog_trigger_delayed : 2'b01;
+    assign reprog_trigger_mux = (fp_sw_master) ? reprog_trigger_delayed : 2'b01;
     
     reprog reprog (
         .clk(clk50),
