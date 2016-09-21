@@ -102,9 +102,12 @@ module wfd_top (
 
     // ======== operation mode signals ========
     wire async_mode_from_ipbus; // asynchronous mode select
-    wire async_mode_stretch;
     wire async_mode_ttc_clk;
+    wire async_mode_clk50;
     wire async_mode_clk125;
+
+    wire ipb_accept_pulse_triggers;
+    wire ipb_async_trig_type;
 
     // ======== startup reset signals ========
     wire master_init_rst1_clk50, master_init_rst1_clk125;
@@ -217,9 +220,13 @@ module wfd_top (
     wire ttc_chan_b_valid;
     wire rst_trigger_num;
     wire rst_trigger_timestamp;
+    wire [2:0] ttc_fill_type;
     wire [2:0] fill_type;
     wire ttc_accept_pulse_triggers;
+    wire accept_pulse_triggers;
 
+    assign fill_type[2:0]        = (ipb_async_trig_type) ? 3'b111 : ttc_fill_type[2:0];
+    assign accept_pulse_triggers = ttc_accept_pulse_triggers | ipb_accept_pulse_triggers;
 
     // active-high reset signal to channels
     assign c0_io[3] = (rst_from_ipb | rst_trigger_num);
@@ -237,6 +244,7 @@ module wfd_top (
     assign daq_clk_sel = 1'b0;
     assign daq_clk_en  = 1'b1;
 
+    // Required statement to support differential ttc_txp / ttc_txn pair
     OBUFDS ttc_tx_buf (.I(ttc_rx), .O(ttc_txp), .OB(ttc_txn)); 
 
     // Generate clocks from the 50 MHz input clock
@@ -266,8 +274,7 @@ module wfd_top (
     // Added BUFG object to deal with a warning message that caused implementation to fail
     // "Clock net clk125 is not driven by a Clock Buffer and has more than 2000 loads."
     BUFG BUFG_clk125 (.I(clk_125), .O(clk125));
-
-    BUFG BUFG_clk10 (.I(clk_10), .O(clk10));
+    BUFG BUFG_clk10  (.I(clk_10 ), .O(clk10 ));
 
     // ======== ethernet status signals ========
     reg sfp_los = 0;      // loss of signal for Gigabit ethernet (not used)
@@ -342,8 +349,8 @@ module wfd_top (
     assign debug2 = 1'b1;
     assign debug3 = bbus_scl_oen;
     assign debug4 = bbus_sda_oen;
-    assign debug5 = 1'b1;
-    assign debug6 = 1'b0;
+    assign debug5 = ipb_prog_chan_start;
+    assign debug6 = prog_chan_start_from_ipbus;
     assign debug7 = spi_ss & spi_clk & spi_mosi & spi_miso & prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb3 & mezzb4 & mezzb5 & mmc_io[2] & mmc_io[3] & ext_trig_sync & trigger_from_ipbus_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
 
     
@@ -374,11 +381,14 @@ module wfd_top (
 
 
     wire [31:0] spi_data;
+    wire send_write_command;
     wire read_bitstream;
     wire end_bitstream;
+    wire end_write_command;
+    wire prog_chan_in_progress;
 
-    wire [8:0] ipbus_to_flash_wr_nBytes;
-    wire [8:0] ipbus_to_flash_rd_nBytes;
+    wire [ 8:0] ipbus_to_flash_wr_nBytes;
+    wire [ 8:0] ipbus_to_flash_rd_nBytes;
     wire ipbus_to_flash_cmd_strobe;
     wire flash_to_ipbus_cmd_ack;
     wire ipbus_to_flash_rbuf_en;
@@ -388,6 +398,11 @@ module wfd_top (
     wire [ 6:0] ipbus_to_flash_wbuf_addr;
     wire [31:0] ipbus_to_flash_wbuf_data;
 
+    wire pc_to_flash_wbuf_en;
+    wire [ 6:0] pc_to_flash_wbuf_addr;
+    wire [31:0] pc_to_flash_wbuf_data;
+    wire [11:0] pc_to_flash_wr_nBits;
+
     spi_flash_intf spi_flash_intf (
         .clk(clk50),
         .ipb_clk(clk125),
@@ -396,9 +411,9 @@ module wfd_top (
         .spi_mosi(spi_mosi),
         .spi_miso(spi_miso),
         .spi_ss(spi_ss),
-        .prog_chan_in_progress(prog_chan_in_progress), // signal from prog_channels
-        .read_bitstream(read_bitstream),               // start signal from prog_channels
-        .end_bitstream(end_bitstream),                 // done signal to prog_channels
+        .prog_chan_in_progress(prog_chan_in_progress),    // signal from prog_channels
+        .read_bitstream(read_bitstream),                  // start signal from prog_channels
+        .end_bitstream(end_bitstream),                    // done signal to prog_channels
         .ipb_flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
         .ipb_flash_rd_nBytes(ipbus_to_flash_rd_nBytes),
         .ipb_flash_cmd_strobe(ipbus_to_flash_cmd_strobe),
@@ -408,31 +423,60 @@ module wfd_top (
         .ipb_wbuf_wr_en(ipbus_to_flash_wbuf_en),
         .ipb_wbuf_wr_addr(ipbus_to_flash_wbuf_addr),
         .ipb_wbuf_data_in(ipbus_to_flash_wbuf_data),
-        .pc_wbuf_wr_en(pc_to_flash_wbuf_en), // from prog_channels
-        .pc_wbuf_wr_addr(7'b0000000),        // hardcode address 0
-        .pc_wbuf_data_in(32'h03CE0000)       // hardcode read command for channel bitstream
+        .pc_wbuf_wr_en(pc_to_flash_wbuf_en),              // from prog_channels
+        .pc_wbuf_wr_addr(pc_to_flash_wbuf_addr[6:0]),     // from prog_channels
+        .pc_wbuf_data_in(pc_to_flash_wbuf_data[31:0]),    // from prog_channels
+        .send_write_command(send_write_command),          // start signal from prog_channels
+        .end_write_command(end_write_command),            // done signal to prog_channels
+        .pc_flash_wr_nBits(pc_to_flash_wr_nBits[11:0])    // from prog_channels
     );
 
-    // ======== program channel FPGAs using bistream stored on SPI flash memory ========
+
+    // ======== program channel FPGAs using bitstream stored on SPI flash memory ========
 
     wire prog_chan_start_from_ipbus; // in 125 MHz clock domain
-    wire prog_chan_start;            // in 50 MHz clock domain 
+    wire ipb_prog_chan_start;        // in 50 MHz clock domain 
                                      // don't have to worry about missing the faster signal -- stays high 
-                                     // until you use ipbus to set it low again
+                                     // until you use IPbus to set it low again
+
+    wire ipb_prog_chan_start_on;
+    wire ipb_prog_chan_start_off;
+
+    wire async_mode_on;
+    wire async_mode_off;
 
     sync_2stage prog_chan_start_sync (
         .clk(clk50),
         .in(prog_chan_start_from_ipbus),
-        .out(prog_chan_start)
+        .out(ipb_prog_chan_start)
     );
 
-    wire prog_chan_start_mux; // combine ipbus and startup triggers
-    assign prog_chan_start_mux = prog_chan_start | master_init_rst2_clk50;
+    edge_detect prog_chan_start_edge_detect (
+        .clk(clk50),                  // clock
+        .in(ipb_prog_chan_start),     // input signal
+        .rising(ipb_prog_chan_start_on),  // rising edge detect
+        .falling(ipb_prog_chan_start_off) // falling edge detect
+    );
+
+    // active-high, single-pulse signals for when asychronous mode changes
+    edge_detect async_mode_edge_detect (
+        .clk(clk50),             // clock
+        .in(async_mode_clk50),   // input signal
+        .rising(async_mode_on),  // rising edge detect
+        .falling(async_mode_off) // falling edge detect
+    );
+
+
+    // combine IPbus and startup triggers
+    // reprogram channels when: Master FPGA startup, IPbus configuration, asynchronous mode change
+    wire prog_chan_start;
+    assign prog_chan_start = master_init_rst2_clk50 | ipb_prog_chan_start_on | async_mode_on | async_mode_off;
 
     prog_channels prog_channels (
         .clk(clk50),
         .reset(clk50_reset),
-        .prog_chan_start(prog_chan_start_mux),         // start signal from IPbus
+        .async_mode(async_mode_clk50),                 // asynchronous mode enable
+        .prog_chan_start(prog_chan_start),             // start signal from IPbus
         .c_progb(c_progb),                             // configuration signal to all five channels
         .c_clk(c_clk),                                 // configuration clock to all five channels
         .c_din(c_din),                                 // configuration bitstream to all five channels
@@ -441,10 +485,16 @@ module wfd_top (
         .bitstream(spi_miso),                          // bitstream from flash memory
         .prog_chan_in_progress(prog_chan_in_progress), // signal to spi_flash_intf
         .store_flash_command(pc_to_flash_wbuf_en),     // signal to spi_flash_intf
+        .wbuf_address(pc_to_flash_wbuf_addr[6:0]),     // signal to spi_flash_intf
+        .flash_command(pc_to_flash_wbuf_data[31:0]),   // signal to spi_flash_intf
+        .flash_wr_nBits(pc_to_flash_wr_nBits[11:0]),   // signal to spi_flash_intf
+        .send_write_command(send_write_command),       // start signal to spi_flash_intf
         .read_bitstream(read_bitstream),               // start signal to spi_flash_intf
+        .end_write_command(end_write_command),         // done signal from spi_flash_intf
         .end_bitstream(end_bitstream),                 // done signal from spi_flash_intf
         .prog_chan_done(prog_chan_done)                // done programming the channels
     );
+
 
     // ======== module to reprogram FPGA from flash ========
 
@@ -470,7 +520,7 @@ module wfd_top (
     //          7 Series
     // Xilinx HDL Libraries Guide, version 14.2
     SRLC32E #(
-        .INIT(32'h00000000) // Initial Value of Shift Register
+        .INIT(32'h00000000) // Initial value of shift register
     ) SRLC32E_inst0 (
         .Q(reprog_trigger_delayed[0]), // SRL data output
         .Q31(),                        // SRL cascade output pin
@@ -481,7 +531,7 @@ module wfd_top (
     );
 
     SRLC32E #(
-        .INIT(32'h00000000) // Initial Value of Shift Register
+        .INIT(32'h00000000) // Initial value of shift register
     ) SRLC32E_inst1 (
         .Q(reprog_trigger_delayed[1]), // SRL data output
         .Q31(),                        // SRL cascade output pin
@@ -494,8 +544,7 @@ module wfd_top (
     // reprog_trigger_mux[0] for golden image
     // reprog_trigger_mux[1] for master image
     wire [1:0] reprog_trigger_mux; // combine IPbus and front panel switch
-    //assign reprog_trigger_mux = fp_sw_master ? reprog_trigger_delayed : 2'b01;
-    assign reprog_trigger_mux = reprog_trigger_delayed;
+    assign reprog_trigger_mux = (fp_sw_master) ? reprog_trigger_delayed : 2'b01;
 
     reprog reprog (
         .clk(clk50),
@@ -506,22 +555,21 @@ module wfd_top (
 
     // ======== operation modes ========
 
-    signal_stretch async_mode_stretch_module (
-        .signal_in(async_mode_from_ipbus),
-        .clk(clk125),
-        .n_extra_cycles(8'h08), // add more than enough extra clock cycles for synchronization into 40 and 50 MHz clock domain
-        .signal_out(async_mode_stretch)
-    );
-
     sync_2stage async_mode_ttc_clk_module (
         .clk(ttc_clk),
-        .in(async_mode_stretch),
+        .in(async_mode_from_ipbus),
         .out(async_mode_ttc_clk)
+    );
+
+    sync_2stage async_mode_clk50_module (
+        .clk(clk50),
+        .in(async_mode_from_ipbus),
+        .out(async_mode_clk50)
     );
 
     sync_2stage async_mode_clk125_module (
         .clk(clk125),
-        .in(async_mode_stretch),
+        .in(async_mode_from_ipbus),
         .out(async_mode_clk125)
     );
 
@@ -537,31 +585,37 @@ module wfd_top (
     wire trigger_from_ipbus;
     wire trigger_from_ipbus_stretch;
     wire trigger_from_ipbus_sync;
+    wire ext_trig_pulse_en;
 
-    // signal_stretch ext_trig_stretch_module (
-    //     .signal_in(ext_trig),
-    //     .clk(clk125),
-    //     .n_extra_cycles(8'h04),
-    //     .signal_out(ext_trig_stretch)
-    // );
-    //
-    // sync_2stage ext_trig_sync_module (
-    //     .clk(ttc_clk),
-    //     .in(ext_trig_stretch),
-    //     .out(ext_trig_sync)
-    // );
+    signal_stretch ext_trig_stretch_module (
+        .signal_in(ext_trig),
+        .clk(clk125),
+        .n_extra_cycles(8'h04),
+        .signal_out(ext_trig_stretch)
+    );
+    
+    sync_2stage ext_trig_sync_module (
+        .clk(ttc_clk),
+        .in(ext_trig_stretch),
+        .out(ext_trig_sync)
+    );
 
-    // ----- TEMPORARY, FOR DEBUGGING -------
-    reg enable_reading_sync1, enable_reading_sync2, enable_reading_sync3;
-    reg enable_reading_pulse;
+    reg ext_trig_pulse_sync1, ext_trig_pulse_sync2, ext_trig_pulse_sync3;
+    reg ext_trig_pulse;
+
+    // level-to-pulse converter
     always @(posedge ttc_clk) begin
-        enable_reading_sync1 <= ext_trig;
-        enable_reading_sync2 <= enable_reading_sync1;
-        enable_reading_sync3 <= enable_reading_sync2;
+        ext_trig_pulse_sync1 <= ext_trig;
+        ext_trig_pulse_sync2 <= ext_trig_pulse_sync1;
+        ext_trig_pulse_sync3 <= ext_trig_pulse_sync2;
+
         // make single period pulse
-        enable_reading_pulse <= enable_reading_sync2 & !enable_reading_sync3;
+        ext_trig_pulse <= ext_trig_pulse_sync2 & !ext_trig_pulse_sync3;
     end
-    // --------------------------------------
+
+    wire ext_trig_to_trigger_top;
+    assign ext_trig_to_trigger_top = (ext_trig_pulse_en) ? ext_trig_pulse : ext_trig_sync;
+
 
     signal_stretch trigger_from_ipbus_stretch_module (
         .signal_in(trigger_from_ipbus),
@@ -588,8 +642,9 @@ module wfd_top (
     // delay between receiving the trigger and passing it onto the channels                                                                                                                                                   
     wire [31:0] trig_delay;
 
+
     // ======== wires for interface to channel serial link ========
-    // User IPbus interface. Used by Charlie's Aurora block.
+    // user IPbus interface. Used by the Aurora block.
     wire [31:0] user_ipb_addr, user_ipb_wdata, user_ipb_rdata;
     wire user_ipb_clk, user_ipb_strobe, user_ipb_write, user_ipb_ack;
 
@@ -735,6 +790,7 @@ module wfd_top (
     wire [22:0] burst_count_chan0, burst_count_chan1, burst_count_chan2, burst_count_chan3, burst_count_chan4;
     wire [11:0] wfm_count_chan0, wfm_count_chan1, wfm_count_chan2, wfm_count_chan3, wfm_count_chan4;
 
+
     // ======== communication with the AMC13 DAQ link ========
     wire daq_header, daq_trailer;
     wire daq_valid, daq_ready;
@@ -776,7 +832,7 @@ module wfd_top (
     TTC_decoder ttc (
         .TTC_CLK_p(ttc_clkp),        // in  STD_LOGIC
         .TTC_CLK_n(ttc_clkn),        // in  STD_LOGIC
-        .TTC_rst(),                  // in  STD_LOGIC  asynchronous reset after TTC_CLK_p/TTC_CLK_n frequency changed
+        .TTC_rst(1'b0),              // in  STD_LOGIC -- asynchronous reset after TTC_CLK_p/TTC_CLK_n frequency changed
         .TTC_data_p(ttc_rxp),        // in  STD_LOGIC
         .TTC_data_n(ttc_rxn),        // in  STD_LOGIC
         .TTC_CLK_out(ttc_clk),       // out STD_LOGIC
@@ -787,7 +843,7 @@ module wfd_top (
         .SinErrStr(),                // out STD_LOGIC
         .DbErrStr(),                 // out STD_LOGIC
         .BrcstStr(ttc_chan_b_valid), // out STD_LOGIC
-        .Brcst(ttc_chan_b_info)      // out STD_LOGIC_VECTOR (7 downto 2)
+        .Brcst(ttc_chan_b_info)      // out STD_LOGIC_VECTOR(7 DOWNTO 2)
     );
 
 
@@ -804,7 +860,7 @@ module wfd_top (
         .ttc_loopback(ttc_loopback),
 
         // outputs to trigger logic
-        .fill_type(fill_type[2:0]), // output [2:0]
+        .fill_type(ttc_fill_type[2:0]),
         .reset_trig_num(rst_trigger_num),
         .reset_trig_timestamp(rst_trigger_timestamp),
 
@@ -823,9 +879,6 @@ module wfd_top (
         .sfp_los(sfp_los),
         .eth_link_status(eth_link_status),
         .rst_out(rst_from_ipb),
-        
-        // debug ports
-        .debug(),
 
         // clocks
         .clk_200(clk200),
@@ -865,22 +918,25 @@ module wfd_top (
         .axi_stream_in_tvalid(axi_stream_to_ipbus_from_cm_tvalid),
         .axi_stream_in_tdata(axi_stream_to_ipbus_from_cm_tdata),
         .axi_stream_in_tready(axi_stream_to_ipbus_from_cm_tready),
-        .axi_stream_in_tstrb(),
-        .axi_stream_in_tkeep(),
-        .axi_stream_in_tlast(),
-        .axi_stream_in_tid(),
-        .axi_stream_in_tdest(),
+        .axi_stream_in_tstrb(4'b0000),
+        .axi_stream_in_tkeep(4'b0000),
+        .axi_stream_in_tlast(1'b0),
+        .axi_stream_in_tid(4'b0000),
+        .axi_stream_in_tdest(4'b0000),
 
         // control signals
-        .trigger_out(trigger_from_ipbus),               // IPbus trigger
-        .async_mode_out(async_mode_from_ipbus),         // asynchronous mode select
-        .chan_en_out(chan_en),                          // channel enable to command manager
-        .prog_chan_out(prog_chan_start_from_ipbus),     // signal to start programming sequence for channel FPGAs
-        .reprog_trigger_out(reprog_trigger_from_ipbus), // signal to issue IPROG command to re-program FPGA from flash
-        .trig_delay_out(trig_delay[31:0]),              // set trigger delay in the trigger manager
-        .endianness_out(endianness_sel),                // select signal for the ADC data's endianness
-        .trig_settings_out(trig_settings),              // select which trigger types are enabled
-        .ttc_loopback_out(ttc_loopback),                // select whether TTC/TTS is in loopback mode
+        .trigger_out(trigger_from_ipbus),                  // IPbus trigger
+        .async_mode_out(async_mode_from_ipbus),            // asynchronous mode select
+        .accept_pulse_trig_out(ipb_accept_pulse_triggers), // allow front panel triggers (for testing)
+        .async_trig_type_out(ipb_async_trig_type),         // fix TTC trigger type to be asynchronous readout (for testing)
+        .chan_en_out(chan_en),                             // channel enable to command manager
+        .prog_chan_out(prog_chan_start_from_ipbus),        // signal to start programming sequence for channel FPGAs
+        .reprog_trigger_out(reprog_trigger_from_ipbus),    // signal to issue IPROG command to re-program FPGA from flash
+        .trig_delay_out(trig_delay[31:0]),                 // set trigger delay in the trigger manager
+        .endianness_out(endianness_sel),                   // select signal for the ADC data's endianness
+        .trig_settings_out(trig_settings),                 // select which trigger types are enabled
+        .ttc_loopback_out(ttc_loopback),                   // select whether TTC/TTS is in loopback mode (for testing)
+        .ext_trig_pulse_en_out(ext_trig_pulse_en),         // convert front panel triggers to single pulse triggers (for testing)
 
         // threshold registers
         .thres_data_corrupt(thres_data_corrupt),   // data corruption
@@ -945,7 +1001,7 @@ module wfd_top (
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
         .c0_s_axi_tx_tdata(c0_axi_stream_to_channel_tdata),   // note index order
-        .c0_s_axi_tx_tkeep(),                                 // note index order
+        .c0_s_axi_tx_tkeep(4'b0000),                          // note index order
         .c0_s_axi_tx_tvalid(c0_axi_stream_to_channel_tvalid),
         .c0_s_axi_tx_tlast(c0_axi_stream_to_channel_tlast),
         .c0_s_axi_tx_tready(c0_axi_stream_to_channel_tready),
@@ -965,7 +1021,7 @@ module wfd_top (
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
         .c1_s_axi_tx_tdata(c1_axi_stream_to_channel_tdata),   // note index order
-        .c1_s_axi_tx_tkeep(),                                 // note index order
+        .c1_s_axi_tx_tkeep(4'b0000),                          // note index order
         .c1_s_axi_tx_tvalid(c1_axi_stream_to_channel_tvalid),
         .c1_s_axi_tx_tlast(c1_axi_stream_to_channel_tlast),
         .c1_s_axi_tx_tready(c1_axi_stream_to_channel_tready),
@@ -985,7 +1041,7 @@ module wfd_top (
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
         .c2_s_axi_tx_tdata(c2_axi_stream_to_channel_tdata),   // note index order
-        .c2_s_axi_tx_tkeep(),                                 // note index order
+        .c2_s_axi_tx_tkeep(4'b0000),                          // note index order
         .c2_s_axi_tx_tvalid(c2_axi_stream_to_channel_tvalid),
         .c2_s_axi_tx_tlast(c2_axi_stream_to_channel_tlast),
         .c2_s_axi_tx_tready(c2_axi_stream_to_channel_tready),
@@ -1005,7 +1061,7 @@ module wfd_top (
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
         .c3_s_axi_tx_tdata(c3_axi_stream_to_channel_tdata),   // note index order
-        .c3_s_axi_tx_tkeep(),                                 // note index order
+        .c3_s_axi_tx_tkeep(4'b0000),                          // note index order
         .c3_s_axi_tx_tvalid(c3_axi_stream_to_channel_tvalid),
         .c3_s_axi_tx_tlast(c3_axi_stream_to_channel_tlast),
         .c3_s_axi_tx_tready(c3_axi_stream_to_channel_tready),
@@ -1025,7 +1081,7 @@ module wfd_top (
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs
         // TX interface to slave side of transmit FIFO
         .c4_s_axi_tx_tdata(c4_axi_stream_to_channel_tdata),   // note index order
-        .c4_s_axi_tx_tkeep(),                                 // note index order
+        .c4_s_axi_tx_tkeep(4'b0000),                          // note index order
         .c4_s_axi_tx_tvalid(c4_axi_stream_to_channel_tvalid),
         .c4_s_axi_tx_tlast(c4_axi_stream_to_channel_tlast),
         .c4_s_axi_tx_tready(c4_axi_stream_to_channel_tready),
@@ -1236,6 +1292,7 @@ module wfd_top (
         .status_reg18(status_reg18)
     );
 
+
     // trigger top module
     trigger_top trigger_top (
         // clocks
@@ -1250,26 +1307,15 @@ module wfd_top (
         .rst_trigger_num(rst_trigger_num),             // from TTC Channel B
         .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
 
-        // ----------------------------
-
         // trigger interface
-        .ttc_trigger(trigger_from_ttc),                    // TTC trigger signal
-
-        .ext_trigger(enable_reading_pulse),
-        //.ext_trigger(ext_trig_sync),                       // front panel trigger signal
-
-        .accept_pulse_triggers(1'b1),                        // accept front panel triggers select
-        //.accept_pulse_triggers(ttc_accept_pulse_triggers), // accept front panel triggers select
-
-        .trig_type(3'b111),                                  // trigger type (muon fill, laser, pedestal)
-        //.trig_type(fill_type),                             // trigger type (muon fill, laser, pedestal)
-
-        .trig_settings(trig_settings),                     // trigger settings
-        .chan_en(chan_en),                                 // enabled channels
-        .trig_delay(trig_delay),                           // trigger delay
-        .thres_ddr3_overflow(thres_ddr3_overflow),         // DDR3 overflow threshold
-
-        // ----------------------------
+        .ttc_trigger(trigger_from_ttc),                // TTC trigger signal
+        .ext_trigger(ext_trig_to_trigger_top),         // front panel trigger signal
+        .accept_pulse_triggers(accept_pulse_triggers), // accept front panel triggers select
+        .trig_type(fill_type[2:0]),                    // trigger type (muon fill, laser, pedestal, async)
+        .trig_settings(trig_settings),                 // trigger settings
+        .chan_en(chan_en),                             // enabled channels
+        .trig_delay(trig_delay),                       // trigger delay
+        .thres_ddr3_overflow(thres_ddr3_overflow),     // DDR3 overflow threshold
 
         // channel interface
         .chan_dones(acq_dones),
@@ -1378,8 +1424,7 @@ module wfd_top (
         .trig_num(ttc_trig_num),             // global trigger number, starts at 1
         .trig_type(ttc_trig_type),           // trigger type
         .trig_timestamp(ttc_trig_timestamp), // trigger timestamp, defined by when trigger is received by trigger receiver module
-        .curr_trig_type(3'b111), // temporary hack for testing purposes
-        //.curr_trig_type(fill_type_clk125),   // currently set trigger type
+        .curr_trig_type(fill_type_clk125),   // currently set trigger type
         .readout_ready(readout_ready),       // ready to readout data, i.e., when in idle state
         .readout_done(readout_done),         // finished readout flag
         .readout_size(readout_size),         // burst count of readout event

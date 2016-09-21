@@ -791,7 +791,16 @@ module command_manager (
         end
         else if (daq_ready) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {2'b01, chan_tag[15:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
+
+          // synchronous mode
+          if (~fill_type[2]) begin
+            next_daq_data[63:0] = {2'b01, chan_tag[15:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
+          end
+          // asynchronous mode
+          else begin
+            next_daq_data[63:0] = {2'b01, chan_tag[15:0], 22'd0, wfm_count[11:0], 12'd0};
+          end
+
           next_sent_amc13_header = 1'b1;
           next_readout_timestamp[31:0] = 0;
           nextstate[SEND_CHAN_HEADER1] = 1'b1;
@@ -809,7 +818,16 @@ module command_manager (
       state[SEND_CHAN_HEADER1] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {ddr3_start_addr[13:0], burst_count[22:0]*8, fill_type[2:0], trig_num[23:0]};
+
+          // synchronous mode
+          if (~fill_type[2]) begin
+            next_daq_data[63:0] = {ddr3_start_addr[13:0], (burst_count[22:0]<<3), fill_type[2:0], trig_num[23:0]};
+          end
+          // asynchronous mode
+          else begin
+            next_daq_data[63:0] = {ddr3_start_addr[13:0], (pulse_data_size[22:0]<<3), fill_type[2:0], trig_num[23:0]};
+          end
+
           nextstate[SEND_CHAN_HEADER2] = 1'b1;
         end
         else begin
@@ -847,7 +865,7 @@ module command_manager (
               next_burst_count[22:0] = {12'd0, chan_rx_fifo_data[10:0]};
               next_pretrigger_count[11:0] = chan_rx_fifo_data[22:11];
               // convert pre- and post-trigger waveform length from # bursts to # samples
-              next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:23], (chan_rx_fifo_data[22:11]<<3), (chan_rx_fifo_data[10:0]<<3)};
+              next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:23], (chan_rx_fifo_data[22:11]<<1), (chan_rx_fifo_data[10:0]<<3)};
             end
           end
           // this is the waveform header [95:64]

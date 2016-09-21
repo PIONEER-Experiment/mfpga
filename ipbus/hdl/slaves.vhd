@@ -17,9 +17,6 @@ port (
 	ipb_out : out ipb_rbus;
 	rst_out : out std_logic;
 
-	-- debug ports
-	debug : out std_logic_vector(7 downto 0);
-
 	-- AXI4-stream interface
     axi_stream_in         : in  axi_stream;
     axi_stream_in_tready  : out std_logic;
@@ -27,16 +24,19 @@ port (
     axi_stream_out_tready : in  std_logic;
 
     -- control signals
-    trigger_out        : out std_logic;
-    async_mode_out     : out std_logic;
-    ip_addr_rst_out    : out std_logic;
-    chan_en_out        : out std_logic_vector(4 downto 0);
-    prog_chan_out      : out std_logic;
-    reprog_trigger_out : out std_logic_vector(1 downto 0);
-    trig_delay_out     : out std_logic_vector(31 downto 0);
-    endianness_out     : out std_logic;
-    trig_settings_out  : out std_logic_vector(7 downto 0);
-    ttc_loopback_out   : out std_logic;
+    trigger_out           : out std_logic;
+    async_mode_out        : out std_logic;
+    accept_pulse_trig_out : out std_logic;
+    async_trig_type_out   : out std_logic;
+    ip_addr_rst_out       : out std_logic;
+    chan_en_out           : out std_logic_vector( 4 downto 0);
+    prog_chan_out         : out std_logic;
+    reprog_trigger_out    : out std_logic_vector( 1 downto 0);
+    trig_delay_out        : out std_logic_vector(31 downto 0);
+    endianness_out        : out std_logic;
+    trig_settings_out     : out std_logic_vector( 7 downto 0);
+    ttc_loopback_out      : out std_logic;
+    ext_trig_pulse_en_out : out std_logic;
 
     -- threshold registers
     thres_data_corrupt  : out std_logic_vector(31 downto 0); -- data corruption
@@ -75,14 +75,14 @@ port (
 	status_reg18 : in std_logic_vector(31 downto 0);
 
 	-- flash interface ports
-	flash_wr_nBytes  : out std_logic_vector(8 downto 0);
-	flash_rd_nBytes  : out std_logic_vector(8 downto 0);
+	flash_wr_nBytes  : out std_logic_vector( 8 downto 0);
+	flash_rd_nBytes  : out std_logic_vector( 8 downto 0);
 	flash_cmd_strobe : out std_logic;
 	flash_rbuf_en    : out std_logic;
-	flash_rbuf_addr  : out std_logic_vector(6 downto 0);
+	flash_rbuf_addr  : out std_logic_vector( 6 downto 0);
 	flash_rbuf_data  : in  std_logic_vector(31 downto 0);
 	flash_wbuf_en    : out std_logic;
-	flash_wbuf_addr  : out std_logic_vector(6 downto 0);
+	flash_wbuf_addr  : out std_logic_vector( 6 downto 0);
 	flash_wbuf_data  : out std_logic_vector(31 downto 0)
 );
 
@@ -175,8 +175,8 @@ begin
 	reprog_trigger_out(1) <= ctrl_reg(13);
     --                    <= ctrl_reg(14);
     --                    <= ctrl_reg(15);
-    --                    <= ctrl_reg(16);
-    --                    <= ctrl_reg(17);
+    ext_trig_pulse_en_out <= ctrl_reg(16);
+    async_trig_type_out   <= ctrl_reg(17);
     endianness_out        <= ctrl_reg(18);
     trig_settings_out(0)  <= ctrl_reg(19);
     trig_settings_out(1)  <= ctrl_reg(20);
@@ -187,7 +187,7 @@ begin
     trig_settings_out(6)  <= ctrl_reg(25);
     trig_settings_out(7)  <= ctrl_reg(26);
     async_mode_out        <= ctrl_reg(27);
-    --                    <= ctrl_reg(28);
+    accept_pulse_trig_out <= ctrl_reg(28);
     ttc_loopback_out      <= ctrl_reg(29);
 
 	

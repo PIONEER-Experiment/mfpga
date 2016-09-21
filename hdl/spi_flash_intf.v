@@ -42,7 +42,10 @@ module spi_flash_intf (
     input  [31:0] ipb_wbuf_data_in,
     input  pc_wbuf_wr_en,
     input  [ 6:0] pc_wbuf_wr_addr,
-    input  [31:0] pc_wbuf_data_in
+    input  [31:0] pc_wbuf_data_in,
+    input  send_write_command,
+    output end_write_command,
+    input  [11:0] pc_flash_wr_nBits
 );
 
 
@@ -85,7 +88,7 @@ reg [8:0] flash_rd_nBytes_sync;
 always @(posedge clk) begin
     flash_wr_nBytes_sync <= ipb_flash_wr_nBytes;
     flash_wr_nBytes      <= flash_wr_nBytes_sync;
-    
+
     flash_rd_nBytes_sync <= ipb_flash_rd_nBytes;
     flash_rd_nBytes      <= flash_rd_nBytes_sync;
 end
@@ -97,6 +100,8 @@ end
 
 wire prog_chan_in_progress_125;
 wire pc_wbuf_wr_en_125;
+wire [ 6:0] pc_wbuf_wr_addr_125;
+wire [31:0] pc_wbuf_data_in_125;
 
 sync_2stage prog_chan_sync (
     .clk(ipb_clk),
@@ -110,22 +115,38 @@ sync_2stage pc_wbur_wr_en_sync (
     .out(pc_wbuf_wr_en_125)
 );
 
+sync_2stage #(
+    .WIDTH(7)
+) pc_wbuf_wr_addr_sync (
+    .clk(ipb_clk),
+    .in(pc_wbuf_wr_addr),
+    .out(pc_wbuf_wr_addr_125)
+);
+
+sync_2stage #(
+    .WIDTH(32)
+) pc_wbuf_data_in_sync (
+    .clk(ipb_clk),
+    .in(pc_wbuf_data_in),
+    .out(pc_wbuf_data_in_125)
+);
+
 
 // ========================================
 // determine control of WBUF and RBUF ports
 // ========================================
 
 // only IPbus communicates with the read port of RBUF
-assign rbuf_rd_en = ipb_rbuf_rd_en;
-assign rbuf_rd_addr = ipb_rbuf_rd_addr;
+assign rbuf_rd_en        = ipb_rbuf_rd_en;
+assign rbuf_rd_addr      = ipb_rbuf_rd_addr;
 assign ipb_rbuf_data_out = rbuf_data_out;
 
 // select whether IPbus or prog_channels controls the write port of WBUF
 always @(posedge ipb_clk) begin
     if (prog_chan_in_progress_125) begin
         wbuf_wr_en   <= pc_wbuf_wr_en_125;
-        wbuf_wr_addr <= pc_wbuf_wr_addr;
-        wbuf_data_in <= pc_wbuf_data_in;
+        wbuf_wr_addr <= pc_wbuf_wr_addr_125;
+        wbuf_data_in <= pc_wbuf_data_in_125;
     end
     else begin
         wbuf_wr_en   <= ipb_wbuf_wr_en;
@@ -168,7 +189,7 @@ wire [24:0] chan_bs_bit_cnt_max = 25'h16F97DF;
 
 always @(posedge clk) begin
     if (chan_bs_bit_cnt_reset)
-        chan_bs_bit_cnt[24:0] <= 12'b0;
+        chan_bs_bit_cnt[24:0] <= 25'b0;
     else
         chan_bs_bit_cnt[24:0] <= chan_bs_bit_cnt[24:0] + 1'b1;
 end
@@ -200,7 +221,7 @@ reg [9:0] NS;
 // sequential always block for state transitions (use non-blocking [<=] assignments)
 always @(posedge clk) begin
     if (reset) begin
-        CS <= 5'b0;       // set all state bits to 0
+        CS <= 10'b0;      // set all state bits to 0
         CS[IDLE] <= 1'b1; // enter IDLE state
     end
     else
@@ -209,14 +230,16 @@ end
 
 // combinational always block to determine next state (use blocking [=] assignments)
 always @* begin
-    NS = 12'b0; // one bit will be set to 1 by case statement
+    NS = 10'b0; // one bit will be set to 1 by case statement
 
     case (1'b1)
 
         CS[IDLE] : begin
             // stay in IDLE if flash_wr_nBytes = 0
             // prog_channels overrides IPbus if there is a conflict
-            if (flash_cmd_strobe && bit_cnt_wr_max != 12'hfff && !prog_chan_in_progress)
+            if (flash_cmd_strobe && (bit_cnt_wr_max != 12'hFFF) && !prog_chan_in_progress)
+                NS[START_CMD] = 1'b1;
+            else if (send_write_command)
                 NS[START_CMD] = 1'b1;
             else if (read_bitstream)
                 NS[START_CHAN_BS_CMD] = 1'b1;
@@ -229,14 +252,16 @@ always @* begin
         end
 
         CS[SEND_CMD] : begin
-            if (bit_cnt == bit_cnt_wr_max)
+            if (prog_chan_in_progress && (bit_cnt == pc_flash_wr_nBits))
+                NS[FINISH_CMD] = 1'b1;
+            else if (!prog_chan_in_progress && (bit_cnt == bit_cnt_wr_max))
                 NS[FINISH_CMD] = 1'b1;
             else
                 NS[SEND_CMD] = 1'b1;
         end
 
         CS[FINISH_CMD] : begin
-            if (bit_cnt_rd_max == 12'hfff) // flash_rd_nBytes = 0
+            if (bit_cnt_rd_max == 12'hFFF) // flash_rd_nBytes = 0
                 NS[IDLE] = 1'b1;
             else
                 NS[RECEIVE_RSP] = 1'b1;
@@ -307,6 +332,9 @@ assign spi_ss = (CS[IDLE]              == 1'b1)  ||
 
 // end_bitstream is high when we are done reading out the channel bitstream
 assign end_bitstream = (CS[CHAN_BS_DONE] == 1'b1);
+
+// end_write_command is high when we are done writing out the command
+assign end_write_command = (CS[FINISH_CMD] == 1'b1);
 
 
 // ====================

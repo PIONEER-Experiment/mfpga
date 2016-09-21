@@ -1,4 +1,4 @@
-// Connect all of the serial links to the channel FPGAs that use the Aurora interface
+// Connect all of the serial links to the Channel FPGAs that use the Aurora interface
 // Implement and distribute any shared signals that are not passed from above
 
 module all_channels (

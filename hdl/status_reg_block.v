@@ -103,6 +103,7 @@ module status_reg_block (
   output wire [31:0] status_reg18  // DDR3 overflow count
 );
 
+
 // Register 00: FPGA status and firmware version
 assign status_reg0  = {1'b0, prog_chan_done, async_mode, 5'd0, `MAJOR_REV, `MINOR_REV, `PATCH_REV};
 

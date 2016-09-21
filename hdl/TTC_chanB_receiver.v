@@ -43,37 +43,35 @@ module ttc_chanb_receiver (
   reg next_accept_pulse_triggers;
   reg [31:0] next_unknown_cmd_count;
 
-  assign reset_trig_num = evt_count_reset;
-
-  // reset trigger timestamp for valid signals of form 001X1X
-  assign reset_trig_timestamp = chan_b_valid && chan_b_info[1] && (chan_b_info[5:3] == 3'b001);
-  assign error_unknown_ttc = (unknown_cmd_count[31:0] > thres_unknown_ttc[31:0]);
+  assign reset_trig_num       = evt_count_reset;
+  assign reset_trig_timestamp = chan_b_valid & chan_b_info[1] & (chan_b_info[5:3] == 3'b001); // reset trigger timestamp for valid signals of form 001X1X
+  assign error_unknown_ttc    = (unknown_cmd_count[31:0] > thres_unknown_ttc[31:0]);
 
 
+  // combinational always block
   always @* begin
-    // reset
-    if (reset | ttc_loopback) begin
-      next_fill_type[2:0]          <= 3'b001; // default to muon fill
-      next_accept_pulse_triggers   <= 1'b0;
-      next_unknown_cmd_count[31:0] <= 32'd0;
-    end
+    // default
+    next_fill_type[2:0]          = fill_type[2:0];
+    next_accept_pulse_triggers   = accept_pulse_triggers;
+    next_unknown_cmd_count[31:0] = unknown_cmd_count[31:0];
+
     // transfer information on synchronous fill type
-    else if (chan_b_valid && (chan_b_info[1] == 1'b0) && (chan_b_info[5] == 1'b1) && chan_b_info[4:3]) begin
-      next_fill_type[2:0]          <= {1'b0, chan_b_info[4:3]};
-      next_accept_pulse_triggers   <= accept_pulse_triggers;
-      next_unknown_cmd_count[31:0] <= unknown_cmd_count[31:0];
+    if (chan_b_valid & (chan_b_info[1] == 1'b0) & (chan_b_info[5] == 1'b1) & chan_b_info[4:3]) begin
+      next_fill_type[2:0]          = {1'b0, chan_b_info[4:3]};
+      next_accept_pulse_triggers   = accept_pulse_triggers;
+      next_unknown_cmd_count[31:0] = unknown_cmd_count[31:0];
     end
     // transfer information on asynchronous fill type
-    else if (chan_b_valid && (chan_b_info[1] == 1'b0) && (chan_b_info[5:3] == 3'b100)) begin
-      next_fill_type[2:0]          <= 3'b111;
-      next_accept_pulse_triggers   <= accept_pulse_triggers;
-      next_unknown_cmd_count[31:0] <= unknown_cmd_count[31:0];
+    else if (chan_b_valid & (chan_b_info[1] == 1'b0) & (chan_b_info[5:3] == 3'b100)) begin
+      next_fill_type[2:0]          = 3'b111;
+      next_accept_pulse_triggers   = accept_pulse_triggers;
+      next_unknown_cmd_count[31:0] = unknown_cmd_count[31:0];
     end
     // transfer information on asynchronous pulse storage
-    else if (chan_b_valid && (chan_b_info[1] == 1'b1) && (chan_b_info[5:4] == 2'b10)) begin
-      next_fill_type[2:0]          <= fill_type[2:0];
-      next_accept_pulse_triggers   <= ~chan_b_info[3];
-      next_unknown_cmd_count[31:0] <= unknown_cmd_count[31:0];
+    else if (chan_b_valid & (chan_b_info[1] == 1'b1) & (chan_b_info[5:4] == 2'b10)) begin
+      next_fill_type[2:0]          = fill_type[2:0];
+      next_accept_pulse_triggers   = ~chan_b_info[3];
+      next_unknown_cmd_count[31:0] = unknown_cmd_count[31:0];
     end
     // invalid broadcast command
     else if (chan_b_valid & ~evt_count_reset & ~reset_trig_timestamp) begin
@@ -81,15 +79,10 @@ module ttc_chanb_receiver (
       next_accept_pulse_triggers   <= accept_pulse_triggers;
       next_unknown_cmd_count[31:0] <= unknown_cmd_count[31:0] + 1; // increment soft error counter
     end
-    // no broadcast command sent
-    else begin
-      next_fill_type[2:0]          <= fill_type[2:0];
-      next_accept_pulse_triggers   <= accept_pulse_triggers;
-      next_unknown_cmd_count[31:0] <= unknown_cmd_count[31:0];
-    end
   end
 
 
+  // sequential always block
   always @(posedge clk) begin
     if (reset | ttc_loopback) begin
       fill_type[2:0]          <= 3'b001; // default to muon fill

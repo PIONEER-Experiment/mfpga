@@ -19,9 +19,10 @@ create_clock -period 8.000 -name user_clk_chan4 [get_pins channels/chan4/clock_m
 
 # statements to deal with inter-clock timing problems
 set_false_path -from [get_cells reset_stretch/signal_out_reg*] -to [get_cells clk50_reset_sync/sync1_reg*]
-set_false_path -from [get_cells ipb/slaves/slave1/reg_reg*] -to [get_cells prog_chan_start_sync/sync1_reg*]
+set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][11]*}] -to [get_cells prog_chan_start_sync/sync1_reg*]
 set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][12]*}] -to [get_cells reprog_trigger_sync/sync1_reg*]
 set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][13]*}] -to [get_cells reprog_trigger_sync/sync1_reg*]
+set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][27]*}] -to [get_cells async_mode_clk50_module/sync1_reg*]
 set_false_path -from [get_cells ipb/slaves/slave4/flash_wr_nBytes_reg*] -to [get_cells spi_flash_intf/flash_wr_nBytes_sync_reg*]
 set_false_path -from [get_cells ipb/slaves/slave4/flash_rd_nBytes_reg*] -to [get_cells spi_flash_intf/flash_rd_nBytes_sync_reg*]
 set_false_path -from [get_cells ipb/slaves/slave4/flash_cmd_strobe_reg*] -to [get_cells spi_flash_intf/flash_cmd_sync/sync1_reg*]

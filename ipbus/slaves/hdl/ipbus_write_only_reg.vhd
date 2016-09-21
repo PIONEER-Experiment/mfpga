@@ -34,7 +34,6 @@ begin
 			end if;
 
 			ack <= ipbus_in.ipb_strobe;
-
 		end if;
 	end process;
 	

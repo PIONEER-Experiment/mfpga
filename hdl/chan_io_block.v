@@ -28,16 +28,16 @@ module chan_io_block (
   input link_reset_out             // 
 );
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////
   // some common address decoding assignments
   assign reg_wr_en  = io_sync & io_wr_en;
-  assign live_status_sel  = io_sel && (io_addr[3:0] == 4'b0000);
-  assign loopback_reg_sel = io_sel && (io_addr[3:0] == 4'b0001);
+  assign live_status_sel  = io_sel & (io_addr[3:0] == 4'b0000);
+  assign loopback_reg_sel = io_sel & (io_addr[3:0] == 4'b0001);
 
-  // live_status register - instant state of many status bits. Some may be meaningless because they
-  // are only valid at particulat times. Gradually fix up that stuff.
+  // live_status register -- instant state of many status bits. Some may be meaningless because they
+  // are only valid at particular times. Gradually fix up that stuff.
   reg [31:0] live_status_reg;
-  always @ (posedge io_clk) begin
+  always @(posedge io_clk) begin
     live_status_reg[0]    <= channel_up;       // 
     live_status_reg[1]    <= lane_up;          // 
     live_status_reg[2]    <= frame_err;        // 
@@ -50,26 +50,36 @@ module chan_io_block (
     live_status_reg[31:9] <= 23'b0;            // 
   end
 
-  // loopback register - only the 3 LSBs have meaning, and are connected to the Aurora
-  wire [31:0] loopback_all;                       // the full register width
-  reg32_ce2 loopback_reg(.in(io_wr_data[31:0]), .reset(io_reset), .out(loopback_all), .clk(io_clk),
-                         .clk_en1(reg_wr_en), .clk_en2(loopback_reg_sel));
-  assign loopback_set[2:0] = loopback_all[2:0];   // the 3 LSBs
+  // loopback register -- only the 3 LSBs have meaning, and are connected to the Aurora
+  wire [31:0] loopback_all; // the full register width
+  reg32_ce2 loopback_reg (
+    .in(io_wr_data[31:0]),
+    .reset(io_reset),
+    .def_value(32'd0),
+    .out(loopback_all),
+    .clk(io_clk),
+    .clk_en1(reg_wr_en),
+    .clk_en2(loopback_reg_sel)
+  );
+  assign loopback_set[2:0] = loopback_all[2:0]; // the 3 LSBs
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////
   // readback MUX
   // If a particular register or memory is addressed, connect that register's or memory's signals
   // to the 'io_rd_data' output. At the same time, assert 'io_rd_ack' to tell downstream muxes to
   // use the 'io_rd_data' from this module as their source of data.
   reg [31:0] io_rd_data_reg;
   assign io_rd_data[31:0] = io_rd_data_reg[31:0];
-  // Assert 'io_rd_ack' if chip select for this module is asserted during a 'read' operation.
+
+  // assert 'io_rd_ack' if chip select for this module is asserted during a 'read' operation.
   reg io_rd_ack_reg;
   assign io_rd_ack = io_rd_ack_reg;
+
   always @(posedge io_clk) begin
     io_rd_ack_reg <= io_sync & io_sel & io_rd_en;
   end
-  // Route the selected register to the 'io_rd_data' output.
+
+  // route the selected register to the 'io_rd_data' output.
   always @(posedge io_clk) begin
     if (live_status_sel)  io_rd_data_reg[31:0] <= live_status_reg;
     if (loopback_reg_sel) io_rd_data_reg[31:0] <= loopback_all;

@@ -59,8 +59,9 @@ module channel_acq_controller_async (
   always @* begin
     nextstate = 4'd0;
 
-    next_acq_trig_type[ 2:0] = acq_trig_type[ 2:0];
-    next_acq_trig_num [23:0] = acq_trig_num [23:0];
+    next_acq_trig_type    [ 2:0] = acq_trig_type    [ 2:0];
+    next_acq_trig_num     [23:0] = acq_trig_num     [23:0];
+    next_acq_dones_latched[ 4:0] = acq_dones_latched[ 4:0];
 
     acq_enable[9:0] = 10'd0; // default
     acq_trig  [4:0] =  5'd0; // default
@@ -70,7 +71,7 @@ module channel_acq_controller_async (
       state[IDLE] : begin
         // asynchronous readout trigger received
         if (ttc_trigger & async_mode) begin
-          next_acq_dones_latched[4:0] = 5'd0;
+          next_acq_dones_latched[4:0] = 5'b00000;
 
           next_acq_trig_type[ 2:0] = ttc_trig_type[ 2:0]; // latch trigger type
           next_acq_trig_num [23:0] = ttc_trig_num [23:0]; // latch trigger number
@@ -134,9 +135,9 @@ module channel_acq_controller_async (
     if (reset) begin
       state <= 4'd1 << IDLE;
 
-      acq_trig_type    [ 2:0] <=  3'd0;
+      acq_trig_type    [ 2:0] <=  3'b000;
       acq_trig_num     [23:0] <= 24'd0;
-      acq_dones_latched[ 4:0] <=  5'd0;
+      acq_dones_latched[ 4:0] <=  5'b00000;
     end
     else begin
       state <= nextstate;

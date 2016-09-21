@@ -1,15 +1,14 @@
-// State machine for programming the Channel FPGAs
-// using a bitstream stored in the flash memory
+// State machine for programming the Channel FPGAs using a bitstream stored in the flash memory
 //
-// The address for the start of the channel bitstream is 0xCE0000
-// (this is currently hard-coded in wfd_top.v, at the instatiation of 
-// the spi_flash_intf module)
+// Address for the start of the  synchronous channel bitstream is 0x100_0000;
+// Address for the start of the asynchronous channel bitstream is 0x12E_0000
 //
-// To start state machine, write '1' to the appropriate IPbus address
+// To start state machine, assert the 'prog_chan_start' input signal
 
 module prog_channels (
 	input  clk,
 	input  reset,
+    input  async_mode,                // asychronous mode enable
     input  prog_chan_start,           // start signal from IPbus
     output reg c_progb,               // configuration signal to all five channels
     output c_clk,                     // configuration clock to all five channels
@@ -19,9 +18,14 @@ module prog_channels (
     input  bitstream,                 // from SPI flash
     output reg prog_chan_in_progress, // signal to spi_flash_intf
     output reg store_flash_command,   // signal to spi_flash_intf
+    output reg [ 6:0] wbuf_address,   // signal to spi_flash_intf
+    output reg [31:0] flash_command,  // signal to spi_flash_intf
+    output reg [11:0] flash_wr_nBits, // signal to spi_flash_intf
+    output reg send_write_command,    // start command to spi_flash_intf
     output reg read_bitstream,        // start command to spi_flash_intf
+    input  end_write_command,         // done signal from spi_flash_intf
     input  end_bitstream,             // done signal from spi_flash_intf
-    output reg prog_chan_done         // done programming the channels
+    output reg prog_chan_done = 1'b0  // done programming the channels
 );
 
 
@@ -36,49 +40,169 @@ always @(posedge clk) begin
 end
 
 
-parameter IDLE          = 3'b000;
-parameter STORE_CMD     = 3'b001;
-parameter START         = 3'b010;
-parameter INIT1         = 3'b011;
-parameter INIT2         = 3'b100;
-parameter LOAD          = 3'b101;
-parameter WAIT_FOR_DONE = 3'b110;
-parameter DONE          = 3'b111;
+parameter IDLE          = 4'd0;
+parameter STORE_CMD1    = 4'd1;
+parameter LOAD1         = 4'd2;
+parameter STORE_CMD2    = 4'd3;
+parameter LOAD2         = 4'd4;
+parameter STORE_CMD3    = 4'd5;
+parameter START         = 4'd6;
+parameter INIT1         = 4'd7;
+parameter INIT2         = 4'd8;
+parameter LOAD3         = 4'd9;
+parameter WAIT_FOR_DONE = 4'd10;
+parameter STORE_CMD4    = 4'd11;
+parameter LOAD4         = 4'd12;
+parameter STORE_CMD5    = 4'd13;
+parameter LOAD5         = 4'd14;
+parameter DONE          = 4'd15;
 
-reg [2:0] state = IDLE;
+reg [3:0] state = IDLE;
 
 reg [3:0] counter = 4'h0;
 
+
+// CMD1 : WRITE_ENABLE = 1
+// CMD2 : WRITE_EXTENDED_ADDRESS_REGISTER = 1
+// CMD3 : READ
+// CMD4 : WRITE_ENABLE = 1
+// CMD5 : WRITE_EXTENDED_ADDRESS_REGISTER = 0
 
 always @(posedge clk) begin
     if (reset) begin
         c_progb <= 1'b1;
         c_din   <= 1'b0;
 
+        prog_chan_in_progress <=  1'b0;
+        store_flash_command   <=  1'b0;
+        read_bitstream        <=  1'b0;
+        prog_chan_done        <=  1'b0;
+        send_write_command    <=  1'b0;
+        wbuf_address[6:0]     <=  7'd0;
+        flash_command[31:0]   <= 32'd0;
+        flash_wr_nBits[11:0]  <= 12'd0;
+        counter[3:0]          <=  4'd0;
+
         state <= IDLE;
     end
     else begin
         case (state)
+            // idle state
             IDLE : begin
                 c_progb <= 1'b1;
                 c_din   <= 1'b1;
-                prog_chan_in_progress <= 1'b0;
-                store_flash_command   <= 1'b0;
-                read_bitstream        <= 1'b0;
+
+                prog_chan_in_progress <=  1'b0;
+                store_flash_command   <=  1'b0;
+                read_bitstream        <=  1'b0;
+                send_write_command    <=  1'b0;
+                wbuf_address[6:0]     <=  7'd0;
+                flash_command[31:0]   <= 32'd0;
+                flash_wr_nBits[11:0]  <= 12'd0;
 
                 if (prog_chan_start)
-                    state <= STORE_CMD;
+                    state <= STORE_CMD1;
                 else
                     state <= IDLE;
             end
 
-            STORE_CMD : begin
+            // store command in WBUF
+            STORE_CMD1 : begin
                 c_progb <= 1'b1;
                 c_din   <= 1'b1;
-                prog_chan_in_progress <= 1'b1;
-                store_flash_command   <= 1'b1;
-                read_bitstream        <= 1'b0;
-                prog_chan_done        <= 1'b0;
+
+                prog_chan_in_progress <=  1'b1;
+                store_flash_command   <=  1'b1; // store write command in WBUF
+                read_bitstream        <=  1'b0;
+                prog_chan_done        <=  1'b0;
+                send_write_command    <=  1'b0;
+                wbuf_address[6:0]     <=  7'd0;
+                flash_command[31:0]   <= 32'h0600_0000; // WRITE_ENABLE = 1
+                flash_wr_nBits[11:0]  <= 12'd0;
+
+                state <= LOAD1;
+            end
+
+            // initiate command to SPI flash
+            LOAD1 : begin
+                c_progb <= 1'b1;
+                c_din   <= 1'b1;
+
+                prog_chan_in_progress <=  1'b1;
+                store_flash_command   <=  1'b0;
+                read_bitstream        <=  1'b0;
+                prog_chan_done        <=  1'b0;
+                wbuf_address[6:0]     <=  7'd0;
+                flash_command[31:0]   <= 32'd0;
+                flash_wr_nBits[11:0]  <= 12'd7;
+
+                if (end_write_command) begin
+                    send_write_command <= 1'b0;
+                    state <= STORE_CMD2;
+                end
+                else begin
+                    send_write_command <= 1'b1; // initiate write command to SPI flash
+                    state <= LOAD1;
+                end
+            end
+
+            // store command in WBUF
+            STORE_CMD2 : begin
+                c_progb <= 1'b1;
+                c_din   <= 1'b1;
+
+                prog_chan_in_progress <=  1'b1;
+                store_flash_command   <=  1'b1; // store write command in WBUF
+                read_bitstream        <=  1'b0;
+                prog_chan_done        <=  1'b0;
+                send_write_command    <=  1'b0;
+                wbuf_address[6:0]     <=  7'd0;
+                flash_command[31:0]   <= 32'hC501_0000; // WRITE_EXTENDED_ADDRESS_REGISTER = 1
+                flash_wr_nBits[11:0]  <= 12'd0;
+                
+                state <= LOAD2;
+            end
+
+            // initiate command to SPI flash
+            LOAD2 : begin
+                c_progb <= 1'b1;
+                c_din   <= 1'b1;
+
+                prog_chan_in_progress <=  1'b1;
+                store_flash_command   <=  1'b0;
+                read_bitstream        <=  1'b0;
+                prog_chan_done        <=  1'b0;
+                wbuf_address[6:0]     <=  7'd0;
+                flash_command[31:0]   <= 32'd0;
+                flash_wr_nBits[11:0]  <= 12'd15;
+
+                if (end_write_command) begin
+                    send_write_command <= 1'b0;
+                    state <= STORE_CMD3;
+                end
+                else begin
+                    send_write_command <= 1'b1; // initiate write command to SPI flash
+                    state <= LOAD2;
+                end
+            end
+
+            // store command in WBUF
+            STORE_CMD3 : begin
+                c_progb <= 1'b1;
+                c_din   <= 1'b1;
+
+                prog_chan_in_progress <=  1'b1;
+                store_flash_command   <=  1'b1; // store read command in WBUF
+                read_bitstream        <=  1'b0;
+                prog_chan_done        <=  1'b0;
+                send_write_command    <=  1'b0;
+                wbuf_address[6:0]     <=  7'd0;
+                flash_wr_nBits[11:0]  <= 12'd0;
+
+                if (~async_mode)
+                    flash_command[31:0] <= 32'h0300_0000; // READ, SYNCHRONOUS MODE
+                else
+                    flash_command[31:0] <= 32'h032E_0000; // READ, ASYNCHRONOUS MODE
 
                 state <= START;
             end
@@ -86,27 +210,37 @@ always @(posedge clk) begin
             START : begin
                 c_progb <= 1'b0;
                 c_din   <= 1'b1;
-                prog_chan_in_progress <= 1'b1;
-                store_flash_command   <= 1'b0;
-                read_bitstream        <= 1'b0;
-                prog_chan_done        <= 1'b0;
-                counter               <= 4'h0;
+
+                prog_chan_in_progress <=  1'b1;
+                store_flash_command   <=  1'b0;
+                read_bitstream        <=  1'b0;
+                prog_chan_done        <=  1'b0;
+                send_write_command    <=  1'b0;
+                wbuf_address[6:0]     <=  7'd0;
+                flash_command[31:0]   <= 32'd0;
+                flash_wr_nBits[11:0]  <= 12'd0;
+                counter[3:0]          <=  4'h0;
 
                 if (initb_sync[4:0] == 5'b00000)
                     state <= INIT1;
                 else
                     state <= START;
             end
-            
+
             INIT1 : begin
                 c_progb <= 1'b0; // progb still low (required Tprogram >= 250 ns)
                 c_din   <= 1'b1;
-                prog_chan_in_progress <= 1'b1;
-                store_flash_command   <= 1'b0;
-                read_bitstream        <= 1'b0;
-                prog_chan_done        <= 1'b0;
 
-                if (counter[3:0] == 4'hf)
+                prog_chan_in_progress <=  1'b1;
+                store_flash_command   <=  1'b0;
+                read_bitstream        <=  1'b0;
+                prog_chan_done        <=  1'b0;
+                send_write_command    <=  1'b0;
+                wbuf_address[6:0]     <=  7'd0;
+                flash_command[31:0]   <= 32'd0;
+                flash_wr_nBits[11:0]  <= 12'd0;
+
+                if (counter[3:0] == 4'hF)
                     state <= INIT2;
                 else begin
                     counter[3:0] <= counter[3:0] + 1'b1;
@@ -117,54 +251,156 @@ always @(posedge clk) begin
             INIT2 : begin
                 c_progb <= 1'b1; // release progb back to normal high state
                 c_din   <= 1'b1;
-                prog_chan_in_progress <= 1'b1;
-                store_flash_command   <= 1'b0;
-                read_bitstream        <= 1'b0;
-                prog_chan_done        <= 1'b0;
+
+                prog_chan_in_progress <=  1'b1;
+                store_flash_command   <=  1'b0;
+                read_bitstream        <=  1'b0;
+                prog_chan_done        <=  1'b0;
+                send_write_command    <=  1'b0;
+                wbuf_address[6:0]     <=  7'd0;
+                flash_command[31:0]   <= 32'd0;
+                flash_wr_nBits[11:0]  <= 12'd0;
 
                 if (initb_sync[4:0] == 5'b11111)
-                    state <= LOAD;
+                    state <= LOAD3;
                 else
                     state <= INIT2;
             end
 
-            LOAD : begin
+            // initiate command to SPI flash
+            LOAD3 : begin
                 c_progb <= 1'b1;
                 c_din   <= bitstream;
-                prog_chan_in_progress <= 1'b1;
-                store_flash_command   <= 1'b0;
-                read_bitstream        <= 1'b1; // initiate read command to SPI flash
-                prog_chan_done        <= 1'b0;
+
+                prog_chan_in_progress <=  1'b1;
+                store_flash_command   <=  1'b0;
+                read_bitstream        <=  1'b1; // initiate read command to SPI flash
+                prog_chan_done        <=  1'b0;
+                send_write_command    <=  1'b0;
+                wbuf_address[6:0]     <=  7'd0;
+                flash_command[31:0]   <= 32'd0;
+                flash_wr_nBits[11:0]  <= 12'd0;
 
                 if (end_bitstream)
                     state <= WAIT_FOR_DONE;
                 else
-                    state <= LOAD;
+                    state <= LOAD3;
             end
 
             WAIT_FOR_DONE : begin
                 c_progb <= 1'b1;
                 c_din   <= 1'b1;
-                prog_chan_in_progress <= 1'b1;
-                store_flash_command   <= 1'b0;
-                read_bitstream        <= 1'b0;
-                prog_chan_done        <= 1'b0;
+
+                prog_chan_in_progress <=  1'b1;
+                store_flash_command   <=  1'b0;
+                read_bitstream        <=  1'b0;
+                prog_chan_done        <=  1'b0;
+                send_write_command    <=  1'b0;
+                wbuf_address[6:0]     <=  7'd0;
+                flash_command[31:0]   <= 32'd0;
+                flash_wr_nBits[11:0]  <= 12'd0;
 
                 if (prog_done_sync[4:0] == 5'b11111)
-                    state <= DONE;
+                    state <= STORE_CMD4;
                 else
                     state <= WAIT_FOR_DONE;
             end
 
+            // store command in WBUF
+            STORE_CMD4 : begin
+                c_progb <= 1'b1;
+                c_din   <= 1'b1;
+
+                prog_chan_in_progress <=  1'b1;
+                store_flash_command   <=  1'b1; // store write command in WBUF
+                read_bitstream        <=  1'b0;
+                prog_chan_done        <=  1'b0;
+                send_write_command    <=  1'b0;
+                wbuf_address[6:0]     <=  7'd0;
+                flash_command[31:0]   <= 32'h0600_0000; // WRITE_ENABLE = 1
+                flash_wr_nBits[11:0]  <= 12'd0;
+                
+                state <= LOAD4;
+            end
+
+            // initiate command to SPI flash
+            LOAD4 : begin
+                c_progb <= 1'b1;
+                c_din   <= 1'b1;
+
+                prog_chan_in_progress <=  1'b1;
+                store_flash_command   <=  1'b0;
+                read_bitstream        <=  1'b0;
+                prog_chan_done        <=  1'b0;
+                wbuf_address[6:0]     <=  7'd0;
+                flash_command[31:0]   <= 32'd0;
+                flash_wr_nBits[11:0]  <= 12'd7;
+
+                if (end_write_command) begin
+                    send_write_command <= 1'b0;
+                    state <= STORE_CMD5;
+                end
+                else begin
+                    send_write_command <= 1'b1; // initiate write command to SPI flash
+                    state <= LOAD4;
+                end
+            end
+
+            // store command in WBUF
+            STORE_CMD5 : begin
+                c_progb <= 1'b1;
+                c_din   <= 1'b1;
+
+                prog_chan_in_progress <=  1'b1;
+                store_flash_command   <=  1'b1; // store write command in WBUF
+                read_bitstream        <=  1'b0;
+                prog_chan_done        <=  1'b0;
+                send_write_command    <=  1'b0;
+                wbuf_address[6:0]     <=  7'd0;
+                flash_command[31:0]   <= 32'hC500_0000; // WRITE_EXTENDED_ADDRESS_REGISTER = 0
+                flash_wr_nBits[11:0]  <= 12'd0;
+                
+                state <= LOAD5;
+            end
+
+            // initiate command to SPI flash
+            LOAD5 : begin
+                c_progb <= 1'b1;
+                c_din   <= 1'b1;
+
+                prog_chan_in_progress <=  1'b1;
+                store_flash_command   <=  1'b0;
+                read_bitstream        <=  1'b0;
+                prog_chan_done        <=  1'b0;
+                send_write_command    <=  1'b1; // initiate write command to SPI flash
+                wbuf_address[6:0]     <=  7'd0;
+                flash_command[31:0]   <= 32'd0;
+                flash_wr_nBits[11:0]  <= 12'd15;
+                
+                if (end_write_command)
+                    state <= DONE;
+                else
+                    state <= LOAD5;
+            end
+
+            // done state
             DONE : begin
                 c_progb <= 1'b1;
                 c_din   <= 1'b1;
-                prog_chan_in_progress <= 1'b0;
-                store_flash_command   <= 1'b0;
-                read_bitstream        <= 1'b0;
-                prog_chan_done        <= 1'b1;
 
-                state <= DONE; // stay here until reset
+                prog_chan_in_progress <=  1'b0;
+                store_flash_command   <=  1'b0;
+                read_bitstream        <=  1'b0;
+                prog_chan_done        <=  1'b1; // done programming channels
+                send_write_command    <=  1'b0;
+                wbuf_address[6:0]     <=  7'd0;
+                flash_command[31:0]   <= 32'd0;
+                flash_wr_nBits[11:0]  <= 12'd0;
+
+                if (prog_chan_start)
+                    state <= DONE; // stay here until 'prog_chan_start' signal is negated
+                else
+                    state <= IDLE;
             end
         endcase
     end
