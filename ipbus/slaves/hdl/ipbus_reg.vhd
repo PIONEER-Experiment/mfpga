@@ -13,10 +13,10 @@ use work.ipbus.all;
 entity ipbus_reg is
 generic (addr_width: natural := 0);
 port (
-	clk       : in std_logic; -- ipbus clock
-	reset     : in std_logic; -- ipbus reset
-	ipbus_in  : in  ipb_wbus; -- fabric bus in
-	ipbus_out : out ipb_rbus; -- fabric bus out
+	clk       : in  std_logic; -- ipbus clock
+	reset     : in  std_logic; -- ipbus reset
+	ipbus_in  : in  ipb_wbus;  -- fabric bus in
+	ipbus_out : out ipb_rbus;  -- fabric bus out
 	-- output registers
 	reg0      : out STD_LOGIC_VECTOR(31 downto 0);
 	reg1      : out STD_LOGIC_VECTOR(31 downto 0);
@@ -50,9 +50,9 @@ begin
 				reg(0)(10) <= '1'; -- Channel 4 enabled by default
 				reg(0)(18) <= '1'; -- Little-endian ADC-samples format by default
 				reg(0)(27) <= '0'; -- asynchronous mode disabled by default
-				reg(1) <= x"0000000a"; -- Default threshold for data corruption is 10
-				reg(2) <= x"0000000a"; -- Default threshold for unknown TTC broadcast commands is 10
-				reg(3) <= x"00733334"; -- Default threshold for DDR3 overflow warning is 7,549,747 (90% full)
+				reg(1) <= x"0000000a"; -- default threshold for data corruption is 10
+				reg(2) <= x"0000000a"; -- default threshold for unknown TTC broadcast commands is 10
+				reg(3) <= x"00733334"; -- default threshold for DDR3 overflow warning is 7,549,747 (90% full)
 				reg(4) <= x"00000000";
 			elsif ipbus_in.ipb_strobe='1' and ipbus_in.ipb_write='1' then
 				reg(sel) <= ipbus_in.ipb_wdata;
@@ -60,7 +60,6 @@ begin
 
 			ipbus_out.ipb_rdata <= reg(sel);
 			ack <= ipbus_in.ipb_strobe and not ack;
-
 		end if;
 	end process;
 	

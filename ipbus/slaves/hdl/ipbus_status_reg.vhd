@@ -62,7 +62,6 @@ begin
 
 			ipbus_out.ipb_rdata <= reg(sel);
 			ack <= ipbus_in.ipb_strobe and not ack;
-
 		end if;
 	end process;
 	
@@ -70,16 +69,16 @@ begin
 	ipbus_out.ipb_err <= err;
 
 	-- assign registers to array
-	reg(0) <= reg0;
-	reg(1) <= reg1;
-	reg(2) <= reg2;
-	reg(3) <= reg3;
-	reg(4) <= reg4;
-	reg(5) <= reg5;
-	reg(6) <= reg6;
-	reg(7) <= reg7;
-	reg(8) <= reg8;
-	reg(9) <= reg9;
+	reg( 0) <= reg0;
+	reg( 1) <= reg1;
+	reg( 2) <= reg2;
+	reg( 3) <= reg3;
+	reg( 4) <= reg4;
+	reg( 5) <= reg5;
+	reg( 6) <= reg6;
+	reg( 7) <= reg7;
+	reg( 8) <= reg8;
+	reg( 9) <= reg9;
 	reg(10) <= reg10;
 	reg(11) <= reg11;
 	reg(12) <= reg12;

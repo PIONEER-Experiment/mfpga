@@ -16,7 +16,7 @@ module led_clksynth_status (
 //    1 = LED off
 
 // Assignments right now:
-//    green LED is on when clock synthesizer PLLs are locked        AND
+//    green LED is on when clock synthesizer PLLs are locked and
 //                         clock synthesizer input clock is present
 //    red LED is on otherwise
 

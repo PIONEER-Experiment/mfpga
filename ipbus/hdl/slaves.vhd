@@ -217,7 +217,7 @@ begin
             -- addr bits (3 downto 1) used to select one of the five channels (via tdest)
             -- addr bit 0 has unknown purpose; we get ipbus errors if we try to use an odd address
   	)
-	port map(
+	port map (
 	    clk   => ipb_clk,
 	    reset => ipb_rst,
 	    ipbus_in  => ipbw(3),

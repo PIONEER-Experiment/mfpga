@@ -1,4 +1,4 @@
--- User ipbus space for distributing an IPbus slave instance to user logic
+-- User IPbus space for distributing an IPbus slave instance to user logic
 --
 -- generic addr_width defines number of significant address bits
 --

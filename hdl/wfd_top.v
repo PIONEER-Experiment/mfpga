@@ -886,10 +886,10 @@ module wfd_top (
         .ipb_clk(clk125),
         .gtrefclk_out(gtrefclk0),
         
-		// MAC and IP address from I2C EEPROM
+        // MAC and IP address from I2C EEPROM
         .ip_addr_rst_out(ip_addr_rst),       // IP/MAC address from EEPROM reset
-		.i2c_mac_adr(i2c_mac_adr[47:0]),	 // MAC address read from I2C EEPROM
-		.i2c_ip_adr(i2c_ip_adr[31:0]),		 // IP address read from I2C EEPROM
+        .i2c_mac_adr(i2c_mac_adr[47:0]),     // MAC address read from I2C EEPROM
+        .i2c_ip_adr(i2c_ip_adr[31:0]),       // IP address read from I2C EEPROM
         .i2c_startup_done(i2c_startup_done), // MAC andIP will be valid when this is asserted
 
         // channel user space interface

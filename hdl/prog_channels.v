@@ -76,7 +76,6 @@ always @(posedge clk) begin
         prog_chan_in_progress <=  1'b0;
         store_flash_command   <=  1'b0;
         read_bitstream        <=  1'b0;
-        prog_chan_done        <=  1'b0;
         send_write_command    <=  1'b0;
         wbuf_address[6:0]     <=  7'd0;
         flash_command[31:0]   <= 32'd0;

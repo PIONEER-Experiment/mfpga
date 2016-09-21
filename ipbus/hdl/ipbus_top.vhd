@@ -28,10 +28,10 @@ port (
 	gtrefclk_out : out std_logic;
 
 	-- MAC and IP address from I2C bus
-    ip_addr_rst_out  : out std_logic;                    -- IP/MAC address from EEPROM reset
-	i2c_startup_done : in std_logic;		             -- MAC and IP will be valid when this is asserted
-	i2c_mac_adr		 : in std_logic_vector(47 downto 0); -- MAC address read from I2C EEPROM
-	i2c_ip_adr		 : in std_logic_vector(31 downto 0); -- IP address read from I2C EEPROM
+    ip_addr_rst_out  : out std_logic;                     -- IP/MAC address from EEPROM reset
+	i2c_startup_done : in  std_logic;		              -- MAC and IP will be valid when this is asserted
+	i2c_mac_adr		 : in  std_logic_vector(47 downto 0); -- MAC address read from I2C EEPROM
+	i2c_ip_adr		 : in  std_logic_vector(31 downto 0); -- IP address read from I2C EEPROM
 
 	-- channel user space interface
     user_ipb_clk    : out std_logic;                     -- programming clock
