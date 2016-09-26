@@ -63,6 +63,7 @@ module status_reg_block (
   input wire [ 3:0] cac_state,
   input wire [ 3:0] caca_state,
   input wire [ 6:0] tp_state,
+  input wire [ 3:0] pc_state,
 
   // acquisition
   input wire [4:0] acq_readout_pause,
@@ -126,7 +127,7 @@ assign status_reg5  = {21'd0, tts_state[3:0], ttc_chan_b_info[5:0], ttc_ready};
 assign status_reg6  = cm_state[31:0];
 
 // Register 07: FSM state 1
-assign status_reg7  = {7'd0, cm_state[33:32], tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
+assign status_reg7  = {3'd0, cm_state[33:32], pc_state[3:0], tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
 
 // Register 08: Acquisition
 assign status_reg8  = {18'd0, endianness_sel, acq_readout_pause[4:0], fill_type[2:0], chan_en[4:0]};

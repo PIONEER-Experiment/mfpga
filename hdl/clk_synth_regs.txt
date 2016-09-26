@@ -22,7 +22,7 @@
     `define CS_DEF_REG00        32'h00140060    // CLKout0_DIV = 3
     `define CS_DEF_REG01        32'h00140061    // CLKout1_DIV = 3
     `define CS_DEF_REG02        32'h00140062    // CLKout2_DIV = 3
-    `define CS_DEF_REG03        32'h00140063    // CLKout3_DIV = 3
+    `define CS_DEF_REG03        32'h00140783    // CLKout3_DIV = 60
     `define CS_DEF_REG04        32'h00140064    // CLKout4_DIV = 3
     `define CS_DEF_REG05        32'h00140065    // CLKout5_DIV = 3
     `define CS_DEF_REG06        32'h03300006    // CLKout0_TYPE = LVPECL (1200 mV), CLKout1_TYPE = LVPECL (1200 mV)

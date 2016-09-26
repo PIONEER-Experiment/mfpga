@@ -1,5 +1,5 @@
-`timescale 1ns / 1ps
-`include "ICAP_values.txt"
+`include "icap_values.txt"
+`include "flash_addresses.txt"
 
 // Module to re-program FPGA from flash by issuing an IPROG command
 
@@ -66,14 +66,14 @@ assign ICAP_input[18] = ICAP_value[21];
 assign ICAP_input[17] = ICAP_value[22];
 assign ICAP_input[16] = ICAP_value[23];
 
-assign ICAP_input[15] = ICAP_value[8];
-assign ICAP_input[14] = ICAP_value[9];
+assign ICAP_input[15] = ICAP_value[ 8];
+assign ICAP_input[14] = ICAP_value[ 9];
 assign ICAP_input[13] = ICAP_value[10];
 assign ICAP_input[12] = ICAP_value[11];
 assign ICAP_input[11] = ICAP_value[12];
 assign ICAP_input[10] = ICAP_value[13];
-assign ICAP_input[9]  = ICAP_value[14];
-assign ICAP_input[8]  = ICAP_value[15];
+assign ICAP_input[ 9] = ICAP_value[14];
+assign ICAP_input[ 8] = ICAP_value[15];
 
 assign ICAP_input[7]  = ICAP_value[0];
 assign ICAP_input[6]  = ICAP_value[1];
@@ -153,9 +153,9 @@ always @(posedge clk) begin
 
             SEND_WORD5 : begin
                 if (bitstream_select == 0)
-    			    ICAP_value <= `GOLDEN_FLASH_ADDR;
+    			    ICAP_value <= {8'h00, `GOLDEN_FLASH_ADDR};
                 else
-                    ICAP_value <= `MASTER_FLASH_ADDR;
+                    ICAP_value <= {8'h00, `MASTER_FLASH_ADDR};
     			ICAP_enable <= 1'b0; // enabled
                 state <= SEND_WORD6;
             end

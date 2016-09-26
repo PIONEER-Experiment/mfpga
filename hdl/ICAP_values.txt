@@ -15,7 +15,4 @@
   	`define ICAP_WRITE_CMD		32'h30008001
   	`define ICAP_IPROG			32'h0000000F
 
-  	`define GOLDEN_FLASH_ADDR	32'h00000000
-  	`define MASTER_FLASH_ADDR	32'h00670000
-
 `endif

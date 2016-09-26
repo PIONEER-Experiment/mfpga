@@ -1144,12 +1144,8 @@ module command_manager (
           next_csn[31:0] = csn[31:0]+1;
 
           // check whether the checksums match
-          // if in asychonronous mode with no waveforms, skip checking the checksums (09/14/16 - temporary fix)
-          if ((fill_type[2]) & (wfm_count[22:0] == 23'd0)) begin
-            next_daq_data[63:0] = {32'haaaa_aaaa, readout_timestamp[31:0]};
-          end
           // if they match, send '0000_0000' in MSB
-          else if (master_checksum[127:0] == channel_checksum[127:0]) begin
+          if (master_checksum[127:0] == channel_checksum[127:0]) begin
             next_daq_data[63:0] = {32'h0000_0000, readout_timestamp[31:0]};
           end
           // if they don't match, send 'baad_baad' in MSB

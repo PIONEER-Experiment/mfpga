@@ -1,3 +1,5 @@
+`include "flash_addresses.txt"
+
 // State machine for programming the Channel FPGAs using a bitstream stored in the flash memory
 //
 // Address for the start of the  synchronous channel bitstream is 0x100_0000;
@@ -25,7 +27,8 @@ module prog_channels (
     output reg read_bitstream,        // start command to spi_flash_intf
     input  end_write_command,         // done signal from spi_flash_intf
     input  end_bitstream,             // done signal from spi_flash_intf
-    output reg prog_chan_done = 1'b0  // done programming the channels
+    output reg prog_chan_done = 1'b0, // done programming the channels
+    output reg [3:0] state = 4'h0     // status of state machine
 );
 
 
@@ -38,6 +41,8 @@ always @(posedge clk) begin
     initb_sync[4:0]     <= initb[4:0];
     prog_done_sync[4:0] <= prog_done[4:0];
 end
+
+reg [3:0] counter = 4'h0;
 
 
 parameter IDLE          = 4'd0;
@@ -56,10 +61,6 @@ parameter LOAD4         = 4'd12;
 parameter STORE_CMD5    = 4'd13;
 parameter LOAD5         = 4'd14;
 parameter DONE          = 4'd15;
-
-reg [3:0] state = IDLE;
-
-reg [3:0] counter = 4'h0;
 
 
 // CMD1 : WRITE_ENABLE = 1
@@ -199,9 +200,9 @@ always @(posedge clk) begin
                 flash_wr_nBits[11:0]  <= 12'd0;
 
                 if (~async_mode)
-                    flash_command[31:0] <= 32'h0300_0000; // READ, SYNCHRONOUS MODE
+                    flash_command[31:0] <= {8'h03, `CHANNEL_FLASH_ADDR}; // READ, SYNCHRONOUS MODE
                 else
-                    flash_command[31:0] <= 32'h032E_0000; // READ, ASYNCHRONOUS MODE
+                    flash_command[31:0] <= {8'h03, `ASYNC_FLASH_ADDR};   // READ, ASYNCHRONOUS MODE
 
                 state <= START;
             end

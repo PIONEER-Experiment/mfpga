@@ -1,5 +1,5 @@
 // Top-level module for g-2 WFD5 Master FPGA
-
+//
 // As a useful reference, here's the syntax to mark signals for debug:
 // (* mark_debug = "true" *) 
 //
@@ -214,6 +214,15 @@ module wfd_top (
     );
 
 
+    // ======== finite state machine states ========
+    wire [ 3:0] ttr_state;
+    wire [ 3:0] ptr_state;
+    wire [ 3:0] cac_state;
+    wire [ 3:0] caca_state;
+    wire [ 6:0] tp_state;
+    wire [33:0] cm_state;
+    wire [ 3:0] pc_state;
+
     // ======== TTC Channel B information signals ========
     wire [5:0] ttc_chan_b_info;
     wire ttc_evt_reset;
@@ -235,9 +244,11 @@ module wfd_top (
     assign c3_io[3] = (rst_from_ipb | rst_trigger_num);
     assign c4_io[3] = (rst_from_ipb | rst_trigger_num);
 
-    // front panel clock: sel0 = 1'b1, sel1 = 1'b0
-    assign ext_clk_sel0 = 1'b1;
-    assign ext_clk_sel1 = 1'b0;
+    // front panel clock   : sel0 = 1'b0, sel1 = 1'b1
+    // uTCA backplane clock: sel0 = 1'b1, sel1 = 1'b0
+    // both                : sel0 = 1'b1, sel1 = 1'b1
+    assign ext_clk_sel0 = 1'b0;
+    assign ext_clk_sel1 = 1'b1;
 
     // uTCA backplane clock: daq_clk_sel = 1'b0
     // front panel clock:    daq_clk_sel = 1'b1
@@ -452,8 +463,8 @@ module wfd_top (
     );
 
     edge_detect prog_chan_start_edge_detect (
-        .clk(clk50),                  // clock
-        .in(ipb_prog_chan_start),     // input signal
+        .clk(clk50),                      // clock
+        .in(ipb_prog_chan_start),         // input signal
         .rising(ipb_prog_chan_start_on),  // rising edge detect
         .falling(ipb_prog_chan_start_off) // falling edge detect
     );
@@ -492,7 +503,8 @@ module wfd_top (
         .read_bitstream(read_bitstream),               // start signal to spi_flash_intf
         .end_write_command(end_write_command),         // done signal from spi_flash_intf
         .end_bitstream(end_bitstream),                 // done signal from spi_flash_intf
-        .prog_chan_done(prog_chan_done)                // done programming the channels
+        .prog_chan_done(prog_chan_done),               // done programming the channels
+        .state(pc_state[3:0])                          // status of state machine
     );
 
 
@@ -577,7 +589,7 @@ module wfd_top (
     // ======== triggers and data transfer ========
 
     // TTC trigger in 40 MHz TTC clock domain
-    wire trigger_from_ttc;
+   wire trigger_from_ttc;
 
     // put other trigger signals into 40 MHz TTC clock domain
     wire ext_trig_stretch;
@@ -802,14 +814,6 @@ module wfd_top (
                 status_reg5,  status_reg6,  status_reg7,  status_reg8,  status_reg9,
                 status_reg10, status_reg11, status_reg12, status_reg13, status_reg14,
                 status_reg15, status_reg16, status_reg17, status_reg18;
-
-    // ======== finite state machine states ========
-    wire [ 3:0] ttr_state;
-    wire [ 3:0] ptr_state;
-    wire [ 3:0] cac_state;
-    wire [ 3:0] caca_state;
-    wire [ 6:0] tp_state;
-    wire [33:0] cm_state;
 
     // ======== trigger information signals ========
     wire [ 7:0] trig_settings;
@@ -1219,18 +1223,25 @@ module wfd_top (
 
     // status register assembly
     status_reg_block status_reg_block (
+        // user interface clock and reset
         .clk(clk125),
         .reset(rst_from_ipb),
 
-        // status inputs
+        // FPGA status
         .prog_chan_done(prog_chan_done),
         .async_mode(async_mode_clk125),
+
+        // soft error thresholds
         .thres_data_corrupt(thres_data_corrupt),
         .thres_unknown_ttc(thres_unknown_ttc),
         .thres_ddr3_overflow(thres_ddr3_overflow),
+
+        // soft error counts
         .unknown_cmd_count(unknown_cmd_count),
         .ddr3_overflow_count(ddr3_overflow_count),
         .cs_mismatch_count(cs_mismatch_count),
+
+        // hard errors
         .error_data_corrupt(error_data_corrupt),
         .error_trig_num_from_tt(error_trig_num_from_tt),
         .error_trig_type_from_tt(error_trig_type_from_tt),
@@ -1239,35 +1250,56 @@ module wfd_top (
         .error_pll_unlock(error_pll_unlock),
         .error_trig_rate(error_trig_rate),
         .error_unknown_ttc(error_unknown_ttc),
+
+        // warnings
         .ddr3_overflow_warning(ddr3_overflow_warning),
+
+        // other error signals
         .chan_error_rc(chan_error_rc),
+
+        // external clock
         .daq_clk_sel(daq_clk_sel),
         .daq_clk_en(daq_clk_en),
+
+        // clock synthesizer
         .adcclk_clkin0_stat(adcclk_clkin0_stat),
         .adcclk_clkin1_stat(adcclk_clkin1_stat),
         .adcclk_stat_ld(adcclk_stat_ld),
         .adcclk_stat(adcclk_stat),
+
+        // DAQ link
         .daq_almost_full(daq_almost_full),
         .daq_ready(daq_ready),
+
+        // TTC/TTS
         .tts_state(tts_state),
         .ttc_chan_b_info(ttc_chan_b_info_clk125),
         .ttc_ready(ttc_ready_clk125),
+
+        // FSM state
         .cm_state(cm_state),
         .ttr_state(ttr_state_clk125),
         .ptr_state(ptr_state_clk125),
         .cac_state(cac_state_clk125),
         .caca_state(caca_state_clk125),
         .tp_state(tp_state),
+        .pc_state(pc_state),
+
+        // acquisition
         .acq_readout_pause(acq_readout_pause),
         .fill_type(fill_type_clk125),
         .chan_en(chan_en),
         .endianness_sel(endianness_sel),
+
+        // trigger
         .trig_fifo_full(trig_fifo_full),
         .acq_fifo_full(acq_fifo_full),
         .trig_delay(trig_delay),
         .trig_settings(trig_settings),
         .trig_num(trig_num_clk125),
         .trig_timestamp(trig_timestamp_clk125),
+
+        // temperature
         .i2c_temp(i2c_temp),
 
         // status register outputs
