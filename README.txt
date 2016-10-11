@@ -46,7 +46,7 @@ repository's absolute path is not allowed to have any spaces.
 To build the firmware, click 'Generate Bitstream' from the Flow Navigator which
 will automatically run synthesis and/or implementation if required.  If successful,
 the bitstream 'bitstreams/wfd_master.bit' will be generated along with the debug
-file 'debugs/debug_master.ltx' if set up.
+file 'bitstreams/wfd_master.ltx' if set up.
 
 
 Intellectual Property (IP)
@@ -67,13 +67,11 @@ WFD_Master/
     |-- bitstreams/
     |       |-- .gitignore
     |       `-- <generated bitstreams>
+    |       `-- <generated debugs>
     |-- constraints/
     |       `-- <constraint XDC files>
     |-- DAQ_Link_7S/
     |       `-- <BU DAQ link files>
-    |-- debugs/
-    |       |-- .gitignore
-    |       `-- <generated debugs>
     |-- hdl/
     |       `-- <main source files>
     |-- ip/

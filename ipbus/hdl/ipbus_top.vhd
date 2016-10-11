@@ -63,7 +63,7 @@ port (
     axi_stream_out_tready : in  std_logic;
 
     -- control signals
-    trigger_out           : out std_logic;                     -- trigger
+    async_mode_in         : in  std_logic;                     -- currently set asynchronous mode
     async_mode_out        : out std_logic;                     -- enable asynchronous mode
     accept_pulse_trig_out : out std_logic;                     -- allow front panel triggers (for testing)
     async_trig_type_out   : out std_logic;                     -- fix TTC trigger type to be asynchronous readout (for testing)
@@ -82,16 +82,16 @@ port (
     thres_ddr3_overflow : out std_logic_vector(31 downto 0); -- DDR3 overflow
 
 	-- status registers
-	status_reg0  : in std_logic_vector(31 downto 0);
-	status_reg1  : in std_logic_vector(31 downto 0);
-	status_reg2  : in std_logic_vector(31 downto 0);
-	status_reg3  : in std_logic_vector(31 downto 0);
-	status_reg4  : in std_logic_vector(31 downto 0);
-	status_reg5  : in std_logic_vector(31 downto 0);
-	status_reg6  : in std_logic_vector(31 downto 0);
-	status_reg7  : in std_logic_vector(31 downto 0);
-	status_reg8  : in std_logic_vector(31 downto 0);
-	status_reg9  : in std_logic_vector(31 downto 0);
+	status_reg00 : in std_logic_vector(31 downto 0);
+	status_reg01 : in std_logic_vector(31 downto 0);
+	status_reg02 : in std_logic_vector(31 downto 0);
+	status_reg03 : in std_logic_vector(31 downto 0);
+	status_reg04 : in std_logic_vector(31 downto 0);
+	status_reg05 : in std_logic_vector(31 downto 0);
+	status_reg06 : in std_logic_vector(31 downto 0);
+	status_reg07 : in std_logic_vector(31 downto 0);
+	status_reg08 : in std_logic_vector(31 downto 0);
+	status_reg09 : in std_logic_vector(31 downto 0);
 	status_reg10 : in std_logic_vector(31 downto 0);
 	status_reg11 : in std_logic_vector(31 downto 0);
 	status_reg12 : in std_logic_vector(31 downto 0);
@@ -101,6 +101,8 @@ port (
 	status_reg16 : in std_logic_vector(31 downto 0);
 	status_reg17 : in std_logic_vector(31 downto 0);
 	status_reg18 : in std_logic_vector(31 downto 0);
+	status_reg19 : in std_logic_vector(31 downto 0);
+	status_reg20 : in std_logic_vector(31 downto 0);
 
 	-- flash interface ports
 	flash_wr_nBytes  : out std_logic_vector( 8 downto 0);
@@ -223,7 +225,7 @@ begin
 	    axi_stream_out_tready => axi_stream_out_tready,
 
 	    -- control register ports
-	    trigger_out           => trigger_out,
+	    async_mode_in         => async_mode_in,
     	async_mode_out        => async_mode_out,
     	accept_pulse_trig_out => accept_pulse_trig_out,
     	async_trig_type_out   => async_trig_type_out,
@@ -253,16 +255,16 @@ begin
         user_ipb_err    => user_ipb_err,    -- '1' if error, '0' if OK?
 
         -- status registers
-		status_reg0  => status_reg0,
-		status_reg1  => status_reg1,
-		status_reg2  => status_reg2,
-		status_reg3  => status_reg3,
-		status_reg4  => status_reg4,
-		status_reg5  => status_reg5,
-		status_reg6  => status_reg6,
-		status_reg7  => status_reg7,
-		status_reg8  => status_reg8,
-		status_reg9  => status_reg9,
+		status_reg00 => status_reg00,
+		status_reg01 => status_reg01,
+		status_reg02 => status_reg02,
+		status_reg03 => status_reg03,
+		status_reg04 => status_reg04,
+		status_reg05 => status_reg05,
+		status_reg06 => status_reg06,
+		status_reg07 => status_reg07,
+		status_reg08 => status_reg08,
+		status_reg09 => status_reg09,
 		status_reg10 => status_reg10,
 		status_reg11 => status_reg11,
 		status_reg12 => status_reg12,
@@ -272,6 +274,8 @@ begin
 		status_reg16 => status_reg16,
 		status_reg17 => status_reg17,
 		status_reg18 => status_reg18,
+		status_reg19 => status_reg19,
+		status_reg20 => status_reg20,
 
 	    -- flash interface ports
 	    flash_wr_nBytes  => flash_wr_nBytes,

@@ -2,7 +2,7 @@
 //
 // Enables number reset in parallel with time reset or setting of fill type.
 
-module ttc_chanb_receiver (
+module ttc_broadcast_receiver (
   // clock and reset
   input wire clk,
   input wire reset,

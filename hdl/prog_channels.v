@@ -2,8 +2,8 @@
 
 // State machine for programming the Channel FPGAs using a bitstream stored in the flash memory
 //
-// Address for the start of the  synchronous channel bitstream is 0x100_0000;
-// Address for the start of the asynchronous channel bitstream is 0x12E_0000
+// Address for the start of the  synchronous channel bitstream is 0x0100_0000
+// Address for the start of the asynchronous channel bitstream is 0x012E_0000
 //
 // To start state machine, assert the 'prog_chan_start' input signal
 
@@ -27,8 +27,9 @@ module prog_channels (
     output reg read_bitstream,        // start command to spi_flash_intf
     input  end_write_command,         // done signal from spi_flash_intf
     input  end_bitstream,             // done signal from spi_flash_intf
-    output reg prog_chan_done = 1'b0, // done programming the channels
-    output reg [3:0] state = 4'h0     // status of state machine
+    (* mark_debug = "true" *) output reg prog_chan_done = 1'b0, // done programming the channels
+    (* mark_debug = "true" *) output reg async_channels = 1'b0, // flag for if the channels are sync or async
+    (* mark_debug = "true" *) output reg [3:0] state = 4'h0     // status of state machine
 );
 
 
@@ -42,7 +43,7 @@ always @(posedge clk) begin
     prog_done_sync[4:0] <= prog_done[4:0];
 end
 
-reg [3:0] counter = 4'h0;
+(* mark_debug = "true" *) reg [3:0] counter = 4'h0;
 
 
 parameter IDLE          = 4'd0;
@@ -240,7 +241,7 @@ always @(posedge clk) begin
                 flash_command[31:0]   <= 32'd0;
                 flash_wr_nBits[11:0]  <= 12'd0;
 
-                if (counter[3:0] == 4'hF)
+                if (counter[3:0] == 4'hf)
                     state <= INIT2;
                 else begin
                     counter[3:0] <= counter[3:0] + 1'b1;
@@ -397,10 +398,16 @@ always @(posedge clk) begin
                 flash_command[31:0]   <= 32'd0;
                 flash_wr_nBits[11:0]  <= 12'd0;
 
-                if (prog_chan_start)
-                    state <= DONE; // stay here until 'prog_chan_start' signal is negated
+                if (~async_mode)
+                    async_channels <= 1'b0; //  synchronous channel image loaded
                 else
+                    async_channels <= 1'b1; // asynchronous channel image loaded
+
+                if (~prog_chan_start) begin
                     state <= IDLE;
+                end
+                else
+                    state <= DONE; // stay here until 'prog_chan_start' signal is negated
             end
         endcase
     end

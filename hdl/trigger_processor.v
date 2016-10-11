@@ -129,8 +129,16 @@ module trigger_processor (
       end
       // get acquisition event information
       state[READ_ACQ_FIFO] : begin
+        // verify that the trigger numbers match
+        if (ttc_trig_num[23:0] != acq_trig_num[23:0]) begin
+          nextstate[ERROR_TRIG_NUM] = 1'b1;
+        end
+        // verify that the trigger types match
+        else if (ttc_trig_type[2:0] != acq_trig_type[2:0]) begin
+          nextstate[ERROR_TRIG_TYPE] = 1'b1;
+        end
         // check if we're ready for a readout
-        if (readout_ready) begin
+        else if (readout_ready) begin
           initiate_readout = 1'b1;
           nextstate[READOUT] = 1'b1;
         end
@@ -150,11 +158,11 @@ module trigger_processor (
       end
       // trigger number mismatch between FIFOs
       state[ERROR_TRIG_NUM] : begin
-        nextstate[ERROR_TRIG_NUM] = 1'b1; // hard error, stay here
+        nextstate[ERROR_TRIG_NUM] = 1'b1; // hard error, stay here until reset
       end
       // trigger type mismatch between FIFOs
       state[ERROR_TRIG_TYPE] : begin
-        nextstate[ERROR_TRIG_TYPE] = 1'b1; // hard error, stay here
+        nextstate[ERROR_TRIG_TYPE] = 1'b1; // hard error, stay here until reset
       end
     endcase
   end

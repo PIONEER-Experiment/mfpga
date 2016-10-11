@@ -12,9 +12,9 @@ module status_reg_block (
   input wire async_mode,
 
   // soft error thresholds
-  input wire [31:0] thres_data_corrupt,  // data corruption
-  input wire [31:0] thres_unknown_ttc,   // unknown TTC broadcast command
-  input wire [31:0] thres_ddr3_overflow, // DDR3 overflow
+  input wire [31:0] thres_data_corrupt,
+  input wire [31:0] thres_unknown_ttc,
+  input wire [31:0] thres_ddr3_overflow,
 
   // soft error counts
   input wire [31:0] unknown_cmd_count,
@@ -70,6 +70,7 @@ module status_reg_block (
   input wire [2:0] fill_type,
   input wire [4:0] chan_en,
   input wire endianness_sel,
+  input wire [4:0] acq_dones,
 
   // trigger
   input wire trig_fifo_full,
@@ -78,88 +79,97 @@ module status_reg_block (
   input wire [ 7:0] trig_settings,
   input wire [23:0] trig_num,
   input wire [43:0] trig_timestamp,
+  input wire [23:0] pulse_trig_num,
 
   // temperature
   input wire [11:0] i2c_temp,
 
   // outputs to IPbus
-  output wire [31:0] status_reg0,  // FPGA status and firmware version
-  output wire [31:0] status_reg1,  // error / warning
-  output wire [31:0] status_reg2,  // external clock and temperature
-  output wire [31:0] status_reg3,  // clock synthesizer
-  output wire [31:0] status_reg4,  // DAQ link
-  output wire [31:0] status_reg5,  // TTC/TTS
-  output wire [31:0] status_reg6,  // FSM state 0
-  output wire [31:0] status_reg7,  // FSM state 1
-  output wire [31:0] status_reg8,  // acquisition
-  output wire [31:0] status_reg9,  // trigger information
-  output wire [31:0] status_reg10, // trigger number
-  output wire [31:0] status_reg11, // trigger timestamp, LSB
-  output wire [31:0] status_reg12, // trigger timestamp, MSB
-  output wire [31:0] status_reg13, // data corruption threshold
-  output wire [31:0] status_reg14, // data corruption count
-  output wire [31:0] status_reg15, // unknown TTC broadcast command threshold
-  output wire [31:0] status_reg16, // unknown TTC broadcast command count
-  output wire [31:0] status_reg17, // DDR3 overflow threshold
-  output wire [31:0] status_reg18  // DDR3 overflow count
+  output wire [31:0] status_reg00,
+  output wire [31:0] status_reg01,
+  output wire [31:0] status_reg02,
+  output wire [31:0] status_reg03,
+  output wire [31:0] status_reg04,
+  output wire [31:0] status_reg05,
+  output wire [31:0] status_reg06,
+  output wire [31:0] status_reg07,
+  output wire [31:0] status_reg08,
+  output wire [31:0] status_reg09,
+  output wire [31:0] status_reg10,
+  output wire [31:0] status_reg11,
+  output wire [31:0] status_reg12,
+  output wire [31:0] status_reg13,
+  output wire [31:0] status_reg14,
+  output wire [31:0] status_reg15,
+  output wire [31:0] status_reg16,
+  output wire [31:0] status_reg17,
+  output wire [31:0] status_reg18,
+  output wire [31:0] status_reg19,
+  output wire [31:0] status_reg20
 );
 
 
 // Register 00: FPGA status and firmware version
-assign status_reg0  = {1'b0, prog_chan_done, async_mode, 5'd0, `MAJOR_REV, `MINOR_REV, `PATCH_REV};
+assign status_reg00 = {1'b0, prog_chan_done, async_mode, 5'd0, `MAJOR_REV, `MINOR_REV, `PATCH_REV};
 
 // Register 01: Error
-assign status_reg1  = {26'd0, ddr3_overflow_warning, chan_error_rc[4:0], error_trig_type_from_cm, error_trig_type_from_tt, error_trig_num_from_cm, error_trig_num_from_tt, error_data_corrupt, error_trig_rate, error_unknown_ttc, error_pll_unlock};
+assign status_reg01 = {26'd0, ddr3_overflow_warning, chan_error_rc[4:0], error_trig_type_from_cm, error_trig_type_from_tt, error_trig_num_from_cm, error_trig_num_from_tt, error_data_corrupt, error_trig_rate, error_unknown_ttc, error_pll_unlock};
 
 // Register 02: External clock and temperature
-assign status_reg2  = {i2c_temp[11:0], 18'd0, daq_clk_sel, daq_clk_en};
+assign status_reg02 = {i2c_temp[11:0], 18'd0, daq_clk_sel, daq_clk_en};
 
 // Register 03: Clock synthesizer
-assign status_reg3  = {28'd0, adcclk_clkin1_stat, adcclk_clkin0_stat, adcclk_stat_ld, adcclk_stat};
+assign status_reg03 = {28'd0, adcclk_clkin1_stat, adcclk_clkin0_stat, adcclk_stat_ld, adcclk_stat};
 
 // Register 04: DAQ link
-assign status_reg4  = {30'd0, daq_almost_full, daq_ready};
+assign status_reg04 = {30'd0, daq_almost_full, daq_ready};
 
 // Register 05: TTC/TTS
-assign status_reg5  = {21'd0, tts_state[3:0], ttc_chan_b_info[5:0], ttc_ready};
+assign status_reg05 = {21'd0, tts_state[3:0], ttc_chan_b_info[5:0], ttc_ready};
 
 // Register 06: FSM state 0
-assign status_reg6  = cm_state[31:0];
+assign status_reg06 = cm_state[31:0];
 
 // Register 07: FSM state 1
-assign status_reg7  = {3'd0, cm_state[33:32], pc_state[3:0], tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
+assign status_reg07 = {3'd0, cm_state[33:32], pc_state[3:0], tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
 
 // Register 08: Acquisition
-assign status_reg8  = {18'd0, endianness_sel, acq_readout_pause[4:0], fill_type[2:0], chan_en[4:0]};
+assign status_reg08 = {13'd0, acq_dones[4:0], endianness_sel, acq_readout_pause[4:0], fill_type[2:0], chan_en[4:0]};
 
-// Register 09: Trigger information
-assign status_reg9  = {18'd0, trig_settings[7:0], acq_fifo_full, trig_fifo_full, trig_delay[3:0]};
+// Register 09: TTC trigger information
+assign status_reg09 = {22'd0, trig_settings[7:0], acq_fifo_full, trig_fifo_full};
 
-// Register 10: Trigger number
-assign status_reg10 = {8'd0, trig_num[23:0]};
+// Register 10: TTC trigger delay
+assign status_reg10 = trig_delay[31:0];
 
-// Register 11: Trigger timestamp, LSB
-assign status_reg11 = trig_timestamp[31:0];
+// Register 11: TTC trigger number
+assign status_reg11 = {8'd0, trig_num[23:0]};
 
-// Register 12: Trigger timestamp, MSB
-assign status_reg12 = {20'd0, trig_timestamp[43:32]};
+// Register 12: TTC trigger timestamp, LSB
+assign status_reg12 = trig_timestamp[31:0];
 
-// Register 13: Data corruption threshold
-assign status_reg13 = thres_data_corrupt[31:0];
+// Register 13: TTC trigger timestamp, MSB
+assign status_reg13 = {20'd0, trig_timestamp[43:32]};
 
-// Register 14: Data corruption count
-assign status_reg14 = cs_mismatch_count[31:0];
+// Register 14: Front panel trigger number
+assign status_reg14 = {8'd0, pulse_trig_num[23:0]};
 
-// Register 15: Unknown TTC broadcast command threshold
-assign status_reg15 = thres_unknown_ttc[31:0];
+// Register 15: Data corruption threshold
+assign status_reg15 = thres_data_corrupt[31:0];
 
-// Register 16: Unknown TTC broadcast command count
-assign status_reg16 = unknown_cmd_count[31:0];
+// Register 16: Data corruption count
+assign status_reg16 = cs_mismatch_count[31:0];
 
-// Register 17: DDR3 overflow threshold
-assign status_reg17 = thres_ddr3_overflow[31:0];
+// Register 17: Unknown TTC broadcast command threshold
+assign status_reg17 = thres_unknown_ttc[31:0];
 
-// Register 18: DDR3 overflow count
-assign status_reg18 = ddr3_overflow_count[31:0];
+// Register 18: Unknown TTC broadcast command count
+assign status_reg18 = unknown_cmd_count[31:0];
+
+// Register 19: DDR3 overflow threshold
+assign status_reg19 = thres_ddr3_overflow[31:0];
+
+// Register 20: DDR3 overflow count
+assign status_reg20 = ddr3_overflow_count[31:0];
 
 endmodule

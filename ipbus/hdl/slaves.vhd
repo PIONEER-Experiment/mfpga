@@ -24,7 +24,7 @@ port (
     axi_stream_out_tready : in  std_logic;
 
     -- control signals
-    trigger_out           : out std_logic;
+    async_mode_in         : in  std_logic;
     async_mode_out        : out std_logic;
     accept_pulse_trig_out : out std_logic;
     async_trig_type_out   : out std_logic;
@@ -51,19 +51,19 @@ port (
     user_ipb_wdata  : out std_logic_vector(31 downto 0); -- data to write for write operations
     user_ipb_rdata  : in  std_logic_vector(31 downto 0); -- data returned for read operations
     user_ipb_ack    : in  std_logic;			         -- 'write' data has been stored, 'read' data is ready
-    user_ipb_err    : in  std_logic;			         -- '1' if error, '0' if OK?
+    user_ipb_err    : in  std_logic;			         -- '1' if error, '0' if OK
 
 	-- status registers
-	status_reg0  : in std_logic_vector(31 downto 0);
-	status_reg1  : in std_logic_vector(31 downto 0);
-	status_reg2  : in std_logic_vector(31 downto 0);
-	status_reg3  : in std_logic_vector(31 downto 0);
-	status_reg4  : in std_logic_vector(31 downto 0);
-	status_reg5  : in std_logic_vector(31 downto 0);
-	status_reg6  : in std_logic_vector(31 downto 0);
-	status_reg7  : in std_logic_vector(31 downto 0);
-	status_reg8  : in std_logic_vector(31 downto 0);
-	status_reg9  : in std_logic_vector(31 downto 0);
+	status_reg00 : in std_logic_vector(31 downto 0);
+	status_reg01 : in std_logic_vector(31 downto 0);
+	status_reg02 : in std_logic_vector(31 downto 0);
+	status_reg03 : in std_logic_vector(31 downto 0);
+	status_reg04 : in std_logic_vector(31 downto 0);
+	status_reg05 : in std_logic_vector(31 downto 0);
+	status_reg06 : in std_logic_vector(31 downto 0);
+	status_reg07 : in std_logic_vector(31 downto 0);
+	status_reg08 : in std_logic_vector(31 downto 0);
+	status_reg09 : in std_logic_vector(31 downto 0);
 	status_reg10 : in std_logic_vector(31 downto 0);
 	status_reg11 : in std_logic_vector(31 downto 0);
 	status_reg12 : in std_logic_vector(31 downto 0);
@@ -73,6 +73,8 @@ port (
 	status_reg16 : in std_logic_vector(31 downto 0);
 	status_reg17 : in std_logic_vector(31 downto 0);
 	status_reg18 : in std_logic_vector(31 downto 0);
+	status_reg19 : in std_logic_vector(31 downto 0);
+	status_reg20 : in std_logic_vector(31 downto 0);
 
 	-- flash interface ports
 	flash_wr_nBytes  : out std_logic_vector( 8 downto 0);
@@ -96,7 +98,6 @@ architecture rtl of slaves is
 	signal ipbr, ipbr_d : ipb_rbus_array(NSLV-1 downto 0);
 	signal ctrl_reg     : std_logic_vector(31 downto 0);
 	signal wo_reg       : std_logic_vector(31 downto 0);
-	signal trigger      : std_logic;
 	signal ip_addr_rst  : std_logic;
 
 begin
@@ -120,16 +121,16 @@ begin
 		ipbus_in  => ipbw(0),
 		ipbus_out => ipbr(0),
 		-- status registers
-		reg0  => status_reg0,
-		reg1  => status_reg1,
-		reg2  => status_reg2,
-		reg3  => status_reg3,
-		reg4  => status_reg4,
-		reg5  => status_reg5,
-		reg6  => status_reg6,
-		reg7  => status_reg7,
-		reg8  => status_reg8,
-		reg9  => status_reg9,
+		reg00 => status_reg00,
+		reg01 => status_reg01,
+		reg02 => status_reg02,
+		reg03 => status_reg03,
+		reg04 => status_reg04,
+		reg05 => status_reg05,
+		reg06 => status_reg06,
+		reg07 => status_reg07,
+		reg08 => status_reg08,
+		reg09 => status_reg09,
 		reg10 => status_reg10,
 		reg11 => status_reg11,
 		reg12 => status_reg12,
@@ -138,7 +139,9 @@ begin
 		reg15 => status_reg15,
 		reg16 => status_reg16,
 		reg17 => status_reg17,
-		reg18 => status_reg18
+		reg18 => status_reg18,
+		reg19 => status_reg19,
+		reg20 => status_reg20
 	);
 	
 
@@ -150,6 +153,7 @@ begin
 		reset => ipb_rst,
 		ipbus_in  => ipbw(1),
 		ipbus_out => ipbr(1),
+		async_mode_in => async_mode_in,
 		-- output registers
 		reg0 => ctrl_reg,
 		reg1 => thres_data_corrupt,
@@ -160,7 +164,7 @@ begin
 
 	-- control register
 	rst_out               <= ctrl_reg( 0);
-	--                    <= ctrl_reg( 1);
+	async_mode_out        <= ctrl_reg( 1);
 	--                    <= ctrl_reg( 2);
 	--                    <= ctrl_reg( 3);
 	--                    <= ctrl_reg( 4);
@@ -186,7 +190,7 @@ begin
     trig_settings_out(5)  <= ctrl_reg(24);
     trig_settings_out(6)  <= ctrl_reg(25);
     trig_settings_out(7)  <= ctrl_reg(26);
-    async_mode_out        <= ctrl_reg(27);
+    --                    <= ctrl_reg(27);
     accept_pulse_trig_out <= ctrl_reg(28);
     ttc_loopback_out      <= ctrl_reg(29);
 
@@ -202,10 +206,7 @@ begin
 		q => wo_reg
 	);
 
-	trigger     <= wo_reg(0);
-	trigger_out <= trigger;
-
-	ip_addr_rst     <= wo_reg(1);
+	ip_addr_rst     <= wo_reg(0);
 	ip_addr_rst_out <= ip_addr_rst;
 
 	

@@ -37,8 +37,8 @@ module wfd_top (
     output wire master_led1,          // front panel LEDs for master status, led1 is red
     output wire clksynth_led0,        // front panel LEDs for clk synth status, led0 is green
     output wire clksynth_led1,        // front panel LEDs for clk synth status, led1 is red
-    inout  wire bbus_scl,             // I2C bus clock, connected to Atmel Chip and to Channel FPGAs
-    inout  wire bbus_sda,             // I2C bus data, connected to Atmel Chip and to Channel FPGAs
+    inout  wire bbus_scl,             // I2C bus clock, connected to EEPROM Chip, Atmel Chip, Channel FPGAs
+    inout  wire bbus_sda,             // I2C bus data,  connected to EEPROM Chip, Atmel Chip, Channel FPGAs
     input  wire ext_trig,             // front panel trigger
     input  wire [3:0] mmc_io,         // controls to/from the Atmel
     output wire [3:0] c0_io,          // utility signals to Channel 0
@@ -97,14 +97,15 @@ module wfd_top (
 
     assign clk50 = clkin; // just to make the frequency explicit
 
-    wire ipb_clk50_reset, clk50_reset;
-    wire prog_chan_done; // channels have been programmed signal
+    (* mark_debug = "true" *) wire ipb_clk50_reset, clk50_reset;
+    (* mark_debug = "true" *) wire prog_chan_done; // channels have been programmed signal
 
     // ======== operation mode signals ========
-    wire async_mode_from_ipbus; // asynchronous mode select
-    wire async_mode_ttc_clk;
-    wire async_mode_clk50;
-    wire async_mode_clk125;
+    (* mark_debug = "true" *) wire async_mode_from_ipbus; // asynchronous mode select
+    (* mark_debug = "true" *) wire async_channels;
+    (* mark_debug = "true" *) wire async_mode_ttc_clk;
+    (* mark_debug = "true" *) wire async_mode_clk50;
+    (* mark_debug = "true" *) wire async_mode_clk125;
 
     wire ipb_accept_pulse_triggers;
     wire ipb_async_trig_type;
@@ -256,7 +257,7 @@ module wfd_top (
     assign daq_clk_en  = 1'b1;
 
     // Required statement to support differential ttc_txp / ttc_txn pair
-    OBUFDS ttc_tx_buf (.I(ttc_rx), .O(ttc_txp), .OB(ttc_txn)); 
+    OBUFDS ttc_tx_buf (.I(ttc_rx), .O(ttc_txp), .OB(ttc_txn));
 
     // Generate clocks from the 50 MHz input clock
     // Most of the design is run from the 125 MHz clock (Don't confuse it with the 125 MHz GTREFCLK)
@@ -323,7 +324,7 @@ module wfd_top (
 
 
 	// connect a module that will read from the I2C temperature/memory chip.
-	// since the MAC and IP address are used with IP bus, run the block with 'clk125'
+	// since the MAC and IP address are used with IPbus, run the block with 'clk125'
 	wire [47:0] i2c_mac_adr; // MAC address read from I2C EEPROM
 	wire [31:0] i2c_ip_adr;  // IP  address read from I2C EEPROM
     wire [11:0] i2c_temp;    // temperature reading from I2C EEPROM
@@ -362,7 +363,7 @@ module wfd_top (
     assign debug4 = bbus_sda_oen;
     assign debug5 = ipb_prog_chan_start;
     assign debug6 = prog_chan_start_from_ipbus;
-    assign debug7 = spi_ss & spi_clk & spi_mosi & spi_miso & prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb3 & mezzb4 & mezzb5 & mmc_io[2] & mmc_io[3] & ext_trig_sync & trigger_from_ipbus_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
+    assign debug7 = spi_ss & spi_clk & spi_mosi & spi_miso & prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb3 & mezzb4 & mezzb5 & mmc_io[2] & mmc_io[3] & ext_trig_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
 
     
     // ================== communicate with SPI flash memory ==================
@@ -504,6 +505,7 @@ module wfd_top (
         .end_write_command(end_write_command),         // done signal from spi_flash_intf
         .end_bitstream(end_bitstream),                 // done signal from spi_flash_intf
         .prog_chan_done(prog_chan_done),               // done programming the channels
+        .async_channels(async_channels),               // flag for if the channels are sync or async
         .state(pc_state[3:0])                          // status of state machine
     );
 
@@ -567,21 +569,24 @@ module wfd_top (
 
     // ======== operation modes ========
 
-    sync_2stage async_mode_ttc_clk_module (
-        .clk(ttc_clk),
-        .in(async_mode_from_ipbus),
-        .out(async_mode_ttc_clk)
-    );
-
+    // for use in prog_channels
     sync_2stage async_mode_clk50_module (
         .clk(clk50),
         .in(async_mode_from_ipbus),
         .out(async_mode_clk50)
     );
 
+    // for use in trigger_top
+    sync_2stage async_mode_ttc_clk_module (
+        .clk(ttc_clk),
+        .in(async_channels),
+        .out(async_mode_ttc_clk)
+    );
+
+    // for use in status_reg_block
     sync_2stage async_mode_clk125_module (
         .clk(clk125),
-        .in(async_mode_from_ipbus),
+        .in(async_channels),
         .out(async_mode_clk125)
     );
 
@@ -594,9 +599,6 @@ module wfd_top (
     // put other trigger signals into 40 MHz TTC clock domain
     wire ext_trig_stretch;
     wire ext_trig_sync;
-    wire trigger_from_ipbus;
-    wire trigger_from_ipbus_stretch;
-    wire trigger_from_ipbus_sync;
     wire ext_trig_pulse_en;
 
     signal_stretch ext_trig_stretch_module (
@@ -629,20 +631,6 @@ module wfd_top (
     assign ext_trig_to_trigger_top = (ext_trig_pulse_en) ? ext_trig_pulse : ext_trig_sync;
 
 
-    signal_stretch trigger_from_ipbus_stretch_module (
-        .signal_in(trigger_from_ipbus),
-        .clk(clk125),
-        .n_extra_cycles(8'h04),
-        .signal_out(trigger_from_ipbus_stretch)
-    );
-
-    sync_2stage trigger_from_ipbus_sync_module (
-        .clk(ttc_clk),
-        .in(trigger_from_ipbus_stretch),
-        .out(trigger_from_ipbus_sync)
-    );
-
-
     // select bit for the endianness of ADC data
     //   0 = big-endian (default)
     //   1 = little-endian
@@ -656,6 +644,7 @@ module wfd_top (
 
 
     // ======== wires for interface to channel serial link ========
+
     // user IPbus interface. Used by the Aurora block.
     wire [31:0] user_ipb_addr, user_ipb_wdata, user_ipb_rdata;
     wire user_ipb_clk, user_ipb_strobe, user_ipb_write, user_ipb_ack;
@@ -810,10 +799,11 @@ module wfd_top (
     wire [63:0] daq_data;
     
     // ======== status register signals ========
-    wire [31:0] status_reg0,  status_reg1,  status_reg2,  status_reg3,  status_reg4, 
-                status_reg5,  status_reg6,  status_reg7,  status_reg8,  status_reg9,
+    wire [31:0] status_reg00, status_reg01, status_reg02, status_reg03, status_reg04, 
+                status_reg05, status_reg06, status_reg07, status_reg08, status_reg09,
                 status_reg10, status_reg11, status_reg12, status_reg13, status_reg14,
-                status_reg15, status_reg16, status_reg17, status_reg18;
+                status_reg15, status_reg16, status_reg17, status_reg18, status_reg19,
+                status_reg20;
 
     // ======== trigger information signals ========
     wire [ 7:0] trig_settings;
@@ -852,7 +842,7 @@ module wfd_top (
 
 
     // TTC Channel B information receiver
-    ttc_chanb_receiver chanb (
+    ttc_broadcast_receiver chanb (
         .clk(ttc_clk),
         .reset(reset40),
 
@@ -929,7 +919,7 @@ module wfd_top (
         .axi_stream_in_tdest(4'b0000),
 
         // control signals
-        .trigger_out(trigger_from_ipbus),                  // IPbus trigger
+        .async_mode_in(async_mode_clk125),                 // set asychronous mode in channels
         .async_mode_out(async_mode_from_ipbus),            // asynchronous mode select
         .accept_pulse_trig_out(ipb_accept_pulse_triggers), // allow front panel triggers (for testing)
         .async_trig_type_out(ipb_async_trig_type),         // fix TTC trigger type to be asynchronous readout (for testing)
@@ -948,16 +938,16 @@ module wfd_top (
         .thres_ddr3_overflow(thres_ddr3_overflow), // DDR3 overflow
 
         // status registers
-        .status_reg0(status_reg0),
-        .status_reg1(status_reg1),
-        .status_reg2(status_reg2),
-        .status_reg3(status_reg3),
-        .status_reg4(status_reg4),
-        .status_reg5(status_reg5),
-        .status_reg6(status_reg6),
-        .status_reg7(status_reg7),
-        .status_reg8(status_reg8),
-        .status_reg9(status_reg9),
+        .status_reg00(status_reg00),
+        .status_reg01(status_reg01),
+        .status_reg02(status_reg02),
+        .status_reg03(status_reg03),
+        .status_reg04(status_reg04),
+        .status_reg05(status_reg05),
+        .status_reg06(status_reg06),
+        .status_reg07(status_reg07),
+        .status_reg08(status_reg08),
+        .status_reg09(status_reg09),
         .status_reg10(status_reg10),
         .status_reg11(status_reg11),
         .status_reg12(status_reg12),
@@ -967,6 +957,8 @@ module wfd_top (
         .status_reg16(status_reg16),
         .status_reg17(status_reg17),
         .status_reg18(status_reg18),
+        .status_reg19(status_reg19),
+        .status_reg20(status_reg20),
 
         // flash interface ports
         .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
@@ -1220,6 +1212,26 @@ module wfd_top (
         .out(trig_timestamp_clk125)
     );
 
+    // synchronize pulse_trig_num
+    wire [23:0] pulse_trig_num_clk125;
+    sync_2stage #(
+        .WIDTH(24)
+    ) pulse_trig_num_sync (
+        .clk(clk125),
+        .in(pulse_trig_num),
+        .out(pulse_trig_num_clk125)
+    );
+
+    // synchronize acq_dones
+    wire [4:0] acq_dones_clk125;
+    sync_2stage #(
+        .WIDTH(5)
+    ) acq_dones_sync (
+        .clk(clk125),
+        .in(acq_dones),
+        .out(acq_dones_clk125)
+    );
+
 
     // status register assembly
     status_reg_block status_reg_block (
@@ -1290,6 +1302,7 @@ module wfd_top (
         .fill_type(fill_type_clk125),
         .chan_en(chan_en),
         .endianness_sel(endianness_sel),
+        .acq_dones(acq_dones_clk125),
 
         // trigger
         .trig_fifo_full(trig_fifo_full),
@@ -1298,21 +1311,22 @@ module wfd_top (
         .trig_settings(trig_settings),
         .trig_num(trig_num_clk125),
         .trig_timestamp(trig_timestamp_clk125),
+        .pulse_trig_num(pulse_trig_num_clk125),
 
         // temperature
         .i2c_temp(i2c_temp),
 
         // status register outputs
-        .status_reg0(status_reg0),
-        .status_reg1(status_reg1),
-        .status_reg2(status_reg2),
-        .status_reg3(status_reg3),
-        .status_reg4(status_reg4),
-        .status_reg5(status_reg5),
-        .status_reg6(status_reg6),
-        .status_reg7(status_reg7),
-        .status_reg8(status_reg8),
-        .status_reg9(status_reg9),
+        .status_reg00(status_reg00),
+        .status_reg01(status_reg01),
+        .status_reg02(status_reg02),
+        .status_reg03(status_reg03),
+        .status_reg04(status_reg04),
+        .status_reg05(status_reg05),
+        .status_reg06(status_reg06),
+        .status_reg07(status_reg07),
+        .status_reg08(status_reg08),
+        .status_reg09(status_reg09),
         .status_reg10(status_reg10),
         .status_reg11(status_reg11),
         .status_reg12(status_reg12),
@@ -1321,7 +1335,9 @@ module wfd_top (
         .status_reg15(status_reg15),
         .status_reg16(status_reg16),
         .status_reg17(status_reg17),
-        .status_reg18(status_reg18)
+        .status_reg18(status_reg18),
+        .status_reg19(status_reg19),
+        .status_reg20(status_reg20)
     );
 
 
