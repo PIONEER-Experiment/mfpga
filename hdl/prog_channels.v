@@ -27,9 +27,9 @@ module prog_channels (
     output reg read_bitstream,        // start command to spi_flash_intf
     input  end_write_command,         // done signal from spi_flash_intf
     input  end_bitstream,             // done signal from spi_flash_intf
-    (* mark_debug = "true" *) output reg prog_chan_done = 1'b0, // done programming the channels
-    (* mark_debug = "true" *) output reg async_channels = 1'b0, // flag for if the channels are sync or async
-    (* mark_debug = "true" *) output reg [3:0] state = 4'h0     // status of state machine
+    output reg prog_chan_done = 1'b0, // done programming the channels
+    output reg async_channels = 1'b0, // flag for if the channels are sync or async
+    output reg [3:0] state = 4'h0     // status of state machine
 );
 
 
@@ -43,7 +43,7 @@ always @(posedge clk) begin
     prog_done_sync[4:0] <= prog_done[4:0];
 end
 
-(* mark_debug = "true" *) reg [3:0] counter = 4'h0;
+reg [3:0] counter = 4'h0;
 
 
 parameter IDLE          = 4'd0;

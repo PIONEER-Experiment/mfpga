@@ -72,11 +72,11 @@ module wfd_top (
     // Power Supply connections
     input  wire [1:0] wfdps,          //
     // Channel FPGA configuration connections
-    output wire c_progb,              // to all channels FPGA Configuration
-    output wire c_clk,                // to all channels FPGA Configuration
-    output wire c_din,                // to all channels FPGA Configuration
-    input  wire [4:0] initb,          // from each channel FPGA Configuration
-    input  wire [4:0] prog_done,      // from each channel FPGA Configuration
+    output wire c_progb,              // to all channels for FPGA configuration
+    output wire c_clk,                // to all channels for FPGA configuration
+    output wire c_din,                // to all channels for FPGA configuration
+    input  wire [4:0] initb,          // from each channel for FPGA configuration
+    input  wire [4:0] prog_done,      // from each channel for FPGA configuration
     input  wire test,                 //
     input  wire spi_miso,             // serial data from SPI flash memory
     output wire spi_mosi,             // serial data (commands) to SPI flash memory
@@ -97,15 +97,15 @@ module wfd_top (
 
     assign clk50 = clkin; // just to make the frequency explicit
 
-    (* mark_debug = "true" *) wire ipb_clk50_reset, clk50_reset;
-    (* mark_debug = "true" *) wire prog_chan_done; // channels have been programmed signal
+    wire ipb_clk50_reset, clk50_reset;
+    wire prog_chan_done; // channels have been programmed signal
 
     // ======== operation mode signals ========
-    (* mark_debug = "true" *) wire async_mode_from_ipbus; // asynchronous mode select
-    (* mark_debug = "true" *) wire async_channels;
-    (* mark_debug = "true" *) wire async_mode_ttc_clk;
-    (* mark_debug = "true" *) wire async_mode_clk50;
-    (* mark_debug = "true" *) wire async_mode_clk125;
+    wire async_mode_from_ipbus; // asynchronous mode select
+    wire async_channels;
+    wire async_mode_ttc_clk;
+    wire async_mode_clk50;
+    wire async_mode_clk125;
 
     wire ipb_accept_pulse_triggers;
     wire ipb_async_trig_type;
@@ -583,7 +583,7 @@ module wfd_top (
         .out(async_mode_ttc_clk)
     );
 
-    // for use in status_reg_block
+    // for use in ipbus_top, status_reg_block, and command_manager
     sync_2stage async_mode_clk125_module (
         .clk(clk125),
         .in(async_channels),
@@ -1501,6 +1501,7 @@ module wfd_top (
         .chan_en(chan_en),                       // input  [ 4:0], enabled channels from IPbus
         .endianness_sel(endianness_sel),         // input, from IPbus
         .thres_data_corrupt(thres_data_corrupt), // input  [31:0], from IPbus
+        .async_mode(async_mode_clk125),          // input, from IPbus
         .state(cm_state),                        // output [33:0]
 
         // error connections

@@ -84,6 +84,7 @@ module command_manager (
   input wire [ 4:0] chan_en,            // enabled channels, one bit for each channel
   input wire endianness_sel,            // select bit for the endianness of ADC data
   input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
+  input wire async_mode,                // asynchronous mode flag
   output reg [33:0] state,              // state of finite state machine
 
   // error connections
@@ -271,30 +272,30 @@ module command_manager (
 
 
   // determine burst counts for the trigger logic
-  assign burst_count_chan0 = (curr_trig_type[2:0] == 3'b001) ? chan_burst_count_type1[0] :
+  assign burst_count_chan0 = (async_mode)                    ? chan_burst_count_type7[0] :
+                             (curr_trig_type[2:0] == 3'b001) ? chan_burst_count_type1[0] :
                              (curr_trig_type[2:0] == 3'b010) ? chan_burst_count_type2[0] :
                              (curr_trig_type[2:0] == 3'b011) ? chan_burst_count_type3[0] :
-                             (curr_trig_type[2:0] == 3'b111) ? chan_burst_count_type7[0] :
                                                                23'd0;
-  assign burst_count_chan1 = (curr_trig_type[2:0] == 3'b001) ? chan_burst_count_type1[1] :
+  assign burst_count_chan1 = (async_mode)                    ? chan_burst_count_type7[1] :
+                             (curr_trig_type[2:0] == 3'b001) ? chan_burst_count_type1[1] :
                              (curr_trig_type[2:0] == 3'b010) ? chan_burst_count_type2[1] :
                              (curr_trig_type[2:0] == 3'b011) ? chan_burst_count_type3[1] :
-                             (curr_trig_type[2:0] == 3'b111) ? chan_burst_count_type7[1] :
                                                                23'd0;
-  assign burst_count_chan2 = (curr_trig_type[2:0] == 3'b001) ? chan_burst_count_type1[2] :
+  assign burst_count_chan2 = (async_mode)                    ? chan_burst_count_type7[2] :
+                             (curr_trig_type[2:0] == 3'b001) ? chan_burst_count_type1[2] :
                              (curr_trig_type[2:0] == 3'b010) ? chan_burst_count_type2[2] :
                              (curr_trig_type[2:0] == 3'b011) ? chan_burst_count_type3[2] :
-                             (curr_trig_type[2:0] == 3'b111) ? chan_burst_count_type7[2] :
                                                                23'd0;
-  assign burst_count_chan3 = (curr_trig_type[2:0] == 3'b001) ? chan_burst_count_type1[3] :
+  assign burst_count_chan3 = (async_mode)                    ? chan_burst_count_type7[3] :
+                             (curr_trig_type[2:0] == 3'b001) ? chan_burst_count_type1[3] :
                              (curr_trig_type[2:0] == 3'b010) ? chan_burst_count_type2[3] :
                              (curr_trig_type[2:0] == 3'b011) ? chan_burst_count_type3[3] :
-                             (curr_trig_type[2:0] == 3'b111) ? chan_burst_count_type7[3] :
                                                                23'd0;
-  assign burst_count_chan4 = (curr_trig_type[2:0] == 3'b001) ? chan_burst_count_type1[4] :
+  assign burst_count_chan4 = (async_mode)                    ? chan_burst_count_type7[4] :
+                             (curr_trig_type[2:0] == 3'b001) ? chan_burst_count_type1[4] :
                              (curr_trig_type[2:0] == 3'b010) ? chan_burst_count_type2[4] :
                              (curr_trig_type[2:0] == 3'b011) ? chan_burst_count_type3[4] :
-                             (curr_trig_type[2:0] == 3'b111) ? chan_burst_count_type7[4] :
                                                                23'd0;
 
   // determine waveform counts for the trigger logic

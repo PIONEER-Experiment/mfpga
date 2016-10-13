@@ -163,7 +163,7 @@ module ttc_trigger_receiver (
             next_empty_event = 1'b1; // indicate to send an empty event
             nextstate[STORE_TRIG_INFO] = 1'b1;
           end
-          // pass along the trigger to channels
+          // pass along the trigger to channel acquisition controller
           else begin
             acq_trigger              = 1'b1;                    // pass on the trigger
             next_acq_event_cnt[23:0] = acq_event_cnt[23:0] + 1; // increment accepted event counter
@@ -178,7 +178,7 @@ module ttc_trigger_receiver (
             nextstate[STORE_TRIG_INFO] = 1'b1;
           end
           // this is an asynchronous readout trigger
-          // pass along the trigger to channels
+          // pass along the trigger to channel acquisition controller (async)
           else begin
             acq_trigger              = 1'b1;                    // pass on the trigger
             next_acq_event_cnt[23:0] = acq_event_cnt[23:0] + 1; // increment accepted event counter
