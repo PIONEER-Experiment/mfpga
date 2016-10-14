@@ -401,7 +401,7 @@ module trigger_top (
 
     // TTC Trigger FIFO : 2048 depth, 2047 almost full threshold, 16-byte data width
     // holds the trigger timestamp, trigger number, acquired event number, and trigger type
-    ttc_trigger_fifo ttc_trigger_fifo (
+    trigger_info_fifo ttc_trigger_fifo (
         // writing side
         .s_aclk(ttc_clk),                   // input
         .s_aresetn(reset40_n),              // input
@@ -422,7 +422,7 @@ module trigger_top (
 
     // Pulse Trigger FIFO : 2048 depth, 2047 almost full threshold, 16-byte data width
     // holds the trigger timestamp, trigger nuber, and trigger type from the front panel
-    pulse_trigger_fifo pulse_trigger_fifo (
+    trigger_info_fifo pulse_trigger_fifo (
         // writing side
         .s_aclk(ttc_clk),                    // input
         .s_aresetn(reset40_n),               // input

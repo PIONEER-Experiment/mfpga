@@ -335,7 +335,7 @@ module command_manager (
   wire rst_n;
   assign rst_n = ~rst;
 
-  // Pulse Readout FIFO : 2048 depth, 1024 almost full threshold, 16-byte data width
+  // Pulse Readout FIFO : 2048 depth, 2047 almost full threshold, 16-byte data width
   // holds a running copy of the pulse trigger information for multi-channel readout
   pulse_readout_fifo pulse_readout_fifo (
       // writing side
