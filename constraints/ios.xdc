@@ -1,6 +1,6 @@
-##############
+# ############
 # io standards
-##############
+# ############
 
 set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gige_rx]
 set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gige_rx_N]
@@ -49,8 +49,6 @@ set_property IOSTANDARD LVCMOS33 [get_ports {mmc_io[0]}]
 
 set_property IOSTANDARD LVCMOS33 [get_ports bbus_scl]
 set_property IOSTANDARD LVCMOS33 [get_ports bbus_sda]
-set_property PULLUP TRUE [get_ports bbus_scl]
-set_property PULLUP TRUE [get_ports bbus_sda]
 
 set_property IOSTANDARD LVCMOS33 [get_ports ext_trig]
 
@@ -106,16 +104,13 @@ set_property IOSTANDARD LVCMOS33 [get_ports {c0_io[2]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {c0_io[1]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {c0_io[0]}]
 
-set_property IOSTANDARD LVCMOS33 [get_ports {mezzb5}]
-set_property IOSTANDARD LVCMOS33 [get_ports {mezzb4}]
-set_property IOSTANDARD LVCMOS33 [get_ports {mezzb3}]
+set_property IOSTANDARD LVCMOS33 [get_ports mezzb5]
+set_property IOSTANDARD LVCMOS33 [get_ports mezzb4]
+set_property IOSTANDARD LVCMOS33 [get_ports mezzb3]
 
-set_property IOSTANDARD LVCMOS33 [get_ports {afe_dac_sync_n}]
-set_property IOSTANDARD LVCMOS33 [get_ports {afe_dac_sdi}]
-set_property IOSTANDARD LVCMOS33 [get_ports {afe_dac_sclk}]
-set_property SLEW FAST [get_ports {afe_dac_sync_n}]
-set_property SLEW FAST [get_ports {afe_dac_sdi}]
-set_property SLEW FAST [get_ports {afe_dac_sclk}]
+set_property IOSTANDARD LVCMOS33 [get_ports afe_dac_sync_n]
+set_property IOSTANDARD LVCMOS33 [get_ports afe_dac_sdi]
+set_property IOSTANDARD LVCMOS33 [get_ports afe_dac_sclk]
 
 set_property IOSTANDARD LVCMOS33 [get_ports mmc_reset_m]
 
@@ -149,10 +144,7 @@ set_property IOSTANDARD LVCMOS33 [get_ports {wfdps[0]}]
 set_property IOSTANDARD LVCMOS33 [get_ports c_clk]
 set_property IOSTANDARD LVCMOS33 [get_ports c_din]
 set_property IOSTANDARD LVCMOS33 [get_ports c_progb]
-set_property SLEW FAST [get_ports c_clk]
-set_property SLEW FAST [get_ports c_din]
-set_property SLEW FAST [get_ports c_progb]
-set_property IOSTANDARD LVCMOS33 [get_ports test]
+set_property IOSTANDARD LVCMOS33 [get_ports test_point6]
 
 set_property IOSTANDARD LVCMOS33 [get_ports {prog_done[4]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {prog_done[3]}]
@@ -172,14 +164,29 @@ set_property IOSTANDARD LVCMOS33 [get_ports spi_ss]
 
 set_property IOSTANDARD LVCMOS33 [get_ports fp_sw_master]
 
+# ################
+# extra properties
+# ################
 
-#################
+set_property PULLUP TRUE [get_ports bbus_scl]
+set_property PULLUP TRUE [get_ports bbus_sda]
+
+set_property SLEW FAST [get_ports afe_dac_sync_n]
+set_property SLEW FAST [get_ports afe_dac_sdi]
+set_property SLEW FAST [get_ports afe_dac_sclk]
+
+set_property SLEW FAST [get_ports c_clk]
+set_property SLEW FAST [get_ports c_din]
+set_property SLEW FAST [get_ports c_progb]
+
+# ###############
 # pin assignments
-#################
+# ###############
 
 set_property PACKAGE_PIN P1 [get_ports gige_tx_N]
 set_property PACKAGE_PIN M1 [get_ports daq_tx_N]
 
+set_property PACKAGE_PIN H6 [get_ports gtx_clk0]
 set_property PACKAGE_PIN H5 [get_ports gtx_clk0_N]
 set_property PACKAGE_PIN D6 [get_ports gtx_clk1]
 set_property PACKAGE_PIN D5 [get_ports gtx_clk1_N]
@@ -252,13 +259,13 @@ set_property PACKAGE_PIN B12 [get_ports {c0_io[2]}]
 set_property PACKAGE_PIN B10 [get_ports {c0_io[1]}]
 set_property PACKAGE_PIN A12 [get_ports {c0_io[0]}]
 
-set_property PACKAGE_PIN V24  [get_ports {mezzb5}]
-set_property PACKAGE_PIN W24  [get_ports {mezzb4}]
-set_property PACKAGE_PIN AA24 [get_ports {mezzb3}]
+set_property PACKAGE_PIN V24  [get_ports mezzb5]
+set_property PACKAGE_PIN W24  [get_ports mezzb4]
+set_property PACKAGE_PIN AA24 [get_ports mezzb3]
 
-set_property PACKAGE_PIN AB24 [get_ports {afe_dac_sync_n}]
-set_property PACKAGE_PIN AC24 [get_ports {afe_dac_sdi}]
-set_property PACKAGE_PIN AD24 [get_ports {afe_dac_sclk}]
+set_property PACKAGE_PIN AB24 [get_ports afe_dac_sync_n]
+set_property PACKAGE_PIN AC24 [get_ports afe_dac_sdi]
+set_property PACKAGE_PIN AD24 [get_ports afe_dac_sclk]
 
 set_property PACKAGE_PIN F23 [get_ports adcclk_stat_ld]
 set_property PACKAGE_PIN G24 [get_ports adcclk_stat]
@@ -289,7 +296,7 @@ set_property PACKAGE_PIN U24 [get_ports {wfdps[0]}]
 set_property PACKAGE_PIN D26 [get_ports c_clk]
 set_property PACKAGE_PIN D25 [get_ports c_din]
 set_property PACKAGE_PIN C26 [get_ports c_progb]
-set_property PACKAGE_PIN D24 [get_ports test]
+set_property PACKAGE_PIN D24 [get_ports test_point6]
 
 set_property PACKAGE_PIN K17  [get_ports {prog_done[4]}]
 set_property PACKAGE_PIN AE23 [get_ports {prog_done[3]}]

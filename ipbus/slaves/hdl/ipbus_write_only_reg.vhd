@@ -36,7 +36,8 @@ begin
 		end if;
 	end process;
 	
-	ipbus_out.ipb_ack <= ack;
-	ipbus_out.ipb_err <= '0';
+	ipbus_out.ipb_rdata <= (others => '0'); -- unused
+	ipbus_out.ipb_ack   <= ack;
+	ipbus_out.ipb_err   <= '0';
 
 end rtl;

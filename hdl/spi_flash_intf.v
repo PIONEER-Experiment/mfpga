@@ -61,7 +61,7 @@ reg [31:0] wbuf_data_in;
 
 wire wbuf_rd_en;
 wire [13:0] wbuf_rd_addr;
-wire wbuf_data_out;
+wire [15:0] wbuf_data_out;
 
 wire rbuf_wr_en;
 wire [13:0] rbuf_wr_addr;
@@ -350,7 +350,7 @@ assign end_write_command = (CS[FINISH_CMD] == 1'b1);
 
 assign wbuf_rd_addr[13:0] = {2'b00, bit_cnt[11:0]};
 assign rbuf_wr_addr[13:0] = {2'b00, bit_cnt[11:0]};
-assign spi_mosi = wbuf_data_out;
+assign spi_mosi = wbuf_data_out[0];
 assign rbuf_data_in = spi_miso;
 
 // reverse the bit order of the IPbus data, so that the MSB will be stored in the lowest 
@@ -367,6 +367,7 @@ begin
 end 
 
 RAMB18E1 #(
+    .SIM_DEVICE("7SERIES"),
     .RAM_MODE("SDP"),
     .READ_WIDTH_A(1),
     .WRITE_WIDTH_B(36)              // 32 data bits, 4 (unused) parity bits
@@ -392,10 +393,11 @@ RAMB18E1 #(
     .DIADI(wbuf_data_in_r[15:0]),   // 16-bit input: DI[15:0]
 
     // data out
-    .DOADO(wbuf_data_out)           // 16-bit output: we only use DO[0]
+    .DOADO(wbuf_data_out[15:0])     // 16-bit output: we only use DO[0]
 );
 
 RAMB18E1 #(
+    .SIM_DEVICE("7SERIES"),
     .RAM_MODE("SDP"),
     .READ_WIDTH_A(36),              // 32 data bits, 4 (unused) parity bits
     .WRITE_WIDTH_B(1)

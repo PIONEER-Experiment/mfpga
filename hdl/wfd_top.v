@@ -40,7 +40,7 @@ module wfd_top (
     inout  wire bbus_scl,             // I2C bus clock, connected to EEPROM Chip, Atmel Chip, Channel FPGAs
     inout  wire bbus_sda,             // I2C bus data,  connected to EEPROM Chip, Atmel Chip, Channel FPGAs
     input  wire ext_trig,             // front panel trigger
-    input  wire [3:0] mmc_io,         // controls to/from the Atmel
+    input  wire [3:0] mmc_io,         // controls from the Atmel
     output wire [3:0] c0_io,          // utility signals to Channel 0
     output wire [3:0] c1_io,          // utility signals to Channel 1
     output wire [3:0] c2_io,          // utility signals to Channel 2
@@ -65,19 +65,16 @@ module wfd_top (
     output wire ext_clk_sel1,         //
     output wire daq_clk_sel,          //
     output wire daq_clk_en,           //
-    // TTC connections
     input  wire ttc_clkp, ttc_clkn,   // TTC diff clock
     input  wire ttc_rxp, ttc_rxn,     // data from TTC
     output wire ttc_txp, ttc_txn,     // data to TTC
-    // Power Supply connections
     input  wire [1:0] wfdps,          //
-    // Channel FPGA configuration connections
     output wire c_progb,              // to all channels for FPGA configuration
     output wire c_clk,                // to all channels for FPGA configuration
     output wire c_din,                // to all channels for FPGA configuration
     input  wire [4:0] initb,          // from each channel for FPGA configuration
     input  wire [4:0] prog_done,      // from each channel for FPGA configuration
-    input  wire test,                 //
+    input  wire test_point6,          // TP6 on schematic, unused
     input  wire spi_miso,             // serial data from SPI flash memory
     output wire spi_mosi,             // serial data (commands) to SPI flash memory
     output wire spi_ss,               // SPI flash memory chip select
@@ -91,9 +88,9 @@ module wfd_top (
     wire clk200;
     wire clkfb;
     wire gtrefclk0;
-    wire pll_lock;
     wire ttc_clock; // 40 MHz output from TTC decoder module
     wire spi_clock;
+    wire pll_lock;
 
     assign clk50 = clkin; // just to make the frequency explicit
 
@@ -107,6 +104,7 @@ module wfd_top (
     wire async_mode_clk50;
     wire async_mode_clk125;
 
+    // IPbus overrides
     wire ipb_accept_pulse_triggers;
     wire ipb_async_trig_type;
 
@@ -257,7 +255,7 @@ module wfd_top (
     assign daq_clk_en  = 1'b1;
 
     // Required statement to support differential ttc_txp / ttc_txn pair
-    OBUFDS ttc_tx_buf (.I(ttc_rx), .O(ttc_txp), .OB(ttc_txn));
+    OBUFDS ttc_tx_buf (.I(1'b0), .O(ttc_txp), .OB(ttc_txn));
 
     // Generate clocks from the 50 MHz input clock
     // Most of the design is run from the 125 MHz clock (Don't confuse it with the 125 MHz GTREFCLK)
@@ -356,14 +354,14 @@ module wfd_top (
 
 
     // ======== debug signals ========
-    assign debug0 = bbus_scl;
+    assign debug0 = test_point6;
     assign debug1 = bbus_sda;
-    assign debug2 = 1'b1;
-    assign debug3 = bbus_scl_oen;
-    assign debug4 = bbus_sda_oen;
-    assign debug5 = ipb_prog_chan_start;
-    assign debug6 = prog_chan_start_from_ipbus;
-    assign debug7 = spi_ss & spi_clk & spi_mosi & spi_miso & prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0] & wfdps[0] & wfdps[1] & mmc_reset_m & mezzb3 & mezzb4 & mezzb5 & mmc_io[2] & mmc_io[3] & ext_trig_sync & initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
+    assign debug2 = wfdps[1] & wfdps[0];
+    assign debug3 = mmc_io[3] & mmc_io[2] & mmc_io[1] & mmc_io[0];
+    assign debug4 = spi_ss & spi_clk & spi_mosi & spi_miso;
+    assign debug5 = initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
+    assign debug6 = mmc_reset_m & mezzb5 & mezzb4 & mezzb3;
+    assign debug7 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
 
     
     // ================== communicate with SPI flash memory ==================
@@ -380,15 +378,15 @@ module wfd_top (
         .CFGMCLK(),         // 1-bit output: Configuration internal oscillator clock output
         .EOS(),             // 1-bit output: Active high output signal indicating the End Of Startup.
         .PREQ(),            // 1-bit output: PROGRAM request to fabric output
-        .CLK(0),            // 1-bit input: User start-up clock input
-        .GSR(0),            // 1-bit input: Global Set/Reset input (GSR cannot be used for the port name)
-        .GTS(0),            // 1-bit input: Global 3-state input (GTS cannot be used for the port name)
-        .KEYCLEARB(0),      // 1-bit input: Clear AES Decrypter Key input from Battery-Backed RAM (BBRAM)
-        .PACK(0),           // 1-bit input: PROGRAM acknowledge input
-        .USRCCLKO(spi_clk), // 1-bit input: User CCLK input
-        .USRCCLKTS(0),      // 1-bit input: User CCLK 3-state enable input
-        .USRDONEO(0),       // 1-bit input: User DONE pin output control
-        .USRDONETS(0)       // 1-bit input: User DONE 3-state enable output
+        .CLK(0),            // 1-bit  input: User start-up clock input
+        .GSR(0),            // 1-bit  input: Global Set/Reset input (GSR cannot be used for the port name)
+        .GTS(0),            // 1-bit  input: Global 3-state input (GTS cannot be used for the port name)
+        .KEYCLEARB(0),      // 1-bit  input: Clear AES Decrypter Key input from Battery-Backed RAM (BBRAM)
+        .PACK(0),           // 1-bit  input: PROGRAM acknowledge input
+        .USRCCLKO(spi_clk), // 1-bit  input: User CCLK input
+        .USRCCLKTS(0),      // 1-bit  input: User CCLK 3-state enable input
+        .USRDONEO(0),       // 1-bit  input: User DONE pin output control
+        .USRDONETS(0)       // 1-bit  input: User DONE 3-state enable output
     );
 
 
@@ -1103,17 +1101,6 @@ module wfd_top (
         .afe_dac_sclk(afe_dac_sclk),
         .afe_dac_sdi(afe_dac_sdi),
         .afe_dac_sync_n(afe_dac_sync_n),
-
-        // counter ouputs
-        .frame_err(frame_err),
-        .hard_err(hard_err),
-        .soft_err(soft_err),
-        .channel_up(channel_up),
-        .lane_up(lane_up),
-        .pll_not_locked(pll_not_locked),
-        .tx_resetdone_out(tx_resetdone_out),
-        .rx_resetdone_out(rx_resetdone_out),
-        .link_reset_out(link_reset_out),
 
         // debug outputs
         .debug()
