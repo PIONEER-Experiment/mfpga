@@ -69,12 +69,13 @@ module pulse_trigger_receiver (
                                  (stored_bursts_chan4[22:0] > thres_ddr3_overflow[22:0]);
 
   // DDR3 is full in a channel
+  // "full" in asynchronous mode is limited by the AMC13 event size of 2^20 64-bit words
   wire ddr3_full;
-  assign ddr3_full = ((8388608 - stored_bursts_chan0[22:0]) < chan_en[0]*(burst_count_chan0[22:0] + 1)) |
-                     ((8388608 - stored_bursts_chan1[22:0]) < chan_en[1]*(burst_count_chan1[22:0] + 1)) |
-                     ((8388608 - stored_bursts_chan2[22:0]) < chan_en[2]*(burst_count_chan2[22:0] + 1)) |
-                     ((8388608 - stored_bursts_chan3[22:0]) < chan_en[3]*(burst_count_chan3[22:0] + 1)) |
-                     ((8388608 - stored_bursts_chan4[22:0]) < chan_en[4]*(burst_count_chan4[22:0] + 1));
+  assign ddr3_full = ((524288 - stored_bursts_chan0[22:0]) < chan_en[0]*(burst_count_chan0[22:0] + 1)) |
+                     ((524288 - stored_bursts_chan1[22:0]) < chan_en[1]*(burst_count_chan1[22:0] + 1)) |
+                     ((524288 - stored_bursts_chan2[22:0]) < chan_en[2]*(burst_count_chan2[22:0] + 1)) |
+                     ((524288 - stored_bursts_chan3[22:0]) < chan_en[3]*(burst_count_chan3[22:0] + 1)) |
+                     ((524288 - stored_bursts_chan4[22:0]) < chan_en[4]*(burst_count_chan4[22:0] + 1));
 
   reg [ 3:0] nextstate;
   reg [ 3:0] next_trig_history;
