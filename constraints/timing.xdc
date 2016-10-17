@@ -21,9 +21,9 @@ create_clock -period 8.000 -name user_clk_chan4 [get_pins channels/chan4/clock_m
 # Statements to deal with inter-clock timing problems
 set_false_path -from [get_cells reset_stretch/signal_out_reg*] -to [get_cells clk50_reset_sync/sync1_reg*]
 set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][1]*}] -to [get_cells async_mode_clk50_module/sync1_reg*]
-set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][11]*}] -to [get_cells prog_chan_start_sync/sync2_reg*]
-set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][12]*}] -to [get_cells reprog_trigger_sync/sync1_reg*]
-set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][13]*}] -to [get_cells reprog_trigger_sync/sync1_reg*]
+set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][2]*}] -to [get_cells prog_chan_start_sync/sync2_reg*]
+set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][3]*}] -to [get_cells reprog_trigger_sync/sync1_reg*]
+set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][4]*}] -to [get_cells reprog_trigger_sync/sync1_reg*]
 set_false_path -from [get_cells ipb/slaves/slave4/flash_wr_nBytes_reg*] -to [get_cells spi_flash_intf/flash_wr_nBytes_sync_reg*]
 set_false_path -from [get_cells ipb/slaves/slave4/flash_rd_nBytes_reg*] -to [get_cells spi_flash_intf/flash_rd_nBytes_sync_reg*]
 set_false_path -from [get_cells ipb/slaves/slave4/flash_cmd_strobe_reg*] -to [get_cells spi_flash_intf/flash_cmd_sync/sync1_reg*]
@@ -36,11 +36,11 @@ set_false_path -from [get_cells command_manager/chan_burst_count_type7_reg*] -to
 set_false_path -from [get_cells command_manager/chan_wfm_count_type1_reg*] -to [get_cells command_manager/daq_data_reg*]
 set_false_path -from [get_cells command_manager/chan_wfm_count_type2_reg*] -to [get_cells command_manager/daq_data_reg*]
 set_false_path -from [get_cells command_manager/chan_wfm_count_type3_reg*] -to [get_cells command_manager/daq_data_reg*]
+set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][5]*}] -to [get_cells command_manager/daq_data_reg*]
 set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][6]*}] -to [get_cells command_manager/daq_data_reg*]
 set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][7]*}] -to [get_cells command_manager/daq_data_reg*]
 set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][8]*}] -to [get_cells command_manager/daq_data_reg*]
 set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][9]*}] -to [get_cells command_manager/daq_data_reg*]
-set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][10]*}] -to [get_cells command_manager/daq_data_reg*]
 
 # Separate asynchronous clock domains
 set_clock_groups -name async_clks -asynchronous \

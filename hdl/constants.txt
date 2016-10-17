@@ -9,7 +9,7 @@
 
 	// Define 8-bit constants to hold info about code version and functionality
 	`define	MAJOR_REV	8'd2	// major revision
-	`define	MINOR_REV	8'd0	// minor revision
+	`define	MINOR_REV	8'd1	// minor revision
 	`define PATCH_REV	8'd0	// patch revision
 
 `endif

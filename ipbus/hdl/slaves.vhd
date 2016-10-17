@@ -34,7 +34,7 @@ port (
     reprog_trigger_out    : out std_logic_vector( 1 downto 0);
     trig_delay_out        : out std_logic_vector(31 downto 0);
     endianness_out        : out std_logic;
-    trig_settings_out     : out std_logic_vector( 7 downto 0);
+    trig_settings_out     : out std_logic_vector( 2 downto 0);
     ttc_loopback_out      : out std_logic;
     ext_trig_pulse_en_out : out std_logic;
 
@@ -165,34 +165,22 @@ begin
 	-- control register
 	rst_out               <= ctrl_reg( 0);
 	async_mode_out        <= ctrl_reg( 1);
-	--                    <= ctrl_reg( 2);
-	--                    <= ctrl_reg( 3);
-	--                    <= ctrl_reg( 4);
-	--                    <= ctrl_reg( 5);
-	chan_en_out(0)        <= ctrl_reg( 6);
-	chan_en_out(1)        <= ctrl_reg( 7);
-	chan_en_out(2)        <= ctrl_reg( 8);
-	chan_en_out(3)        <= ctrl_reg( 9);
-	chan_en_out(4)        <= ctrl_reg(10);
-	prog_chan_out         <= ctrl_reg(11);
-	reprog_trigger_out(0) <= ctrl_reg(12);
-	reprog_trigger_out(1) <= ctrl_reg(13);
-    --                    <= ctrl_reg(14);
-    --                    <= ctrl_reg(15);
-    ext_trig_pulse_en_out <= ctrl_reg(16);
-    async_trig_type_out   <= ctrl_reg(17);
-    endianness_out        <= ctrl_reg(18);
-    trig_settings_out(0)  <= ctrl_reg(19);
-    trig_settings_out(1)  <= ctrl_reg(20);
-    trig_settings_out(2)  <= ctrl_reg(21);
-    trig_settings_out(3)  <= ctrl_reg(22);
-    trig_settings_out(4)  <= ctrl_reg(23);
-    trig_settings_out(5)  <= ctrl_reg(24);
-    trig_settings_out(6)  <= ctrl_reg(25);
-    trig_settings_out(7)  <= ctrl_reg(26);
-    --                    <= ctrl_reg(27);
-    accept_pulse_trig_out <= ctrl_reg(28);
-    ttc_loopback_out      <= ctrl_reg(29);
+	prog_chan_out         <= ctrl_reg( 2);
+	reprog_trigger_out(0) <= ctrl_reg( 3);
+	reprog_trigger_out(1) <= ctrl_reg( 4);
+	chan_en_out(0)        <= ctrl_reg( 5);
+	chan_en_out(1)        <= ctrl_reg( 6);
+	chan_en_out(2)        <= ctrl_reg( 7);
+	chan_en_out(3)        <= ctrl_reg( 8);
+	chan_en_out(4)        <= ctrl_reg( 9);
+    endianness_out        <= ctrl_reg(10);
+    trig_settings_out(0)  <= ctrl_reg(11);
+    trig_settings_out(1)  <= ctrl_reg(12);
+    trig_settings_out(2)  <= ctrl_reg(13);
+    ttc_loopback_out      <= ctrl_reg(14);
+    ext_trig_pulse_en_out <= ctrl_reg(15);
+    async_trig_type_out   <= ctrl_reg(16);
+    accept_pulse_trig_out <= ctrl_reg(17);
 
 	
 	-- Slave 2: Write-only register

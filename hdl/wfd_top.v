@@ -2,8 +2,6 @@
 //
 // As a useful reference, here's the syntax to mark signals for debug:
 // (* mark_debug = "true" *) 
-//
-// Note 1: The channels are also reset with the TTC trigger number reset command.
 
 module wfd_top (
     input  wire clkin,                // 50 MHz clock
@@ -228,12 +226,12 @@ module wfd_top (
     wire ttc_chan_b_valid;
     wire rst_trigger_num;
     wire rst_trigger_timestamp;
-    wire [2:0] ttc_fill_type;
-    wire [2:0] fill_type;
+    wire [4:0] ttc_fill_type;
+    wire [4:0] fill_type;
     wire ttc_accept_pulse_triggers;
     wire accept_pulse_triggers;
 
-    assign fill_type[2:0]        = (ipb_async_trig_type) ? 3'b111 : ttc_fill_type[2:0];
+    assign fill_type[4:0]        = (ipb_async_trig_type) ? 5'b00111 : ttc_fill_type[4:0];
     assign accept_pulse_triggers = ttc_accept_pulse_triggers | ipb_accept_pulse_triggers;
 
     // active-high reset signal to channels
@@ -592,7 +590,7 @@ module wfd_top (
     // ======== triggers and data transfer ========
 
     // TTC trigger in 40 MHz TTC clock domain
-   wire trigger_from_ttc;
+    wire trigger_from_ttc;
 
     // put other trigger signals into 40 MHz TTC clock domain
     wire ext_trig_stretch;
@@ -804,10 +802,10 @@ module wfd_top (
                 status_reg20;
 
     // ======== trigger information signals ========
-    wire [ 7:0] trig_settings;
+    wire [ 2:0] trig_settings;
     wire [23:0] ttc_event_num;
     wire [23:0] ttc_trig_num;
-    wire [ 2:0] ttc_trig_type;
+    wire [ 4:0] ttc_trig_type;
     wire [43:0] ttc_trig_timestamp;
     wire [23:0] trig_num;
     wire [43:0] trig_timestamp;
@@ -852,7 +850,7 @@ module wfd_top (
         .ttc_loopback(ttc_loopback),
 
         // outputs to trigger logic
-        .fill_type(ttc_fill_type[2:0]),
+        .fill_type(ttc_fill_type[4:0]),
         .reset_trig_num(rst_trigger_num),
         .reset_trig_timestamp(rst_trigger_timestamp),
 
@@ -910,11 +908,11 @@ module wfd_top (
         .axi_stream_in_tvalid(axi_stream_to_ipbus_from_cm_tvalid),
         .axi_stream_in_tdata(axi_stream_to_ipbus_from_cm_tdata),
         .axi_stream_in_tready(axi_stream_to_ipbus_from_cm_tready),
-        .axi_stream_in_tstrb(4'b0000),
-        .axi_stream_in_tkeep(4'b0000),
+        .axi_stream_in_tstrb(4'h0),
+        .axi_stream_in_tkeep(4'h0),
         .axi_stream_in_tlast(1'b0),
-        .axi_stream_in_tid(4'b0000),
-        .axi_stream_in_tdest(4'b0000),
+        .axi_stream_in_tid(4'h0),
+        .axi_stream_in_tdest(4'h0),
 
         // control signals
         .async_mode_in(async_mode_clk125),                 // set asychronous mode in channels
@@ -1169,8 +1167,18 @@ module wfd_top (
         .out(caca_state_clk125)
     );
 
+    // synchronize pc_state
+    wire [3:0] pc_state_clk125;
+    sync_2stage #(
+        .WIDTH(4)
+    ) pc_state_sync (
+        .clk(clk125),
+        .in(pc_state),
+        .out(pc_state_clk125)
+    );
+
     // synchronize fill_type
-    wire [2:0] fill_type_clk125;
+    wire [4:0] fill_type_clk125;
     sync_2stage #(
         .WIDTH(3)
     ) fill_type_sync (
@@ -1282,7 +1290,7 @@ module wfd_top (
         .cac_state(cac_state_clk125),
         .caca_state(caca_state_clk125),
         .tp_state(tp_state),
-        .pc_state(pc_state),
+        .pc_state(pc_state_clk125),
 
         // acquisition
         .acq_readout_pause(acq_readout_pause),
@@ -1343,14 +1351,14 @@ module wfd_top (
         .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
 
         // trigger interface
-        .ttc_trigger(trigger_from_ttc),                // TTC trigger signal
-        .ext_trigger(ext_trig_to_trigger_top),         // front panel trigger signal
-        .accept_pulse_triggers(accept_pulse_triggers), // accept front panel triggers select
-        .trig_type(fill_type[2:0]),                    // trigger type (muon fill, laser, pedestal, async)
-        .trig_settings(trig_settings),                 // trigger settings
-        .chan_en(chan_en),                             // enabled channels
-        .trig_delay(trig_delay),                       // trigger delay
-        .thres_ddr3_overflow(thres_ddr3_overflow),     // DDR3 overflow threshold
+        .ttc_trigger(trigger_from_ttc),                    // TTC trigger signal
+        .ext_trigger(ext_trig_to_trigger_top),             // front panel trigger signal
+        .accept_pulse_triggers(accept_pulse_triggers),     // accept front panel triggers select
+        .trig_type(fill_type[4:0]),                        // trigger type (muon fill, laser, pedestal, async)
+        .trig_settings({28'd0, trig_settings[2:0], 1'b0}), // trigger settings
+        .chan_en(chan_en),                                 // enabled channels
+        .trig_delay(trig_delay),                           // trigger delay
+        .thres_ddr3_overflow(thres_ddr3_overflow),         // DDR3 overflow threshold
 
         // channel interface
         .chan_dones(acq_dones),

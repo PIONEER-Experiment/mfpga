@@ -16,7 +16,7 @@ module channel_acq_controller_async (
 
   // interface from TTC trigger receiver
   input wire ttc_trigger,          // trigger signal
-  input wire [ 2:0] ttc_trig_type, // trigger type (readout)
+  input wire [ 4:0] ttc_trig_type, // recognized trigger type (muon fill, laser, pedestal, async readout)
   input wire [23:0] ttc_trig_num,  // trigger number
   output wire ttc_acq_ready,       // channels are ready for a readout
 
@@ -45,12 +45,12 @@ module channel_acq_controller_async (
   parameter READOUT        = 3;
   
 
-  reg [ 2:0] acq_trig_type;     // latched trigger type
+  reg [ 4:0] acq_trig_type;     // latched trigger type
   reg [23:0] acq_trig_num;      // latched trigger number
   reg [ 4:0] acq_dones_latched; // latched channel dones reported
 
   reg [ 3:0] nextstate;
-  reg [ 2:0] next_acq_trig_type;
+  reg [ 4:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
   reg [ 4:0] next_acq_dones_latched;
 
@@ -59,7 +59,7 @@ module channel_acq_controller_async (
   always @* begin
     nextstate = 4'd0;
 
-    next_acq_trig_type    [ 2:0] = acq_trig_type    [ 2:0];
+    next_acq_trig_type    [ 4:0] = acq_trig_type    [ 4:0];
     next_acq_trig_num     [23:0] = acq_trig_num     [23:0];
     next_acq_dones_latched[ 4:0] = acq_dones_latched[ 4:0];
 
@@ -73,14 +73,14 @@ module channel_acq_controller_async (
         if (ttc_trigger & async_mode) begin
           next_acq_dones_latched[4:0] = 5'b00000;
 
-          next_acq_trig_type[ 2:0] = ttc_trig_type[ 2:0]; // latch trigger type
+          next_acq_trig_type[ 4:0] = ttc_trig_type[ 4:0]; // latch trigger type
           next_acq_trig_num [23:0] = ttc_trig_num [23:0]; // latch trigger number
 
           nextstate[WAIT] = 1'b1;
         end
         // pass on front panel trigger to channels
         else if (accept_pulse_triggers & async_mode) begin
-          acq_enable[9:0] = { 5{2'b11} };
+          acq_enable[9:0] = { 5{2'b11} }; // enable lines should be fixed and not set by the trigger type
           acq_trig  [4:0] = (pulse_trigger) ? chan_en[4:0] : 5'b00000;
 
           nextstate[IDLE] = 1'b1;
@@ -135,14 +135,14 @@ module channel_acq_controller_async (
     if (reset) begin
       state <= 4'd1 << IDLE;
 
-      acq_trig_type    [ 2:0] <=  3'b000;
+      acq_trig_type    [ 4:0] <=  5'd0;
       acq_trig_num     [23:0] <= 24'd0;
-      acq_dones_latched[ 4:0] <=  5'b00000;
+      acq_dones_latched[ 4:0] <=  5'd0;
     end
     else begin
       state <= nextstate;
 
-      acq_trig_type    [ 2:0] <= next_acq_trig_type    [ 2:0];
+      acq_trig_type    [ 4:0] <= next_acq_trig_type    [ 4:0];
       acq_trig_num     [23:0] <= next_acq_trig_num     [23:0];
       acq_dones_latched[ 4:0] <= next_acq_dones_latched[ 4:0];
     end
@@ -167,7 +167,7 @@ module channel_acq_controller_async (
         end
         nextstate[STORE_ACQ_INFO]: begin
           fifo_valid      <= 1'b1;
-          fifo_data[31:0] <= {5'd0, acq_trig_type[2:0], acq_trig_num[23:0]};
+          fifo_data[31:0] <= {3'd0, acq_trig_type[4:0], acq_trig_num[23:0]};
         end
         nextstate[READOUT]: begin
           fifo_valid      <=  1'b0;

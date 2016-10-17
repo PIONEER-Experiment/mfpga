@@ -23,7 +23,7 @@ module trigger_processor (
 
   output reg [23:0] ttc_event_num,      // channel's trigger number
   output reg [23:0] ttc_trig_num,       // global trigger number
-  output reg [ 2:0] ttc_trig_type,      // trigger type
+  output reg [ 4:0] ttc_trig_type,      // trigger type
   output reg [43:0] ttc_trig_timestamp, // trigger timestamp
 
   // status connections
@@ -46,17 +46,17 @@ module trigger_processor (
   reg ttc_empty_event;
 
   // latched data from Acquisition Event FIFO
-  reg [ 2:0] acq_trig_type;
+  reg [ 4:0] acq_trig_type;
   reg [23:0] acq_trig_num;
 
   // 'next' signals
   reg [ 6:0] nextstate;
   reg        next_ttc_empty_event;
-  reg [ 2:0] next_ttc_trig_type;
+  reg [ 4:0] next_ttc_trig_type;
   reg [23:0] next_ttc_event_num;
   reg [23:0] next_ttc_trig_num;
   reg [43:0] next_ttc_trig_timestamp;
-  reg [ 2:0] next_acq_trig_type;
+  reg [ 4:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
 
 
@@ -65,12 +65,12 @@ module trigger_processor (
     nextstate = 7'd0;
 
     next_ttc_empty_event          = ttc_empty_event;
-    next_ttc_trig_type     [ 2:0] = ttc_trig_type     [ 2:0];
+    next_ttc_trig_type     [ 4:0] = ttc_trig_type     [ 4:0];
     next_ttc_event_num     [23:0] = ttc_event_num     [23:0];
     next_ttc_trig_num      [23:0] = ttc_trig_num      [23:0];
     next_ttc_trig_timestamp[43:0] = ttc_trig_timestamp[43:0];
 
-    next_acq_trig_type[ 2:0] = acq_trig_type[ 2:0];
+    next_acq_trig_type[ 4:0] = acq_trig_type[ 4:0];
     next_acq_trig_num [23:0] = acq_trig_num [23:0];
 
     trig_fifo_ready = 1'b0; // default
@@ -84,8 +84,8 @@ module trigger_processor (
       state[IDLE] : begin
         // watch for unread triggers
         if (trig_fifo_valid) begin
-          next_ttc_empty_event          = trig_fifo_data[   95];
-          next_ttc_trig_type     [ 2:0] = trig_fifo_data[94:92];
+          next_ttc_empty_event          = trig_fifo_data[   97];
+          next_ttc_trig_type     [ 4:0] = trig_fifo_data[96:92];
           next_ttc_event_num     [23:0] = trig_fifo_data[91:68];
           next_ttc_trig_num      [23:0] = trig_fifo_data[67:44];
           next_ttc_trig_timestamp[43:0] = trig_fifo_data[43: 0];
@@ -107,7 +107,7 @@ module trigger_processor (
         end
         // watch for unread acquisitions
         else if (acq_fifo_valid & ~ttc_empty_event) begin
-          next_acq_trig_type[ 2:0] = acq_fifo_data[26:24];
+          next_acq_trig_type[ 4:0] = acq_fifo_data[28:24];
           next_acq_trig_num [23:0] = acq_fifo_data[23: 0];
 
           acq_fifo_ready = 1'b1; // acknowledge the data word
@@ -134,7 +134,7 @@ module trigger_processor (
           nextstate[ERROR_TRIG_NUM] = 1'b1;
         end
         // verify that the trigger types match
-        else if (ttc_trig_type[2:0] != acq_trig_type[2:0]) begin
+        else if (ttc_trig_type[4:0] != acq_trig_type[4:0]) begin
           nextstate[ERROR_TRIG_TYPE] = 1'b1;
         end
         // check if we're ready for a readout
@@ -175,24 +175,24 @@ module trigger_processor (
       state <= 7'd1 << IDLE;
 
       ttc_empty_event          <=  1'd0;
-      ttc_trig_type     [ 2:0] <=  3'd0;
+      ttc_trig_type     [ 4:0] <=  5'd0;
       ttc_event_num     [23:0] <= 24'd0;
       ttc_trig_num      [23:0] <= 24'd0;
       ttc_trig_timestamp[43:0] <= 24'd0;
 
-      acq_trig_type[ 2:0] <=  3'd0;
+      acq_trig_type[ 4:0] <=  5'd0;
       acq_trig_num [23:0] <= 24'd0;
     end
     else begin
       state <= nextstate;
 
       ttc_empty_event          <= next_ttc_empty_event;
-      ttc_trig_type     [ 2:0] <= next_ttc_trig_type     [ 2:0];
+      ttc_trig_type     [ 4:0] <= next_ttc_trig_type     [ 4:0];
       ttc_event_num     [23:0] <= next_ttc_event_num     [23:0];
       ttc_trig_num      [23:0] <= next_ttc_trig_num      [23:0];
       ttc_trig_timestamp[43:0] <= next_ttc_trig_timestamp[43:0];
 
-      acq_trig_type[ 2:0] <= next_acq_trig_type[ 2:0];
+      acq_trig_type[ 4:0] <= next_acq_trig_type[ 4:0];
       acq_trig_num [23:0] <= next_acq_trig_num [23:0];
     end
   end

@@ -17,8 +17,8 @@ module trigger_top (
     input wire ttc_trigger,                // TTC trigger signal
     input wire ext_trigger,                // front panel trigger signal
     input wire accept_pulse_triggers,      // accept front panel triggers select
-    input wire [ 2:0] trig_type,           // trigger type (muon fill, laser, pedestal, async)
-    input wire [ 7:0] trig_settings,       // trigger settings
+    input wire [ 4:0] trig_type,           // trigger type (muon fill, laser, pedestal, async)
+    input wire [31:0] trig_settings,       // trigger settings
     input wire [ 4:0] chan_en,             // enabled channels
     input wire [31:0] trig_delay,          // trigger delay
     input wire [31:0] thres_ddr3_overflow, // DDR3 overflow threshold
@@ -42,7 +42,7 @@ module trigger_top (
 
     output wire [23:0] ttc_event_num,      // channel's trigger number
     output wire [23:0] ttc_trig_num,       // global trigger number
-    output wire [ 2:0] ttc_trig_type,      // trigger type
+    output wire [ 4:0] ttc_trig_type,      // trigger type
     output wire [43:0] ttc_trig_timestamp, // trigger timestamp
 
     input wire [22:0] burst_count_chan0,
@@ -89,7 +89,7 @@ module trigger_top (
     wire acq_ready;
     wire acq_ready_sync, acq_ready_async;
     wire acq_trigger;
-    wire [ 2:0] acq_trig_type;
+    wire [ 4:0] acq_trig_type;
     wire [23:0] acq_trig_num;
 
     // signals between Pulse Trigger Receiver and Channel Acquisition Controllers
@@ -209,7 +209,7 @@ module trigger_top (
 
         // trigger interface
         .trigger(ttc_trigger),                           // TTC trigger signal
-        .trig_type(trig_type),                           // trigger type (muon fill, laser, pedestal)
+        .trig_type(trig_type),                           // trigger type
         .trig_settings(trig_settings),                   // trigger settings
         .thres_ddr3_overflow(thres_ddr3_overflow[22:0]), // DDR3 overflow threshold
         .chan_en(chan_en_clk40),                         // enabled channels
@@ -233,7 +233,7 @@ module trigger_top (
         // channel acquisition controller interface
         .acq_ready(acq_ready),         // channels are ready to acquire/readout data
         .acq_trigger(acq_trigger),     // trigger signal
-        .acq_trig_type(acq_trig_type), // trigger type (muon fill, laser, pedestal)
+        .acq_trig_type(acq_trig_type), // recongized trigger type (muon fill, laser, pedestal, async readout)
         .acq_trig_num(acq_trig_num),   // trigger number, starts at 1
 
         // interface to TTC Trigger FIFO
@@ -307,7 +307,7 @@ module trigger_top (
 
         // interface from TTC trigger receiver
         .trigger(acq_trigger),      // trigger signal
-        .trig_type(acq_trig_type),  // trigger type (muon fill, laser, pedestal)
+        .trig_type(acq_trig_type),  // recognized trigger type (muon fill, laser, pedestal, async readout)
         .trig_num(acq_trig_num),    // trigger number
         .acq_ready(acq_ready_sync), // channels are ready to acquire data
 
@@ -342,7 +342,7 @@ module trigger_top (
 
         // interface from TTC trigger receiver
         .ttc_trigger(acq_trigger),       // trigger signal
-        .ttc_trig_type(acq_trig_type),   // trigger type (readout)
+        .ttc_trig_type(acq_trig_type),   // recognized trigger type (muon fill, laser, async readout)
         .ttc_trig_num(acq_trig_num),     // trigger number
         .ttc_acq_ready(acq_ready_async), // channels are ready to readout data
 

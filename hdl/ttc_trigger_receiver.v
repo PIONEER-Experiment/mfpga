@@ -11,8 +11,8 @@ module ttc_trigger_receiver (
 
   // trigger interface
   input wire trigger,                    // TTC trigger signal
-  input wire [ 2:0] trig_type,           // trigger type (muon fill, laser, pedestal, async)
-  input wire [ 7:0] trig_settings,       // trigger settings
+  input wire [ 4:0] trig_type,           // trigger type
+  input wire [31:0] trig_settings,       // trigger settings
   input wire [22:0] thres_ddr3_overflow, // DDR3 overflow threshold
   input wire [ 4:0] chan_en,             // enabled channels
 
@@ -37,7 +37,7 @@ module ttc_trigger_receiver (
   // channel acquisition controller interface
   input wire acq_ready,            // channels are ready to acquire data
   output reg acq_trigger,          // trigger signal
-  output reg [ 2:0] acq_trig_type, // trigger type (muon fill, laser, pedestal, async)
+  output reg [ 4:0] acq_trig_type, // recognized trigger type (muon fill, laser, pedestal, async readout)
   output reg [23:0] acq_trig_num,  // trigger number, starts at 1
 
   // interface to TTC Trigger FIFO
@@ -104,7 +104,7 @@ module ttc_trigger_receiver (
                      ((8388608 - stored_bursts_chan4[22:0]) < chan_en[4]*acq_size_chan4[22:0]);
 
   reg [ 3:0] nextstate;
-  reg [ 2:0] next_acq_trig_type;
+  reg [ 4:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
   reg        next_empty_event;
   reg [23:0] next_trig_num;
@@ -117,7 +117,7 @@ module ttc_trigger_receiver (
   always @* begin
     nextstate = 4'd0;
 
-    next_acq_trig_type [ 2:0] = acq_trig_type [ 2:0];
+    next_acq_trig_type [ 4:0] = acq_trig_type [ 4:0];
     next_acq_trig_num  [23:0] = acq_trig_num  [23:0];
     next_empty_event          = empty_event;
     next_trig_num      [23:0] = trig_num      [23:0];
@@ -134,7 +134,7 @@ module ttc_trigger_receiver (
         if (trigger) begin
           next_acq_trig_num  [23:0] = trig_num[23:0];           // latch trigger number
           next_trig_num      [23:0] = trig_num[23:0] + 1;       // increment trigger counter
-          next_acq_trig_type [ 2:0] = trig_type[2:0];           // latch trigger type
+          next_acq_trig_type [ 4:0] = trig_type[4:0];           // latch trigger type
           next_trig_timestamp[43:0] = trig_timestamp_cnt[43:0]; // latch trigger timestamp counter
 
           nextstate[SEND_TRIGGER] = 1'b1;
@@ -151,9 +151,9 @@ module ttc_trigger_receiver (
         end
         // in synchronous mode
         else if (~async_mode) begin
-          // check for a flagged synchronous trigger or an asynchronous trigger
-          // 0 = pass trigger, 1 = block trigger
-          if (trig_settings[acq_trig_type] | acq_trig_type[2]) begin
+          // check for an allowed trigger
+          // 1 = pass trigger, 0 = block trigger
+          if (~trig_settings[acq_trig_type]) begin
             next_empty_event = 1'b1; // indicate to send an empty event
             nextstate[STORE_TRIG_INFO] = 1'b1;
           end
@@ -172,8 +172,8 @@ module ttc_trigger_receiver (
         end
         // in asynchronous mode
         else begin
-          // check for a synchronous trigger
-          if (~acq_trig_type[2]) begin
+          // check for anything other than an asynchronous readout trigger
+          if (acq_trig_type[4:0] != 5'b00111) begin
             next_empty_event = 1'b1; // indicate to send an empty event
             nextstate[STORE_TRIG_INFO] = 1'b1;
           end
@@ -213,14 +213,14 @@ module ttc_trigger_receiver (
       state <= 4'd1 << IDLE;
 
       empty_event               <=  1'b0;
-      acq_trig_type      [ 2:0] <=  3'd0;
+      acq_trig_type      [ 4:0] <=  5'd0;
       ddr3_overflow_count[31:0] <= 32'd0;
     end
     else begin
       state <= nextstate;
 
       empty_event               <= next_empty_event;
-      acq_trig_type      [ 2:0] <= next_acq_trig_type      [ 2:0];
+      acq_trig_type      [ 4:0] <= next_acq_trig_type      [ 4:0];
       ddr3_overflow_count[31:0] <= next_ddr3_overflow_count[31:0];
     end
 
@@ -290,7 +290,7 @@ module ttc_trigger_receiver (
         end
         nextstate[STORE_TRIG_INFO]: begin
           fifo_valid       <= 1'b1;
-          fifo_data[127:0] <= {32'd0, empty_event, acq_trig_type[2:0], acq_event_cnt[23:0], acq_trig_num[23:0], trig_timestamp[43:0]};
+          fifo_data[127:0] <= {30'd0, empty_event, acq_trig_type[4:0], acq_event_cnt[23:0], acq_trig_num[23:0], trig_timestamp[43:0]};
         end
         nextstate[ERROR]: begin
           fifo_valid       <=   1'b0;

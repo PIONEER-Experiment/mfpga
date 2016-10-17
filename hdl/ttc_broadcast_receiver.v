@@ -14,7 +14,7 @@ module ttc_broadcast_receiver (
   input wire ttc_loopback,
 
   // outputs to trigger logic
-  output reg [2:0] fill_type,
+  output reg [4:0] fill_type,
   output reg accept_pulse_triggers,
   output wire reset_trig_num,
   output wire reset_trig_timestamp,
@@ -25,57 +25,52 @@ module ttc_broadcast_receiver (
   output wire error_unknown_ttc        // hard error flag for unknown TTC broadcast commands
 );
 
-  // valid broadcast commands:
+  // recognized broadcast commands:
   //
-  // xxxxxx1x -> event-count reset
-  // 001x1xxx -> counter reset
+  // 00000_0_01 -> bunch count reset
+  // 00000_0_10 -> event count reset
   //
-  // 100x0xxx -> asynchronous fill type
-  // 101x0xxx -> muon fill type
-  // 110x0xxx -> laser fill type
-  // 111x0xxx -> pedestal fill type
+  // 00001_1_00 -> switch to muon trigger type
+  // 00010_1_00 -> switch to laser trigger type
+  // 00011_1_00 -> switch to pedestal trigger type
+  // 00111_1_00 -> switch to asynchronous trigger type
   //
-  // 100x1xxx -> start asynchronous pulse storage
-  // 101x1xxx -> stop asynchronous pulse storage
+  // 00101_0_00 -> timestamp reset
+  // 11000_0_00 -> start asynchronous pulse storage
+  // 10000_0_00 -> stop asynchronous pulse storage
 
 
-  reg [ 2:0] next_fill_type;
+  reg [ 4:0] next_fill_type;
   reg next_accept_pulse_triggers;
   reg [31:0] next_unknown_cmd_count;
 
   assign reset_trig_num       = evt_count_reset;
-  assign reset_trig_timestamp = chan_b_valid & chan_b_info[1] & (chan_b_info[5:3] == 3'b001); // reset trigger timestamp for valid signals of form 001X1X
+  assign reset_trig_timestamp = chan_b_valid & (chan_b_info[5:0] == 6'b001010);
   assign error_unknown_ttc    = (unknown_cmd_count[31:0] > thres_unknown_ttc[31:0]);
 
 
   // combinational always block
   always @* begin
     // default
-    next_fill_type[2:0]          = fill_type[2:0];
+    next_fill_type[4:0]          = fill_type[4:0];
     next_accept_pulse_triggers   = accept_pulse_triggers;
     next_unknown_cmd_count[31:0] = unknown_cmd_count[31:0];
 
-    // transfer information on synchronous fill type
-    if (chan_b_valid & (chan_b_info[1] == 1'b0) & (chan_b_info[5] == 1'b1) & chan_b_info[4:3]) begin
-      next_fill_type[2:0]          = {1'b0, chan_b_info[4:3]};
-      next_accept_pulse_triggers   = accept_pulse_triggers;
-      next_unknown_cmd_count[31:0] = unknown_cmd_count[31:0];
-    end
-    // transfer information on asynchronous fill type
-    else if (chan_b_valid & (chan_b_info[1] == 1'b0) & (chan_b_info[5:3] == 3'b100)) begin
-      next_fill_type[2:0]          = 3'b111;
+    // transfer information on trigger type switch
+    if (chan_b_valid & chan_b_info[0]) begin
+      next_fill_type[4:0]          = chan_b_info[5:1];
       next_accept_pulse_triggers   = accept_pulse_triggers;
       next_unknown_cmd_count[31:0] = unknown_cmd_count[31:0];
     end
     // transfer information on asynchronous pulse storage
-    else if (chan_b_valid & (chan_b_info[1] == 1'b1) & (chan_b_info[5:4] == 2'b10)) begin
-      next_fill_type[2:0]          = fill_type[2:0];
-      next_accept_pulse_triggers   = ~chan_b_info[3];
+    else if (chan_b_valid & (chan_b_info[5] == 1'b1) & (chan_b_info[3:0] == 4'b0000)) begin
+      next_fill_type[4:0]          = fill_type[4:0];
+      next_accept_pulse_triggers   = chan_b_info[4];
       next_unknown_cmd_count[31:0] = unknown_cmd_count[31:0];
     end
     // invalid broadcast command
     else if (chan_b_valid & ~evt_count_reset & ~reset_trig_timestamp) begin
-      next_fill_type[1:0]          <= fill_type[1:0];
+      next_fill_type[4:0]          <= fill_type[4:0];
       next_accept_pulse_triggers   <= accept_pulse_triggers;
       next_unknown_cmd_count[31:0] <= unknown_cmd_count[31:0] + 1; // increment soft error counter
     end
@@ -85,12 +80,12 @@ module ttc_broadcast_receiver (
   // sequential always block
   always @(posedge clk) begin
     if (reset | ttc_loopback) begin
-      fill_type[2:0]          <= 3'b001; // default to muon fill
-      accept_pulse_triggers   <= 1'b0;
+      fill_type[4:0]          <=  5'b00001; // default to muon fill
+      accept_pulse_triggers   <=  1'b0;
       unknown_cmd_count[31:0] <= 32'd0;
     end
     else begin
-      fill_type[2:0]          <= next_fill_type[2:0];
+      fill_type[4:0]          <= next_fill_type[4:0];
       accept_pulse_triggers   <= next_accept_pulse_triggers;
       unknown_cmd_count[31:0] <= next_unknown_cmd_count[31:0];
     end

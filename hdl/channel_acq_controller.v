@@ -11,7 +11,7 @@ module channel_acq_controller (
 
   // interface from TTC trigger receiver
   input wire trigger,          // trigger signal
-  input wire [ 2:0] trig_type, // trigger type (muon fill, laser, pedestal)
+  input wire [ 4:0] trig_type, // recognized trigger type (muon fill, laser, pedestal, async readout)
   input wire [23:0] trig_num,  // trigger number
   output wire acq_ready,       // channels are ready to acquire data
 
@@ -37,11 +37,11 @@ module channel_acq_controller (
   parameter STORE_ACQ_INFO = 3;
   
 
-  reg [ 2:0] acq_trig_type; // latched trigger type
+  reg [ 4:0] acq_trig_type; // latched trigger type
   reg [23:0] acq_trig_num;  // latched trigger number
 
   reg [ 3:0] nextstate;
-  reg [ 2:0] next_acq_trig_type;
+  reg [ 4:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
 
   reg [31:0] delay_cnt; // counter to keep track of trigger delay 
@@ -51,7 +51,7 @@ module channel_acq_controller (
   always @* begin
     nextstate = 4'd0;
 
-    next_acq_trig_type[ 2:0] = acq_trig_type[ 2:0];
+    next_acq_trig_type[ 4:0] = acq_trig_type[ 4:0];
     next_acq_trig_num [23:0] = acq_trig_num [23:0];
 
     acq_enable[9:0] = 10'd0; // default
@@ -61,7 +61,7 @@ module channel_acq_controller (
       // idle state
       state[IDLE] : begin
         if (trigger & ~async_mode) begin
-          next_acq_trig_type[ 2:0] = trig_type[ 2:0]; // latch trigger type
+          next_acq_trig_type[ 4:0] = trig_type[ 4:0]; // latch trigger type
           next_acq_trig_num [23:0] = trig_num [23:0]; // latch trigger number
 
           if (trig_delay[31:0]) begin
@@ -118,13 +118,13 @@ module channel_acq_controller (
     if (reset) begin
       state <= 4'd1 << IDLE;
 
-      acq_trig_type[ 2:0] <=  3'd0;
+      acq_trig_type[ 4:0] <=  5'd0;
       acq_trig_num [23:0] <= 24'd0;
     end
     else begin
       state <= nextstate;
 
-      acq_trig_type[ 2:0] <= next_acq_trig_type[ 2:0];
+      acq_trig_type[ 4:0] <= next_acq_trig_type[ 4:0];
       acq_trig_num [23:0] <= next_acq_trig_num [23:0];
     end
 
@@ -160,7 +160,7 @@ module channel_acq_controller (
         end
         nextstate[STORE_ACQ_INFO]: begin
           fifo_valid      <= 1'b1;
-          fifo_data[31:0] <= {5'd0, acq_trig_type[2:0], acq_trig_num[23:0]};
+          fifo_data[31:0] <= {3'd0, acq_trig_type[4:0], acq_trig_num[23:0]};
         end
       endcase
     end
