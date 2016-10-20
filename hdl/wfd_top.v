@@ -256,8 +256,8 @@ module wfd_top (
     OBUFDS ttc_tx_buf (.I(1'b0), .O(ttc_txp), .OB(ttc_txn));
 
     // Generate clocks from the 50 MHz input clock
-    // Most of the design is run from the 125 MHz clock (Don't confuse it with the 125 MHz GTREFCLK)
-    // clk200 acts as the independent clock required by the Gigabit ethernet IP
+    // Most of the design is run from the 125 MHz clock (don't confuse it with the 125 MHz GTREFCLK)
+    // clk200 acts as the independent clock required by the Gigabit Ethernet IP
     PLLE2_BASE #(
         .CLKFBOUT_MULT(20.0),
         .CLKIN1_PERIOD(20), // in ns, so 20 -> 50 MHz
@@ -1180,7 +1180,7 @@ module wfd_top (
     // synchronize fill_type
     wire [4:0] fill_type_clk125;
     sync_2stage #(
-        .WIDTH(3)
+        .WIDTH(5)
     ) fill_type_sync (
         .clk(clk125),
         .in(fill_type),

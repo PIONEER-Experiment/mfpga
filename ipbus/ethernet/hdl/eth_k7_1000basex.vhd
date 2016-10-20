@@ -7,9 +7,6 @@
 -- Modified by Nic Eggert, Feb 2014
 -- Use Mr. Wu's emac instead of Xilinx IP
 
---
--- $Id$
-
 library ieee;
 use ieee.std_logic_1164.all;
 
@@ -285,4 +282,5 @@ begin
 --		    gt0_drpwe_in => '0',
 --		    gt0_dmonitorout_out => open
 		);
+
 end rtl;
