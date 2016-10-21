@@ -17,7 +17,7 @@ module trigger_top (
     input wire ttc_trigger,                // TTC trigger signal
     input wire ext_trigger,                // front panel trigger signal
     input wire accept_pulse_triggers,      // accept front panel triggers select
-    input wire [ 4:0] trig_type,           // trigger type (muon fill, laser, pedestal, async)
+    input wire [ 4:0] trig_type,           // trigger type (muon fill, laser, pedestal, async readout)
     input wire [31:0] trig_settings,       // trigger settings
     input wire [ 4:0] chan_en,             // enabled channels
     input wire [31:0] trig_delay,          // trigger delay

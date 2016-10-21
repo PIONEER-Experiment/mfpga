@@ -137,6 +137,19 @@ module ttc_trigger_receiver (
           next_acq_trig_type [ 4:0] = trig_type[4:0];           // latch trigger type
           next_trig_timestamp[43:0] = trig_timestamp_cnt[43:0]; // latch trigger timestamp counter
 
+          // determine empty_event flag ahead of time;
+          // this is to ensure that it has been updated before writing to the FIFO
+          if (~async_mode) begin
+            if (~trig_settings[trig_type] | ddr3_full) begin
+              next_empty_event = 1'b1; // indicate to send an empty event
+            end
+          end
+          else begin
+            if (trig_type[4:0] != 5'b00111) begin
+              next_empty_event = 1'b1; // indicate to send an empty event
+            end
+          end
+
           nextstate[SEND_TRIGGER] = 1'b1;
         end
         else begin
@@ -154,13 +167,11 @@ module ttc_trigger_receiver (
           // check for an allowed trigger
           // 1 = pass trigger, 0 = block trigger
           if (~trig_settings[acq_trig_type]) begin
-            next_empty_event = 1'b1; // indicate to send an empty event
             nextstate[STORE_TRIG_INFO] = 1'b1;
           end
           // this trigger would overwrite valid data in DDR3, in synchronous mode
           else if (ddr3_full) begin
             next_ddr3_overflow_count[31:0] = ddr3_overflow_count[31:0] + 1; // increment overflow error counter
-            next_empty_event = 1'b1; // indicate to send an empty event
             nextstate[STORE_TRIG_INFO] = 1'b1;
           end
           // pass along the trigger to channel acquisition controller
@@ -174,7 +185,6 @@ module ttc_trigger_receiver (
         else begin
           // check for anything other than an asynchronous readout trigger
           if (acq_trig_type[4:0] != 5'b00111) begin
-            next_empty_event = 1'b1; // indicate to send an empty event
             nextstate[STORE_TRIG_INFO] = 1'b1;
           end
           // this is an asynchronous readout trigger

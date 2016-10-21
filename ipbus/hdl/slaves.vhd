@@ -163,11 +163,11 @@ begin
 	);
 
 	-- control register
-	rst_out               <= ctrl_reg( 0);
-	async_mode_out        <= ctrl_reg( 1);
-	prog_chan_out         <= ctrl_reg( 2);
-	reprog_trigger_out(0) <= ctrl_reg( 3);
-	reprog_trigger_out(1) <= ctrl_reg( 4);
+	rst_out               <= ctrl_reg( 0); -- don't touch
+	async_mode_out        <= ctrl_reg( 1); -- don't touch
+	prog_chan_out         <= ctrl_reg( 2); -- don't touch
+	reprog_trigger_out(0) <= ctrl_reg( 3); -- don't touch
+	reprog_trigger_out(1) <= ctrl_reg( 4); -- don't touch
 	chan_en_out(0)        <= ctrl_reg( 5);
 	chan_en_out(1)        <= ctrl_reg( 6);
 	chan_en_out(2)        <= ctrl_reg( 7);

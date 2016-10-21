@@ -272,53 +272,53 @@ module command_manager (
 
 
   // determine burst counts for the trigger logic
-  assign burst_count_chan0 = (async_mode)                       ? chan_burst_count_type7[0] :
-                             (curr_trig_type[4:0] == 3'b000001) ? chan_burst_count_type1[0] :
-                             (curr_trig_type[4:0] == 3'b000010) ? chan_burst_count_type2[0] :
-                             (curr_trig_type[4:0] == 3'b000011) ? chan_burst_count_type3[0] :
-                                                                  23'd0;
-  assign burst_count_chan1 = (async_mode)                       ? chan_burst_count_type7[1] :
-                             (curr_trig_type[4:0] == 3'b000001) ? chan_burst_count_type1[1] :
-                             (curr_trig_type[4:0] == 3'b000010) ? chan_burst_count_type2[1] :
-                             (curr_trig_type[4:0] == 3'b000011) ? chan_burst_count_type3[1] :
-                                                                  23'd0;
-  assign burst_count_chan2 = (async_mode)                       ? chan_burst_count_type7[2] :
-                             (curr_trig_type[4:0] == 3'b000001) ? chan_burst_count_type1[2] :
-                             (curr_trig_type[4:0] == 3'b000010) ? chan_burst_count_type2[2] :
-                             (curr_trig_type[4:0] == 3'b000011) ? chan_burst_count_type3[2] :
-                                                                  23'd0;
-  assign burst_count_chan3 = (async_mode)                       ? chan_burst_count_type7[3] :
-                             (curr_trig_type[4:0] == 3'b000001) ? chan_burst_count_type1[3] :
-                             (curr_trig_type[4:0] == 3'b000010) ? chan_burst_count_type2[3] :
-                             (curr_trig_type[4:0] == 3'b000011) ? chan_burst_count_type3[3] :
-                                                                  23'd0;
-  assign burst_count_chan4 = (async_mode)                       ? chan_burst_count_type7[4] :
-                             (curr_trig_type[4:0] == 3'b000001) ? chan_burst_count_type1[4] :
-                             (curr_trig_type[4:0] == 3'b000010) ? chan_burst_count_type2[4] :
-                             (curr_trig_type[4:0] == 3'b000011) ? chan_burst_count_type3[4] :
-                                                                  23'd0;
+  assign burst_count_chan0 = (async_mode)                      ? chan_burst_count_type7[0] :
+                             (curr_trig_type[4:0] == 5'b00001) ? chan_burst_count_type1[0] :
+                             (curr_trig_type[4:0] == 5'b00010) ? chan_burst_count_type2[0] :
+                             (curr_trig_type[4:0] == 5'b00011) ? chan_burst_count_type3[0] :
+                                                                 23'd0;
+  assign burst_count_chan1 = (async_mode)                      ? chan_burst_count_type7[1] :
+                             (curr_trig_type[4:0] == 5'b00001) ? chan_burst_count_type1[1] :
+                             (curr_trig_type[4:0] == 5'b00010) ? chan_burst_count_type2[1] :
+                             (curr_trig_type[4:0] == 5'b00011) ? chan_burst_count_type3[1] :
+                                                                 23'd0;
+  assign burst_count_chan2 = (async_mode)                      ? chan_burst_count_type7[2] :
+                             (curr_trig_type[4:0] == 5'b00001) ? chan_burst_count_type1[2] :
+                             (curr_trig_type[4:0] == 5'b00010) ? chan_burst_count_type2[2] :
+                             (curr_trig_type[4:0] == 5'b00011) ? chan_burst_count_type3[2] :
+                                                                 23'd0;
+  assign burst_count_chan3 = (async_mode)                      ? chan_burst_count_type7[3] :
+                             (curr_trig_type[4:0] == 5'b00001) ? chan_burst_count_type1[3] :
+                             (curr_trig_type[4:0] == 5'b00010) ? chan_burst_count_type2[3] :
+                             (curr_trig_type[4:0] == 5'b00011) ? chan_burst_count_type3[3] :
+                                                                 23'd0;
+  assign burst_count_chan4 = (async_mode)                      ? chan_burst_count_type7[4] :
+                             (curr_trig_type[4:0] == 5'b00001) ? chan_burst_count_type1[4] :
+                             (curr_trig_type[4:0] == 5'b00010) ? chan_burst_count_type2[4] :
+                             (curr_trig_type[4:0] == 5'b00011) ? chan_burst_count_type3[4] :
+                                                                 23'd0;
 
   // determine waveform counts for the trigger logic
-  assign wfm_count_chan0 = (curr_trig_type[4:0] == 3'b000001) ? chan_wfm_count_type1[0] :
-                           (curr_trig_type[4:0] == 3'b000010) ? chan_wfm_count_type2[0] :
-                           (curr_trig_type[4:0] == 3'b000011) ? chan_wfm_count_type3[0] :
-                                                                12'd0;
-  assign wfm_count_chan1 = (curr_trig_type[4:0] == 3'b000001) ? chan_wfm_count_type1[1] :
-                           (curr_trig_type[4:0] == 3'b000010) ? chan_wfm_count_type2[1] :
-                           (curr_trig_type[4:0] == 3'b000011) ? chan_wfm_count_type3[1] :
-                                                                12'd0;
-  assign wfm_count_chan2 = (curr_trig_type[4:0] == 3'b000001) ? chan_wfm_count_type1[2] :
-                           (curr_trig_type[4:0] == 3'b000010) ? chan_wfm_count_type2[2] :
-                           (curr_trig_type[4:0] == 3'b000011) ? chan_wfm_count_type3[2] :
-                                                                12'd0;
-  assign wfm_count_chan3 = (curr_trig_type[4:0] == 3'b000001) ? chan_wfm_count_type1[3] :
-                           (curr_trig_type[4:0] == 3'b000010) ? chan_wfm_count_type2[3] :
-                           (curr_trig_type[4:0] == 3'b000011) ? chan_wfm_count_type3[3] :
-                                                                12'd0;
-  assign wfm_count_chan4 = (curr_trig_type[4:0] == 3'b000001) ? chan_wfm_count_type1[4] :
-                           (curr_trig_type[4:0] == 3'b000010) ? chan_wfm_count_type2[4] :
-                           (curr_trig_type[4:0] == 3'b000011) ? chan_wfm_count_type3[4] :
-                                                                12'd0;
+  assign wfm_count_chan0 = (curr_trig_type[4:0] == 5'b00001) ? chan_wfm_count_type1[0] :
+                           (curr_trig_type[4:0] == 5'b00010) ? chan_wfm_count_type2[0] :
+                           (curr_trig_type[4:0] == 5'b00011) ? chan_wfm_count_type3[0] :
+                                                               12'd0;
+  assign wfm_count_chan1 = (curr_trig_type[4:0] == 5'b00001) ? chan_wfm_count_type1[1] :
+                           (curr_trig_type[4:0] == 5'b00010) ? chan_wfm_count_type2[1] :
+                           (curr_trig_type[4:0] == 5'b00011) ? chan_wfm_count_type3[1] :
+                                                               12'd0;
+  assign wfm_count_chan2 = (curr_trig_type[4:0] == 5'b00001) ? chan_wfm_count_type1[2] :
+                           (curr_trig_type[4:0] == 5'b00010) ? chan_wfm_count_type2[2] :
+                           (curr_trig_type[4:0] == 5'b00011) ? chan_wfm_count_type3[2] :
+                                                               12'd0;
+  assign wfm_count_chan3 = (curr_trig_type[4:0] == 5'b00001) ? chan_wfm_count_type1[3] :
+                           (curr_trig_type[4:0] == 5'b00010) ? chan_wfm_count_type2[3] :
+                           (curr_trig_type[4:0] == 5'b00011) ? chan_wfm_count_type3[3] :
+                                                               12'd0;
+  assign wfm_count_chan4 = (curr_trig_type[4:0] == 5'b00001) ? chan_wfm_count_type1[4] :
+                           (curr_trig_type[4:0] == 5'b00010) ? chan_wfm_count_type2[4] :
+                           (curr_trig_type[4:0] == 5'b00011) ? chan_wfm_count_type3[4] :
+                                                               12'd0;
 
 
   // signals to/from Pulse Readout FIFO

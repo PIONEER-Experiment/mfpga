@@ -47,16 +47,19 @@ begin
 
 				-- defaults
 				reg(0)( 1) <= async_mode_in; -- never reset asynchronous mode
-				reg(0)( 6) <= '1';           -- Channel 0 enabled
-				reg(0)( 7) <= '1';           -- Channel 1 enabled
-				reg(0)( 8) <= '1';           -- Channel 2 enabled
-				reg(0)( 9) <= '1';           -- Channel 3 enabled
-				reg(0)(10) <= '1';           -- Channel 4 enabled
-				reg(0)(18) <= '1';           -- Little-endian format for ADC samples
+				reg(0)( 5) <= '1';           -- Channel 0 enabled
+				reg(0)( 6) <= '1';           -- Channel 1 enabled
+				reg(0)( 7) <= '1';           -- Channel 2 enabled
+				reg(0)( 8) <= '1';           -- Channel 3 enabled
+				reg(0)( 9) <= '1';           -- Channel 4 enabled
+				reg(0)(10) <= '1';           -- Little-endian format for ADC samples
+				reg(0)(11) <= '1';           -- enable muon fill trigger type
+				reg(0)(12) <= '1';           -- enable laser trigger type
+				reg(0)(13) <= '1';           -- enable pedestal trigger type
 				reg(1)     <= x"0000000a";   -- 10 threshold for data corruption
 				reg(2)     <= x"0000000a";   -- 10 threshold for unknown TTC broadcast commands
 				reg(3)     <= x"00733334";   -- 7,549,747 (90% full) threshold for DDR3 overflow warning
-				reg(4)     <= x"00000000";
+				reg(4)     <= x"00000000";   -- no trigger delay
 			elsif ipbus_in.ipb_strobe = '1' and ipbus_in.ipb_write = '1' then
 				reg(sel) <= ipbus_in.ipb_wdata;
 			end if;
