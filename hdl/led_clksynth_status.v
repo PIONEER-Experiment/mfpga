@@ -20,7 +20,7 @@ module led_clksynth_status (
 //                         clock synthesizer input clock is present
 //    red LED is on otherwise
 
-assign green_led = ~(adcclk_ld & adcclk_stat) & adcclk_clkin0_stat;
+assign green_led = ~(adcclk_ld & adcclk_stat & ~adcclk_clkin0_stat);
 assign red_led   = ~green_led;
 
 endmodule
