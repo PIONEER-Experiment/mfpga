@@ -29,11 +29,11 @@ module trigger_top (
     output wire [4:0] chan_trig,
 
     // command manager interface
-    input  wire readout_ready,       // command manager is idle
-    input  wire readout_done,        // initiated readout has finished
-    input  wire [22:0] readout_size, // burst count of readout event
-    output wire send_empty_event,    // request an empty event
-    output wire initiate_readout,    // request for the channels to be read out
+    input  wire readout_ready,         // command manager is idle
+    input  wire readout_done,          // initiated readout has finished
+    input  wire [22:0] readout_size,   // burst count of readout event
+    output wire send_empty_event,      // request an empty event
+    output wire initiate_readout,      // request for the channels to be read out
     output wire [23:0] pulse_trig_num, // pulse trigger number
 
     input  wire m_pulse_fifo_tready,
@@ -383,7 +383,7 @@ module trigger_top (
 
         // interface to command manager
         .readout_ready(readout_ready),       // command manager is idle
-        .readout_done(readout_done_clk40),   // initiated readout has finished
+        .readout_done(readout_done),         // initiated readout has finished
         .send_empty_event(send_empty_event), // request an empty event
         .initiate_readout(initiate_readout), // request for the channels to be read out
 

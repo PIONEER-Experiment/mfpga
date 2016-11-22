@@ -55,7 +55,7 @@ module command_manager (
   input wire [ 4:0] curr_trig_type, // currently set trigger type
   output wire readout_ready,        // ready to readout data, i.e., when in idle state
   output reg  readout_done,         // finished readout flag
-  output wire [22:0] readout_size,  // burst count of readout event
+  output reg [22:0] readout_size,   // burst count of readout event
 
   // set burst count for each channel
   output wire [22:0] burst_count_chan0,
@@ -222,6 +222,7 @@ module command_manager (
   reg [11:0] next_chan_wfm_count_type1   [4:0];
   reg [11:0] next_chan_wfm_count_type2   [4:0];
   reg [11:0] next_chan_wfm_count_type3   [4:0];
+  reg [22:0] next_readout_size;
 
 
   // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
@@ -262,9 +263,6 @@ module command_manager (
                       (fill_type[2:0] == 3'b011) ? event_size_type3[19:0] : 
                       (fill_type[2:0] == 3'b111) ? event_size_type7[19:0] :
                                                    20'hfffff;
-
-  // number of 128-bit bursts read out of DDR3
-  assign readout_size = (burst_count[19:0]+1)*wfm_count[11:0]+2;
 
   // this board's serial number
   wire [12:0] board_id;
@@ -429,6 +427,7 @@ module command_manager (
     next_chan_wfm_count_type3[2]   = chan_wfm_count_type3[2];
     next_chan_wfm_count_type3[3]   = chan_wfm_count_type3[3];
     next_chan_wfm_count_type3[4]   = chan_wfm_count_type3[4];
+    next_readout_size[22:0]        = readout_size[22:0];
 
     next_daq_valid          = 0; // default
     chan_tx_fifo_data[31:0] = 0; // default
@@ -449,6 +448,7 @@ module command_manager (
           next_chan_tx_fifo_dest[3:0] = 0;
 
           if (send_empty_event) begin
+            next_fill_type[2:0] = 3'b000;
             next_daq_valid = 1'b1;
             next_daq_data[63:0] = {8'h00, trig_num[23:0], trig_timestamp[43:32], 20'd3};
             nextstate[SEND_AMC13_HEADER1] = 1'b1;
@@ -588,6 +588,7 @@ module command_manager (
           nextstate[SEND_CHAN_CSN] = 1'b1;
         end
         else if (chan_tx_fifo_dest[3:0] == 4'h5) begin
+          next_readout_size[22:0] = (burst_count[19:0]+1)*wfm_count[11:0]+2;
           nextstate[READY_AMC13_TRAILER] = 1'b1;
         end
         else begin
@@ -783,6 +784,7 @@ module command_manager (
       // send the second AMC13 header word
       state[SEND_AMC13_HEADER2] : begin  
         if (empty_event) begin
+          next_readout_size[22:0] = 23'd0;
           nextstate[READY_AMC13_TRAILER] = 1'b1;
         end
         else if (daq_ready) begin
@@ -1284,6 +1286,7 @@ module command_manager (
       pulse_timestamp[43:0]     <= 44'd0;
       pulse_trig_num[23:0]      <= 23'd0;
       pulse_trig_length[1:0]    <=  2'd0;
+      readout_size[22:0]        <= 23'd0;
     end
     else begin
       state <= nextstate;
@@ -1357,6 +1360,7 @@ module command_manager (
       pulse_trig_length[1:0]      <= next_pulse_trig_length[1:0];
       s_readout_fifo_tdata[127:0] <= next_s_readout_fifo_tdata[127:0];
       pretrigger_count[11:0]      <= next_pretrigger_count[11:0];
+      readout_size[22:0]          <= next_readout_size[22:0];
     end
   end
 

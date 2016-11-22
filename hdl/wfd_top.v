@@ -620,7 +620,7 @@ module wfd_top (
         ext_trig_pulse_sync3 <= ext_trig_pulse_sync2;
 
         // make single period pulse
-        ext_trig_pulse <= ext_trig_pulse_sync2 & !ext_trig_pulse_sync3;
+        ext_trig_pulse <= ext_trig_pulse_sync2 & ~ext_trig_pulse_sync3;
     end
 
     wire ext_trig_to_trigger_top;

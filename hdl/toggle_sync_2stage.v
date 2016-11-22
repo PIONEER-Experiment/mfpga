@@ -9,7 +9,7 @@ module toggle_sync_2stage (
 );
     
     reg toggle1 = 1'b0;
-    reg sync1, sync2, sync3;
+    reg sync1, sync2, sync3, sync4, sync5;
     
     always @ (posedge clk_in) begin
         if (in) begin
@@ -24,8 +24,10 @@ module toggle_sync_2stage (
         sync1 <= toggle1;
         sync2 <= sync1;
         sync3 <= sync2;
+        sync4 <= sync3;
+        sync5 <= sync4;
     end
 
-    assign out = sync2^sync3;
+    assign out = sync4^sync5;
 
 endmodule
