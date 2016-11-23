@@ -51,6 +51,13 @@ module ttc_trigger_receiver (
   output reg [23:0] trig_num,       // global trigger number
   output reg [43:0] trig_timestamp, // global trigger timestamp
 
+  // number of bursts stored in the DDR3
+  output reg [22:0] stored_bursts_chan0,
+  output reg [22:0] stored_bursts_chan1,
+  output reg [22:0] stored_bursts_chan2,
+  output reg [22:0] stored_bursts_chan3,
+  output reg [22:0] stored_bursts_chan4,
+
   // error connections
   output reg [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
   output wire ddr3_overflow_warning,     // DDR3 overflow warning, combined for all channels
@@ -80,13 +87,6 @@ module ttc_trigger_receiver (
   assign acq_size_chan2 = (burst_count_chan2[22:0] + 1)*wfm_count_chan2[11:0] + 2;
   assign acq_size_chan3 = (burst_count_chan3[22:0] + 1)*wfm_count_chan3[11:0] + 2;
   assign acq_size_chan4 = (burst_count_chan4[22:0] + 1)*wfm_count_chan4[11:0] + 2;
-
-  // number of bursts yet to be read out of DDR3
-  reg [22:0] stored_bursts_chan0;
-  reg [22:0] stored_bursts_chan1;
-  reg [22:0] stored_bursts_chan2;
-  reg [22:0] stored_bursts_chan3;
-  reg [22:0] stored_bursts_chan4;
 
   // mux overflow warnings for all channels
   assign ddr3_overflow_warning = (stored_bursts_chan0[22:0] > thres_ddr3_overflow[22:0]) |

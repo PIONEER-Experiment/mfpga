@@ -84,6 +84,13 @@ module status_reg_block (
   // temperature
   input wire [11:0] i2c_temp,
 
+  // DDR3
+  input wire [22:0] stored_bursts_chan0,
+  input wire [22:0] stored_bursts_chan1,
+  input wire [22:0] stored_bursts_chan2,
+  input wire [22:0] stored_bursts_chan3,
+  input wire [22:0] stored_bursts_chan4,
+
   // outputs to IPbus
   output wire [31:0] status_reg00,
   output wire [31:0] status_reg01,
@@ -105,7 +112,12 @@ module status_reg_block (
   output wire [31:0] status_reg17,
   output wire [31:0] status_reg18,
   output wire [31:0] status_reg19,
-  output wire [31:0] status_reg20
+  output wire [31:0] status_reg20,
+  output wire [31:0] status_reg21,
+  output wire [31:0] status_reg22,
+  output wire [31:0] status_reg23,
+  output wire [31:0] status_reg24,
+  output wire [31:0] status_reg25
 );
 
 
@@ -171,5 +183,20 @@ assign status_reg19 = thres_ddr3_overflow[31:0];
 
 // Register 20: DDR3 overflow count
 assign status_reg20 = ddr3_overflow_count[31:0];
+
+// Register 21: Channel 0 DDR3 burst count
+assign status_reg21 = {7'd0, stored_bursts_chan0[22:0]};
+
+// Register 22: Channel 1 DDR3 burst count
+assign status_reg22 = {7'd0, stored_bursts_chan1[22:0]};
+
+// Register 23: Channel 2 DDR3 burst count
+assign status_reg23 = {7'd0, stored_bursts_chan2[22:0]};
+
+// Register 24: Channel 3 DDR3 burst count
+assign status_reg24 = {7'd0, stored_bursts_chan3[22:0]};
+
+// Register 25: Channel 4 DDR3 burst count
+assign status_reg25 = {7'd0, stored_bursts_chan4[22:0]};
 
 endmodule

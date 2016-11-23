@@ -69,6 +69,13 @@ module trigger_top (
     output wire trig_fifo_full,        // TTC trigger FIFO is almost full
     output wire acq_fifo_full,         // acquisition event FIFO is almost full
 
+    // number of bursts stored in the DDR3
+    output wire [22:0] stored_bursts_chan0,
+    output wire [22:0] stored_bursts_chan1,
+    output wire [22:0] stored_bursts_chan2,
+    output wire [22:0] stored_bursts_chan3,
+    output wire [22:0] stored_bursts_chan4,
+
     // error connections
     output wire [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
     output wire ddr3_overflow_warning,      // DDR3 overflow warning
@@ -160,6 +167,7 @@ module trigger_top (
     toggle_sync_2stage readout_done_sync (
         .clk_in(clk125),
         .clk_out(ttc_clk),
+        .n_extra_cycles(8'h0F),
         .in(readout_done),
         .out(readout_done_clk40)
     );
@@ -246,6 +254,13 @@ module trigger_top (
         .state(ttr_state),               // state of finite state machine
         .trig_num(trig_num),             // global trigger number
         .trig_timestamp(trig_timestamp), // global trigger timestamp
+        
+        // number of bursts stored in the DDR3
+        .stored_bursts_chan0(stored_bursts_chan0),
+        .stored_bursts_chan1(stored_bursts_chan1),
+        .stored_bursts_chan2(stored_bursts_chan2),
+        .stored_bursts_chan3(stored_bursts_chan3),
+        .stored_bursts_chan4(stored_bursts_chan4),
 
         // error connections
         .ddr3_overflow_count(ddr3_overflow_count_ttr),     // number of triggers received that would overflow DDR3

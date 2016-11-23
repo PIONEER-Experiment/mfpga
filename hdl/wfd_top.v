@@ -786,6 +786,7 @@ module wfd_top (
 
     wire [22:0] burst_count_chan0, burst_count_chan1, burst_count_chan2, burst_count_chan3, burst_count_chan4;
     wire [11:0] wfm_count_chan0, wfm_count_chan1, wfm_count_chan2, wfm_count_chan3, wfm_count_chan4;
+    wire [22:0] stored_bursts_chan0, stored_bursts_chan1, stored_bursts_chan2, stored_bursts_chan3, stored_bursts_chan4;
 
 
     // ======== communication with the AMC13 DAQ link ========
@@ -799,7 +800,8 @@ module wfd_top (
                 status_reg05, status_reg06, status_reg07, status_reg08, status_reg09,
                 status_reg10, status_reg11, status_reg12, status_reg13, status_reg14,
                 status_reg15, status_reg16, status_reg17, status_reg18, status_reg19,
-                status_reg20;
+                status_reg20, status_reg21, status_reg22, status_reg23, status_reg24,
+                status_reg25;
 
     // ======== trigger information signals ========
     wire [ 2:0] trig_settings;
@@ -955,6 +957,11 @@ module wfd_top (
         .status_reg18(status_reg18),
         .status_reg19(status_reg19),
         .status_reg20(status_reg20),
+        .status_reg21(status_reg21),
+        .status_reg22(status_reg22),
+        .status_reg23(status_reg23),
+        .status_reg24(status_reg24),
+        .status_reg25(status_reg25),
 
         // flash interface ports
         .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
@@ -1227,6 +1234,56 @@ module wfd_top (
         .out(acq_dones_clk125)
     );
 
+    // synchronize stored_bursts_chan0
+    wire [22:0] stored_bursts_chan0_clk125;
+    sync_2stage #(
+        .WIDTH(23)
+    ) stored_bursts_chan0_sync (
+        .clk(clk125),
+        .in(stored_bursts_chan0),
+        .out(stored_bursts_chan0_clk125)
+    );
+
+    // synchronize stored_bursts_chan1
+    wire [22:0] stored_bursts_chan1_clk125;
+    sync_2stage #(
+        .WIDTH(23)
+    ) stored_bursts_chan1_sync (
+        .clk(clk125),
+        .in(stored_bursts_chan1),
+        .out(stored_bursts_chan1_clk125)
+    );
+
+    // synchronize stored_bursts_chan2
+    wire [22:0] stored_bursts_chan2_clk125;
+    sync_2stage #(
+        .WIDTH(23)
+    ) stored_bursts_chan2_sync (
+        .clk(clk125),
+        .in(stored_bursts_chan2),
+        .out(stored_bursts_chan2_clk125)
+    );
+
+    // synchronize stored_bursts_chan3
+    wire [22:0] stored_bursts_chan3_clk125;
+    sync_2stage #(
+        .WIDTH(23)
+    ) stored_bursts_chan3_sync (
+        .clk(clk125),
+        .in(stored_bursts_chan3),
+        .out(stored_bursts_chan3_clk125)
+    );
+
+    // synchronize stored_bursts_chan4
+    wire [22:0] stored_bursts_chan4_clk125;
+    sync_2stage #(
+        .WIDTH(23)
+    ) stored_bursts_chan4_sync (
+        .clk(clk125),
+        .in(stored_bursts_chan4),
+        .out(stored_bursts_chan4_clk125)
+    );
+
 
     // status register assembly
     status_reg_block status_reg_block (
@@ -1311,6 +1368,13 @@ module wfd_top (
         // temperature
         .i2c_temp(i2c_temp),
 
+        // DDR3
+        .stored_bursts_chan0(stored_bursts_chan0_clk125),
+        .stored_bursts_chan1(stored_bursts_chan1_clk125),
+        .stored_bursts_chan2(stored_bursts_chan2_clk125),
+        .stored_bursts_chan3(stored_bursts_chan3_clk125),
+        .stored_bursts_chan4(stored_bursts_chan4_clk125),
+
         // status register outputs
         .status_reg00(status_reg00),
         .status_reg01(status_reg01),
@@ -1332,7 +1396,12 @@ module wfd_top (
         .status_reg17(status_reg17),
         .status_reg18(status_reg18),
         .status_reg19(status_reg19),
-        .status_reg20(status_reg20)
+        .status_reg20(status_reg20),
+        .status_reg21(status_reg21),
+        .status_reg22(status_reg22),
+        .status_reg23(status_reg23),
+        .status_reg24(status_reg24),
+        .status_reg25(status_reg25)
     );
 
 
@@ -1405,6 +1474,13 @@ module wfd_top (
         .trig_timestamp(trig_timestamp), // timestamp for latest trigger received
         .trig_fifo_full(trig_fifo_full), // TTC trigger FIFO is almost full
         .acq_fifo_full(acq_fifo_full),   // acquisition event FIFO is almost full
+
+        // number of bursts stored in the DDR3
+        .stored_bursts_chan0(stored_bursts_chan0),
+        .stored_bursts_chan1(stored_bursts_chan1),
+        .stored_bursts_chan2(stored_bursts_chan2),
+        .stored_bursts_chan3(stored_bursts_chan3),
+        .stored_bursts_chan4(stored_bursts_chan4),
 
         // error connections
         .ddr3_overflow_count(ddr3_overflow_count),     // number of triggers received that would overflow DDR3

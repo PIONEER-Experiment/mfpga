@@ -103,6 +103,11 @@ port (
 	status_reg18 : in std_logic_vector(31 downto 0);
 	status_reg19 : in std_logic_vector(31 downto 0);
 	status_reg20 : in std_logic_vector(31 downto 0);
+	status_reg21 : in std_logic_vector(31 downto 0);
+	status_reg22 : in std_logic_vector(31 downto 0);
+	status_reg23 : in std_logic_vector(31 downto 0);
+	status_reg24 : in std_logic_vector(31 downto 0);
+	status_reg25 : in std_logic_vector(31 downto 0);
 
 	-- flash interface ports
 	flash_wr_nBytes  : out std_logic_vector( 8 downto 0);
@@ -276,6 +281,11 @@ begin
 		status_reg18 => status_reg18,
 		status_reg19 => status_reg19,
 		status_reg20 => status_reg20,
+		status_reg21 => status_reg21,
+		status_reg22 => status_reg22,
+		status_reg23 => status_reg23,
+		status_reg24 => status_reg24,
+		status_reg25 => status_reg25,
 
 	    -- flash interface ports
 	    flash_wr_nBytes  => flash_wr_nBytes,
