@@ -8,6 +8,7 @@ module tts_reporter (
   input wire reset,
 
   // error status
+  input wire error_ttc_ready,
   input wire error_data_corrupt,
   input wire error_pll_unlock,
   input wire error_trig_rate,
@@ -37,7 +38,8 @@ module tts_reporter (
   // ===== signal combinations =====
 
   wire error;
-  assign error = error_data_corrupt |
+  assign error = error_ttc_ready    |
+                 error_data_corrupt |
                  error_pll_unlock   |
                  error_trig_rate    |
                  error_unknown_ttc;

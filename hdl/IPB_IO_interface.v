@@ -1,6 +1,6 @@
 // Created by fizzim.pl version 4.42 on 2013:07:31 at 15:06:06 (www.fizzim.com)
 
-module IPB_IO_interface (
+module ipb_io_interface (
   output reg io_rd_en,      // full operation long read enable
   output reg io_sync,       // An operation is in progress
   output reg io_wr_en,      // one cycle long write enable

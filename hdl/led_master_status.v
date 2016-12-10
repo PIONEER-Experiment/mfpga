@@ -6,7 +6,6 @@ module led_master_status (
   output wire red_led,
   output wire green_led,
   // status input signals
-  input  wire ttc_ready,
   input  wire [3:0] tts_state
 );
 
@@ -20,7 +19,7 @@ module led_master_status (
 //    red LED is on otherwise
 //              e.g., red means "not ready" or "error"
 
-assign green_led = ~(ttc_ready & (tts_state[3:0] == 4'b1000));
+assign green_led = ~(tts_state[3:0] == 4'b1000);
 assign red_led   = ~green_led;
 
 endmodule

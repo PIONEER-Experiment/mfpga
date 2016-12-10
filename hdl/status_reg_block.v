@@ -63,7 +63,6 @@ module status_reg_block (
   input wire [ 3:0] cac_state,
   input wire [ 3:0] caca_state,
   input wire [ 6:0] tp_state,
-  input wire [ 3:0] pc_state,
 
   // acquisition
   input wire [4:0] acq_readout_pause,
@@ -81,8 +80,18 @@ module status_reg_block (
   input wire [43:0] trig_timestamp,
   input wire [23:0] pulse_trig_num,
 
-  // temperature
+  // slow control
   input wire [11:0] i2c_temp,
+  input wire [15:0] xadc_temp,
+  input wire [15:0] xadc_vccint,
+  input wire [15:0] xadc_vccaux,
+  input wire [15:0] xadc_vccbram,
+
+  input wire xadc_over_temp,
+  input wire xadc_alarm_temp,
+  input wire xadc_alarm_vccint,
+  input wire xadc_alarm_vccaux,
+  input wire xadc_alarm_vccbram,
 
   // DDR3
   input wire [22:0] stored_bursts_chan0,
@@ -117,7 +126,10 @@ module status_reg_block (
   output wire [31:0] status_reg22,
   output wire [31:0] status_reg23,
   output wire [31:0] status_reg24,
-  output wire [31:0] status_reg25
+  output wire [31:0] status_reg25,
+  output wire [31:0] status_reg26,
+  output wire [31:0] status_reg27,
+  output wire [31:0] status_reg28
 );
 
 
@@ -143,7 +155,7 @@ assign status_reg05 = {21'd0, tts_state[3:0], ttc_chan_b_info[5:0], ttc_ready};
 assign status_reg06 = cm_state[31:0];
 
 // Register 07: FSM state 1
-assign status_reg07 = {3'd0, cm_state[33:32], pc_state[3:0], tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
+assign status_reg07 = {cm_state[33:32], 7'd0, tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
 
 // Register 08: Acquisition
 assign status_reg08 = {11'd0, acq_dones[4:0], endianness_sel, acq_readout_pause[4:0], fill_type[4:0], chan_en[4:0]};
@@ -198,5 +210,14 @@ assign status_reg24 = {7'd0, stored_bursts_chan3[22:0]};
 
 // Register 25: Channel 4 DDR3 burst count
 assign status_reg25 = {7'd0, stored_bursts_chan4[22:0]};
+
+// Register 26: XADC temperature and VCCINT
+assign status_reg26 = {xadc_vccint[15:0], xadc_temp[15:0]};
+
+// Register 27: XADC VCCAUX and VCCBRAM
+assign status_reg27 = {xadc_vccbram[15:0], xadc_vccaux[15:0]};
+
+// Register 28: XADC alarms
+assign status_reg28 = {27'd0, xadc_alarm_vccbram, xadc_alarm_vccaux, xadc_alarm_vccint, xadc_alarm_temp, xadc_over_temp};
 
 endmodule

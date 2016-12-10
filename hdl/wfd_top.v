@@ -130,7 +130,6 @@ module wfd_top (
 
     assign clk50_reset = ipb_clk50_reset | master_init_rst1_clk50;
 
-
     // ======== error signals ========
     // thresholds
     wire [31:0] thres_data_corrupt;  // data corruption
@@ -195,7 +194,6 @@ module wfd_top (
         .red_led(master_led1),
         .green_led(master_led0),
         // status input signals
-        .ttc_ready(ttc_ready),
         .tts_state(tts_state)
     );
 
@@ -218,7 +216,6 @@ module wfd_top (
     wire [ 3:0] caca_state;
     wire [ 6:0] tp_state;
     wire [33:0] cm_state;
-    wire [ 3:0] pc_state;
 
     // ======== TTC Channel B information signals ========
     wire [5:0] ttc_chan_b_info;
@@ -351,6 +348,42 @@ module wfd_top (
     assign bbus_sda = bbus_sda_oen ? 1'bz : bbus_sda_o;
 
 
+    // ======== communicate with FPGA XADC ========
+
+    wire [15:0] xadc_temp;
+    wire [15:0] xadc_vccint;
+    wire [15:0] xadc_vccaux;
+    wire [15:0] xadc_vccbram;
+
+    wire xadc_reset;
+    wire xadc_over_temp;
+    wire xadc_alarm_temp;
+    wire xadc_alarm_vccint;
+    wire xadc_alarm_vccaux;
+    wire xadc_alarm_vccbram;
+    wire xadc_eoc;
+    wire xadc_eos;
+
+    assign xadc_reset = master_init_rst1_clk125 | rst_from_ipb;
+
+    // XADC interface
+    xadc_interface xadc_interface (
+        .dclk(clk125),
+        .reset(xadc_reset),
+        .measured_temp(xadc_temp[15:0]),
+        .measured_vccint(xadc_vccint[15:0]),
+        .measured_vccaux(xadc_vccaux[15:0]),
+        .measured_vccbram(xadc_vccbram[15:0]),
+        .over_temp(xadc_over_temp),
+        .alarm_temp(xadc_alarm_temp),
+        .alarm_vccint(xadc_alarm_vccint),
+        .alarm_vccaux(xadc_alarm_vccaux),
+        .alarm_vccbram(xadc_alarm_vccbram),
+        .eoc(xadc_eoc),
+        .eos(xadc_eos)
+    );
+
+
     // ======== debug signals ========
     assign debug0 = test_point6;
     assign debug1 = bbus_sda;
@@ -362,7 +395,7 @@ module wfd_top (
     assign debug7 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
 
     
-    // ================== communicate with SPI flash memory ==================
+    // ======== communicate with SPI flash memory ========
 
     // The startup block will give us access to the SPI clock pin (which is otherwise reserved for use during FPGA configuration)
     // STARTUPE2: STARTUP Block
@@ -501,8 +534,7 @@ module wfd_top (
         .end_write_command(end_write_command),         // done signal from spi_flash_intf
         .end_bitstream(end_bitstream),                 // done signal from spi_flash_intf
         .prog_chan_done(prog_chan_done),               // done programming the channels
-        .async_channels(async_channels),               // flag for if the channels are sync or async
-        .state(pc_state[3:0])                          // status of state machine
+        .async_channels(async_channels)                // flag for if the channels are sync or async
     );
 
 
@@ -801,7 +833,7 @@ module wfd_top (
                 status_reg10, status_reg11, status_reg12, status_reg13, status_reg14,
                 status_reg15, status_reg16, status_reg17, status_reg18, status_reg19,
                 status_reg20, status_reg21, status_reg22, status_reg23, status_reg24,
-                status_reg25;
+                status_reg25, status_reg26, status_reg27, status_reg28;
 
     // ======== trigger information signals ========
     wire [ 2:0] trig_settings;
@@ -824,7 +856,7 @@ module wfd_top (
     TTC_decoder ttc (
         .TTC_CLK_p(ttc_clkp),        // in  STD_LOGIC
         .TTC_CLK_n(ttc_clkn),        // in  STD_LOGIC
-        .TTC_rst(1'b0),              // in  STD_LOGIC -- asynchronous reset after TTC_CLK_p/TTC_CLK_n frequency changed
+        .TTC_rst(rst_from_ipb),      // in  STD_LOGIC -- asynchronous reset after TTC_CLK_p/TTC_CLK_n frequency changed
         .TTC_data_p(ttc_rxp),        // in  STD_LOGIC
         .TTC_data_n(ttc_rxn),        // in  STD_LOGIC
         .TTC_CLK_out(ttc_clk),       // out STD_LOGIC
@@ -962,6 +994,9 @@ module wfd_top (
         .status_reg23(status_reg23),
         .status_reg24(status_reg24),
         .status_reg25(status_reg25),
+        .status_reg26(status_reg26),
+        .status_reg27(status_reg27),
+        .status_reg28(status_reg28),
 
         // flash interface ports
         .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
@@ -1174,16 +1209,6 @@ module wfd_top (
         .out(caca_state_clk125)
     );
 
-    // synchronize pc_state
-    wire [3:0] pc_state_clk125;
-    sync_2stage #(
-        .WIDTH(4)
-    ) pc_state_sync (
-        .clk(clk125),
-        .in(pc_state),
-        .out(pc_state_clk125)
-    );
-
     // synchronize fill_type
     wire [4:0] fill_type_clk125;
     sync_2stage #(
@@ -1347,7 +1372,6 @@ module wfd_top (
         .cac_state(cac_state_clk125),
         .caca_state(caca_state_clk125),
         .tp_state(tp_state),
-        .pc_state(pc_state_clk125),
 
         // acquisition
         .acq_readout_pause(acq_readout_pause),
@@ -1365,8 +1389,18 @@ module wfd_top (
         .trig_timestamp(trig_timestamp_clk125),
         .pulse_trig_num(pulse_trig_num_clk125),
 
-        // temperature
+        // slow control
         .i2c_temp(i2c_temp),
+        .xadc_temp(xadc_temp),
+        .xadc_vccint(xadc_vccint),
+        .xadc_vccaux(xadc_vccaux),
+        .xadc_vccbram(xadc_vccbram),
+
+        .xadc_over_temp(xadc_over_temp),
+        .xadc_alarm_temp(xadc_alarm_temp),
+        .xadc_alarm_vccint(xadc_alarm_vccint),
+        .xadc_alarm_vccaux(xadc_alarm_vccaux),
+        .xadc_alarm_vccbram(xadc_alarm_vccbram),
 
         // DDR3
         .stored_bursts_chan0(stored_bursts_chan0_clk125),
@@ -1401,7 +1435,10 @@ module wfd_top (
         .status_reg22(status_reg22),
         .status_reg23(status_reg23),
         .status_reg24(status_reg24),
-        .status_reg25(status_reg25)
+        .status_reg25(status_reg25),
+        .status_reg26(status_reg26),
+        .status_reg27(status_reg27),
+        .status_reg28(status_reg28)
     );
 
 
@@ -1583,6 +1620,8 @@ module wfd_top (
         .chan_error_rc(chan_error_rc[4:0])         // output [ 4:0]
     );
     
+    wire ttc_ready_clk125_n;
+    assign ttc_ready_clk125_n = ~ttc_ready_clk125;
 
     // TTS state reported to DAQ link
     tts_reporter tts_reporter (
@@ -1590,6 +1629,7 @@ module wfd_top (
         .reset(rst_from_ipb),
 
         // error status
+        .error_ttc_ready(ttc_ready_clk125_n),
         .error_data_corrupt(error_data_corrupt),
         .error_pll_unlock(error_pll_unlock),
         .error_trig_rate(error_trig_rate),

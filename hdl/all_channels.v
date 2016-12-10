@@ -547,7 +547,7 @@ module all_channels (
   ////////////////////////////////////////////////////////////////////
   // connect a state machine to handle wait states and drive 'ipb_ack'
   wire [14:0] state_peek;
-  IPB_IO_interface IPB_IO_interface (
+  ipb_io_interface ipb_io_interface (
     // inputs
     .clk(ipb_clk),     	       // IPbus clock
     .res(ipb_reset),         	 // global reset

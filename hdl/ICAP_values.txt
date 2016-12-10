@@ -1,7 +1,7 @@
 // Constants used when issuing a re-configuration command to the Internal Configuration Access Port (ICAP)
 // (Used in "reprog.v")
 
-// Be sure to use [ `include "ICAP_values.txt" ] whenever any of these constants are needed.
+// Be sure to use [ `include "icap_values.txt" ] whenever any of these constants are needed.
 // Also, be sure to use the backtic [ ` ] when the constant is actually used.
 
 // Only define these constants once.
