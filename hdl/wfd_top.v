@@ -183,6 +183,7 @@ module wfd_top (
     // ======== TTC signals ========
     wire ttc_ready;
     wire ttc_loopback;
+    wire ttc_freq_rst;
 
     // ======== TTS signals ========
     wire [3:0] tts_state;
@@ -856,7 +857,7 @@ module wfd_top (
     TTC_decoder ttc (
         .TTC_CLK_p(ttc_clkp),        // in  STD_LOGIC
         .TTC_CLK_n(ttc_clkn),        // in  STD_LOGIC
-        .TTC_rst(rst_from_ipb),      // in  STD_LOGIC -- asynchronous reset after TTC_CLK_p/TTC_CLK_n frequency changed
+        .TTC_rst(ttc_freq_rst),      // in  STD_LOGIC -- asynchronous reset after TTC_CLK_p/TTC_CLK_n frequency changed
         .TTC_data_p(ttc_rxp),        // in  STD_LOGIC
         .TTC_data_n(ttc_rxn),        // in  STD_LOGIC
         .TTC_CLK_out(ttc_clk),       // out STD_LOGIC
@@ -961,6 +962,7 @@ module wfd_top (
         .trig_settings_out(trig_settings),                 // select which trigger types are enabled
         .ttc_loopback_out(ttc_loopback),                   // select whether TTC/TTS is in loopback mode (for testing)
         .ext_trig_pulse_en_out(ext_trig_pulse_en),         // convert front panel triggers to single pulse triggers (for testing)
+        .ttc_freq_rst_out(ttc_freq_rst),                   // dedicated reset to TTC decoder for frequency changes
 
         // threshold registers
         .thres_data_corrupt(thres_data_corrupt),   // data corruption

@@ -37,6 +37,7 @@ port (
     trig_settings_out     : out std_logic_vector( 2 downto 0);
     ttc_loopback_out      : out std_logic;
     ext_trig_pulse_en_out : out std_logic;
+    ttc_freq_rst_out      : out std_logic;
 
     -- threshold registers
     thres_data_corrupt  : out std_logic_vector(31 downto 0); -- data corruption
@@ -197,6 +198,7 @@ begin
     ext_trig_pulse_en_out <= ctrl_reg(15);
     async_trig_type_out   <= ctrl_reg(16);
     accept_pulse_trig_out <= ctrl_reg(17);
+    ttc_freq_rst_out      <= ctrl_reg(18);
 
 	
 	-- Slave 2: Write-only register

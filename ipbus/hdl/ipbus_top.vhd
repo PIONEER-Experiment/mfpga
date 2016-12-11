@@ -75,6 +75,7 @@ port (
 	trig_settings_out     : out std_logic_vector( 2 downto 0); -- indicates whether or not to respond to a given trigger type
 	ttc_loopback_out      : out std_logic;                     -- indicates which the TTS/TTC is in loopback mode (for testing)
 	ext_trig_pulse_en_out : out std_logic;                     -- convert front panel triggers to single pulse triggers (for testing)
+	ttc_freq_rst_out      : out std_logic;                     -- dedicated reset to TTC decoder for frequency changes
 
     -- threshold registers
     thres_data_corrupt  : out std_logic_vector(31 downto 0); -- data corruption
@@ -246,6 +247,7 @@ begin
         trig_settings_out     => trig_settings_out,
         ttc_loopback_out      => ttc_loopback_out,
         ext_trig_pulse_en_out => ext_trig_pulse_en_out,
+        ttc_freq_rst_out      => ttc_freq_rst_out,
 
         -- threshold register ports
         thres_data_corrupt  => thres_data_corrupt,
