@@ -47,6 +47,7 @@ module ttc_trigger_receiver (
 
   // status connections
   input wire async_mode,            // asynchronous mode select
+  input wire [ 3:0] xadc_alarms,    // XADC alarm signals
   output reg [ 3:0] state,          // state of finite state machine
   output reg [23:0] trig_num,       // global trigger number
   output reg [43:0] trig_timestamp, // global trigger timestamp
@@ -74,6 +75,7 @@ module ttc_trigger_receiver (
   reg        empty_event;        // flag for an empty event response
   reg [43:0] trig_timestamp_cnt; // clock cycle count
   reg [23:0] acq_event_cnt;      // channel's trigger number, starts at 1
+  reg [ 3:0] acq_xadc_alarms;    // XADC alarm signals
 
   // burst count of initiated acquisitions
   wire [22:0] acq_size_chan0;
@@ -110,6 +112,7 @@ module ttc_trigger_receiver (
   reg [23:0] next_trig_num;
   reg [43:0] next_trig_timestamp;
   reg [23:0] next_acq_event_cnt;
+  reg [ 3:0] next_acq_xadc_alarms;
   reg [31:0] next_ddr3_overflow_count;
 
 
@@ -117,13 +120,13 @@ module ttc_trigger_receiver (
   always @* begin
     nextstate = 4'd0;
 
-    next_acq_trig_type [ 4:0] = acq_trig_type [ 4:0];
-    next_acq_trig_num  [23:0] = acq_trig_num  [23:0];
-    next_empty_event          = empty_event;
-    next_trig_num      [23:0] = trig_num      [23:0];
-    next_trig_timestamp[43:0] = trig_timestamp[43:0];
-    next_acq_event_cnt [23:0] = acq_event_cnt [23:0];
-
+    next_acq_trig_type      [ 4:0] = acq_trig_type      [ 4:0];
+    next_acq_trig_num       [23:0] = acq_trig_num       [23:0];
+    next_empty_event               = empty_event;
+    next_trig_num           [23:0] = trig_num           [23:0];
+    next_trig_timestamp     [43:0] = trig_timestamp     [43:0];
+    next_acq_event_cnt      [23:0] = acq_event_cnt      [23:0];
+    next_acq_xadc_alarms    [ 3:0] = acq_xadc_alarms    [ 3:0];
     next_ddr3_overflow_count[31:0] = ddr3_overflow_count[31:0];
 
     acq_trigger = 1'b0; // default
@@ -132,10 +135,11 @@ module ttc_trigger_receiver (
       // idle state
       state[IDLE] : begin
         if (trigger) begin
-          next_acq_trig_num  [23:0] = trig_num[23:0];           // latch trigger number
-          next_trig_num      [23:0] = trig_num[23:0] + 1;       // increment trigger counter
-          next_acq_trig_type [ 4:0] = trig_type[4:0];           // latch trigger type
-          next_trig_timestamp[43:0] = trig_timestamp_cnt[43:0]; // latch trigger timestamp counter
+          next_acq_trig_num   [23:0] = trig_num[23:0];           // latch trigger number
+          next_trig_num       [23:0] = trig_num[23:0] + 1;       // increment trigger counter
+          next_acq_trig_type  [ 4:0] = trig_type[4:0];           // latch trigger type
+          next_trig_timestamp [43:0] = trig_timestamp_cnt[43:0]; // latch trigger timestamp counter
+          next_acq_xadc_alarms[ 3:0] = xadc_alarms[3:0];         // current XADC alarms
 
           // determine empty_event flag ahead of time;
           // this is to ensure that it has been updated before writing to the FIFO
@@ -224,6 +228,7 @@ module ttc_trigger_receiver (
 
       empty_event               <=  1'b0;
       acq_trig_type      [ 4:0] <=  5'd0;
+      acq_xadc_alarms    [ 3:0] <=  4'd0;
       ddr3_overflow_count[31:0] <= 32'd0;
     end
     else begin
@@ -231,6 +236,7 @@ module ttc_trigger_receiver (
 
       empty_event               <= next_empty_event;
       acq_trig_type      [ 4:0] <= next_acq_trig_type      [ 4:0];
+      acq_xadc_alarms    [ 3:0] <= next_acq_xadc_alarms    [ 3:0];
       ddr3_overflow_count[31:0] <= next_ddr3_overflow_count[31:0];
     end
 
@@ -300,7 +306,7 @@ module ttc_trigger_receiver (
         end
         nextstate[STORE_TRIG_INFO]: begin
           fifo_valid       <= 1'b1;
-          fifo_data[127:0] <= {30'd0, empty_event, acq_trig_type[4:0], acq_event_cnt[23:0], acq_trig_num[23:0], trig_timestamp[43:0]};
+          fifo_data[127:0] <= {26'd0, acq_xadc_alarms[3:0], empty_event, acq_trig_type[4:0], acq_event_cnt[23:0], acq_trig_num[23:0], trig_timestamp[43:0]};
         end
         nextstate[ERROR]: begin
           fifo_valid       <=   1'b0;

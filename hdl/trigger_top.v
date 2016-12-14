@@ -44,6 +44,7 @@ module trigger_top (
     output wire [23:0] ttc_trig_num,       // global trigger number
     output wire [ 4:0] ttc_trig_type,      // trigger type
     output wire [43:0] ttc_trig_timestamp, // trigger timestamp
+    output wire [ 3:0] ttc_xadc_alarms,    // XADC alarms
 
     input wire [22:0] burst_count_chan0,
     input wire [22:0] burst_count_chan1,
@@ -59,6 +60,7 @@ module trigger_top (
 
     // status connections
     input  wire async_mode,            // asynchronous mode select 
+    input  wire [ 3:0] xadc_alarms,    // XADC alarm signals
     output wire [ 3:0] ttr_state,      // TTC trigger receiver state
     output wire [ 3:0] ptr_state,      // pulse trigger receiver state
     output wire [ 3:0] cac_state,      // channel acquisition controller state
@@ -251,6 +253,7 @@ module trigger_top (
 
         // status connections
         .async_mode(async_mode),         // asynchronous mode select
+        .xadc_alarms(xadc_alarms[3:0]),  // XADC alarm signals
         .state(ttr_state),               // state of finite state machine
         .trig_num(trig_num),             // global trigger number
         .trig_timestamp(trig_timestamp), // global trigger timestamp
@@ -406,6 +409,7 @@ module trigger_top (
         .ttc_trig_num(ttc_trig_num),             // global trigger number
         .ttc_trig_type(ttc_trig_type),           // trigger type
         .ttc_trig_timestamp(ttc_trig_timestamp), // trigger timestamp
+        .ttc_xadc_alarms(ttc_xadc_alarms),       // XADC alarms
 
         // status connections
         .state(tp_state),                 // state of finite state machine

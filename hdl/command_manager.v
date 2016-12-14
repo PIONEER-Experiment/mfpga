@@ -46,16 +46,17 @@ module command_manager (
   output reg [63:0] daq_data,
 
   // interface to trigger processor
-  input wire send_empty_event,      // request to send an empty event
-  input wire initiate_readout,      // request for the channels to be read out
-  input wire [23:0] event_num,      // channel's trigger number
-  input wire [23:0] trig_num,       // global trigger number, starts at 1
-  input wire [ 4:0] trig_type,      // trigger type
-  input wire [43:0] trig_timestamp, // trigger timestamp, defined by when trigger is received by trigger receiver module
-  input wire [ 4:0] curr_trig_type, // currently set trigger type
-  output wire readout_ready,        // ready to readout data, i.e., when in idle state
-  output reg  readout_done,         // finished readout flag
-  output reg [22:0] readout_size,   // burst count of readout event
+  input wire send_empty_event,       // request to send an empty event
+  input wire initiate_readout,       // request for the channels to be read out
+  input wire [23:0] event_num,       // channel's trigger number
+  input wire [23:0] trig_num,        // global trigger number, starts at 1
+  input wire [ 4:0] trig_type,       // trigger type
+  input wire [43:0] trig_timestamp,  // trigger timestamp, defined by when trigger is received by trigger receiver module
+  input wire [ 3:0] ttc_xadc_alarms, // XADC alarms
+  input wire [ 4:0] curr_trig_type,  // currently set trigger type
+  output wire readout_ready,         // ready to readout data, i.e., when in idle state
+  output reg  readout_done,          // finished readout flag
+  output reg [22:0] readout_size,    // burst count of readout event
 
   // set burst count for each channel
   output wire [22:0] burst_count_chan0,
@@ -135,9 +136,8 @@ module command_manager (
   parameter ERROR_TRIG_TYPE       = 33; // 0x 2_0000_0000
 
 
-  // channel header regs sorted the way they will be used: first chan_trig_num, then fill_type, ...
+  // channel header regs sorted the way they will be used: first chan_trig_num, then burst_count, ...
   reg [23:0] chan_trig_num;     // trigger number from channel header, starts at 1
-  reg [ 2:0] fill_type;         // fill type: muon, laser, pedestal, ...
   reg [22:0] burst_count;       // burst count for data acquisition, 1 burst count = 8 ADC samples
   reg [25:0] ddr3_start_addr;   // DDR3 start address (3 LSBs always zero)
   reg [22:0] wfm_count;         // number of waveform acquired
@@ -185,7 +185,6 @@ module command_manager (
   reg [ 33:0] nextstate;
   reg [ 22:0] next_burst_count;
   reg [ 31:0] next_chan_num_buf;
-  reg [  2:0] next_fill_type;
   reg [ 22:0] next_wfm_count;
   reg [ 21:0] next_wfm_gap_length;
   reg [ 11:0] next_chan_tag;
@@ -260,11 +259,11 @@ module command_manager (
 
   // mux the correct event size for this trigger type
   wire [19:0] event_size;
-  assign event_size = (fill_type[2:0] == 3'b001) ? event_size_type1[19:0] :
-                      (fill_type[2:0] == 3'b010) ? event_size_type2[19:0] :
-                      (fill_type[2:0] == 3'b011) ? event_size_type3[19:0] : 
-                      (fill_type[2:0] == 3'b111) ? event_size_type7[19:0] :
-                                                   20'hfffff;
+  assign event_size = (trig_type[4:0] == 5'b00001) ? event_size_type1[19:0] :
+                      (trig_type[4:0] == 5'b00010) ? event_size_type2[19:0] :
+                      (trig_type[4:0] == 5'b00011) ? event_size_type3[19:0] : 
+                      (trig_type[4:0] == 5'b00111) ? event_size_type7[19:0] :
+                                                     20'hfffff;
 
   // this board's serial number
   wire [12:0] board_id;
@@ -361,7 +360,6 @@ module command_manager (
     nextstate = 34'd0;
     next_burst_count[22:0]           = burst_count[22:0];
     next_chan_num_buf[31:0]          = chan_num_buf[31:0];
-    next_fill_type[2:0]              = fill_type[2:0];
     next_wfm_count[22:0]             = wfm_count[22:0];
     next_wfm_gap_length[21:0]        = wfm_gap_length[21:0];
     next_chan_tag[11:0]              = chan_tag[11:0];
@@ -451,7 +449,6 @@ module command_manager (
           next_chan_tx_fifo_dest[3:0] = 0;
 
           if (send_empty_event) begin
-            next_fill_type[2:0] = 3'b000;
             next_daq_valid = 1'b1;
             next_daq_data[63:0] = {8'h00, trig_num[23:0], trig_timestamp[43:32], 20'd3};
             nextstate[SEND_AMC13_HEADER1] = 1'b1;
@@ -668,9 +665,6 @@ module command_manager (
             nextstate[ERROR_TRIG_TYPE] = 1'b1;
           end
           else begin
-            next_chan_trig_num[23:0] = chan_rx_fifo_data[23: 0];
-            next_fill_type[2:0]      = chan_rx_fifo_data[26:24];
-
             // synchronous mode
             if (~chan_rx_fifo_data[26]) begin
               next_burst_count[22:0] = {18'd0, chan_rx_fifo_data[31:27]};
@@ -681,6 +675,7 @@ module command_manager (
               next_pulse_data_size[22:0] = {18'd0, chan_rx_fifo_data[31:27]};
             end
 
+            next_chan_trig_num[23:0] = chan_rx_fifo_data[23:0];
             next_master_checksum[127:0] = {master_checksum[127:32], chan_rx_fifo_data[31:0]};
             nextstate[READ_CHAN_INFO2] = 1'b1;
           end
@@ -693,7 +688,7 @@ module command_manager (
       state[READ_CHAN_INFO2] : begin
         if (chan_rx_fifo_valid) begin
           // synchronous mode
-          if (~fill_type[2]) begin
+          if (~trig_type[2]) begin
             next_burst_count[22:0] = {chan_rx_fifo_data[17:0], burst_count[4:0]};
           end
           // asynchronous mode
@@ -716,7 +711,7 @@ module command_manager (
           next_ddr3_start_addr[25:14] = chan_rx_fifo_data[11:0];
 
           // synchronous mode
-          if (~fill_type[2]) begin
+          if (~trig_type[2]) begin
             next_wfm_count[22:0]     = {11'd0, chan_rx_fifo_data[23:12]};
             next_wfm_gap_length[8:0] = chan_rx_fifo_data[31:24];
           end
@@ -737,7 +732,7 @@ module command_manager (
       state[READ_CHAN_INFO4] : begin
         if (chan_rx_fifo_valid) begin
           // synchronous mode
-          if (~fill_type[2]) begin
+          if (~trig_type[2]) begin
             next_wfm_gap_length[21:9]  = chan_rx_fifo_data[13:0];
             next_chan_xadc_alarms[3:0] = chan_rx_fifo_data[29:26];
           end
@@ -767,7 +762,7 @@ module command_manager (
           next_daq_valid = 1'b1;
 
           // synchronous mode
-          if (~fill_type[2]) begin
+          if (~trig_type[2]) begin
             next_daq_data[63:0] = {2'b01, chan_xadc_alarms[3:0], chan_tag[11:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
           end
           // asynchronous mode
@@ -783,7 +778,7 @@ module command_manager (
       state[SEND_AMC13_HEADER1] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {11'd0, endianness_sel, empty_event, fill_type[2:0], trig_timestamp[31:0], 3'd1, board_id[12:0]};
+          next_daq_data[63:0] = {5'd0, ttc_xadc_alarms[3:0], endianness_sel, empty_event, trig_type[4:0], trig_timestamp[31:0], 3'd1, board_id[12:0]};
           nextstate[SEND_AMC13_HEADER2] = 1'b1;
         end
         else if (~daq_almost_full) begin
@@ -805,7 +800,7 @@ module command_manager (
           next_daq_valid = 1'b1;
 
           // synchronous mode
-          if (~fill_type[2]) begin
+          if (~trig_type[2]) begin
             next_daq_data[63:0] = {2'b01, chan_xadc_alarms[3:0], chan_tag[11:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
           end
           // asynchronous mode
@@ -832,12 +827,12 @@ module command_manager (
           next_daq_valid = 1'b1;
 
           // synchronous mode
-          if (~fill_type[2]) begin
-            next_daq_data[63:0] = {ddr3_start_addr[13:0], (burst_count[22:0]<<3), fill_type[2:0], trig_num[23:0]};
+          if (~trig_type[2]) begin
+            next_daq_data[63:0] = {ddr3_start_addr[13:0], (burst_count[22:0]<<3), trig_type[2:0], trig_num[23:0]};
           end
           // asynchronous mode
           else begin
-            next_daq_data[63:0] = {ddr3_start_addr[13:0], (pulse_data_size[22:0]<<3), fill_type[2:0], trig_num[23:0]};
+            next_daq_data[63:0] = {ddr3_start_addr[13:0], (pulse_data_size[22:0]<<3), trig_type[2:0], trig_num[23:0]};
           end
 
           nextstate[SEND_CHAN_HEADER2] = 1'b1;
@@ -867,7 +862,7 @@ module command_manager (
           // this is the waveform header [31:0]
           if ((data_count[31:0] == 0) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
             // synchronous mode
-            if (~fill_type[2]) begin
+            if (~trig_type[2]) begin
               // convert waveform length from # bursts to # samples
               next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:23], (chan_rx_fifo_data[22:0]<<3)};
             end
@@ -883,7 +878,7 @@ module command_manager (
           // this is the waveform header [95:64]
           else if ((data_count[31:0] == 2) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
             // synchronous mode
-            if (~fill_type[2]) begin
+            if (~trig_type[2]) begin
               // convert waveform gap from # ADC-clock ticks to # samples
               next_daq_data[63:0] = {31'h0000000, chan_rx_fifo_data[31:12], 1'b0, chan_rx_fifo_data[11:0]};
             end
@@ -924,11 +919,11 @@ module command_manager (
 
           next_data_count[31:0] = data_count[31:0]+1;
 
-          if (fill_type[2] & (data_count[31:0] == 0) & (data_wfm_count[22:0] != wfm_count[22:0]) & (num_chan_en[2:0] == 3'h1)) begin
+          if (trig_type[2] & (data_count[31:0] == 0) & (data_wfm_count[22:0] != wfm_count[22:0]) & (num_chan_en[2:0] == 3'h1)) begin
             // asynchronous trigger readout, start of waveform header, first channel
             nextstate[READ_PULSE_FIFO] = 1'b1;
           end
-          else if (fill_type[2] & (data_count[31:0] == 0) & (data_wfm_count[22:0] != wfm_count[22:0]) & (num_chan_en[2:0] > 3'h1)) begin
+          else if (trig_type[2] & (data_count[31:0] == 0) & (data_wfm_count[22:0] != wfm_count[22:0]) & (num_chan_en[2:0] > 3'h1)) begin
             // asynchronous trigger readout, start of waveform header, subsequent channel
             nextstate[READ_READOUT_FIFO] = 1'b1;
           end
@@ -958,7 +953,7 @@ module command_manager (
           // this is the waveform header [127:96]
           else if ((data_count[31:0] == 3) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
             // synchronous mode
-            if (~fill_type[2]) begin
+            if (~trig_type[2]) begin
               // continue converting waveform gap from # ADC-clock ticks to # samples
               next_daq_data[63:0] = {chan_rx_fifo_data[31:1], daq_data[32:0]};
             end
@@ -1029,7 +1024,7 @@ module command_manager (
           // this is the waveform header [127:96]
           else if ((data_count[31:0] == 3) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
             // synchronous mode
-            if (~fill_type[2]) begin
+            if (~trig_type[2]) begin
               // continue converting waveform gap from # ADC-clock ticks to # samples
               next_daq_data[63:0] = {chan_rx_fifo_data[31:1], daq_data[32:0]};
             end
@@ -1237,7 +1232,6 @@ module command_manager (
       chan_num_buf[31:0]        <= 0;
       chan_tag[11:0]            <= 0;
       chan_xadc_alarms[3:0]     <= 0;
-      fill_type[2:0]            <= 0;
       wfm_count[22:0]           <= 0;
       wfm_gap_length[21:0]      <= 0;
       chan_tx_fifo_dest[3:0]    <= 0;
@@ -1310,7 +1304,6 @@ module command_manager (
       chan_num_buf[31:0]          <= next_chan_num_buf[31:0];
       chan_tag[11:0]              <= next_chan_tag[11:0];
       chan_xadc_alarms[3:0]       <= next_chan_xadc_alarms[3:0];
-      fill_type[2:0]              <= next_fill_type[2:0];
       wfm_count[22:0]             <= next_wfm_count[22:0];
       wfm_gap_length[21:0]        <= next_wfm_gap_length[21:0];
       chan_tx_fifo_dest[3:0]      <= next_chan_tx_fifo_dest[3:0];

@@ -358,6 +358,7 @@ module wfd_top (
 
     wire xadc_reset;
     wire xadc_over_temp;
+    wire [3:0] xadc_alarms;
     wire xadc_alarm_temp;
     wire xadc_alarm_vccint;
     wire xadc_alarm_vccaux;
@@ -366,6 +367,7 @@ module wfd_top (
     wire xadc_eos;
 
     assign xadc_reset = master_init_rst1_clk125 | rst_from_ipb;
+    assign xadc_alarms = {xadc_alarm_temp, xadc_alarm_vccint, xadc_alarm_vccaux, xadc_alarm_vccbram};
 
     // XADC interface
     xadc_interface xadc_interface (
@@ -842,6 +844,7 @@ module wfd_top (
     wire [23:0] ttc_trig_num;
     wire [ 4:0] ttc_trig_type;
     wire [43:0] ttc_trig_timestamp;
+    wire [ 3:0] ttc_xadc_alarms;
     wire [23:0] trig_num;
     wire [43:0] trig_timestamp;
     wire [23:0] pulse_trig_num;
@@ -1489,6 +1492,7 @@ module wfd_top (
         .ttc_trig_num(ttc_trig_num),             // global trigger number
         .ttc_trig_type(ttc_trig_type),           // trigger type
         .ttc_trig_timestamp(ttc_trig_timestamp), // trigger timestamp
+        .ttc_xadc_alarms(ttc_xadc_alarms),       // XADC alarms
 
         .burst_count_chan0(burst_count_chan0), // burst count set for Channel 0
         .burst_count_chan1(burst_count_chan1), // burst count set for Channel 1
@@ -1504,6 +1508,7 @@ module wfd_top (
 
         // status connections
         .async_mode(async_mode_ttc_clk), // asynchronous mode select
+        .xadc_alarms(xadc_alarms[3:0]),  // XADC alarm signals
         .ttr_state(ttr_state),           // TTC trigger receiver state
         .ptr_state(ptr_state),           // pulse trigger receiver state
         .cac_state(cac_state),           // channel acquisition controller state
@@ -1582,6 +1587,7 @@ module wfd_top (
         .trig_num(ttc_trig_num),             // global trigger number, starts at 1
         .trig_type(ttc_trig_type),           // trigger type
         .trig_timestamp(ttc_trig_timestamp), // trigger timestamp, defined by when trigger is received by trigger receiver module
+        .ttc_xadc_alarms(ttc_xadc_alarms),   // XADC alarms
         .curr_trig_type(fill_type_clk125),   // currently set trigger type
         .readout_ready(readout_ready),       // ready to readout data, i.e., when in idle state
         .readout_done(readout_done),         // finished readout flag

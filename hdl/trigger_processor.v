@@ -25,6 +25,7 @@ module trigger_processor (
   output reg [23:0] ttc_trig_num,       // global trigger number
   output reg [ 4:0] ttc_trig_type,      // trigger type
   output reg [43:0] ttc_trig_timestamp, // trigger timestamp
+  output reg [ 3:0] ttc_xadc_alarms,    // XADC alarms
 
   // status connections
   output reg [6:0] state,     // state of finite state machine
@@ -58,6 +59,7 @@ module trigger_processor (
   reg [43:0] next_ttc_trig_timestamp;
   reg [ 4:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
+  reg [ 3:0] next_ttc_xadc_alarms;
 
 
   // comb always block
@@ -69,6 +71,7 @@ module trigger_processor (
     next_ttc_event_num     [23:0] = ttc_event_num     [23:0];
     next_ttc_trig_num      [23:0] = ttc_trig_num      [23:0];
     next_ttc_trig_timestamp[43:0] = ttc_trig_timestamp[43:0];
+    next_ttc_xadc_alarms   [ 3:0] = ttc_xadc_alarms   [ 3:0];
 
     next_acq_trig_type[ 4:0] = acq_trig_type[ 4:0];
     next_acq_trig_num [23:0] = acq_trig_num [23:0];
@@ -84,11 +87,12 @@ module trigger_processor (
       state[IDLE] : begin
         // watch for unread triggers
         if (trig_fifo_valid) begin
-          next_ttc_empty_event          = trig_fifo_data[   97];
-          next_ttc_trig_type     [ 4:0] = trig_fifo_data[96:92];
-          next_ttc_event_num     [23:0] = trig_fifo_data[91:68];
-          next_ttc_trig_num      [23:0] = trig_fifo_data[67:44];
-          next_ttc_trig_timestamp[43:0] = trig_fifo_data[43: 0];
+          next_ttc_xadc_alarms   [ 3:0] = trig_fifo_data[101:98];
+          next_ttc_empty_event          = trig_fifo_data[    97];
+          next_ttc_trig_type     [ 4:0] = trig_fifo_data[ 96:92];
+          next_ttc_event_num     [23:0] = trig_fifo_data[ 91:68];
+          next_ttc_trig_num      [23:0] = trig_fifo_data[ 67:44];
+          next_ttc_trig_timestamp[43:0] = trig_fifo_data[ 43: 0];
 
           trig_fifo_ready = 1'b1; // acknowledge the data word
           nextstate[READ_TRIG_FIFO] = 1'b1;
@@ -179,6 +183,7 @@ module trigger_processor (
       ttc_event_num     [23:0] <= 24'd0;
       ttc_trig_num      [23:0] <= 24'd0;
       ttc_trig_timestamp[43:0] <= 24'd0;
+      ttc_xadc_alarms   [ 3:0] <=  4'd0;
 
       acq_trig_type[ 4:0] <=  5'd0;
       acq_trig_num [23:0] <= 24'd0;
@@ -191,6 +196,7 @@ module trigger_processor (
       ttc_event_num     [23:0] <= next_ttc_event_num     [23:0];
       ttc_trig_num      [23:0] <= next_ttc_trig_num      [23:0];
       ttc_trig_timestamp[43:0] <= next_ttc_trig_timestamp[43:0];
+      ttc_xadc_alarms   [ 3:0] <= next_ttc_xadc_alarms   [ 3:0];
 
       acq_trig_type[ 4:0] <= next_acq_trig_type[ 4:0];
       acq_trig_num [23:0] <= next_acq_trig_num [23:0];
