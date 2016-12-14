@@ -21,7 +21,7 @@ module tts_reporter (
   input wire error_trig_type_from_cm,
 
   // overflow warning status
-  input wire ddr3_overflow_warning,
+  input wire overflow_warning_ddr3,
 
   // TTS state
   output wire [3:0] tts_state
@@ -32,6 +32,7 @@ module tts_reporter (
   // 0000, 1111 -- Disconnected
   // 1100       -- Error
   // 0010       -- Sync Lost
+  // 0100       -- Busy
   // 0001       -- Overflow Warning
   // 1000       -- Ready
 
@@ -51,7 +52,7 @@ module tts_reporter (
                      error_trig_type_from_cm;
 
   wire overflow_warning;
-  assign overflow_warning = ddr3_overflow_warning;
+  assign overflow_warning = overflow_warning_ddr3;
 
   // ===== TTS signal assignment =====
 

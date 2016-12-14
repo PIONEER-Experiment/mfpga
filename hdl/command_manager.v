@@ -142,7 +142,8 @@ module command_manager (
   reg [25:0] ddr3_start_addr;   // DDR3 start address (3 LSBs always zero)
   reg [22:0] wfm_count;         // number of waveform acquired
   reg [21:0] wfm_gap_length;    // gap in unit of 2.5 ns between two consecutive waveforms
-  reg [15:0] chan_tag;          // channel tag
+  reg [11:0] chan_tag;          // channel tag
+  reg [ 3:0] chan_xadc_alarms;  // channel alarms from XADC
   reg [31:0] chan_num_buf;      // channel number
   reg [31:0] csn;               // channel serial number
   reg [31:0] data_count;        // # of 32-bit data words received from Aurora, per waveform
@@ -187,7 +188,8 @@ module command_manager (
   reg [  2:0] next_fill_type;
   reg [ 22:0] next_wfm_count;
   reg [ 21:0] next_wfm_gap_length;
-  reg [ 15:0] next_chan_tag;
+  reg [ 11:0] next_chan_tag;
+  reg [  3:0] next_chan_xadc_alarms;
   reg [ 31:0] next_csn;
   reg [ 31:0] next_data_count;
   reg [ 22:0] next_data_wfm_count;
@@ -362,7 +364,8 @@ module command_manager (
     next_fill_type[2:0]              = fill_type[2:0];
     next_wfm_count[22:0]             = wfm_count[22:0];
     next_wfm_gap_length[21:0]        = wfm_gap_length[21:0];
-    next_chan_tag[15:0]              = chan_tag[15:0];
+    next_chan_tag[11:0]              = chan_tag[11:0];
+    next_chan_xadc_alarms[3:0]       = chan_xadc_alarms[3:0];
     next_csn[31:0]                   = csn[31:0];
     next_data_count[31:0]            = data_count[31:0];
     next_data_wfm_count[22:0]        = data_wfm_count[22:0];
@@ -735,15 +738,17 @@ module command_manager (
         if (chan_rx_fifo_valid) begin
           // synchronous mode
           if (~fill_type[2]) begin
-            next_wfm_gap_length[21:9] = chan_rx_fifo_data[13:0];
+            next_wfm_gap_length[21:9]  = chan_rx_fifo_data[13:0];
+            next_chan_xadc_alarms[3:0] = chan_rx_fifo_data[29:26];
           end
           // asynchronous mode
           else begin
-            next_wfm_gap_length[21:9] = 13'd0;
-            next_wfm_count[22:20]     = chan_rx_fifo_data[2:0];
+            next_wfm_gap_length[21:9]  = 13'd0;
+            next_chan_xadc_alarms[3:0] = 4'h0;
+            next_wfm_count[22:20]      = chan_rx_fifo_data[2:0];
           end
 
-          next_chan_tag[15:0] = chan_rx_fifo_data[29:14];
+          next_chan_tag[11:0] = chan_rx_fifo_data[25:14];
           next_master_checksum[127:0] = {chan_rx_fifo_data[31:0], master_checksum[95:0]};
           nextstate[READY_AMC13_HEADER1] = 1'b1;
         end
@@ -760,7 +765,16 @@ module command_manager (
         end
         else begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {2'b01, chan_tag[15:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
+
+          // synchronous mode
+          if (~fill_type[2]) begin
+            next_daq_data[63:0] = {2'b01, chan_xadc_alarms[3:0], chan_tag[11:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
+          end
+          // asynchronous mode
+          else begin
+            next_daq_data[63:0] = {2'b01, 4'h0, chan_tag[11:0], 22'd0, wfm_count[11:0], 12'd0};
+          end
+
           next_readout_timestamp[31:0] = 32'd0;
           nextstate[SEND_CHAN_HEADER1] = 1'b1;
         end
@@ -792,11 +806,11 @@ module command_manager (
 
           // synchronous mode
           if (~fill_type[2]) begin
-            next_daq_data[63:0] = {2'b01, chan_tag[15:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
+            next_daq_data[63:0] = {2'b01, chan_xadc_alarms[3:0], chan_tag[11:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
           end
           // asynchronous mode
           else begin
-            next_daq_data[63:0] = {2'b01, chan_tag[15:0], 22'd0, wfm_count[11:0], 12'd0};
+            next_daq_data[63:0] = {2'b01, 4'h0, chan_tag[11:0], 22'd0, wfm_count[11:0], 12'd0};
           end
 
           next_sent_amc13_header = 1'b1;
@@ -950,7 +964,7 @@ module command_manager (
             end
             // asynchronous mode
             else begin
-              next_daq_data[63:0] = {chan_rx_fifo_data[31:30], chan_rx_fifo_data[6:2], pulse_trig_length[1:0], pulse_timestamp[43:21], daq_data[31:0]};
+              next_daq_data[63:0] = {chan_rx_fifo_data[31:30], chan_rx_fifo_data[17:14], chan_rx_fifo_data[5], pulse_trig_length[1:0], pulse_timestamp[43:21], daq_data[31:0]};
             end
           end
           // this is the channel checksum [63:32]
@@ -1221,7 +1235,8 @@ module command_manager (
 
       burst_count[22:0]         <= 0;
       chan_num_buf[31:0]        <= 0;
-      chan_tag[15:0]            <= 0;
+      chan_tag[11:0]            <= 0;
+      chan_xadc_alarms[3:0]     <= 0;
       fill_type[2:0]            <= 0;
       wfm_count[22:0]           <= 0;
       wfm_gap_length[21:0]      <= 0;
@@ -1293,7 +1308,8 @@ module command_manager (
 
       burst_count[22:0]           <= next_burst_count[22:0];
       chan_num_buf[31:0]          <= next_chan_num_buf[31:0];
-      chan_tag[15:0]              <= next_chan_tag[15:0];
+      chan_tag[11:0]              <= next_chan_tag[11:0];
+      chan_xadc_alarms[3:0]       <= next_chan_xadc_alarms[3:0];
       fill_type[2:0]              <= next_fill_type[2:0];
       wfm_count[22:0]             <= next_wfm_count[22:0];
       wfm_gap_length[21:0]        <= next_wfm_gap_length[21:0];

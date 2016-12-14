@@ -78,7 +78,7 @@ module trigger_top (
 
     // error connections
     output wire [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
-    output wire ddr3_overflow_warning,      // DDR3 overflow warning
+    output wire ddr3_almost_full,           // DDR3 overflow warning
     output wire error_trig_rate,            // trigger rate error
     output wire error_trig_num,             // trigger number error
     output wire error_trig_type             // trigger type error
@@ -135,8 +135,8 @@ module trigger_top (
     wire [31:0] ddr3_overflow_count_ttr;
     wire [31:0] ddr3_overflow_count_ptr;
 
-    wire ddr3_overflow_warning_ttr;
-    wire ddr3_overflow_warning_ptr;
+    wire ddr3_almost_full_ttr;
+    wire ddr3_almost_full_ptr;
 
     // ----------------
     // synchronizations
@@ -199,7 +199,7 @@ module trigger_top (
 
     // error signals
     assign ddr3_overflow_count[31:0] = (async_mode) ? ddr3_overflow_count_ptr[31:0] : ddr3_overflow_count_ttr[31:0];
-    assign ddr3_overflow_warning     = (async_mode) ? ddr3_overflow_warning_ptr     : ddr3_overflow_warning_ttr;
+    assign ddr3_almost_full          = (async_mode) ? ddr3_almost_full_ptr          : ddr3_almost_full_ttr;
     
     // ----------------
     // module instances
@@ -263,9 +263,9 @@ module trigger_top (
         .stored_bursts_chan4(stored_bursts_chan4),
 
         // error connections
-        .ddr3_overflow_count(ddr3_overflow_count_ttr),     // number of triggers received that would overflow DDR3
-        .ddr3_overflow_warning(ddr3_overflow_warning_ttr), // DDR3 overflow warning
-        .error_trig_rate(error_trig_rate)                  // trigger rate error
+        .ddr3_overflow_count(ddr3_overflow_count_ttr), // number of triggers received that would overflow DDR3
+        .ddr3_almost_full(ddr3_almost_full_ttr),       // DDR3 overflow warning
+        .error_trig_rate(error_trig_rate)              // trigger rate error
     );
 
 
@@ -305,8 +305,8 @@ module trigger_top (
         .state(ptr_state), // state of finite state machine
 
         // error connections
-        .ddr3_overflow_count(ddr3_overflow_count_ptr),    // number of triggers received that would overflow DDR3
-        .ddr3_overflow_warning(ddr3_overflow_warning_ptr) // DDR3 overflow warning
+        .ddr3_overflow_count(ddr3_overflow_count_ptr), // number of triggers received that would overflow DDR3
+        .ddr3_almost_full(ddr3_almost_full_ptr)        // DDR3 overflow warning
     );
 
     

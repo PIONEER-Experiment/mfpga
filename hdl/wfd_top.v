@@ -1,4 +1,4 @@
-// Top-level module for g-2 WFD5 Master FPGA
+// Top-level module for Muon g-2 WFD5 Master FPGA
 //
 // As a useful reference, here's the syntax to mark signals for debug:
 // (* mark_debug = "true" *) 
@@ -152,12 +152,12 @@ module wfd_top (
     wire error_unknown_ttc;
 
     // warnings
-    wire ddr3_overflow_warning;
+    wire ddr3_almost_full;
 
     // throw error if either PLL is unlocked for there is a loss-of-signal
     assign error_pll_unlock = ~adcclk_stat_ld | ~adcclk_stat | adcclk_clkin0_stat;
 
-    wire [4:0] chan_error_rc;  // master received an error response code, one bit for each channel
+    wire [4:0] chan_error_rc; // master received an error response code, one bit for each channel
 
     // ======== I/O lines to channel ========
     wire [9:0] acq_enable;
@@ -1343,7 +1343,7 @@ module wfd_top (
         .error_unknown_ttc(error_unknown_ttc),
 
         // warnings
-        .ddr3_overflow_warning(ddr3_overflow_warning),
+        .ddr3_almost_full(ddr3_almost_full),
 
         // other error signals
         .chan_error_rc(chan_error_rc),
@@ -1522,11 +1522,11 @@ module wfd_top (
         .stored_bursts_chan4(stored_bursts_chan4),
 
         // error connections
-        .ddr3_overflow_count(ddr3_overflow_count),     // number of triggers received that would overflow DDR3
-        .ddr3_overflow_warning(ddr3_overflow_warning), // DDR3 overflow warning
-        .error_trig_rate(error_trig_rate),             // trigger rate error
-        .error_trig_num(error_trig_num_from_tt),       // trigger number error
-        .error_trig_type(error_trig_type_from_tt)      // trigger type error
+        .ddr3_overflow_count(ddr3_overflow_count), // number of triggers received that would overflow DDR3
+        .ddr3_almost_full(ddr3_almost_full),       // DDR3 overflow warning
+        .error_trig_rate(error_trig_rate),         // trigger rate error
+        .error_trig_num(error_trig_num_from_tt),   // trigger number error
+        .error_trig_type(error_trig_type_from_tt)  // trigger type error
     );
 
     
@@ -1644,7 +1644,7 @@ module wfd_top (
         .error_trig_type_from_cm(error_trig_type_from_cm),
 
         // overflow warning status
-        .ddr3_overflow_warning(ddr3_overflow_warning),
+        .overflow_warning_ddr3(ddr3_almost_full),
 
         // TTS state output
         .tts_state(tts_state)

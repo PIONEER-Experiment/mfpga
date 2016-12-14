@@ -60,7 +60,7 @@ module ttc_trigger_receiver (
 
   // error connections
   output reg [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
-  output wire ddr3_overflow_warning,     // DDR3 overflow warning, combined for all channels
+  output wire ddr3_almost_full,          // DDR3 overflow warning, combined for all channels
   output wire error_trig_rate            // trigger received while acquiring data
 );
 
@@ -89,11 +89,11 @@ module ttc_trigger_receiver (
   assign acq_size_chan4 = (burst_count_chan4[22:0] + 1)*wfm_count_chan4[11:0] + 2;
 
   // mux overflow warnings for all channels
-  assign ddr3_overflow_warning = (stored_bursts_chan0[22:0] > thres_ddr3_overflow[22:0]) |
-                                 (stored_bursts_chan1[22:0] > thres_ddr3_overflow[22:0]) |
-                                 (stored_bursts_chan2[22:0] > thres_ddr3_overflow[22:0]) |
-                                 (stored_bursts_chan3[22:0] > thres_ddr3_overflow[22:0]) |
-                                 (stored_bursts_chan4[22:0] > thres_ddr3_overflow[22:0]);
+  assign ddr3_almost_full = (stored_bursts_chan0[22:0] > thres_ddr3_overflow[22:0]) |
+                            (stored_bursts_chan1[22:0] > thres_ddr3_overflow[22:0]) |
+                            (stored_bursts_chan2[22:0] > thres_ddr3_overflow[22:0]) |
+                            (stored_bursts_chan3[22:0] > thres_ddr3_overflow[22:0]) |
+                            (stored_bursts_chan4[22:0] > thres_ddr3_overflow[22:0]);
 
   // DDR3 is full in a channel
   wire ddr3_full;
