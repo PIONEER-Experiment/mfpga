@@ -80,14 +80,14 @@ module wfd_top (
 );
 
     // ======== clock signals ========
-    wire clk_10, clk10; // 10 MHz clock for AFE DAC interface
+    wire clk_10, clk10;   // 10 MHz clock for AFE DAC interface
     wire clk50;
     wire clk_125, clk125;
     wire clk200;
     wire clkfb;
     wire gtrefclk0;
-    wire ttc_clock; // 40 MHz output from TTC decoder module
-    wire spi_clock;
+    wire ttc_clk;         // 40 MHz output from TTC decoder module
+    wire spi_clk;
     wire pll_lock;
 
     assign clk50 = clkin; // just to make the frequency explicit
@@ -185,6 +185,10 @@ module wfd_top (
     wire ttc_loopback;
     wire ttc_freq_rst;
 
+    wire BCntRes;
+    wire SinErrStr;
+    wire DbErrStr;
+
     // ======== TTS signals ========
     wire [3:0] tts_state;
 
@@ -231,13 +235,6 @@ module wfd_top (
 
     assign fill_type[4:0]        = (ipb_async_trig_type) ? 5'b00111 : ttc_fill_type[4:0];
     assign accept_pulse_triggers = ttc_accept_pulse_triggers | ipb_accept_pulse_triggers;
-
-    // active-high reset signal to channels
-    assign c0_io[3] = (rst_from_ipb | rst_trigger_num);
-    assign c1_io[3] = (rst_from_ipb | rst_trigger_num);
-    assign c2_io[3] = (rst_from_ipb | rst_trigger_num);
-    assign c3_io[3] = (rst_from_ipb | rst_trigger_num);
-    assign c4_io[3] = (rst_from_ipb | rst_trigger_num);
 
     // front panel clock   : sel0 = 1'b0, sel1 = 1'b1
     // uTCA backplane clock: sel0 = 1'b1, sel1 = 1'b0
@@ -296,8 +293,8 @@ module wfd_top (
     signal_stretch reset_stretch (
         .signal_in(rst_from_ipb),
         .clk(clk125),
-        .n_extra_cycles(8'h08), // add more than enough extra clock cycles for synchronization into 50 MHz and 40 MHz clock domains
-        .signal_out(ipb_rst_stretch)
+        .n_extra_cycles(8'h13),      // more than enough cycles for synchronization into 50-MHz, 40-MHz domains
+        .signal_out(ipb_rst_stretch) // 160-ns wide
     );
 
     sync_2stage clk50_reset_sync (
@@ -315,6 +312,22 @@ module wfd_top (
 
     wire reset40_n;
     assign reset40_n = ~reset40;
+
+
+    wire rst_trigger_num_stretch;
+    signal_stretch event_reset_stretch (
+        .signal_in(rst_trigger_num),
+        .clk(ttc_clk),
+        .n_extra_cycles(8'h01),
+        .signal_out(rst_trigger_num_stretch) // 50-ns wide
+    );
+
+    // active-high reset signal to channels
+    assign c0_io[3] = (ipb_rst_stretch | rst_trigger_num_stretch);
+    assign c1_io[3] = (ipb_rst_stretch | rst_trigger_num_stretch);
+    assign c2_io[3] = (ipb_rst_stretch | rst_trigger_num_stretch);
+    assign c3_io[3] = (ipb_rst_stretch | rst_trigger_num_stretch);
+    assign c4_io[3] = (ipb_rst_stretch | rst_trigger_num_stretch);
 
 
 	// connect a module that will read from the I2C temperature/memory chip.
@@ -866,10 +879,10 @@ module wfd_top (
         .TTC_CLK_out(ttc_clk),       // out STD_LOGIC
         .TTCready(ttc_ready),        // out STD_LOGIC
         .L1Accept(trigger_from_ttc), // out STD_LOGIC
-        .BCntRes(),                  // out STD_LOGIC
+        .BCntRes(BCntRes),                  // out STD_LOGIC
         .EvCntRes(ttc_evt_reset),    // out STD_LOGIC
-        .SinErrStr(),                // out STD_LOGIC
-        .DbErrStr(),                 // out STD_LOGIC
+        .SinErrStr(SinErrStr),                // out STD_LOGIC
+        .DbErrStr(DbErrStr),                 // out STD_LOGIC
         .BrcstStr(ttc_chan_b_valid), // out STD_LOGIC
         .Brcst(ttc_chan_b_info)      // out STD_LOGIC_VECTOR(7 DOWNTO 2)
     );

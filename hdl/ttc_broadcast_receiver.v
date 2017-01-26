@@ -8,7 +8,7 @@ module ttc_broadcast_receiver (
   input wire reset,
 
   // TTC Channel B information
-  input wire [5:0] chan_b_info, // Brcst from TTC decoder, Brcst[7:2] = chan_b_info [5:0]
+  input wire [5:0] chan_b_info, // Brcst from TTC decoder, Brcst[7:2] = chan_b_info[5:0]
   input wire evt_count_reset,
   input wire chan_b_valid,      // BrcstStr from TTC_decoder
   input wire ttc_loopback,

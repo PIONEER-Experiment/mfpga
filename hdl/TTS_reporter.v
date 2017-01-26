@@ -1,4 +1,4 @@
-// Reports the Rider status via TTS to DAQ link
+// Reports the WFD5 status via TTS to DAQ link
 // 
 // Outputs the 'Ready' state unless an error has occured
 
