@@ -27,7 +27,6 @@ signal sync_rst_200: std_logic_vector(1 downto 0);
 
 signal rst_dly_ctr: unsigned(7 downto 0) := X"00";
 
-
 begin
 
 	ipb: process(clk_ipb)
@@ -66,5 +65,3 @@ begin
 		end if;
 	end process;
 end rtl;
-
-

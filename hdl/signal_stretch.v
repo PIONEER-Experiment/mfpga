@@ -1,31 +1,27 @@
-// This module stretches the input signal so that it can later be synchronized into a slower clock domain
-//
-// When the input signal is asserted, it will be kept high for n additional clock cycles
-//
-// maximum number of extra clock cycles = 16
-// (for more, need to increase the number of bits in the counter register and in the n_extra_cycles input)
+// This module stretches the input signal so that it can later be synchronized into a slower clock domain.
+// When the input signal is asserted, it will be kept high for n additional clock cycles.
 
 module signal_stretch (
-	input signal_in,
-	input clk,
-    input [3:0] n_extra_cycles,
-	output reg signal_out
+    input signal_in,
+    input clk,
+    input [7:0] n_extra_cycles,
+    output reg signal_out
 );
 
-reg [3:0] counter = 4'h0;
+reg [7:0] counter = 8'h00;
 
 always @(posedge clk)
 begin
     if (signal_in) begin
-        counter <= n_extra_cycles;
+        counter    <= n_extra_cycles;
         signal_out <= 1'b1;
     end 
-    else if (counter > 4'h0) begin
-        counter <= counter - 1;
+    else if (counter > 8'h00) begin
+        counter    <= counter - 1;
         signal_out <= 1'b1;
     end
     else begin
-        counter <= 4'h0;
+        counter    <= 8'h00;
         signal_out <= 1'b0;
     end
 end

@@ -2,13 +2,13 @@
 set origin_dir [file dirname [info script]]/../
 
 # Create project
-create_project WFD_Master $origin_dir/project
+create_project WFD_Golden $origin_dir/project
 
 # Set the directory path for the new project
 set proj_dir [get_property directory [current_project]]
 
 # Set project properties
-set obj [get_projects WFD_Master]
+set obj [get_projects WFD_Golden]
 set_property "default_lib" "xil_defaultlib" $obj
 set_property "part" "xc7k160tfbg676-1" $obj
 set_property "simulator_language" "Mixed" $obj
@@ -25,8 +25,8 @@ set obj [get_filesets sources_1]
 add_files -norecurse -fileset $obj [glob $origin_dir/ip/*/*.xci]
 add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/hdl/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/ipbus_core/hdl/*.vhd]
-add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/ethernet/hdl/*.vhd]
-add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/slaves/hdl/*.vhd]
+add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/ethernet/*.vhd]
+add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/slaves/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/hdl/*.v]
 add_files -norecurse -fileset $obj [glob $origin_dir/hdl/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/DAQ_Link_7S/*.vhd]
@@ -59,13 +59,13 @@ foreach file [glob $origin_dir/ipbus/ipbus_core/hdl/*.vhd] {
 	set_property "file_type" "VHDL" $file_obj
 }
 
-foreach file [glob $origin_dir/ipbus/ethernet/hdl/*.vhd] {
+foreach file [glob $origin_dir/ipbus/ethernet/*.vhd] {
     set file [file normalize $file]
 	set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 	set_property "file_type" "VHDL" $file_obj
 }
 
-foreach file [glob $origin_dir/ipbus/slaves/hdl/*.vhd] {
+foreach file [glob $origin_dir/ipbus/slaves/*.vhd] {
     set file [file normalize $file]
 	set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 	set_property "file_type" "VHDL" $file_obj
@@ -151,4 +151,4 @@ set_property "steps.write_bitstream.tcl.post" "[file normalize "$origin_dir/scri
 # set the current impl run
 current_run -implementation [get_runs impl_1]
 
-puts "INFO: Project created: WFD_Master"
+puts "INFO: Project created: WFD_Golden"

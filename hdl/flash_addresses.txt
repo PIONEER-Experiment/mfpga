@@ -1,0 +1,18 @@
+// 3-Byte SPI addresses used when reading a bitstream from the Flash
+
+// Be sure to use [ `include "flash_addresses.txt" ] whenever any of these constants are needed.
+// Also, be sure to use the backtic [ ` ] when the constant is actually used.
+
+// Only define these constants once.
+`ifndef FLASH_ADDRESSES_INCLUDED
+  `define FLASH_ADDRESSES_INCLUDED
+
+  	// master images
+  	`define GOLDEN_FLASH_ADDR	24'h000000
+  	`define MASTER_FLASH_ADDR	24'h670000
+
+  	// channel images
+  	`define CHANNEL_FLASH_ADDR	24'h000000
+  	`define ASYNC_FLASH_ADDR	24'h2E0000
+
+`endif

@@ -10,8 +10,8 @@ if {[file exists ./wfd_top.bit]} {
 
 # Export the debug file
 if {[file exists ./debug_nets.ltx]} {
-  file copy -force ./debug_nets.ltx [file dirname [info script]]/../debugs/debug_golden_$version.ltx
-  puts "INFO: Debug copied: debug_golden.ltx"
+  file copy -force ./debug_nets.ltx [file dirname [info script]]/../bitstreams/wfd_golden_$version.ltx
+  puts "INFO: Debug copied: wfd_golden.ltx"
 } else {
   puts "ERROR: Debug not found: debug_nets.ltx"
 }
