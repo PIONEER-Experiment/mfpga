@@ -94,7 +94,7 @@ parameter STARTUP_DONE   = 3'b110;
 
 reg [2:0] startup_state = STARTUP_IDLE;
 
-reg [15:0] startup_cnt = 16'd0; // counter to wait >3 ms after power up
+reg [21:0] startup_cnt = 22'd0; // counter to wait >3 ms after power up
 reg startup_rst_cntrl;          // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for cntrl
 reg startup_rst_reg;            // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for regs
 reg startup_done;               // flag to tell other state machines that the startup procedure is complete
@@ -118,7 +118,7 @@ always @ (posedge slow_clk) begin
 
     case (startup_state)
         STARTUP_IDLE : begin
-            startup_cnt[15:0] <= 16'd0;
+            startup_cnt[21:0] <= 22'd0;
             startup_rst_cntrl <= 1'b0;
             startup_rst_reg   <= 1'b0;
             startup_done      <= 1'b0;
@@ -128,13 +128,15 @@ always @ (posedge slow_clk) begin
         
         // wait for >3 ms after power is delivered to clock synthesizer
         STARTUP_WAIT : begin
-            startup_cnt[15:0] <= startup_cnt[15:0] + 1'b1;
+            startup_cnt[21:0] <= startup_cnt[21:0] + 1'b1;
             startup_rst_cntrl <= 1'b0;
             startup_rst_reg   <= 1'b0;
             startup_done      <= 1'b0;
 
-            if (startup_cnt[15])
+            if (startup_cnt[21:0] == 22'd3125000) begin
+                startup_cnt[21:0] <= 22'd0;
                 startup_state <= STARTUP_RESET;
+            end
             else
                 startup_state <= STARTUP_WAIT;
         end
@@ -143,12 +145,12 @@ always @ (posedge slow_clk) begin
         // this will load the default register values into s[#]_reg_out wires
         // and will initialize the other state machines to their IDLE state
         STARTUP_RESET : begin
-            startup_cnt[15:0] <= startup_cnt[15:0] + 1'b1;
+            startup_cnt[21:0] <= startup_cnt[21:0] + 1'b1;
             startup_rst_cntrl <= 1'b0;
             startup_rst_reg   <= 1'b1;
             startup_done      <= 1'b0;
 
-            if (startup_cnt[5])
+            if (startup_cnt[21:0] == 22'd50)
                 startup_state <= STARTUP_STROBE;
             else
                 startup_state <= STARTUP_RESET;
@@ -157,7 +159,7 @@ always @ (posedge slow_clk) begin
         // reset the scntrl_reg reg32_ce2 block to its default value
         // this will initiate the configuration to the clock synthesizer
         STARTUP_STROBE : begin
-            startup_cnt[15:0] <= 16'd0;
+            startup_cnt[21:0] <= 22'd0;
             startup_rst_cntrl <= 1'b1;
             startup_rst_reg   <= 1'b0;
             startup_done      <= 1'b0;
@@ -168,7 +170,7 @@ always @ (posedge slow_clk) begin
         // stay in this state forever
         // the startup_done flag tells the WRITE SM to toggle the sync wire after writing to the registers
         STARTUP_DONE : begin
-            startup_cnt[15:0] <= 16'd0;
+            startup_cnt[21:0] <= 22'd0;
             startup_rst_cntrl <= 1'b0;
             startup_rst_reg   <= 1'b0;
             startup_done      <= 1'b1;
@@ -532,7 +534,7 @@ reg [2:0] synth_state = 3'b000;
 // ==============================
 
 reg [4:0] sync_cnt = 5'b00000; // counter to keep sync wire low for >4 clock cycles
-reg sync_asserted = 1'b0;      // flag to remember when sync has already been asserted
+reg sync_asserted  = 1'b0;     // flag to remember when sync has already been asserted
 reg sync_level;                // flag to drive sync wire to either low (1'b0) or high (1'b1)
 
 assign sync = sync_level;
@@ -586,7 +588,7 @@ always @ (posedge slow_clk) begin
                     synth_reg_addr[4:0] <= synth_reg_addr[4:0];
                 end
                 // don't toggle sync wire before startup configuration is complete
-                else if (!sync_asserted && startup_done) begin
+                else if (!sync_asserted & startup_done) begin
                     synth_state <= SYNC_LOW;
                     synth_reg_addr[4:0] <= 5'b00000;
                 end

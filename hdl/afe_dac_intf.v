@@ -77,7 +77,7 @@ parameter STARTUP_DONE   = 3'b110;
 
 reg [2:0] startup_state = STARTUP_IDLE;
 
-reg [15:0] startup_cnt = 16'd0; // counter to wait >3 ms after power up
+reg [22:0] startup_cnt = 23'd0; // counter to wait >3 ms after power up
 reg startup_rst_cntrl;          // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for cntrl
 reg startup_rst_reg;            // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for regs
 reg startup_done;               // flag to tell other state machines that the startup procedure is complete
@@ -101,7 +101,7 @@ always @ (posedge clk10) begin
 
     case (startup_state)
         STARTUP_IDLE : begin
-            startup_cnt[15:0] <= 16'd0;
+            startup_cnt[22:0] <= 23'd0;
             startup_rst_cntrl <= 1'b0;
             startup_rst_reg   <= 1'b0;
             startup_done      <= 1'b0;
@@ -111,13 +111,15 @@ always @ (posedge clk10) begin
         
         // wait for >3 ms after power is delivered to AFE's DACs
         STARTUP_WAIT : begin
-            startup_cnt[15:0] <= startup_cnt[15:0] + 1'b1;
+            startup_cnt[22:0] <= startup_cnt[22:0] + 1'b1;
             startup_rst_cntrl <= 1'b0;
             startup_rst_reg   <= 1'b0;
             startup_done      <= 1'b0;
 
-            if (startup_cnt[15])
+            if (startup_cnt[22:0] == 23'd5000000) begin
+                startup_cnt[22:0] <= 23'd0;
                 startup_state <= STARTUP_RESET;
+            end
             else
                 startup_state <= STARTUP_WAIT;
         end
@@ -126,12 +128,12 @@ always @ (posedge clk10) begin
         // this will load the default register values into s[#]_reg_out wires
         // and will initialize the other state machines to their IDLE state
         STARTUP_RESET : begin
-            startup_cnt[15:0] <= startup_cnt[15:0] + 1'b1;
+            startup_cnt[22:0] <= startup_cnt[22:0] + 1'b1;
             startup_rst_cntrl <= 1'b0;
             startup_rst_reg   <= 1'b1;
             startup_done      <= 1'b0;
 
-            if (startup_cnt[5])
+            if (startup_cnt[22:0] == 23'd80)
                 startup_state <= STARTUP_STROBE;
             else
                 startup_state <= STARTUP_RESET;
@@ -140,7 +142,7 @@ always @ (posedge clk10) begin
         // reset the scntrl_reg reg32_ce2 block to its default value
         // this will initiate the configuration to the DACs
         STARTUP_STROBE : begin
-            startup_cnt[15:0] <= 16'd0;
+            startup_cnt[22:0] <= 23'd0;
             startup_rst_cntrl <= 1'b1;
             startup_rst_reg   <= 1'b0;
             startup_done      <= 1'b0;
@@ -151,7 +153,7 @@ always @ (posedge clk10) begin
         // stay in this state forever
         // the startup_done flag tells the WRITE SM to toggle the sync wire after writing to the registers
         STARTUP_DONE : begin
-            startup_cnt[15:0] <= 16'd0;
+            startup_cnt[22:0] <= 23'd0;
             startup_rst_cntrl <= 1'b0;
             startup_rst_reg   <= 1'b0;
             startup_done      <= 1'b1;

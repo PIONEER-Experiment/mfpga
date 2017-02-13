@@ -76,7 +76,7 @@
 
 module i2c_master_byte_ctrl (
 	clk, rst, nReset, ena, clk_cnt, start, stop, read, write, ack_in, din,
-	cmd_ack, ack_out, dout, i2c_busy, i2c_al, scl_i, scl_o, scl_oen, sda_i, sda_o, sda_oen );
+	cmd_ack, ack_out, dout, scl_i, scl_o, scl_oen, sda_i, sda_o, sda_oen );
 
 	//
 	// inputs & outputs
@@ -101,8 +101,6 @@ module i2c_master_byte_ctrl (
 	reg cmd_ack;
 	output       ack_out;
 	reg ack_out;
-	output       i2c_busy;
-	output       i2c_al;
 	output [7:0] dout;
 
 	// I2C signals
@@ -153,8 +151,6 @@ module i2c_master_byte_ctrl (
 		.clk_cnt ( clk_cnt  ),
 		.cmd     ( core_cmd ),
 		.cmd_ack ( core_ack ),
-		.busy    ( i2c_busy ),
-		.al      ( i2c_al   ),
 		.din     ( core_txd ),
 		.dout    ( core_rxd ),
 		.scl_i   ( scl_i    ),
@@ -211,7 +207,7 @@ module i2c_master_byte_ctrl (
 	        c_state  <= #1 ST_IDLE;
 	        ack_out  <= #1 1'b0;
 	    end
-	  else if (rst | i2c_al)
+	  else if (rst)
 	   begin
 	       core_cmd <= #1 `I2C_CMD_NOP;
 	       core_txd <= #1 1'b0;

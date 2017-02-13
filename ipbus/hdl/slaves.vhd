@@ -198,7 +198,7 @@ begin
     ext_trig_pulse_en_out <= ctrl_reg(15);
     async_trig_type_out   <= ctrl_reg(16);
     accept_pulse_trig_out <= ctrl_reg(17);
-    ttc_freq_rst_out      <= ctrl_reg(18);
+    ttc_freq_rst_out      <= ctrl_reg(18); -- don't touch
 
 	
 	-- Slave 2: Write-only register

@@ -13,6 +13,7 @@ module all_channels (
   // IPbus inputs
   input ipb_clk,                   // programming clock
   input ipb_reset,
+  input ipb_clk50_reset,
   input ipb_strobe,                // this ipb space is selected for an I/O operation
   input [23:0] ipb_addr,           // slave address, memory or register
   input ipb_write,                 // this is a write operation
@@ -446,7 +447,7 @@ module all_channels (
   clk_synth_intf clock_synth (
     // clocks and reset
     .clk50(clk50),                           // Aurora 'init_clk' uses 50 MHz clock per PG046-20
-    .clk50_reset(clk50_reset),               // active_hi synched to 'clk50'
+    .clk50_reset(ipb_clk50_reset),           // active_hi synched to 'clk50' with no startup reset
     
     // programming interface inputs
     .io_clk(ipb_clk),                        // programming clock
@@ -480,7 +481,7 @@ module all_channels (
   afe_dac_intf afe_dac (
     // clocks and reset
     .clk50(clk50),                         // Aurora 'init_clk' uses 50 MHz clock per PG046-20
-    .clk50_reset(clk50_reset),             // active_hi synched to 'clk50'
+    .clk50_reset(ipb_clk50_reset),         // active_hi synched to 'clk50' with no startup reset
     .clk10(clk10),
     
     // programming interface inputs
@@ -512,7 +513,7 @@ module all_channels (
   aurora_8b10b_0_gt_common_wrapper gt_common_support_MGT116 (
     // inputs
     .gt0_gtrefclk0_common_in(gt_refclk),          // 125 MHz oscillator
-    .gt0_qplllockdetclk_in(clk50),                // 50 MHz oscillator
+    .gt0_qplllockdetclk_in(clk50),                //  50 MHz oscillator
     .gt0_qpllreset_in(c1_gt0_qpllreset),          // reset from an Aurora. Do we need to 'OR' all of them?
      // outputs
     .gt_qpllclk_quad2_i(gt_qpllclk_quad2),

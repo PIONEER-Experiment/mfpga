@@ -77,7 +77,6 @@ always @ (posedge clk) begin
         CS <= NS;         // set state bits to next state
 end
 
-
 // combinational always block to determine next state (use blocking [=] assignments) 
 always @ (CS or image_copy_done)    begin
     NS = 20'b0; // default all bits to zero; will overrride one bit

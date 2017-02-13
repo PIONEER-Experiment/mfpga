@@ -151,8 +151,6 @@ module i2c_master_bit_ctrl (
 
     input      [ 3:0] cmd,      // command (from byte controller)
     output reg        cmd_ack,  // command complete acknowledge
-    output reg        busy,     // i2c bus busy
-    output reg        al,       // i2c bus arbitration lost
 
     input             din,
     output reg        dout,
@@ -170,16 +168,16 @@ module i2c_master_bit_ctrl (
     // variable declarations
     //
 
-    reg [ 1:0] cSCL, cSDA;      // capture SCL and SDA
-    reg [ 2:0] fSCL, fSDA;      // SCL and SDA filter inputs
-    reg        sSCL, sSDA;      // filtered and synchronized SCL and SDA inputs
-    reg        dSCL, dSDA;      // delayed versions of sSCL and sSDA
-    reg        dscl_oen;        // delayed scl_oen
-    reg        sda_chk;         // check SDA output (Multi-master arbitration)
-    reg        clk_en;          // clock generation signals
-    reg        slave_wait;      // slave inserts wait states
-    reg [15:0] cnt;             // clock divider counter (synthesis)
-    reg [13:0] filter_cnt;      // clock divider for filter
+    reg [ 1:0] cSCL, cSDA; // capture SCL and SDA
+    reg [ 2:0] fSCL, fSDA; // SCL and SDA filter inputs
+    reg        sSCL, sSDA; // filtered and synchronized SCL and SDA inputs
+    reg        dSCL;       // delayed versions of sSCL and sSDA
+    reg        dscl_oen;   // delayed scl_oen
+    reg        sda_chk;    // check SDA output (Multi-master arbitration)
+    reg        clk_en;     // clock generation signals
+    reg        slave_wait; // slave inserts wait states
+    reg [15:0] cnt;        // clock divider counter (synthesis)
+    reg [13:0] filter_cnt; // clock divider for filter
 
 
     // state machine variable
@@ -285,7 +283,6 @@ module i2c_master_bit_ctrl (
           sSDA <= #1 1'b1;
 
           dSCL <= #1 1'b1;
-          dSDA <= #1 1'b1;
       end
       else if (rst)
       begin
@@ -293,7 +290,6 @@ module i2c_master_bit_ctrl (
           sSDA <= #1 1'b1;
 
           dSCL <= #1 1'b1;
-          dSDA <= #1 1'b1;
       end
       else
       begin
@@ -301,36 +297,7 @@ module i2c_master_bit_ctrl (
           sSDA <= #1 &fSDA[2:1] | &fSDA[1:0] | (fSDA[2] & fSDA[0]);
 
           dSCL <= #1 sSCL;
-          dSDA <= #1 sSDA;
       end
-
-    // detect start condition => detect falling edge on SDA while SCL is high
-    // detect stop condition => detect rising edge on SDA while SCL is high
-    reg sta_condition;
-    reg sto_condition;
-    always @(posedge clk or negedge nReset)
-      if (~nReset)
-      begin
-          sta_condition <= #1 1'b0;
-          sto_condition <= #1 1'b0;
-      end
-      else if (rst)
-      begin
-          sta_condition <= #1 1'b0;
-          sto_condition <= #1 1'b0;
-      end
-      else
-      begin
-          sta_condition <= #1 ~sSDA &  dSDA & sSCL;
-          sto_condition <= #1  sSDA & ~dSDA & sSCL;
-      end
-
-
-    // generate i2c bus busy signal
-    always @(posedge clk or negedge nReset)
-      if      (!nReset) busy <= #1 1'b0;
-      else if (rst    ) busy <= #1 1'b0;
-      else              busy <= #1 (sta_condition | busy) & ~sto_condition;
 
 
     // generate arbitration lost signal
@@ -345,18 +312,6 @@ module i2c_master_bit_ctrl (
           cmd_stop <= #1 1'b0;
       else if (clk_en)
           cmd_stop <= #1 cmd == `I2C_CMD_STOP;
-
-    always @(posedge clk or negedge nReset)
-      if (~nReset) begin
-          al <= #1 1'b0;
-      end
-      else if (rst) begin
-          al <= #1 1'b0;
-      end
-      else begin
-          al <= #1 1'b0; // tie arbitration lost signal low
-                         // originally was: (sda_chk & ~sSDA & sda_oen) | (|c_state & sto_condition & ~cmd_stop);
-      end
 
 
     // generate dout signal (store SDA on rising edge of SCL)
@@ -395,7 +350,7 @@ module i2c_master_bit_ctrl (
           sda_oen <= #1 1'b1;
           sda_chk <= #1 1'b0;
       end
-      else if (rst | al)
+      else if (rst)
       begin
           c_state <= #1 idle;
           cmd_ack <= #1 1'b0;

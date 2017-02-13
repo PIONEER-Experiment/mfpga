@@ -2,7 +2,7 @@
 // for a signal of width 'WIDTH' which defaults to 1
 
 module sync_2stage #(
-  parameter WIDTH = 1
+    parameter WIDTH = 1
 ) (
     input  wire clk,
     input  wire [WIDTH-1:0] in,

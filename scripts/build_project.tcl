@@ -25,8 +25,8 @@ set obj [get_filesets sources_1]
 add_files -norecurse -fileset $obj [glob $origin_dir/ip/*/*.xci]
 add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/hdl/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/ipbus_core/hdl/*.vhd]
-add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/ethernet/hdl/*.vhd]
-add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/slaves/hdl/*.vhd]
+add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/ethernet/*.vhd]
+add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/slaves/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/hdl/*.v]
 add_files -norecurse -fileset $obj [glob $origin_dir/hdl/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/DAQ_Link_7S/*.vhd]
@@ -59,13 +59,13 @@ foreach file [glob $origin_dir/ipbus/ipbus_core/hdl/*.vhd] {
 	set_property "file_type" "VHDL" $file_obj
 }
 
-foreach file [glob $origin_dir/ipbus/ethernet/hdl/*.vhd] {
+foreach file [glob $origin_dir/ipbus/ethernet/*.vhd] {
     set file [file normalize $file]
 	set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 	set_property "file_type" "VHDL" $file_obj
 }
 
-foreach file [glob $origin_dir/ipbus/slaves/hdl/*.vhd] {
+foreach file [glob $origin_dir/ipbus/slaves/*.vhd] {
     set file [file normalize $file]
 	set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 	set_property "file_type" "VHDL" $file_obj

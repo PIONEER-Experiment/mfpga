@@ -21,14 +21,7 @@ module wfd_top (
     output wire c3_tx, c3_tx_N,       // Serial link to Channel 3 TX
     input  wire c4_rx, c4_rx_N,       // Serial link to Channel 4 RX
     output wire c4_tx, c4_tx_N,       // Serial link to Channel 4 TX
-    output wire debug0,               // debug header
-    output wire debug1,               // debug header
-    output wire debug2,               // debug header
-    output wire debug3,               // debug header
-    output wire debug4,               // debug header
-    output wire debug5,               // debug header
-    output wire debug6,               // debug header
-    output wire debug7,               // debug header
+    output wire [7:0] debug,          // debug header
     output wire [4:0] acq_trigs,      // triggers to channel FPGAs
     input  wire [4:0] acq_dones,      // done signals from channel FPGAs
     output wire master_led0,          // front panel LEDs for master status, led0 is green
@@ -47,9 +40,7 @@ module wfd_top (
     output wire afe_dac_sclk,         // MB[0] on schematic, for AFE's DAC clock
     output wire afe_dac_sdi,          // MB[1] on schematic, for AFE's DAC data input
     output wire afe_dac_sync_n,       // MB[2] on schematic, for AFE's DAC \sync signal
-    input  wire mezzb3,               // MB[3] on schematic, unused
-    input  wire mezzb4,               // MB[4] on schematic, unused
-    input  wire mezzb5,               // MB[5] on schematic, unused
+    input  wire [5:3] mezzb,          // MB[5:3] on schematic, unused
     input  wire mmc_reset_m,          // reset line 
     input  wire adcclk_stat_ld,       // clock synth status, PLL lock detect
     input  wire adcclk_stat,          // clock synth status
@@ -64,8 +55,8 @@ module wfd_top (
     output wire daq_clk_sel,          //
     output wire daq_clk_en,           //
     input  wire ttc_clkp, ttc_clkn,   // TTC diff clock
-    input  wire ttc_rxp, ttc_rxn,     // data from TTC
-    output wire ttc_txp, ttc_txn,     // data to TTC
+    input  wire ttc_rxp,  ttc_rxn,    // data from TTC
+    output wire ttc_txp,  ttc_txn,    // data to TTC
     input  wire [1:0] wfdps,          //
     output wire c_progb,              // to all channels for FPGA configuration
     output wire c_clk,                // to all channels for FPGA configuration
@@ -88,7 +79,6 @@ module wfd_top (
     wire gtrefclk0;
     wire ttc_clk;         // 40 MHz output from TTC decoder module
     wire spi_clk;
-    wire pll_lock;
 
     assign clk50 = clkin; // just to make the frequency explicit
 
@@ -112,7 +102,7 @@ module wfd_top (
 
     // synchronous reset logic for master
     startup_reset master_startup_reset1 (
-        .clk50(clk50),                          // 50 MHz buffered clock 
+        .clk50(clk50),                          // 50 MHz buffered clock
         .reset_clk50(master_init_rst1_clk50),   // active-high reset output, goes low after startup
         .clk125(clk125),                        // buffered clock, 125 MHz
         .reset_clk125(master_init_rst1_clk125), // active-high reset output, goes low after startup
@@ -121,7 +111,7 @@ module wfd_top (
 
     // starts the channel programming logic
     startup_reset master_startup_reset2 (
-        .clk50(clk50),                          // 50 MHz buffered clock 
+        .clk50(clk50),                          // 50 MHz buffered clock
         .reset_clk50(master_init_rst2_clk50),   // active-high reset output, goes low after startup
         .clk125(clk125),                        // buffered clock, 125 MHz
         .reset_clk125(master_init_rst2_clk125), // active-high reset output, goes low after startup
@@ -154,9 +144,10 @@ module wfd_top (
     // warnings
     wire ddr3_almost_full;
 
-    // throw error if either PLL is unlocked for there is a loss-of-signal
+    // throw error if either PLL is unlocked or if there is a loss-of-signal
     assign error_pll_unlock = ~adcclk_stat_ld | ~adcclk_stat | adcclk_clkin0_stat;
 
+    wire [4:0] chan_error_sn; // master and channel serial number mismatch, one bit for each channel
     wire [4:0] chan_error_rc; // master received an error response code, one bit for each channel
 
     // ======== I/O lines to channel ========
@@ -267,7 +258,7 @@ module wfd_top (
         .CLKOUT3(),
         .CLKOUT4(),
         .CLKOUT5(),
-        .LOCKED(pll_lock),
+        .LOCKED(),
         .RST(0),
         .PWRDWN(0),
         .CLKFBOUT(clkfb),
@@ -279,9 +270,6 @@ module wfd_top (
     BUFG BUFG_clk125 (.I(clk_125), .O(clk125));
     BUFG BUFG_clk10  (.I(clk_10 ), .O(clk10 ));
 
-    // ======== ethernet status signals ========
-    reg sfp_los = 0;      // loss of signal for Gigabit ethernet (not used)
-    wire eth_link_status; // link status of Gigabit ethernet
 
     // ======== reset signals ========
     wire rst_from_ipb, rst_from_ipb_n;  // active-high reset from IPbus; synchronous to IPbus clock
@@ -401,14 +389,14 @@ module wfd_top (
 
 
     // ======== debug signals ========
-    assign debug0 = test_point6;
-    assign debug1 = bbus_sda;
-    assign debug2 = wfdps[1] & wfdps[0];
-    assign debug3 = mmc_io[3] & mmc_io[2] & mmc_io[1] & mmc_io[0];
-    assign debug4 = spi_ss & spi_clk & spi_mosi & spi_miso;
-    assign debug5 = initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
-    assign debug6 = mmc_reset_m & mezzb5 & mezzb4 & mezzb3;
-    assign debug7 = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
+    assign debug[0] = test_point6;
+    assign debug[1] = bbus_sda;
+    assign debug[2] = wfdps[1] & wfdps[0];
+    assign debug[3] = mmc_io[3] & mmc_io[2] & mmc_io[1] & mmc_io[0];
+    assign debug[4] = spi_ss & spi_clk & spi_mosi & spi_miso;
+    assign debug[5] = initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
+    assign debug[6] = mmc_reset_m & mezzb[5] & mezzb[4] & mezzb[3];
+    assign debug[7] = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
 
     
     // ======== communicate with SPI flash memory ========
@@ -639,6 +627,11 @@ module wfd_top (
 
     // TTC trigger in 40 MHz TTC clock domain
     wire trigger_from_ttc;
+    wire trigger_from_decoder;
+
+    // tie decoder trigger with ready signal
+    // meant to prevent spurious triggers due to clock changes
+    assign trigger_from_ttc = trigger_from_decoder & ttc_ready;
 
     // put other trigger signals into 40 MHz TTC clock domain
     wire ext_trig_stretch;
@@ -871,20 +864,20 @@ module wfd_top (
 
     // TTC decoder module
     TTC_decoder ttc (
-        .TTC_CLK_p(ttc_clkp),        // in  STD_LOGIC
-        .TTC_CLK_n(ttc_clkn),        // in  STD_LOGIC
-        .TTC_rst(ttc_freq_rst),      // in  STD_LOGIC -- asynchronous reset after TTC_CLK_p/TTC_CLK_n frequency changed
-        .TTC_data_p(ttc_rxp),        // in  STD_LOGIC
-        .TTC_data_n(ttc_rxn),        // in  STD_LOGIC
-        .TTC_CLK_out(ttc_clk),       // out STD_LOGIC
-        .TTCready(ttc_ready),        // out STD_LOGIC
-        .L1Accept(trigger_from_ttc), // out STD_LOGIC
-        .BCntRes(BCntRes),                  // out STD_LOGIC
-        .EvCntRes(ttc_evt_reset),    // out STD_LOGIC
-        .SinErrStr(SinErrStr),                // out STD_LOGIC
-        .DbErrStr(DbErrStr),                 // out STD_LOGIC
-        .BrcstStr(ttc_chan_b_valid), // out STD_LOGIC
-        .Brcst(ttc_chan_b_info)      // out STD_LOGIC_VECTOR(7 DOWNTO 2)
+        .TTC_CLK_p(ttc_clkp),            // in  STD_LOGIC
+        .TTC_CLK_n(ttc_clkn),            // in  STD_LOGIC
+        .TTC_rst(ttc_freq_rst),          // in  STD_LOGIC -- asynchronous reset after TTC_CLK_p/TTC_CLK_n frequency changed
+        .TTC_data_p(ttc_rxp),            // in  STD_LOGIC
+        .TTC_data_n(ttc_rxn),            // in  STD_LOGIC
+        .TTC_CLK_out(ttc_clk),           // out STD_LOGIC
+        .TTCready(ttc_ready),            // out STD_LOGIC
+        .L1Accept(trigger_from_decoder), // out STD_LOGIC
+        .BCntRes(BCntRes),               // out STD_LOGIC
+        .EvCntRes(ttc_evt_reset),        // out STD_LOGIC
+        .SinErrStr(SinErrStr),           // out STD_LOGIC
+        .DbErrStr(DbErrStr),             // out STD_LOGIC
+        .BrcstStr(ttc_chan_b_valid),     // out STD_LOGIC
+        .Brcst(ttc_chan_b_info)          // out STD_LOGIC_VECTOR(7 DOWNTO 2)
     );
 
 
@@ -917,8 +910,6 @@ module wfd_top (
         .gt_clkp(gtx_clk0), .gt_clkn(gtx_clk0_N),
         .gt_txp(gige_tx),   .gt_txn(gige_tx_N),
         .gt_rxp(gige_rx),   .gt_rxn(gige_rx_N),
-        .sfp_los(sfp_los),
-        .eth_link_status(eth_link_status),
         .rst_out(rst_from_ipb),
 
         // clocks
@@ -931,7 +922,7 @@ module wfd_top (
         .ip_addr_rst_out(ip_addr_rst),       // IP/MAC address from EEPROM reset
         .i2c_mac_adr(i2c_mac_adr[47:0]),     // MAC address read from I2C EEPROM
         .i2c_ip_adr(i2c_ip_adr[31:0]),       // IP address read from I2C EEPROM
-        .i2c_startup_done(i2c_startup_done), // MAC andIP will be valid when this is asserted
+        .i2c_startup_done(i2c_startup_done), // MAC and IP will be valid when this is asserted
 
         // channel user space interface
         // pass out the raw IPbus signals; they're handled in the Aurora block
@@ -1041,6 +1032,7 @@ module wfd_top (
         // IPbus inputs
         .ipb_clk(user_ipb_clk),           // programming clock
         .ipb_reset(rst_from_ipb),
+        .ipb_clk50_reset(ipb_clk50_reset),
         .ipb_strobe(user_ipb_strobe),     // this ipb space is selected for an I/O operation
         .ipb_addr(user_ipb_addr[23:0]),   // slave address(), memory or register
         .ipb_write(user_ipb_write),       // this is a write operation
@@ -1337,6 +1329,7 @@ module wfd_top (
         // FPGA status
         .prog_chan_done(prog_chan_done),
         .async_mode(async_mode_clk125),
+        .is_golden(1'b0),
 
         // soft error thresholds
         .thres_data_corrupt(thres_data_corrupt),
@@ -1362,6 +1355,7 @@ module wfd_top (
         .ddr3_almost_full(ddr3_almost_full),
 
         // other error signals
+        .chan_error_sn(chan_error_sn),
         .chan_error_rc(chan_error_rc),
 
         // external clock
@@ -1638,6 +1632,7 @@ module wfd_top (
         .error_data_corrupt(error_data_corrupt),   // output, data corruption error
         .error_trig_num(error_trig_num_from_cm),   // output, trigger number mismatch between channel and master
         .error_trig_type(error_trig_type_from_cm), // output, trigger type mismatch between channel and master
+        .chan_error_sn(chan_error_sn[4:0]),        // output [ 4:0]
         .chan_error_rc(chan_error_rc[4:0])         // output [ 4:0]
     );
     

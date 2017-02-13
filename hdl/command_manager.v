@@ -93,6 +93,7 @@ module command_manager (
   output reg error_data_corrupt,       // data corruption error
   output reg error_trig_num,           // trigger number mismatch between channel and master
   output reg error_trig_type,          // trigger type mismatch between channel and master
+  output reg [ 4:0] chan_error_sn,     // command serial number mismatch between channel and master
   output reg [ 4:0] chan_error_rc      // master received an error response code, one bit for each channel
 );
 
@@ -142,7 +143,7 @@ module command_manager (
   reg [25:0] ddr3_start_addr;   // DDR3 start address (3 LSBs always zero)
   reg [22:0] wfm_count;         // number of waveform acquired
   reg [21:0] wfm_gap_length;    // gap in unit of 2.5 ns between two consecutive waveforms
-  reg [11:0] chan_tag;          // channel tag
+  reg [10:0] chan_tag;          // channel tag
   reg [ 3:0] chan_xadc_alarms;  // channel alarms from XADC
   reg [31:0] chan_num_buf;      // channel number
   reg [31:0] csn;               // channel serial number
@@ -187,7 +188,7 @@ module command_manager (
   reg [ 31:0] next_chan_num_buf;
   reg [ 22:0] next_wfm_count;
   reg [ 21:0] next_wfm_gap_length;
-  reg [ 11:0] next_chan_tag;
+  reg [ 10:0] next_chan_tag;
   reg [  3:0] next_chan_xadc_alarms;
   reg [ 31:0] next_csn;
   reg [ 31:0] next_data_count;
@@ -214,6 +215,7 @@ module command_manager (
   reg next_ipbus_res_last;
   reg next_daq_valid;
   reg [63:0] next_daq_data;
+  reg [ 4:0] next_chan_error_sn;
   reg [ 4:0] next_chan_error_rc;
   reg [ 3:0] next_chan_tx_fifo_dest;
   reg [22:0] next_chan_burst_count_type1 [4:0];
@@ -362,7 +364,7 @@ module command_manager (
     next_chan_num_buf[31:0]          = chan_num_buf[31:0];
     next_wfm_count[22:0]             = wfm_count[22:0];
     next_wfm_gap_length[21:0]        = wfm_gap_length[21:0];
-    next_chan_tag[11:0]              = chan_tag[11:0];
+    next_chan_tag[10:0]              = chan_tag[10:0];
     next_chan_xadc_alarms[3:0]       = chan_xadc_alarms[3:0];
     next_csn[31:0]                   = csn[31:0];
     next_data_count[31:0]            = data_count[31:0];
@@ -389,6 +391,7 @@ module command_manager (
 
     // external regs
     next_daq_data[63:0]            = daq_data[63:0];
+    next_chan_error_sn[4:0]        = chan_error_sn[4:0];
     next_chan_error_rc[4:0]        = chan_error_rc[4:0];
     next_chan_tx_fifo_dest[3:0]    = chan_tx_fifo_dest[3:0];
     next_chan_tx_fifo_last         = chan_tx_fifo_last;
@@ -622,7 +625,20 @@ module command_manager (
       // read response serial number from channel
       state[READ_CHAN_RSN] : begin
         if (chan_rx_fifo_valid) begin
-          nextstate[READ_CHAN_RC] = 1'b1;
+          // check that the serial numbers are the same
+          if (chan_rx_fifo_data[31:0] == csn[31:0]) begin
+            // everything is good
+            nextstate[READ_CHAN_RC] = 1'b1;
+          end
+          else begin
+            // an error occured, update status register, and report error
+            // ABORT THIS CHANNEL'S READOUT
+            next_chan_error_sn[chan_tx_fifo_dest] = 1'b1;
+
+            next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0]+1;
+            next_csn[31:0] = csn[31:0]+1;
+            nextstate[CHECK_CHAN_EN] = 1'b1;
+          end
         end
         else begin
           nextstate[READ_CHAN_RSN] = 1'b1;
@@ -638,7 +654,7 @@ module command_manager (
             nextstate[READ_CHAN_INFO1] = 1'b1;
           end
           else begin
-            // an error occured, update status register, and report error to front panel LED
+            // an error occured, update status register, and report error
             // ABORT THIS CHANNEL'S READOUT
             next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
 
@@ -743,7 +759,7 @@ module command_manager (
             next_wfm_count[22:20]      = chan_rx_fifo_data[2:0];
           end
 
-          next_chan_tag[11:0] = chan_rx_fifo_data[25:14];
+          next_chan_tag[10:0] = chan_rx_fifo_data[24:14];
           next_master_checksum[127:0] = {chan_rx_fifo_data[31:0], master_checksum[95:0]};
           nextstate[READY_AMC13_HEADER1] = 1'b1;
         end
@@ -763,11 +779,11 @@ module command_manager (
 
           // synchronous mode
           if (~trig_type[2]) begin
-            next_daq_data[63:0] = {2'b01, chan_xadc_alarms[3:0], chan_tag[11:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
+            next_daq_data[63:0] = {2'b01, chan_xadc_alarms[3:0], chan_tag[10:0], wfm_gap_length[21:0], 1'b0, wfm_count[11:0], ddr3_start_addr[25:14]};
           end
           // asynchronous mode
           else begin
-            next_daq_data[63:0] = {2'b01, 4'h0, chan_tag[11:0], 22'd0, wfm_count[11:0], 12'd0};
+            next_daq_data[63:0] = {2'b01, 4'h0, 1'b0, chan_tag[10:0], 22'd0, wfm_count[11:0], 12'd0};
           end
 
           next_readout_timestamp[31:0] = 32'd0;
@@ -778,7 +794,7 @@ module command_manager (
       state[SEND_AMC13_HEADER1] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {5'd0, ttc_xadc_alarms[3:0], endianness_sel, empty_event, trig_type[4:0], trig_timestamp[31:0], 3'd1, board_id[12:0]};
+          next_daq_data[63:0] = {chan_en[4:0], endianness_sel, ttc_xadc_alarms[3:0], empty_event, trig_type[4:0], trig_timestamp[31:0], 3'd1, board_id[12:0]};
           nextstate[SEND_AMC13_HEADER2] = 1'b1;
         end
         else if (~daq_almost_full) begin
@@ -791,7 +807,7 @@ module command_manager (
         end
       end
       // send the second AMC13 header word
-      state[SEND_AMC13_HEADER2] : begin  
+      state[SEND_AMC13_HEADER2] : begin
         if (empty_event) begin
           next_readout_size[22:0] = 23'd0;
           nextstate[READY_AMC13_TRAILER] = 1'b1;
@@ -801,11 +817,11 @@ module command_manager (
 
           // synchronous mode
           if (~trig_type[2]) begin
-            next_daq_data[63:0] = {2'b01, chan_xadc_alarms[3:0], chan_tag[11:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
+            next_daq_data[63:0] = {2'b01, chan_xadc_alarms[3:0], chan_tag[10:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
           end
           // asynchronous mode
           else begin
-            next_daq_data[63:0] = {2'b01, 4'h0, chan_tag[11:0], 22'd0, wfm_count[11:0], 12'd0};
+            next_daq_data[63:0] = {2'b01, 4'h0, 1'b0, chan_tag[10:0], 22'd0, wfm_count[11:0], 12'd0};
           end
 
           next_sent_amc13_header = 1'b1;
@@ -1230,7 +1246,7 @@ module command_manager (
 
       burst_count[22:0]         <= 0;
       chan_num_buf[31:0]        <= 0;
-      chan_tag[11:0]            <= 0;
+      chan_tag[10:0]            <= 0;
       chan_xadc_alarms[3:0]     <= 0;
       wfm_count[22:0]           <= 0;
       wfm_gap_length[21:0]      <= 0;
@@ -1247,6 +1263,7 @@ module command_manager (
       sent_amc13_header         <= 0;
       chan_trig_num[23:0]       <= 0;
       readout_timestamp[31:0]   <= 0;
+      chan_error_sn[4:0]        <= 0; // clear error upon reset
       chan_error_rc[4:0]        <= 0; // clear error upon reset
       daq_valid                 <= 0;
       update_mcs_lsb            <= 0;
@@ -1302,7 +1319,7 @@ module command_manager (
 
       burst_count[22:0]           <= next_burst_count[22:0];
       chan_num_buf[31:0]          <= next_chan_num_buf[31:0];
-      chan_tag[11:0]              <= next_chan_tag[11:0];
+      chan_tag[10:0]              <= next_chan_tag[10:0];
       chan_xadc_alarms[3:0]       <= next_chan_xadc_alarms[3:0];
       wfm_count[22:0]             <= next_wfm_count[22:0];
       wfm_gap_length[21:0]        <= next_wfm_gap_length[21:0];
@@ -1319,6 +1336,7 @@ module command_manager (
       sent_amc13_header           <= next_sent_amc13_header;
       chan_trig_num[23:0]         <= next_chan_trig_num[23:0];   
       readout_timestamp[31:0]     <= next_readout_timestamp[31:0];
+      chan_error_sn[4:0]          <= next_chan_error_sn[4:0];
       chan_error_rc[4:0]          <= next_chan_error_rc[4:0];
       daq_valid                   <= next_daq_valid;
       update_mcs_lsb              <= next_update_mcs_lsb;
