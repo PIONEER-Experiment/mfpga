@@ -211,7 +211,7 @@ module wfd_top (
     wire [ 3:0] cac_state;
     wire [ 3:0] caca_state;
     wire [ 6:0] tp_state;
-    wire [33:0] cm_state;
+    wire [34:0] cm_state;
 
     // ======== TTC Channel B information signals ========
     wire [5:0] ttc_chan_b_info;
@@ -1625,7 +1625,7 @@ module wfd_top (
         .endianness_sel(endianness_sel),         // input, from IPbus
         .thres_data_corrupt(thres_data_corrupt), // input  [31:0], from IPbus
         .async_mode(async_mode_clk125),          // input, from IPbus
-        .state(cm_state),                        // output [33:0]
+        .state(cm_state),                        // output [34:0]
 
         // error connections
         .cs_mismatch_count(cs_mismatch_count),     // number of checksum mismatches
