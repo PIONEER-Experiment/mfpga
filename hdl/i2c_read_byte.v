@@ -122,18 +122,19 @@ parameter [4:0]
     READ_WAIT1 = 5'd19,
     READ_INIT2 = 5'd20,
     READ_WAIT2 = 5'd21,
-    ERROR      = 5'd22,
-    DONE       = 5'd23;
+    STORE_TEMP = 5'd22,
+    ERROR      = 5'd23,
+    DONE       = 5'd24;
     
 // Declare current state and next state variables
-reg [23:0] /* synopsys enum STATE_TYPE */ CS;
-reg [23:0] /* synopsys enum STATE_TYPE */ NS;
+reg [24:0] /* synopsys enum STATE_TYPE */ CS;
+reg [24:0] /* synopsys enum STATE_TYPE */ NS;
 // synopsys state_vector CS
  
 // sequential always block for state transitions (use non-blocking [<=] assignments)
 always @ (posedge clk) begin
     if (reset) begin
-        CS <= 24'b0;      // set all state bits to 0
+        CS <= 25'b0;      // set all state bits to 0
         CS[IDLE] <= 1'b1; // set IDLE state bit to 1
     end
     else
@@ -142,7 +143,7 @@ end
 
 // combinational always block to determine next state (use blocking [=] assignments)
 always @ (CS or i2c_start_read or cmd_ack or irxack or pause_cntr[15:0] or image_copy_done) begin
-    NS = 24'b0; // default all bits to zero; will override one bit
+    NS = 25'b0; // default all bits to zero; will override one bit
 
     case (1'b1) // synopsys full_case parallel_case
         // Leave the IDLE state as soon as 'reset' is negated
@@ -292,9 +293,14 @@ always @ (CS or i2c_start_read or cmd_ack or irxack or pause_cntr[15:0] or image
         // Wait for completion of the transfer
         CS[READ_WAIT2]: begin
             if (cmd_ack)
-                NS[DONE] = 1'b1;
+                NS[STORE_TEMP] = 1'b1;
             else
                 NS[READ_WAIT2] = 1'b1;
+        end
+
+        // Finish storing the temperature
+        CS[STORE_TEMP]: begin
+            NS[DONE] = 1'b1;
         end
 
         // Do some type of error reporting
@@ -431,15 +437,17 @@ always @ (posedge clk) begin
         i2c_stop <= 1'b1;
     end
 
+    if (NS[STORE_TEMP]) begin
+        update_temp_lsb <= 1'b1;
+    end
+
     if (NS[ERROR]) begin
         i2c_error <= 1'b1;
     end
 
     if (NS[DONE]) begin
-        if (image_copy_done) begin
-            i2c_temp_rdy    <= 1'b1;
-            update_temp_lsb <= 1'b1;
-        end
+        if (image_copy_done)
+            i2c_temp_rdy <= 1'b1;
         else
             i2c_byte_rdy <= 1'b1;
     end
