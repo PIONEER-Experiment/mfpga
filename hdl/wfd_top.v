@@ -1030,16 +1030,16 @@ module wfd_top (
         .clk10(clk10),
 
         // IPbus inputs
-        .ipb_clk(user_ipb_clk),           // programming clock
+        .ipb_clk(user_ipb_clk),            // programming clock
         .ipb_reset(rst_from_ipb),
         .ipb_clk50_reset(ipb_clk50_reset),
-        .ipb_strobe(user_ipb_strobe),     // this ipb space is selected for an I/O operation
-        .ipb_addr(user_ipb_addr[23:0]),   // slave address(), memory or register
-        .ipb_write(user_ipb_write),       // this is a write operation
-        .ipb_wdata(user_ipb_wdata[31:0]), // data to write for write operations
+        .ipb_strobe(user_ipb_strobe),      // this ipb space is selected for an I/O operation
+        .ipb_addr(user_ipb_addr[23:0]),    // slave address(), memory or register
+        .ipb_write(user_ipb_write),        // this is a write operation
+        .ipb_wdata(user_ipb_wdata[31:0]),  // data to write for write operations
         // IPbus outputs
-        .ipb_rdata(user_ipb_rdata[31:0]), // data returned for read operations
-        .ipb_ack(user_ipb_ack),           // 'write' data has been stored(), 'read' data is ready
+        .ipb_rdata(user_ipb_rdata[31:0]),  // data returned for read operations
+        .ipb_ack(user_ipb_ack),            // 'write' data has been stored(), 'read' data is ready
 
         // channel 0 connections
         // connections to 2-byte wide AXI4-stream clock domain crossing and data buffering FIFOs

@@ -18,9 +18,9 @@ module clk_synth_intf (
     input [19:0] io_addr,     // local slave address, memory or register
     input io_wr_en,           // this is a write operation, enable target for one clock
     input [31:0] io_wr_data,  // data to write for write operations
-
-    // unused
     input io_rd_en,           // this is a read operation, enable readback logic
+
+    // outputs to IPbus
     output [31:0] io_rd_data, // data returned for read operations
     output io_rd_ack,         // 'write' data has been stored, 'read' data is ready
 
@@ -55,10 +55,6 @@ assign slow_clk_180 = !slow_clk;
 // ==================
 
 assign dclk = slow_clk_180;
-
-assign io_rd_data = 32'b0; // unused
-assign io_rd_ack  =  1'b0; // unused
-
 
 
 // ================================
@@ -180,9 +176,8 @@ always @ (posedge slow_clk) begin
     endcase
 end
 
-
 // ==============================================
-// IPbus interface used to update register values
+// IPbus interface used to access register values
 // ==============================================
 
 // address decoding
@@ -267,7 +262,7 @@ wire [31:0] s00_reg_out;    // clk synth reg 0, initial reset
 reg32_ce2 scntrl_reg (
     .in(io_wr_data[31:0]),
     .reset(startup_rst_cntrl),
-    .def_value(32'h00000001),
+    .def_value(32'h0000_0001),
     .out(scntrl_reg_out[31:0]),
     .clk(io_clk),
     .clk_en1(reg_wr_en),
@@ -362,7 +357,7 @@ always @ (posedge slow_clk) begin
                 strobe <= 1'b0;
 
                 if (scntrl_LSB)
-                    strobe_state <= STROBE_DONE;    
+                    strobe_state <= STROBE_DONE;
                 else
                     strobe_state <= STROBE_IDLE;
             end
@@ -663,6 +658,54 @@ always @ (posedge slow_clk) begin
             end
         endcase
     end
+end
+
+
+// ==========================
+// IPbus register readout MUX
+// ==========================
+
+// if a particular register is addressed, connect it to the 'io_rd_data' output, and
+// assert 'io_rd_ack' if chip select for this module is asserted during a 'read' operation
+reg [31:0] io_rd_data_reg;
+reg io_rd_ack_reg;
+
+assign io_rd_data[31:0] = io_rd_data_reg[31:0];
+assign io_rd_ack = io_rd_ack_reg;
+
+always @(posedge io_clk) begin
+    io_rd_ack_reg <= io_sync & io_sel & io_rd_en;
+end
+
+// route the selected register to the 'io_rd_data' output
+always @(posedge io_clk) begin
+    if (scntrlreg_sel) io_rd_data_reg[31:0] <= scntrl_reg_out[31:0];
+    if (   s25reg_sel) io_rd_data_reg[31:0] <=    s25_reg_out[31:0];
+    if (   s24reg_sel) io_rd_data_reg[31:0] <=    s24_reg_out[31:0];
+    if (   s23reg_sel) io_rd_data_reg[31:0] <=    s23_reg_out[31:0];
+    if (   s22reg_sel) io_rd_data_reg[31:0] <=    s22_reg_out[31:0];
+    if (   s21reg_sel) io_rd_data_reg[31:0] <=    s21_reg_out[31:0];
+    if (   s20reg_sel) io_rd_data_reg[31:0] <=    s20_reg_out[31:0];
+    if (   s19reg_sel) io_rd_data_reg[31:0] <=    s19_reg_out[31:0];
+    if (   s18reg_sel) io_rd_data_reg[31:0] <=    s18_reg_out[31:0];
+    if (   s17reg_sel) io_rd_data_reg[31:0] <=    s17_reg_out[31:0];
+    if (   s16reg_sel) io_rd_data_reg[31:0] <=    s16_reg_out[31:0];
+    if (   s15reg_sel) io_rd_data_reg[31:0] <=    s15_reg_out[31:0];
+    if (   s14reg_sel) io_rd_data_reg[31:0] <=    s14_reg_out[31:0];
+    if (   s13reg_sel) io_rd_data_reg[31:0] <=    s13_reg_out[31:0];
+    if (   s12reg_sel) io_rd_data_reg[31:0] <=    s12_reg_out[31:0];
+    if (   s11reg_sel) io_rd_data_reg[31:0] <=    s11_reg_out[31:0];
+    if (   s10reg_sel) io_rd_data_reg[31:0] <=    s10_reg_out[31:0];
+    if (   s09reg_sel) io_rd_data_reg[31:0] <=    s09_reg_out[31:0];
+    if (   s08reg_sel) io_rd_data_reg[31:0] <=    s08_reg_out[31:0];
+    if (   s07reg_sel) io_rd_data_reg[31:0] <=    s07_reg_out[31:0];
+    if (   s06reg_sel) io_rd_data_reg[31:0] <=    s06_reg_out[31:0];
+    if (   s05reg_sel) io_rd_data_reg[31:0] <=    s05_reg_out[31:0];
+    if (   s04reg_sel) io_rd_data_reg[31:0] <=    s04_reg_out[31:0];
+    if (   s03reg_sel) io_rd_data_reg[31:0] <=    s03_reg_out[31:0];
+    if (   s02reg_sel) io_rd_data_reg[31:0] <=    s02_reg_out[31:0];
+    if (   s01reg_sel) io_rd_data_reg[31:0] <=    s01_reg_out[31:0];
+    if (   s00reg_sel) io_rd_data_reg[31:0] <=    s00_reg_out[31:0];
 end
 
 

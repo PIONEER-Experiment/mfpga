@@ -556,7 +556,7 @@ module all_channels (
     .ipb_write(ipb_write),     // IPbus write
     .io_rd_ack(io_rd_ack_reg), // verilog ack
     // outputs
-    .io_sync(io_sync),         // An operation is in progress
+    .io_sync(io_sync),         // an operation is in progress
     .io_rd_en(io_rd_en),       // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),       // one cycle long write enable
     .ipb_ack(ipb_ack),         // one cycle long ack back to IPbus

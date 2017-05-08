@@ -19,9 +19,9 @@ module afe_dac_intf (
     input [19:0] io_addr,     // local slave address, memory or register
     input io_wr_en,           // this is a write operation, enable target for one clock
     input [31:0] io_wr_data,  // data to write for write operations
-
-    // unused
     input io_rd_en,           // this is a read operation, enable readback logic
+
+    // outputs from IPbus
     output [31:0] io_rd_data, // data returned for read operations
     output io_rd_ack,         // 'write' data has been stored, 'read' data is ready
 
@@ -281,179 +281,27 @@ reg32_ce2 s06_3_reg (.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`DA
 // synchronize register values into slow clock domain
 // ==================================================
 
-sync_2stage #(
-    .WIDTH(32)
-) s00_1_reg_sync (
-    .clk(clk10),
-    .in(s00_1_reg_out),
-    .out(s00_1_reg_out_sync)
-);
-
-sync_2stage #(
-    .WIDTH(32)
-) s00_2_reg_sync (
-    .clk(clk10),
-    .in(s00_2_reg_out),
-    .out(s00_2_reg_out_sync)
-);
-
-sync_2stage #(
-    .WIDTH(32)
-) s00_3_reg_sync (
-    .clk(clk10),
-    .in(s00_3_reg_out),
-    .out(s00_3_reg_out_sync)
-);
-
-
-sync_2stage #(
-    .WIDTH(32)
-) s01_1_reg_sync (
-    .clk(clk10),
-    .in(s01_1_reg_out),
-    .out(s01_1_reg_out_sync)
-);
-
-sync_2stage #(
-    .WIDTH(32)
-) s01_2_reg_sync (
-    .clk(clk10),
-    .in(s01_2_reg_out),
-    .out(s01_2_reg_out_sync)
-);
-
-sync_2stage #(
-    .WIDTH(32)
-) s01_3_reg_sync (
-    .clk(clk10),
-    .in(s01_3_reg_out),
-    .out(s01_3_reg_out_sync)
-);
-
-
-sync_2stage #(
-    .WIDTH(32)
-) s02_1_reg_sync (
-    .clk(clk10),
-    .in(s02_1_reg_out),
-    .out(s02_1_reg_out_sync)
-);
-
-sync_2stage #(
-    .WIDTH(32)
-) s02_2_reg_sync (
-    .clk(clk10),
-    .in(s02_2_reg_out),
-    .out(s02_2_reg_out_sync)
-);
-
-sync_2stage #(
-    .WIDTH(32)
-) s02_3_reg_sync (
-    .clk(clk10),
-    .in(s02_3_reg_out),
-    .out(s02_3_reg_out_sync)
-);
-
-
-sync_2stage #(
-    .WIDTH(32)
-) s03_1_reg_sync (
-    .clk(clk10),
-    .in(s03_1_reg_out),
-    .out(s03_1_reg_out_sync)
-);
-
-sync_2stage #(
-    .WIDTH(32)
-) s03_2_reg_sync (
-    .clk(clk10),
-    .in(s03_2_reg_out),
-    .out(s03_2_reg_out_sync)
-);
-
-sync_2stage #(
-    .WIDTH(32)
-) s03_3_reg_sync (
-    .clk(clk10),
-    .in(s03_3_reg_out),
-    .out(s03_3_reg_out_sync)
-);
-
-
-sync_2stage #(
-    .WIDTH(32)
-) s04_1_reg_sync (
-    .clk(clk10),
-    .in(s04_1_reg_out),
-    .out(s04_1_reg_out_sync)
-);
-
-sync_2stage #(
-    .WIDTH(32)
-) s04_2_reg_sync (
-    .clk(clk10),
-    .in(s04_2_reg_out),
-    .out(s04_2_reg_out_sync)
-);
-
-sync_2stage #(
-    .WIDTH(32)
-) s04_3_reg_sync (
-    .clk(clk10),
-    .in(s04_3_reg_out),
-    .out(s04_3_reg_out_sync)
-);
-
-
-sync_2stage #(
-    .WIDTH(32)
-) s05_1_reg_sync (
-    .clk(clk10),
-    .in(s05_1_reg_out),
-    .out(s05_1_reg_out_sync)
-);
-
-sync_2stage #(
-    .WIDTH(32)
-) s05_2_reg_sync (
-    .clk(clk10),
-    .in(s05_2_reg_out),
-    .out(s05_2_reg_out_sync)
-);
-
-sync_2stage #(
-    .WIDTH(32)
-) s05_3_reg_sync (
-    .clk(clk10),
-    .in(s05_3_reg_out),
-    .out(s05_3_reg_out_sync)
-);
-
-
-sync_2stage #(
-    .WIDTH(32)
-) s06_1_reg_sync (
-    .clk(clk10),
-    .in(s06_1_reg_out),
-    .out(s06_1_reg_out_sync)
-);
-
-sync_2stage #(
-    .WIDTH(32)
-) s06_2_reg_sync (
-    .clk(clk10),
-    .in(s06_2_reg_out),
-    .out(s06_2_reg_out_sync)
-);
-
-sync_2stage #(
-    .WIDTH(32)
-) s06_3_reg_sync (
-    .clk(clk10),
-    .in(s06_3_reg_out),
-    .out(s06_3_reg_out_sync)
-);
+sync_2stage #(.WIDTH(32)) s00_1_reg_sync (.clk(clk10), .in(s00_1_reg_out), .out(s00_1_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s00_2_reg_sync (.clk(clk10), .in(s00_2_reg_out), .out(s00_2_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s00_3_reg_sync (.clk(clk10), .in(s00_3_reg_out), .out(s00_3_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s01_1_reg_sync (.clk(clk10), .in(s01_1_reg_out), .out(s01_1_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s01_2_reg_sync (.clk(clk10), .in(s01_2_reg_out), .out(s01_2_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s01_3_reg_sync (.clk(clk10), .in(s01_3_reg_out), .out(s01_3_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s02_1_reg_sync (.clk(clk10), .in(s02_1_reg_out), .out(s02_1_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s02_2_reg_sync (.clk(clk10), .in(s02_2_reg_out), .out(s02_2_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s02_3_reg_sync (.clk(clk10), .in(s02_3_reg_out), .out(s02_3_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s03_1_reg_sync (.clk(clk10), .in(s03_1_reg_out), .out(s03_1_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s03_2_reg_sync (.clk(clk10), .in(s03_2_reg_out), .out(s03_2_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s03_3_reg_sync (.clk(clk10), .in(s03_3_reg_out), .out(s03_3_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s04_1_reg_sync (.clk(clk10), .in(s04_1_reg_out), .out(s04_1_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s04_2_reg_sync (.clk(clk10), .in(s04_2_reg_out), .out(s04_2_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s04_3_reg_sync (.clk(clk10), .in(s04_3_reg_out), .out(s04_3_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s05_1_reg_sync (.clk(clk10), .in(s05_1_reg_out), .out(s05_1_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s05_2_reg_sync (.clk(clk10), .in(s05_2_reg_out), .out(s05_2_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s05_3_reg_sync (.clk(clk10), .in(s05_3_reg_out), .out(s05_3_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s06_1_reg_sync (.clk(clk10), .in(s06_1_reg_out), .out(s06_1_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s06_2_reg_sync (.clk(clk10), .in(s06_2_reg_out), .out(s06_2_reg_out_sync));
+sync_2stage #(.WIDTH(32)) s06_3_reg_sync (.clk(clk10), .in(s06_3_reg_out), .out(s06_3_reg_out_sync));
 
 
 // format: {(DAC #1 REG), (DAC #2 REG), (DAC #3 REG)}
@@ -776,6 +624,49 @@ always @ (posedge clk10) begin
             end
         endcase
     end
+end
+
+
+// ==========================
+// IPbus register readout MUX
+// ==========================
+
+// if a particular register is addressed, connect it to the 'io_rd_data' output, and
+// assert 'io_rd_ack' if chip select for this module is asserted during a 'read' operation
+reg [31:0] io_rd_data_reg;
+reg io_rd_ack_reg;
+
+assign io_rd_data[31:0] = io_rd_data_reg[31:0];
+assign io_rd_ack = io_rd_ack_reg;
+
+always @(posedge io_clk) begin
+    io_rd_ack_reg <= io_sync & io_sel & io_rd_en;
+end
+
+// route the selected register to the 'io_rd_data' output
+always @(posedge io_clk) begin
+    if (scntrl_reg_sel) io_rd_data_reg[31:0] <= scntrl_reg_out[31:0];
+    if ( s00_1_reg_sel) io_rd_data_reg[31:0] <=  s00_1_reg_out[31:0];
+    if ( s00_2_reg_sel) io_rd_data_reg[31:0] <=  s00_2_reg_out[31:0];
+    if ( s00_3_reg_sel) io_rd_data_reg[31:0] <=  s00_3_reg_out[31:0];
+    if ( s01_1_reg_sel) io_rd_data_reg[31:0] <=  s01_1_reg_out[31:0];
+    if ( s01_2_reg_sel) io_rd_data_reg[31:0] <=  s01_2_reg_out[31:0];
+    if ( s01_3_reg_sel) io_rd_data_reg[31:0] <=  s01_3_reg_out[31:0];
+    if ( s02_1_reg_sel) io_rd_data_reg[31:0] <=  s02_1_reg_out[31:0];
+    if ( s02_2_reg_sel) io_rd_data_reg[31:0] <=  s02_2_reg_out[31:0];
+    if ( s02_3_reg_sel) io_rd_data_reg[31:0] <=  s02_3_reg_out[31:0];
+    if ( s03_1_reg_sel) io_rd_data_reg[31:0] <=  s03_1_reg_out[31:0];
+    if ( s03_2_reg_sel) io_rd_data_reg[31:0] <=  s03_2_reg_out[31:0];
+    if ( s03_3_reg_sel) io_rd_data_reg[31:0] <=  s03_3_reg_out[31:0];
+    if ( s04_1_reg_sel) io_rd_data_reg[31:0] <=  s04_1_reg_out[31:0];
+    if ( s04_2_reg_sel) io_rd_data_reg[31:0] <=  s04_2_reg_out[31:0];
+    if ( s04_3_reg_sel) io_rd_data_reg[31:0] <=  s04_3_reg_out[31:0];
+    if ( s05_1_reg_sel) io_rd_data_reg[31:0] <=  s05_1_reg_out[31:0];
+    if ( s05_2_reg_sel) io_rd_data_reg[31:0] <=  s05_2_reg_out[31:0];
+    if ( s05_3_reg_sel) io_rd_data_reg[31:0] <=  s05_3_reg_out[31:0];
+    if ( s06_1_reg_sel) io_rd_data_reg[31:0] <=  s06_1_reg_out[31:0];
+    if ( s06_2_reg_sel) io_rd_data_reg[31:0] <=  s06_2_reg_out[31:0];
+    if ( s06_3_reg_sel) io_rd_data_reg[31:0] <=  s06_3_reg_out[31:0];
 end
 
 
