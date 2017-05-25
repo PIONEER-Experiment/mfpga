@@ -40,9 +40,6 @@ module afe_dac_intf (
 
 assign sclk = clk10;
 
-assign io_rd_data = 32'b0; // unused
-assign io_rd_ack  =  1'b0; // unused
-
 
 // ================================
 // synchronize state machine inputs

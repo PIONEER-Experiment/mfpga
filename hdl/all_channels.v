@@ -504,7 +504,7 @@ module all_channels (
     .sync_n(afe_dac_sync_n),
 
     // debug ports
-    .debug(debug[2:0]) 
+    .debug() 
   );
 
 

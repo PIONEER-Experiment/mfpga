@@ -713,8 +713,8 @@ end
 // debug assignments
 // =================
 
-assign debug[2] = slow_clk;
-assign debug[1] = loop_cnt_max;
-assign debug[0] = scntrl_reg_out[0];
+assign debug[2] = 1'b0; // unused
+assign debug[1] = 1'b0; // unused
+assign debug[0] = 1'b0; // unused
 
 endmodule
