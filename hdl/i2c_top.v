@@ -13,6 +13,7 @@ module i2c_top (
     // inputs
     input clk,                  // 125 MHz clock for IPbus 
     input reset,                // synchronous, active-hi reset from 'rst_from_ipb'
+    input i2c_temp_polling_dis, // disable temperature polling
     // outputs
     output i2c_startup_done,    // MAC and IP will be valid when this is asserted
     output [47:0] i2c_mac_adr,  // MAC address read from I2C EEPROM
@@ -105,16 +106,17 @@ i2c_read_byte i2c_read_byte (
 // Connect a state machine that will copy the entire EEPROM contents to the image memory
 i2c_read_eeprom_sm i2c_read_eeprom_sm (
     // inputs
-    .clk(clk),                        // 125 MHz clock for IPbus 
-    .reset(reset),                    // synchronous, active-hi reset from 'rst_from_ipb'
-    .i2c_byte_rdy(i2c_byte_rdy),      // a byte has been retrieved from the EEPROM
-    .i2c_temp_rdy(i2c_temp_rdy),      // temperature has been retrieved from the EEPROM
+    .clk(clk),                                   // 125 MHz clock for IPbus 
+    .reset(reset),                               // synchronous, active-hi reset from 'rst_from_ipb'
+    .i2c_byte_rdy(i2c_byte_rdy),                 // a byte has been retrieved from the EEPROM
+    .i2c_temp_rdy(i2c_temp_rdy),                 // temperature has been retrieved from the EEPROM
     .i2c_error(i2c_error),
+    .i2c_temp_polling_dis(i2c_temp_polling_dis), // disable temperature polling
     // outputs
-    .i2c_start_read(i2c_start_read),  // start the sequence to read a byte
-    .image_wr_adr(image_wr_adr[7:0]), // the 'wr' address
-    .image_wr_en(image_wr_en),        // memory 'wr' port enable
-    .image_copy_done(image_copy_done) // the entire EEPROM has been read
+    .i2c_start_read(i2c_start_read),             // start the sequence to read a byte
+    .image_wr_adr(image_wr_adr[7:0]),            // the 'wr' address
+    .image_wr_en(image_wr_en),                   // memory 'wr' port enable
+    .image_copy_done(image_copy_done)            // the entire EEPROM has been read
 );
 
 ///////////////////////////////////////////////////////////////////////////////////

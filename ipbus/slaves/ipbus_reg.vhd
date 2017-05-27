@@ -56,6 +56,7 @@ begin
 				reg(0)(11) <= '1';           -- enable muon fill trigger type
 				reg(0)(12) <= '1';           -- enable laser trigger type
 				reg(0)(13) <= '1';           -- enable pedestal trigger type
+				reg(0)(19) <= '1';           -- disable EEPROM temperature polling
 				reg(1)     <= x"0000000a";   -- 10 threshold for data corruption
 				reg(2)     <= x"0000000a";   -- 10 threshold for unknown TTC broadcast commands
 				reg(3)     <= x"00733334";   -- 7,549,747 (90% full) threshold for DDR3 overflow warning

@@ -61,19 +61,20 @@ port (
     axi_stream_out_tready : in  std_logic;
 
     -- control signals
-    async_mode_in         : in  std_logic;                     -- currently set asynchronous mode
-    async_mode_out        : out std_logic;                     -- enable asynchronous mode
-    accept_pulse_trig_out : out std_logic;                     -- allow front panel triggers (for testing)
-    async_trig_type_out   : out std_logic;                     -- fix TTC trigger type to be asynchronous readout (for testing)
-    chan_en_out           : out std_logic_vector( 4 downto 0); -- enable channels in command manager
-    prog_chan_out         : out std_logic;                     -- signal to start programming sequence for channel FPGAs
-    reprog_trigger_out    : out std_logic_vector( 1 downto 0); -- signal to issue IPROG command to re-program FPGA from flash
-    trig_delay_out        : out std_logic_vector(31 downto 0); -- tells trigger manager how long to wait before passing the trigger onto channels
-    endianness_out        : out std_logic;                     -- indicates the endianness of the ADC data sent to the DAQ
-    trig_settings_out     : out std_logic_vector( 2 downto 0); -- indicates whether or not to respond to a given trigger type
-    ttc_loopback_out      : out std_logic;                     -- indicates which the TTS/TTC is in loopback mode (for testing)
-    ext_trig_pulse_en_out : out std_logic;                     -- convert front panel triggers to single pulse triggers (for testing)
-    ttc_freq_rst_out      : out std_logic;                     -- dedicated reset to TTC decoder for frequency changes
+    async_mode_in            : in  std_logic;                     -- currently set asynchronous mode
+    async_mode_out           : out std_logic;                     -- enable asynchronous mode
+    accept_pulse_trig_out    : out std_logic;                     -- allow front panel triggers (for testing)
+    async_trig_type_out      : out std_logic;                     -- fix TTC trigger type to be asynchronous readout (for testing)
+    chan_en_out              : out std_logic_vector( 4 downto 0); -- enable channels in command manager
+    prog_chan_out            : out std_logic;                     -- signal to start programming sequence for channel FPGAs
+    reprog_trigger_out       : out std_logic_vector( 1 downto 0); -- signal to issue IPROG command to re-program FPGA from flash
+    trig_delay_out           : out std_logic_vector(31 downto 0); -- tells trigger manager how long to wait before passing the trigger onto channels
+    endianness_out           : out std_logic;                     -- indicates the endianness of the ADC data sent to the DAQ
+    trig_settings_out        : out std_logic_vector( 2 downto 0); -- indicates whether or not to respond to a given trigger type
+    ttc_loopback_out         : out std_logic;                     -- indicates which the TTS/TTC is in loopback mode (for testing)
+    ext_trig_pulse_en_out    : out std_logic;                     -- convert front panel triggers to single pulse triggers (for testing)
+    ttc_freq_rst_out         : out std_logic;                     -- dedicated reset to TTC decoder for frequency changes
+    i2c_temp_polling_dis_out : out std_logic;                     -- disable EEPROM temperature polling
 
     -- threshold registers
     thres_data_corrupt  : out std_logic_vector(31 downto 0); -- data corruption
@@ -239,20 +240,21 @@ begin
         axi_stream_out_tready => axi_stream_out_tready,
 
         -- control register ports
-        async_mode_in         => async_mode_in,
-        async_mode_out        => async_mode_out,
-        accept_pulse_trig_out => accept_pulse_trig_out,
-        async_trig_type_out   => async_trig_type_out,
-        ip_addr_rst_out       => ip_addr_rst_out,
-        chan_en_out           => chan_en_out,
-        prog_chan_out         => prog_chan_out,
-        reprog_trigger_out    => reprog_trigger_out,
-        trig_delay_out        => trig_delay_out,
-        endianness_out        => endianness_out,
-        trig_settings_out     => trig_settings_out,
-        ttc_loopback_out      => ttc_loopback_out,
-        ext_trig_pulse_en_out => ext_trig_pulse_en_out,
-        ttc_freq_rst_out      => ttc_freq_rst_out,
+        async_mode_in            => async_mode_in,
+        async_mode_out           => async_mode_out,
+        accept_pulse_trig_out    => accept_pulse_trig_out,
+        async_trig_type_out      => async_trig_type_out,
+        ip_addr_rst_out          => ip_addr_rst_out,
+        chan_en_out              => chan_en_out,
+        prog_chan_out            => prog_chan_out,
+        reprog_trigger_out       => reprog_trigger_out,
+        trig_delay_out           => trig_delay_out,
+        endianness_out           => endianness_out,
+        trig_settings_out        => trig_settings_out,
+        ttc_loopback_out         => ttc_loopback_out,
+        ext_trig_pulse_en_out    => ext_trig_pulse_en_out,
+        ttc_freq_rst_out         => ttc_freq_rst_out,
+        i2c_temp_polling_dis_out => i2c_temp_polling_dis_out,
 
         -- threshold register ports
         thres_data_corrupt  => thres_data_corrupt,

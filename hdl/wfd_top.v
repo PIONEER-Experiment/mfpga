@@ -95,6 +95,7 @@ module wfd_top (
     // IPbus overrides
     wire ipb_accept_pulse_triggers;
     wire ipb_async_trig_type;
+    wire i2c_temp_polling_dis;
 
     // ======== startup reset signals ========
     wire master_init_rst1_clk50, master_init_rst1_clk125;
@@ -321,7 +322,7 @@ module wfd_top (
 	// connect a module that will read from the I2C temperature/memory chip.
 	// since the MAC and IP address are used with IPbus, run the block with 'clk125'
 	wire [47:0] i2c_mac_adr; // MAC address read from I2C EEPROM
-	wire [31:0] i2c_ip_adr;  // IP  address read from I2C EEPROM
+	wire [31:0] i2c_ip_adr;  // IP address read from I2C EEPROM
     wire [11:0] i2c_temp;    // temperature reading from I2C EEPROM
     wire i2c_startup_done;
 
@@ -331,19 +332,20 @@ module wfd_top (
 	i2c_top i2c_top (
 		// inputs
 		.clk(clk125),
-        .reset(ip_addr_rst),                 // IPbus reset for reloading addresses from EEPROM
+        .reset(ip_addr_rst),                         // IPbus reset for reloading addresses from EEPROM
+        .i2c_temp_polling_dis(i2c_temp_polling_dis), // disable temperature polling
         // outputs
-        .i2c_startup_done(i2c_startup_done), // MAC and IP will be valid when this is asserted
-		.i2c_mac_adr(i2c_mac_adr[47:0]),	 // MAC address read from I2C EEPROM
-		.i2c_ip_adr(i2c_ip_adr[31:0]),	     // IP  address read from I2C EEPROM
-        .i2c_temp(i2c_temp[11:0]),           // temperature reading from I2C EEPROM
+        .i2c_startup_done(i2c_startup_done),         // MAC and IP will be valid when this is asserted
+		.i2c_mac_adr(i2c_mac_adr[47:0]),	         // MAC address read from I2C EEPROM
+		.i2c_ip_adr(i2c_ip_adr[31:0]),	             // IP address read from I2C EEPROM
+        .i2c_temp(i2c_temp[11:0]),                   // temperature reading from I2C EEPROM
 		// I2C signals
-		.scl_pad_i(bbus_scl),				 // input from external pin
-		.scl_pad_o(bbus_scl_o),			     // output to tri-state driver
-		.scl_padoen_o(bbus_scl_oen),		 // enable signal for tri-state driver
-		.sda_pad_i(bbus_sda),                // input from external pin
-		.sda_pad_o(bbus_sda_o),				 // output to tri-state driver
-		.sda_padoen_o(bbus_sda_oen)			 // enable signal for tri-state driver
+		.scl_pad_i(bbus_scl),				         // input from external pin
+		.scl_pad_o(bbus_scl_o),			             // output to tri-state driver
+		.scl_padoen_o(bbus_scl_oen),		         // enable signal for tri-state driver
+		.sda_pad_i(bbus_sda),                        // input from external pin
+		.sda_pad_o(bbus_sda_o),				         // output to tri-state driver
+		.sda_padoen_o(bbus_sda_oen)			         // enable signal for tri-state driver
 	);
 
     assign bbus_scl = bbus_scl_oen ? 1'bz : bbus_scl_o;
@@ -970,6 +972,7 @@ module wfd_top (
         .ttc_loopback_out(ttc_loopback),                   // select whether TTC/TTS is in loopback mode (for testing)
         .ext_trig_pulse_en_out(ext_trig_pulse_en),         // convert front panel triggers to single pulse triggers (for testing)
         .ttc_freq_rst_out(ttc_freq_rst),                   // dedicated reset to TTC decoder for frequency changes
+        .i2c_temp_polling_dis_out(i2c_temp_polling_dis),   // disable EEPROM temperature polling
 
         // threshold registers
         .thres_data_corrupt(thres_data_corrupt),   // data corruption
