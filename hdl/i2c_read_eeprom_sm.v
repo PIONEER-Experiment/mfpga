@@ -12,6 +12,7 @@ module i2c_read_eeprom_sm (
     input i2c_byte_rdy,            // a byte has been retrieved from the EEPROM
     input i2c_temp_rdy,            // temperature has been retrieved from the EEPROM
     input i2c_error,               // an error occurred
+    input i2c_temp_polling_dis,    // disable temperature polling
     // outputs
     output reg i2c_start_read,     // start the sequence to read a byte
     output reg [7:0] image_wr_adr, // the 'wr' address
@@ -96,7 +97,7 @@ always @(posedge clk) begin
 end
 
 // combinational always block to determine next state (use blocking [=] assignments)
-always @(CS or i2c_error or i2c_byte_rdy or image_wr_adr[7:0] or pause_cntr[15:0] or i2c_temp_rdy or temp_cntr[26:0]) begin
+always @(CS or i2c_error or i2c_byte_rdy or image_wr_adr[7:0] or pause_cntr[15:0] or i2c_temp_rdy or temp_cntr[26:0] or i2c_temp_polling_dis) begin
     NS = 13'b0; // default all bits to zero; will override one bit
 
     case (1'b1) // synopsys full_case parallel_case
@@ -162,7 +163,10 @@ always @(CS or i2c_error or i2c_byte_rdy or image_wr_adr[7:0] or pause_cntr[15:0
 
         // Transition to temperature loop
         CS[DONE_INIT]: begin
-            NS[PAUSE3] = 1'b1;
+            if (i2c_temp_polling_dis)
+                NS[DONE_INIT] = 1'b1; // stay here
+            else
+                NS[PAUSE3] = 1'b1; // continue on to read the temperature
         end
 
         // Pause here before periodically reading temperature
