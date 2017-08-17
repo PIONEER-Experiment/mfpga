@@ -58,7 +58,13 @@ module command_manager (
   input wire [ 4:0] curr_trig_type,  // currently set trigger type
   output wire readout_ready,         // ready to readout data, i.e., when in idle state
   output reg  readout_done,          // finished readout flag
-  output reg [22:0] readout_size,    // burst count of readout event
+
+  // read out size for each channel
+  output wire [22:0] readout_size_chan0,
+  output wire [22:0] readout_size_chan1,
+  output wire [22:0] readout_size_chan2,
+  output wire [22:0] readout_size_chan3,
+  output wire [22:0] readout_size_chan4,
 
   // set burst count for each channel
   output wire [22:0] burst_count_chan0,
@@ -180,6 +186,7 @@ module command_manager (
   reg [11:0] chan_wfm_count_type3   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 3
   reg [31:0] ipbus_chan_cmd;               // buffer for issued channel command
   reg [31:0] ipbus_chan_reg;               // buffer for issued channel register
+  reg [ 4:0] trig_type_latch;              // latched trigger type from TTC Trigger FIFO
   
 
   // for internal regs
@@ -212,6 +219,7 @@ module command_manager (
   reg [  1:0] next_pulse_trig_length;
   reg [127:0] next_s_readout_fifo_tdata;
   reg [ 11:0] next_pretrigger_count;
+  reg [  4:0] next_trig_type_latch;
 
   // for external regs
   reg next_chan_tx_fifo_last;
@@ -228,7 +236,6 @@ module command_manager (
   reg [11:0] next_chan_wfm_count_type1   [4:0];
   reg [11:0] next_chan_wfm_count_type2   [4:0];
   reg [11:0] next_chan_wfm_count_type3   [4:0];
-  reg [22:0] next_readout_size;
 
 
   // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
@@ -269,6 +276,29 @@ module command_manager (
                       (trig_type[4:0] == 5'b00011) ? event_size_type3[19:0] : 
                       (trig_type[4:0] == 5'b00111) ? event_size_type7[19:0] :
                                                      20'hfffff;
+
+  // number of buffered burst counts to be read out
+  // note: async mode condition handled in trigger logic
+  assign readout_size_chan0 = (trig_type_latch[4:0] == 5'b00001) ? (chan_burst_count_type1[0]+1)*chan_wfm_count_type1[0]+2 :
+                              (trig_type_latch[4:0] == 5'b00010) ? (chan_burst_count_type2[0]+1)*chan_wfm_count_type2[0]+2 :
+                              (trig_type_latch[4:0] == 5'b00011) ? (chan_burst_count_type3[0]+1)*chan_wfm_count_type3[0]+2 :
+                                                                   23'd0;
+  assign readout_size_chan1 = (trig_type_latch[4:0] == 5'b00001) ? (chan_burst_count_type1[1]+1)*chan_wfm_count_type1[1]+2 :
+                              (trig_type_latch[4:0] == 5'b00010) ? (chan_burst_count_type2[1]+1)*chan_wfm_count_type2[1]+2 :
+                              (trig_type_latch[4:0] == 5'b00011) ? (chan_burst_count_type3[1]+1)*chan_wfm_count_type3[1]+2 :
+                                                                   23'd0;
+  assign readout_size_chan2 = (trig_type_latch[4:0] == 5'b00001) ? (chan_burst_count_type1[2]+1)*chan_wfm_count_type1[2]+2 :
+                              (trig_type_latch[4:0] == 5'b00010) ? (chan_burst_count_type2[2]+1)*chan_wfm_count_type2[2]+2 :
+                              (trig_type_latch[4:0] == 5'b00011) ? (chan_burst_count_type3[2]+1)*chan_wfm_count_type3[2]+2 :
+                                                                   23'd0;
+  assign readout_size_chan3 = (trig_type_latch[4:0] == 5'b00001) ? (chan_burst_count_type1[3]+1)*chan_wfm_count_type1[3]+2 :
+                              (trig_type_latch[4:0] == 5'b00010) ? (chan_burst_count_type2[3]+1)*chan_wfm_count_type2[3]+2 :
+                              (trig_type_latch[4:0] == 5'b00011) ? (chan_burst_count_type3[3]+1)*chan_wfm_count_type3[3]+2 :
+                                                                   23'd0;
+  assign readout_size_chan4 = (trig_type_latch[4:0] == 5'b00001) ? (chan_burst_count_type1[4]+1)*chan_wfm_count_type1[4]+2 :
+                              (trig_type_latch[4:0] == 5'b00010) ? (chan_burst_count_type2[4]+1)*chan_wfm_count_type2[4]+2 :
+                              (trig_type_latch[4:0] == 5'b00011) ? (chan_burst_count_type3[4]+1)*chan_wfm_count_type3[4]+2 :
+                                                                   23'd0;
 
   // this board's serial number
   wire [11:0] board_id;
@@ -391,6 +421,7 @@ module command_manager (
     next_pulse_trig_length[1:0]      = pulse_trig_length[1:0];
     next_s_readout_fifo_tdata[127:0] = s_readout_fifo_tdata[127:0];
     next_pretrigger_count[11:0]      = pretrigger_count[11:0];
+    next_trig_type_latch[4:0]        = trig_type_latch[4:0];
 
     // external regs
     next_daq_data[63:0]            = daq_data[63:0];
@@ -434,7 +465,6 @@ module command_manager (
     next_chan_wfm_count_type3[2]   = chan_wfm_count_type3[2];
     next_chan_wfm_count_type3[3]   = chan_wfm_count_type3[3];
     next_chan_wfm_count_type3[4]   = chan_wfm_count_type3[4];
-    next_readout_size[22:0]        = readout_size[22:0];
 
     next_daq_valid          = 0; // default
     chan_tx_fifo_data[31:0] = 0; // default
@@ -457,9 +487,11 @@ module command_manager (
           if (send_empty_event) begin
             next_daq_valid = 1'b1;
             next_daq_data[63:0] = {8'h00, trig_num[23:0], trig_timestamp[43:32], 20'd4};
+            next_trig_type_latch[4:0] = 5'b0; // reserve zero to indicate no buffered data read out
             nextstate[SEND_AMC13_HEADER1] = 1'b1;
           end
           else begin
+            next_trig_type_latch[4:0] = trig_type[4:0];
             nextstate[CHECK_CHAN_EN] = 1'b1;
           end
         end
@@ -594,7 +626,6 @@ module command_manager (
           nextstate[SEND_CHAN_CSN] = 1'b1;
         end
         else if (chan_tx_fifo_dest[3:0] == 4'h5) begin
-          next_readout_size[22:0] = (burst_count[19:0]+1)*wfm_count[11:0]+2;
           nextstate[READY_AMC13_TRAILER] = 1'b1;
         end
         else begin
@@ -828,7 +859,6 @@ module command_manager (
       // send the WFD5 header word
       state[SEND_WFD5_HEADER] : begin
         if (empty_event) begin
-          next_readout_size[22:0] = 23'd0;
           nextstate[READY_AMC13_TRAILER] = 1'b1;
         end
         else if (daq_ready) begin
@@ -1065,7 +1095,7 @@ module command_manager (
             end
             // asynchronous mode
             else begin
-              next_daq_data[63:0] = {chan_rx_fifo_data[31:30], chan_rx_fifo_data[6:2], pulse_trig_length[1:0], pulse_timestamp[43:21], daq_data[31:0]};
+              next_daq_data[63:0] = {chan_rx_fifo_data[31:30], chan_rx_fifo_data[17:14], chan_rx_fifo_data[5], pulse_trig_length[1:0], pulse_timestamp[43:21], daq_data[31:0]};
             end
           end
           // this is the channel checksum [63:32]
@@ -1146,7 +1176,7 @@ module command_manager (
           nextstate[READ_PULSE_FIFO] = 1'b1;
         end
       end
-      // grab pulse information from Pulse Redout FIFO
+      // grab pulse information from Pulse Readout FIFO
       state[READ_READOUT_FIFO] : begin
         if (m_readout_fifo_tvalid) begin
           next_pulse_timestamp[43:0]  = m_readout_fifo_tdata[43: 0];
@@ -1331,7 +1361,7 @@ module command_manager (
       pulse_timestamp[43:0]     <= 44'd0;
       pulse_trig_num[23:0]      <= 23'd0;
       pulse_trig_length[1:0]    <=  2'd0;
-      readout_size[22:0]        <= 23'd0;
+      trig_type_latch[4:0]      <=  5'd0;
     end
     else begin
       state <= nextstate;
@@ -1406,7 +1436,7 @@ module command_manager (
       pulse_trig_length[1:0]      <= next_pulse_trig_length[1:0];
       s_readout_fifo_tdata[127:0] <= next_s_readout_fifo_tdata[127:0];
       pretrigger_count[11:0]      <= next_pretrigger_count[11:0];
-      readout_size[22:0]          <= next_readout_size[22:0];
+      trig_type_latch[4:0]        <= next_trig_type_latch[4:0];
     end
   end
 

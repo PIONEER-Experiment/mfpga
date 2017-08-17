@@ -77,6 +77,7 @@ module pulse_trigger_receiver (
                      ((524288 - stored_bursts_chan3[22:0]) < chan_en[3]*(burst_count_chan3[22:0] + 1)) |
                      ((524288 - stored_bursts_chan4[22:0]) < chan_en[4]*(burst_count_chan4[22:0] + 1));
 
+  reg next_pulse_trigger;
   reg [ 3:0] nextstate;
   reg [ 3:0] next_trig_history;
   reg [ 3:0] next_wait_cnt;
@@ -90,15 +91,14 @@ module pulse_trigger_receiver (
   always @* begin
     nextstate = 4'd0;
 
-    next_trig_history  [ 3:0] = trig_history  [ 3:0];
-    next_wait_cnt      [ 3:0] = wait_cnt      [ 3:0];
-    next_trig_length   [ 1:0] = trig_length   [ 1:0];
-    next_trig_num      [23:0] = trig_num      [23:0];
-    next_trig_timestamp[43:0] = trig_timestamp[43:0];
-
+    next_trig_history       [ 3:0] = trig_history       [ 3:0];
+    next_wait_cnt           [ 3:0] = wait_cnt           [ 3:0];
+    next_trig_length        [ 1:0] = trig_length        [ 1:0];
+    next_trig_num           [23:0] = trig_num           [23:0];
+    next_trig_timestamp     [43:0] = trig_timestamp     [43:0];
     next_ddr3_overflow_count[31:0] = ddr3_overflow_count[31:0];
 
-    pulse_trigger = 1'b0; // default
+    next_pulse_trigger = 1'b0; // default
 
     case (1'b1) // synopsys parallel_case full_case
       // idle state
@@ -126,7 +126,7 @@ module pulse_trigger_receiver (
       end
       // pass trigger et al. to channel acquisition controller (asynchronous)
       state[SEND_TRIGGER] : begin
-        pulse_trigger          = 1'b1;    // pass on the trigger
+        next_pulse_trigger     = 1'b1;    // pass on the trigger
         next_trig_history[  1] = trigger; // store trigger level
         next_wait_cnt    [3:0] = wait_cnt[3:0] + 1;
 
@@ -188,20 +188,22 @@ module pulse_trigger_receiver (
     if (reset) begin
       state <= 4'd1 << IDLE;
 
-      trig_history[3:0] <= 3'd0;
-      wait_cnt    [3:0] <= 3'd0;
-      trig_length [1:0] <= 2'd0;
-
+      trig_history       [ 3:0] <=  3'd0;
+      wait_cnt           [ 3:0] <=  3'd0;
+      trig_length        [ 1:0] <=  2'd0;
       ddr3_overflow_count[31:0] <= 32'd0;
+
+      pulse_trigger <= 1'b0;
     end
     else begin
       state <= nextstate;
 
-      trig_history[3:0] <= next_trig_history[3:0];
-      wait_cnt    [3:0] <= next_wait_cnt    [3:0];
-      trig_length [1:0] <= next_trig_length [1:0];
-
+      trig_history       [ 3:0] <= next_trig_history       [ 3:0];
+      wait_cnt           [ 3:0] <= next_wait_cnt           [ 3:0];
+      trig_length        [ 1:0] <= next_trig_length        [ 1:0];
       ddr3_overflow_count[31:0] <= next_ddr3_overflow_count[31:0];
+
+      pulse_trigger <= next_pulse_trigger;
     end
 
     // reset trigger number
@@ -248,19 +250,19 @@ module pulse_trigger_receiver (
     end
     else begin
       case (1'b1) // synopsys parallel_case full_case
-        nextstate[IDLE]: begin
+        nextstate[IDLE] : begin
           fifo_valid       <=   1'b0;
           fifo_data[127:0] <= 128'd0;
         end
-        nextstate[SEND_TRIGGER]: begin
+        nextstate[SEND_TRIGGER] : begin
           fifo_valid       <=   1'b0;
           fifo_data[127:0] <= 128'd0;
         end
-        nextstate[WAIT]: begin
+        nextstate[WAIT] : begin
           fifo_valid       <=   1'b0;
           fifo_data[127:0] <= 128'd0;
         end
-        nextstate[STORE_TRIG_INFO]: begin
+        nextstate[STORE_TRIG_INFO] : begin
           fifo_valid       <= 1'b1;
           fifo_data[127:0] <= {58'd0, trig_length[1:0], trig_num[23:0], trig_timestamp[43:0]};
         end

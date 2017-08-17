@@ -17,8 +17,14 @@ module ttc_trigger_receiver (
   input wire [ 4:0] chan_en,             // enabled channels
 
   // command manager interface
-  input wire readout_done,        // a readout has completed
-  input wire [22:0] readout_size, // burst count of readout event
+  input wire readout_done, // a readout has completed
+
+  // read out size for each channel
+  input wire [22:0] readout_size_chan0,
+  input wire [22:0] readout_size_chan1,
+  input wire [22:0] readout_size_chan2,
+  input wire [22:0] readout_size_chan3,
+  input wire [22:0] readout_size_chan4,
 
   // set burst count for each channel
   input wire [22:0] burst_count_chan0,
@@ -114,6 +120,7 @@ module ttc_trigger_receiver (
   reg [23:0] next_acq_event_cnt;
   reg [ 3:0] next_acq_xadc_alarms;
   reg [31:0] next_ddr3_overflow_count;
+  reg        next_acq_trigger;
 
 
   // combinational always block
@@ -129,7 +136,7 @@ module ttc_trigger_receiver (
     next_acq_xadc_alarms    [ 3:0] = acq_xadc_alarms    [ 3:0];
     next_ddr3_overflow_count[31:0] = ddr3_overflow_count[31:0];
 
-    acq_trigger = 1'b0; // default
+    next_acq_trigger = 1'b0; // default
 
     case (1'b1) // synopsys parallel_case full_case
       // idle state
@@ -180,7 +187,7 @@ module ttc_trigger_receiver (
           end
           // pass along the trigger to channel acquisition controller
           else begin
-            acq_trigger              = 1'b1;                    // pass on the trigger
+            next_acq_trigger         = 1'b1;                    // pass on the trigger
             next_acq_event_cnt[23:0] = acq_event_cnt[23:0] + 1; // increment accepted event counter
             nextstate[STORE_TRIG_INFO] = 1'b1;
           end
@@ -194,7 +201,7 @@ module ttc_trigger_receiver (
           // this is an asynchronous readout trigger
           // pass along the trigger to channel acquisition controller (async)
           else begin
-            acq_trigger              = 1'b1;                    // pass on the trigger
+            next_acq_trigger         = 1'b1;                    // pass on the trigger
             next_acq_event_cnt[23:0] = acq_event_cnt[23:0] + 1; // increment accepted event counter
             nextstate[STORE_TRIG_INFO] = 1'b1;
           end
@@ -230,6 +237,7 @@ module ttc_trigger_receiver (
       acq_trig_type      [ 4:0] <=  5'd0;
       acq_xadc_alarms    [ 3:0] <=  4'd0;
       ddr3_overflow_count[31:0] <= 32'd0;
+      acq_trigger               <=  1'b0;
     end
     else begin
       state <= nextstate;
@@ -238,6 +246,7 @@ module ttc_trigger_receiver (
       acq_trig_type      [ 4:0] <= next_acq_trig_type      [ 4:0];
       acq_xadc_alarms    [ 3:0] <= next_acq_xadc_alarms    [ 3:0];
       ddr3_overflow_count[31:0] <= next_ddr3_overflow_count[31:0];
+      acq_trigger               <= next_acq_trigger;
     end
 
     // reset trigger number
@@ -271,19 +280,26 @@ module ttc_trigger_receiver (
       stored_bursts_chan3[22:0] <= 23'd0;
       stored_bursts_chan4[22:0] <= 23'd0;
     end
-    else if (acq_trigger & ~readout_done) begin
+    else if (acq_trigger & ~empty_event & ~readout_done) begin
       stored_bursts_chan0[22:0] <= stored_bursts_chan0[22:0] + chan_en[0]*acq_size_chan0[22:0];
       stored_bursts_chan1[22:0] <= stored_bursts_chan1[22:0] + chan_en[1]*acq_size_chan1[22:0];
       stored_bursts_chan2[22:0] <= stored_bursts_chan2[22:0] + chan_en[2]*acq_size_chan2[22:0];
       stored_bursts_chan3[22:0] <= stored_bursts_chan3[22:0] + chan_en[3]*acq_size_chan3[22:0];
       stored_bursts_chan4[22:0] <= stored_bursts_chan4[22:0] + chan_en[4]*acq_size_chan4[22:0];
     end
-    else if (readout_done & ~acq_trigger) begin
-      stored_bursts_chan0[22:0] <= stored_bursts_chan0[22:0] - chan_en[0]*readout_size[22:0];
-      stored_bursts_chan1[22:0] <= stored_bursts_chan1[22:0] - chan_en[1]*readout_size[22:0];
-      stored_bursts_chan2[22:0] <= stored_bursts_chan2[22:0] - chan_en[2]*readout_size[22:0];
-      stored_bursts_chan3[22:0] <= stored_bursts_chan3[22:0] - chan_en[3]*readout_size[22:0];
-      stored_bursts_chan4[22:0] <= stored_bursts_chan4[22:0] - chan_en[4]*readout_size[22:0];
+    else if (~acq_trigger & readout_done) begin
+      stored_bursts_chan0[22:0] <= stored_bursts_chan0[22:0] - chan_en[0]*readout_size_chan0[22:0];
+      stored_bursts_chan1[22:0] <= stored_bursts_chan1[22:0] - chan_en[1]*readout_size_chan1[22:0];
+      stored_bursts_chan2[22:0] <= stored_bursts_chan2[22:0] - chan_en[2]*readout_size_chan2[22:0];
+      stored_bursts_chan3[22:0] <= stored_bursts_chan3[22:0] - chan_en[3]*readout_size_chan3[22:0];
+      stored_bursts_chan4[22:0] <= stored_bursts_chan4[22:0] - chan_en[4]*readout_size_chan4[22:0];
+    end
+    else if (acq_trigger & ~empty_event & readout_done) begin
+      stored_bursts_chan0[22:0] <= stored_bursts_chan0[22:0] + chan_en[0]*acq_size_chan0[22:0] - chan_en[0]*readout_size_chan0[22:0];
+      stored_bursts_chan1[22:0] <= stored_bursts_chan1[22:0] + chan_en[1]*acq_size_chan1[22:0] - chan_en[1]*readout_size_chan1[22:0];
+      stored_bursts_chan2[22:0] <= stored_bursts_chan2[22:0] + chan_en[2]*acq_size_chan2[22:0] - chan_en[2]*readout_size_chan2[22:0];
+      stored_bursts_chan3[22:0] <= stored_bursts_chan3[22:0] + chan_en[3]*acq_size_chan3[22:0] - chan_en[3]*readout_size_chan3[22:0];
+      stored_bursts_chan4[22:0] <= stored_bursts_chan4[22:0] + chan_en[4]*acq_size_chan4[22:0] - chan_en[4]*readout_size_chan4[22:0];
     end
   end
   
@@ -296,19 +312,19 @@ module ttc_trigger_receiver (
     end
     else begin
       case (1'b1) // synopsys parallel_case full_case
-        nextstate[IDLE]: begin
+        nextstate[IDLE] : begin
           fifo_valid       <=   1'b0;
           fifo_data[127:0] <= 128'd0;
         end
-        nextstate[SEND_TRIGGER]: begin
+        nextstate[SEND_TRIGGER] : begin
           fifo_valid       <=   1'b0;
           fifo_data[127:0] <= 128'd0;
         end
-        nextstate[STORE_TRIG_INFO]: begin
+        nextstate[STORE_TRIG_INFO] : begin
           fifo_valid       <= 1'b1;
           fifo_data[127:0] <= {26'd0, acq_xadc_alarms[3:0], empty_event, acq_trig_type[4:0], acq_event_cnt[23:0], acq_trig_num[23:0], trig_timestamp[43:0]};
         end
-        nextstate[ERROR]: begin
+        nextstate[ERROR] : begin
           fifo_valid       <=   1'b0;
           fifo_data[127:0] <= 128'd0;
         end

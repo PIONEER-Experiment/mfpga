@@ -43,6 +43,8 @@ module channel_acq_controller (
   reg [ 3:0] nextstate;
   reg [ 4:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
+  reg [ 9:0] next_acq_enable;
+  reg [ 4:0] next_acq_trig;
 
   reg [31:0] delay_cnt; // counter to keep track of trigger delay 
 
@@ -54,8 +56,8 @@ module channel_acq_controller (
     next_acq_trig_type[ 4:0] = acq_trig_type[ 4:0];
     next_acq_trig_num [23:0] = acq_trig_num [23:0];
 
-    acq_enable[9:0] = 10'd0; // default
-    acq_trig  [4:0] =  5'd0; // default
+    next_acq_enable[9:0] = 10'd0; // default
+    next_acq_trig  [4:0] =  5'd0; // default
 
     case (1'b1) // synopsys parallel_case full_case
       // idle state
@@ -87,8 +89,8 @@ module channel_acq_controller (
       // pass trigger and fill type to channels, and
       // wait for channel to report back 'done'
       state[FILL] : begin
-        acq_enable[9:0] = { 5{acq_trig_type[1:0]} };
-        acq_trig  [4:0] = chan_en[4:0];
+        next_acq_enable[9:0] = { 5{acq_trig_type[1:0]} };
+        next_acq_trig  [4:0] = chan_en[4:0];
 
         if (acq_dones[4:0] == chan_en[4:0]) begin
           nextstate[STORE_ACQ_INFO] = 1'b1;
@@ -120,12 +122,18 @@ module channel_acq_controller (
 
       acq_trig_type[ 4:0] <=  5'd0;
       acq_trig_num [23:0] <= 24'd0;
+
+      acq_enable[9:0] <= 10'd0;
+      acq_trig  [4:0] <=  5'd0;
     end
     else begin
       state <= nextstate;
 
       acq_trig_type[ 4:0] <= next_acq_trig_type[ 4:0];
       acq_trig_num [23:0] <= next_acq_trig_num [23:0];
+
+      acq_enable[9:0] <= next_acq_enable[9:0];
+      acq_trig  [4:0] <= next_acq_trig  [4:0];
     end
 
     // reset trigger delay counter
@@ -146,19 +154,19 @@ module channel_acq_controller (
     end
     else begin
       case (1'b1) // synopsys parallel_case full_case
-        nextstate[IDLE]: begin
+        nextstate[IDLE] : begin
           fifo_valid      <=  1'b0;
           fifo_data[31:0] <= 32'd0;
         end
-        nextstate[DELAY]: begin
+        nextstate[DELAY] : begin
           fifo_valid      <=  1'b0;
           fifo_data[31:0] <= 32'd0;
         end
-        nextstate[FILL]: begin
+        nextstate[FILL] : begin
           fifo_valid      <=  1'b0;
           fifo_data[31:0] <= 32'd0;
         end
-        nextstate[STORE_ACQ_INFO]: begin
+        nextstate[STORE_ACQ_INFO] : begin
           fifo_valid      <= 1'b1;
           fifo_data[31:0] <= {3'd0, acq_trig_type[4:0], acq_trig_num[23:0]};
         end

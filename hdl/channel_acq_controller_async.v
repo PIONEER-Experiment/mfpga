@@ -53,6 +53,8 @@ module channel_acq_controller_async (
   reg [ 4:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
   reg [ 4:0] next_acq_dones_latched;
+  reg [ 9:0] next_acq_enable;
+  reg [ 4:0] next_acq_trig;
 
 
   // combinational always block
@@ -63,8 +65,8 @@ module channel_acq_controller_async (
     next_acq_trig_num     [23:0] = acq_trig_num     [23:0];
     next_acq_dones_latched[ 4:0] = acq_dones_latched[ 4:0];
 
-    acq_enable[9:0] = 10'd0; // default
-    acq_trig  [4:0] =  5'd0; // default
+    next_acq_enable[9:0] = 10'd0; // default
+    next_acq_trig  [4:0] =  5'd0; // default
 
     case (1'b1) // synopsys parallel_case full_case
       // idle state
@@ -80,8 +82,8 @@ module channel_acq_controller_async (
         end
         // pass on front panel trigger to channels
         else if (accept_pulse_triggers & async_mode) begin
-          acq_enable[9:0] = { 5{2'b11} }; // enable lines should be fixed and not set by the trigger type
-          acq_trig  [4:0] = (pulse_trigger) ? chan_en[4:0] : 5'b00000;
+          next_acq_enable[9:0] = { 5{2'b11} }; // enable lines should be fixed and not set by the trigger type
+          next_acq_trig  [4:0] = (pulse_trigger) ? chan_en[4:0] : 5'b00000;
 
           nextstate[IDLE] = 1'b1;
         end
@@ -138,6 +140,9 @@ module channel_acq_controller_async (
       acq_trig_type    [ 4:0] <=  5'd0;
       acq_trig_num     [23:0] <= 24'd0;
       acq_dones_latched[ 4:0] <=  5'd0;
+
+      acq_enable[9:0] <= 10'd0;
+      acq_trig  [4:0] <=  5'd0;
     end
     else begin
       state <= nextstate;
@@ -145,6 +150,9 @@ module channel_acq_controller_async (
       acq_trig_type    [ 4:0] <= next_acq_trig_type    [ 4:0];
       acq_trig_num     [23:0] <= next_acq_trig_num     [23:0];
       acq_dones_latched[ 4:0] <= next_acq_dones_latched[ 4:0];
+
+      acq_enable[9:0] <= next_acq_enable[9:0];
+      acq_trig  [4:0] <= next_acq_trig  [4:0];
     end
   end
   
@@ -157,19 +165,19 @@ module channel_acq_controller_async (
     end
     else begin
       case (1'b1) // synopsys parallel_case full_case
-        nextstate[IDLE]: begin
+        nextstate[IDLE] : begin
           fifo_valid      <=  1'b0;
           fifo_data[31:0] <= 32'd0;
         end
-        nextstate[WAIT]: begin
+        nextstate[WAIT] : begin
           fifo_valid      <=  1'b0;
           fifo_data[31:0] <= 32'd0;
         end
-        nextstate[STORE_ACQ_INFO]: begin
+        nextstate[STORE_ACQ_INFO] : begin
           fifo_valid      <= 1'b1;
           fifo_data[31:0] <= {3'd0, acq_trig_type[4:0], acq_trig_num[23:0]};
         end
-        nextstate[READOUT]: begin
+        nextstate[READOUT] : begin
           fifo_valid      <=  1'b0;
           fifo_data[31:0] <= 32'd0;
         end

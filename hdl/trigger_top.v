@@ -31,7 +31,6 @@ module trigger_top (
     // command manager interface
     input  wire readout_ready,         // command manager is idle
     input  wire readout_done,          // initiated readout has finished
-    input  wire [22:0] readout_size,   // burst count of readout event
     output wire send_empty_event,      // request an empty event
     output wire initiate_readout,      // request for the channels to be read out
     output wire [23:0] pulse_trig_num, // pulse trigger number
@@ -45,6 +44,12 @@ module trigger_top (
     output wire [ 4:0] ttc_trig_type,      // trigger type
     output wire [43:0] ttc_trig_timestamp, // trigger timestamp
     output wire [ 3:0] ttc_xadc_alarms,    // XADC alarms
+
+    input wire [22:0] readout_size_chan0,
+    input wire [22:0] readout_size_chan1,
+    input wire [22:0] readout_size_chan2,
+    input wire [22:0] readout_size_chan3,
+    input wire [22:0] readout_size_chan4,
 
     input wire [22:0] burst_count_chan0,
     input wire [22:0] burst_count_chan1,
@@ -165,24 +170,52 @@ module trigger_top (
     );
 
     // toggle synchronize readout_done
-    wire readout_done_clk40;
-    toggle_sync_2stage readout_done_sync (
+    wire readout_done_toggle;
+    toggle_sync_2stage readout_done_loggle_sync (
         .clk_in(clk125),
         .clk_out(ttc_clk),
-        .n_extra_cycles(8'h0F),
+        .n_extra_cycles(8'h0A),
         .in(readout_done),
+        .out(readout_done_toggle)
+    );
+
+    wire readout_done_clk40;
+    sync_2stage readout_done_sync (
+        .clk(ttc_clk),
+        .in(readout_done_toggle),
         .out(readout_done_clk40)
     );
 
-    // synchronize readout_size
-    wire [22:0] readout_size_clk40;
-    sync_2stage #(
-        .WIDTH(23)
-    ) readout_size_sync (
-        .clk(ttc_clk),
-        .in(readout_size),
-        .out(readout_size_clk40)
-    );
+    // synchronize and delay readout_size
+    wire [22:0] readout_size_chan0_delay1, readout_size_chan0_delay2, readout_size_chan0_delay3, readout_size_chan0_clk40;
+    sync_2stage #( .WIDTH(23) ) readout_size_chan0_sync1 ( .clk(ttc_clk), .in(readout_size_chan0),        .out(readout_size_chan0_delay1) );
+    sync_2stage #( .WIDTH(23) ) readout_size_chan0_sync2 ( .clk(ttc_clk), .in(readout_size_chan0_delay1), .out(readout_size_chan0_delay2) );
+    sync_2stage #( .WIDTH(23) ) readout_size_chan0_sync3 ( .clk(ttc_clk), .in(readout_size_chan0_delay2), .out(readout_size_chan0_delay3) );
+    sync_2stage #( .WIDTH(23) ) readout_size_chan0_sync4 ( .clk(ttc_clk), .in(readout_size_chan0_delay3), .out(readout_size_chan0_clk40)  );
+
+    wire [22:0] readout_size_chan1_delay1, readout_size_chan1_delay2, readout_size_chan1_delay3, readout_size_chan1_clk40;
+    sync_2stage #( .WIDTH(23) ) readout_size_chan1_sync1 ( .clk(ttc_clk), .in(readout_size_chan1),        .out(readout_size_chan1_delay1) );
+    sync_2stage #( .WIDTH(23) ) readout_size_chan1_sync2 ( .clk(ttc_clk), .in(readout_size_chan1_delay1), .out(readout_size_chan1_delay2) );
+    sync_2stage #( .WIDTH(23) ) readout_size_chan1_sync3 ( .clk(ttc_clk), .in(readout_size_chan1_delay2), .out(readout_size_chan1_delay3) );
+    sync_2stage #( .WIDTH(23) ) readout_size_chan1_sync4 ( .clk(ttc_clk), .in(readout_size_chan1_delay3), .out(readout_size_chan1_clk40)  );
+
+    wire [22:0] readout_size_chan2_delay1, readout_size_chan2_delay2, readout_size_chan2_delay3, readout_size_chan2_clk40;
+    sync_2stage #( .WIDTH(23) ) readout_size_chan2_sync1 ( .clk(ttc_clk), .in(readout_size_chan2),        .out(readout_size_chan2_delay1) );
+    sync_2stage #( .WIDTH(23) ) readout_size_chan2_sync2 ( .clk(ttc_clk), .in(readout_size_chan2_delay1), .out(readout_size_chan2_delay2) );
+    sync_2stage #( .WIDTH(23) ) readout_size_chan2_sync3 ( .clk(ttc_clk), .in(readout_size_chan2_delay2), .out(readout_size_chan2_delay3) );
+    sync_2stage #( .WIDTH(23) ) readout_size_chan2_sync4 ( .clk(ttc_clk), .in(readout_size_chan2_delay3), .out(readout_size_chan2_clk40)  );
+
+    wire [22:0] readout_size_chan3_delay1, readout_size_chan3_delay2, readout_size_chan3_delay3, readout_size_chan3_clk40;
+    sync_2stage #( .WIDTH(23) ) readout_size_chan3_sync1 ( .clk(ttc_clk), .in(readout_size_chan3),        .out(readout_size_chan3_delay1) );
+    sync_2stage #( .WIDTH(23) ) readout_size_chan3_sync2 ( .clk(ttc_clk), .in(readout_size_chan3_delay1), .out(readout_size_chan3_delay2) );
+    sync_2stage #( .WIDTH(23) ) readout_size_chan3_sync3 ( .clk(ttc_clk), .in(readout_size_chan3_delay2), .out(readout_size_chan3_delay3) );
+    sync_2stage #( .WIDTH(23) ) readout_size_chan3_sync4 ( .clk(ttc_clk), .in(readout_size_chan3_delay3), .out(readout_size_chan3_clk40)  );
+
+    wire [22:0] readout_size_chan4_delay1, readout_size_chan4_delay2, readout_size_chan4_delay3, readout_size_chan4_clk40;
+    sync_2stage #( .WIDTH(23) ) readout_size_chan4_sync1 ( .clk(ttc_clk), .in(readout_size_chan4),        .out(readout_size_chan4_delay1) );
+    sync_2stage #( .WIDTH(23) ) readout_size_chan4_sync2 ( .clk(ttc_clk), .in(readout_size_chan4_delay1), .out(readout_size_chan4_delay2) );
+    sync_2stage #( .WIDTH(23) ) readout_size_chan4_sync3 ( .clk(ttc_clk), .in(readout_size_chan4_delay2), .out(readout_size_chan4_delay3) );
+    sync_2stage #( .WIDTH(23) ) readout_size_chan4_sync4 ( .clk(ttc_clk), .in(readout_size_chan4_delay3), .out(readout_size_chan4_clk40)  );
 
     // -------------------
     // signal multiplexers
@@ -226,7 +259,12 @@ module trigger_top (
 
         // command manager interface
         .readout_done(readout_done_clk40), // a readout has completed
-        .readout_size(readout_size_clk40), // burst count of readout event
+
+        .readout_size_chan0(readout_size_chan0_clk40), // readout size for Channel 0
+        .readout_size_chan1(readout_size_chan1_clk40), // readout size for Channel 1
+        .readout_size_chan2(readout_size_chan2_clk40), // readout size for Channel 2
+        .readout_size_chan3(readout_size_chan3_clk40), // readout size for Channel 3
+        .readout_size_chan4(readout_size_chan4_clk40), // readout size for Channel 4
 
         .burst_count_chan0(burst_count_chan0), // burst count set for Channel 0
         .burst_count_chan1(burst_count_chan1), // burst count set for Channel 1
