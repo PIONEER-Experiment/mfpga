@@ -33,8 +33,17 @@ module pulse_trigger_receiver (
   input wire [22:0] burst_count_chan3,
   input wire [22:0] burst_count_chan4,
 
+  // number of bursts stored in the DDR3
+  output reg [22:0] stored_bursts_chan0,
+  output reg [22:0] stored_bursts_chan1,
+  output reg [22:0] stored_bursts_chan2,
+  output reg [22:0] stored_bursts_chan3,
+  output reg [22:0] stored_bursts_chan4,
+
   // status connections
-  output reg [3:0] state, // state of finite state machine
+  input wire accept_pulse_triggers, // accept front panel triggers select
+  input wire async_mode,            // asynchronous mode select
+  output reg [3:0] state,           // state of finite state machine
 
   // error connections
   output reg [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
@@ -53,13 +62,6 @@ module pulse_trigger_receiver (
   reg [ 3:0] wait_cnt;           // wait state count
   reg [ 1:0] trig_length;        // short or long trigger type
   reg [43:0] trig_timestamp_cnt; // clock cycle count
-
-  // number of bursts yet to be read out of DDR3
-  reg [22:0] stored_bursts_chan0;
-  reg [22:0] stored_bursts_chan1;
-  reg [22:0] stored_bursts_chan2;
-  reg [22:0] stored_bursts_chan3;
-  reg [22:0] stored_bursts_chan4;
 
   // mux overflow warnings for all channels
   assign ddr3_almost_full = (stored_bursts_chan0[22:0] > thres_ddr3_overflow[22:0]) |
@@ -103,7 +105,7 @@ module pulse_trigger_receiver (
     case (1'b1) // synopsys parallel_case full_case
       // idle state
       state[IDLE] : begin
-        if (trigger) begin
+        if (trigger & async_mode & accept_pulse_triggers) begin
           // this trigger would overwrite valid data in DDR3, ignore this trigger
           if (ddr3_full) begin
             next_ddr3_overflow_count[31:0] = ddr3_overflow_count[31:0] + 1; // increment overflow error counter

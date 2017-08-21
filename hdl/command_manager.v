@@ -58,6 +58,7 @@ module command_manager (
   input wire [ 4:0] curr_trig_type,  // currently set trigger type
   output wire readout_ready,         // ready to readout data, i.e., when in idle state
   output reg  readout_done,          // finished readout flag
+  output reg  async_readout_done,    // finished asynchronous readout flag
 
   // read out size for each channel
   output wire [22:0] readout_size_chan0,
@@ -1452,6 +1453,7 @@ module command_manager (
       ipbus_cmd_ready       <= 0;
       ipbus_res_valid       <= 0;
       readout_done          <= 0;
+      async_readout_done    <= 0;
       error_data_corrupt    <= 0;
       error_trig_num        <= 0;
       error_trig_type       <= 0;
@@ -1468,6 +1470,7 @@ module command_manager (
       ipbus_cmd_ready       <= 0;
       ipbus_res_valid       <= 0;
       readout_done          <= 0;
+      async_readout_done    <= 0;
       error_data_corrupt    <= 0;
       error_trig_num        <= 0;
       error_trig_type       <= 0;
@@ -1582,6 +1585,9 @@ module command_manager (
         nextstate[SEND_AMC13_TRAILER]    : begin
           daq_trailer <= 1;
           readout_done <= 1;
+          if (~async_mode | (trig_type_latch[4:0] == 5'd7)) begin
+            async_readout_done <= 1;
+          end
         end
 
         // ======================

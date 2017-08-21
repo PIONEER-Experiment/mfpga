@@ -75,6 +75,7 @@ module status_reg_block (
 
   // trigger
   input wire trig_fifo_full,
+  input wire pulse_fifo_full,
   input wire acq_fifo_full,
   input wire [31:0] trig_delay,
   input wire [ 2:0] trig_settings,
@@ -163,7 +164,7 @@ assign status_reg07 = {cm_state[34:32], 6'd0, tp_state[6:0], caca_state[3:0], ca
 assign status_reg08 = {11'd0, acq_dones[4:0], endianness_sel, acq_readout_pause[4:0], fill_type[4:0], chan_en[4:0]};
 
 // Register 09: TTC trigger information
-assign status_reg09 = {27'd0, trig_settings[2:0], acq_fifo_full, trig_fifo_full};
+assign status_reg09 = {26'd0, pulse_fifo_full, trig_settings[2:0], acq_fifo_full, trig_fifo_full};
 
 // Register 10: TTC trigger delay
 assign status_reg10 = trig_delay[31:0];

@@ -42,6 +42,7 @@ module ttc_trigger_receiver (
 
   // channel acquisition controller interface
   input wire acq_ready,            // channels are ready to acquire data
+  input wire acq_activated,
   output reg acq_trigger,          // trigger signal
   output reg [ 4:0] acq_trig_type, // recognized trigger type (muon fill, laser, pedestal, async readout)
   output reg [23:0] acq_trig_num,  // trigger number, starts at 1
@@ -156,7 +157,7 @@ module ttc_trigger_receiver (
             end
           end
           else begin
-            if (trig_type[4:0] != 5'b00111) begin
+            if ((trig_type[4:0] != 5'b00111) | ~acq_activated) begin
               next_empty_event = 1'b1; // indicate to send an empty event
             end
           end
@@ -194,8 +195,8 @@ module ttc_trigger_receiver (
         end
         // in asynchronous mode
         else begin
-          // check for anything other than an asynchronous readout trigger
-          if (acq_trig_type[4:0] != 5'b00111) begin
+          // check for an empty event
+          if (empty_event) begin
             nextstate[STORE_TRIG_INFO] = 1'b1;
           end
           // this is an asynchronous readout trigger

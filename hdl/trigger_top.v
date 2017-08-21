@@ -31,6 +31,7 @@ module trigger_top (
     // command manager interface
     input  wire readout_ready,         // command manager is idle
     input  wire readout_done,          // initiated readout has finished
+    input  wire async_readout_done,    // asynchronous readout has finished
     output wire send_empty_event,      // request an empty event
     output wire initiate_readout,      // request for the channels to be read out
     output wire [23:0] pulse_trig_num, // pulse trigger number
@@ -74,6 +75,7 @@ module trigger_top (
     output wire [23:0] trig_num,       // global trigger number
     output wire [43:0] trig_timestamp, // timestamp for latest trigger received
     output wire trig_fifo_full,        // TTC trigger FIFO is almost full
+    output wire pulse_fifo_full,       // pulse trigger FIFO is almost full
     output wire acq_fifo_full,         // acquisition event FIFO is almost full
 
     // number of bursts stored in the DDR3
@@ -102,6 +104,7 @@ module trigger_top (
     // signals between TTC Trigger Receiver and Channel Acquisition Controllers
     wire acq_ready;
     wire acq_ready_sync, acq_ready_async;
+    wire acq_activated;
     wire acq_trigger;
     wire [ 4:0] acq_trig_type;
     wire [23:0] acq_trig_num;
@@ -118,10 +121,22 @@ module trigger_top (
     wire m_trig_fifo_tvalid;
     wire [127:0] m_trig_fifo_tdata;
 
+    wire [22:0] stored_bursts_chan0_ttr;
+    wire [22:0] stored_bursts_chan1_ttr;
+    wire [22:0] stored_bursts_chan2_ttr;
+    wire [22:0] stored_bursts_chan3_ttr;
+    wire [22:0] stored_bursts_chan4_ttr;
+
     // signals to/from Pulse Trigger FIFO
     wire s_pulse_fifo_tready;
     wire s_pulse_fifo_tvalid;
     wire [127:0] s_pulse_fifo_tdata;
+
+    wire [22:0] stored_bursts_chan0_ptr;
+    wire [22:0] stored_bursts_chan1_ptr;
+    wire [22:0] stored_bursts_chan2_ptr;
+    wire [22:0] stored_bursts_chan3_ptr;
+    wire [22:0] stored_bursts_chan4_ptr;
 
     // signals to/from Acquisition Event FIFO
     wire s_acq_fifo_tready;
@@ -171,7 +186,7 @@ module trigger_top (
 
     // toggle synchronize readout_done
     wire readout_done_toggle;
-    toggle_sync_2stage readout_done_loggle_sync (
+    toggle_sync_2stage readout_done_toggle_sync (
         .clk_in(clk125),
         .clk_out(ttc_clk),
         .n_extra_cycles(8'h0A),
@@ -184,6 +199,23 @@ module trigger_top (
         .clk(ttc_clk),
         .in(readout_done_toggle),
         .out(readout_done_clk40)
+    );
+
+    // toggle synchronize async_readout_done
+    wire async_readout_done_toggle;
+    toggle_sync_2stage async_readout_done_toggle_sync (
+        .clk_in(clk125),
+        .clk_out(ttc_clk),
+        .n_extra_cycles(8'h0A),
+        .in(async_readout_done),
+        .out(async_readout_done_toggle)
+    );
+
+    wire async_readout_done_clk40;
+    sync_2stage async_readout_done_sync (
+        .clk(ttc_clk),
+        .in(async_readout_done_toggle),
+        .out(async_readout_done_clk40)
     );
 
     // synchronize and delay readout_size
@@ -232,10 +264,18 @@ module trigger_top (
     assign s_acq_fifo_tvalid      = (async_mode) ? s_acq_fifo_tvalid_async      : s_acq_fifo_tvalid_sync;
     assign s_acq_fifo_tdata[31:0] = (async_mode) ? s_acq_fifo_tdata_async[31:0] : s_acq_fifo_tdata_sync[31:0];
 
+    // signals between TTC Trigger Receiver and Pulse Trigger Receiver
+    assign stored_bursts_chan0[22:0] = (async_mode) ? stored_bursts_chan0_ptr[22:0] : stored_bursts_chan0_ttr[22:0];
+    assign stored_bursts_chan1[22:0] = (async_mode) ? stored_bursts_chan1_ptr[22:0] : stored_bursts_chan1_ttr[22:0];
+    assign stored_bursts_chan2[22:0] = (async_mode) ? stored_bursts_chan2_ptr[22:0] : stored_bursts_chan2_ttr[22:0];
+    assign stored_bursts_chan3[22:0] = (async_mode) ? stored_bursts_chan3_ptr[22:0] : stored_bursts_chan3_ttr[22:0];
+    assign stored_bursts_chan4[22:0] = (async_mode) ? stored_bursts_chan4_ptr[22:0] : stored_bursts_chan4_ttr[22:0];
+
     // error signals
     assign ddr3_overflow_count[31:0] = (async_mode) ? ddr3_overflow_count_ptr[31:0] : ddr3_overflow_count_ttr[31:0];
     assign ddr3_almost_full          = (async_mode) ? ddr3_almost_full_ptr          : ddr3_almost_full_ttr;
-    
+
+
     // ----------------
     // module instances
     // ----------------
@@ -280,6 +320,7 @@ module trigger_top (
 
         // channel acquisition controller interface
         .acq_ready(acq_ready),         // channels are ready to acquire/readout data
+        .acq_activated(acq_activated),
         .acq_trigger(acq_trigger),     // trigger signal
         .acq_trig_type(acq_trig_type), // recongized trigger type (muon fill, laser, pedestal, async readout)
         .acq_trig_num(acq_trig_num),   // trigger number, starts at 1
@@ -297,11 +338,11 @@ module trigger_top (
         .trig_timestamp(trig_timestamp), // global trigger timestamp
         
         // number of bursts stored in the DDR3
-        .stored_bursts_chan0(stored_bursts_chan0),
-        .stored_bursts_chan1(stored_bursts_chan1),
-        .stored_bursts_chan2(stored_bursts_chan2),
-        .stored_bursts_chan3(stored_bursts_chan3),
-        .stored_bursts_chan4(stored_bursts_chan4),
+        .stored_bursts_chan0(stored_bursts_chan0_ttr),
+        .stored_bursts_chan1(stored_bursts_chan1_ttr),
+        .stored_bursts_chan2(stored_bursts_chan2_ttr),
+        .stored_bursts_chan3(stored_bursts_chan3_ttr),
+        .stored_bursts_chan4(stored_bursts_chan4_ttr),
 
         // error connections
         .ddr3_overflow_count(ddr3_overflow_count_ttr), // number of triggers received that would overflow DDR3
@@ -333,7 +374,7 @@ module trigger_top (
         .fifo_data(s_pulse_fifo_tdata),
 
         // command manager interface
-        .readout_done(readout_done_clk40), // for counter reset
+        .readout_done(async_readout_done_clk40), // for counter reset
 
         // set burst count for each channel
         .burst_count_chan0(burst_count_chan0), // burst count set for Channel 0
@@ -342,8 +383,17 @@ module trigger_top (
         .burst_count_chan3(burst_count_chan3), // burst count set for Channel 3
         .burst_count_chan4(burst_count_chan4), // burst count set for Channel 4
 
+        // number of bursts stored in the DDR3
+        .stored_bursts_chan0(stored_bursts_chan0_ptr),
+        .stored_bursts_chan1(stored_bursts_chan1_ptr),
+        .stored_bursts_chan2(stored_bursts_chan2_ptr),
+        .stored_bursts_chan3(stored_bursts_chan3_ptr),
+        .stored_bursts_chan4(stored_bursts_chan4_ptr),
+
         // status connections
-        .state(ptr_state), // state of finite state machine
+        .accept_pulse_triggers(accept_pulse_triggers), // accept front panel triggers select
+        .async_mode(async_mode),                       // asynchronous mode select
+        .state(ptr_state),                             // state of finite state machine
 
         // error connections
         .ddr3_overflow_count(ddr3_overflow_count_ptr), // number of triggers received that would overflow DDR3
@@ -397,10 +447,11 @@ module trigger_top (
         .readout_done(readout_done_clk40), // a readout has completed
 
         // interface from TTC trigger receiver
-        .ttc_trigger(acq_trigger),       // trigger signal
-        .ttc_trig_type(acq_trig_type),   // recognized trigger type (muon fill, laser, async readout)
-        .ttc_trig_num(acq_trig_num),     // trigger number
-        .ttc_acq_ready(acq_ready_async), // channels are ready to readout data
+        .ttc_trigger(acq_trigger),         // trigger signal
+        .ttc_trig_type(acq_trig_type),     // recognized trigger type (muon fill, laser, async readout)
+        .ttc_trig_num(acq_trig_num),       // trigger number
+        .ttc_acq_ready(acq_ready_async),   // channels are ready to readout data
+        .ttc_acq_activated(acq_activated),
 
         // interface from pulse trigger receiver
         .pulse_trigger(pulse_trigger), // trigger signal

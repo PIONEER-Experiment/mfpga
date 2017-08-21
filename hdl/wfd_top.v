@@ -823,6 +823,7 @@ module wfd_top (
     ////////////////////////////////////////////////////////
     // trigger top and command manager interface connections
     wire readout_ready, readout_done;
+    wire async_readout_done;
     wire send_empty_event;
     wire initiate_readout;
 
@@ -859,6 +860,7 @@ module wfd_top (
 
     // ======== FIFO signals ========
     wire trig_fifo_full;
+    wire pulse_fifo_full;
     wire acq_fifo_full;
 
     
@@ -1397,6 +1399,7 @@ module wfd_top (
 
         // trigger
         .trig_fifo_full(trig_fifo_full),
+        .pulse_fifo_full(pulse_fifo_full),
         .acq_fifo_full(acq_fifo_full),
         .trig_delay(trig_delay),
         .trig_settings(trig_settings),
@@ -1487,11 +1490,12 @@ module wfd_top (
         .chan_trig(acq_trigs),
 
         // command manager interface
-        .readout_ready(readout_ready),       // command manager is idle
-        .readout_done(readout_done),         // initiated readout has finished
-        .send_empty_event(send_empty_event), // request an empty event
-        .initiate_readout(initiate_readout), // request for the channels to be read out
-        .pulse_trig_num(pulse_trig_num),     // asynchronous pulse trigger number
+        .readout_ready(readout_ready),           // command manager is idle
+        .readout_done(readout_done),             // initiated readout has finished
+        .async_readout_done(async_readout_done), // asynchronous readout has finished
+        .send_empty_event(send_empty_event),     // request an empty event
+        .initiate_readout(initiate_readout),     // request for the channels to be read out
+        .pulse_trig_num(pulse_trig_num),         // asynchronous pulse trigger number
 
         .m_pulse_fifo_tready(pulse_fifo_tready), // input
         .m_pulse_fifo_tvalid(pulse_fifo_tvalid), // output
@@ -1522,17 +1526,18 @@ module wfd_top (
         .wfm_count_chan4(wfm_count_chan4), // waveform count set for Channel 4
 
         // status connections
-        .async_mode(async_mode_ttc_clk), // asynchronous mode select
-        .xadc_alarms(xadc_alarms[3:0]),  // XADC alarm signals
-        .ttr_state(ttr_state),           // TTC trigger receiver state
-        .ptr_state(ptr_state),           // pulse trigger receiver state
-        .cac_state(cac_state),           // channel acquisition controller state
-        .caca_state(caca_state),         // channel acquisition controller (asynchronous) state
-        .tp_state(tp_state),             // trigger processor state
-        .trig_num(trig_num),             // global trigger number
-        .trig_timestamp(trig_timestamp), // timestamp for latest trigger received
-        .trig_fifo_full(trig_fifo_full), // TTC trigger FIFO is almost full
-        .acq_fifo_full(acq_fifo_full),   // acquisition event FIFO is almost full
+        .async_mode(async_mode_ttc_clk),   // asynchronous mode select
+        .xadc_alarms(xadc_alarms[3:0]),    // XADC alarm signals
+        .ttr_state(ttr_state),             // TTC trigger receiver state
+        .ptr_state(ptr_state),             // pulse trigger receiver state
+        .cac_state(cac_state),             // channel acquisition controller state
+        .caca_state(caca_state),           // channel acquisition controller (asynchronous) state
+        .tp_state(tp_state),               // trigger processor state
+        .trig_num(trig_num),               // global trigger number
+        .trig_timestamp(trig_timestamp),   // timestamp for latest trigger received
+        .trig_fifo_full(trig_fifo_full),   // TTC trigger FIFO is almost full
+        .pulse_fifo_full(pulse_fifo_full), // pulse trigger FIFO is almost full
+        .acq_fifo_full(acq_fifo_full),     // acquisition event FIFO is almost full
 
         // number of bursts stored in the DDR3
         .stored_bursts_chan0(stored_bursts_chan0),
@@ -1596,16 +1601,17 @@ module wfd_top (
         .daq_data(daq_data),               // output [63:0]
 
         // interface to trigger processor
-        .send_empty_event(send_empty_event), // request to send an empty event
-        .initiate_readout(initiate_readout), // request for the channels to be read out
-        .event_num(ttc_event_num),           // channel's trigger number
-        .trig_num(ttc_trig_num),             // global trigger number, starts at 1
-        .trig_type(ttc_trig_type),           // trigger type
-        .trig_timestamp(ttc_trig_timestamp), // trigger timestamp, defined by when trigger is received by trigger receiver module
-        .ttc_xadc_alarms(ttc_xadc_alarms),   // XADC alarms
-        .curr_trig_type(fill_type_clk125),   // currently set trigger type
-        .readout_ready(readout_ready),       // ready to readout data, i.e., when in idle state
-        .readout_done(readout_done),         // finished readout flag
+        .send_empty_event(send_empty_event),     // request to send an empty event
+        .initiate_readout(initiate_readout),     // request for the channels to be read out
+        .event_num(ttc_event_num),               // channel's trigger number
+        .trig_num(ttc_trig_num),                 // global trigger number, starts at 1
+        .trig_type(ttc_trig_type),               // trigger type
+        .trig_timestamp(ttc_trig_timestamp),     // trigger timestamp, defined by when trigger is received by trigger receiver module
+        .ttc_xadc_alarms(ttc_xadc_alarms),       // XADC alarms
+        .curr_trig_type(fill_type_clk125),       // currently set trigger type
+        .readout_ready(readout_ready),           // ready to readout data, i.e., when in idle state
+        .readout_done(readout_done),             // finished readout flag
+        .async_readout_done(async_readout_done), // finished asynchronous readout flag
 
         // read out size for each channel
         .readout_size_chan0(readout_size_chan0), // readout size for Channel 0
