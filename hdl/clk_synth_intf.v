@@ -12,10 +12,9 @@ module clk_synth_intf (
 
     // inputs from IPbus
     input io_clk,             // IPbus interface clock
-    input io_reset,           // IPbus interface reset    
     input io_sel,             // this module has been selected for an I/O operation
     input io_sync,            // start the I/O operation
-    input [19:0] io_addr,     // local slave address, memory or register
+    input [4:0] io_addr,      // local slave address, memory or register
     input io_wr_en,           // this is a write operation, enable target for one clock
     input [31:0] io_wr_data,  // data to write for write operations
     input io_rd_en,           // this is a read operation, enable readback logic
@@ -24,11 +23,12 @@ module clk_synth_intf (
     output [31:0] io_rd_data, // data returned for read operations
     output io_rd_ack,         // 'write' data has been stored, 'read' data is ready
 
-    // outputs to clock synthesizer
+    // connections to clock synthesizer
     output dclk,
     output ddat,
     output reg dlen,
     output sync,
+    input rdbk,
 
     output [2:0] debug 
 );
@@ -181,7 +181,7 @@ end
 // ==============================================
 
 // address decoding
-wire reg_wr_en, scntrlreg_sel;
+wire reg_wr_en, scntrlreg_sel, rdbkreg_sel;
 wire s25reg_sel, s24reg_sel, s23reg_sel, s22reg_sel, s21reg_sel, s20reg_sel, s19reg_sel, s18reg_sel,
      s17reg_sel, s16reg_sel, s15reg_sel, s14reg_sel, s13reg_sel, s12reg_sel, s11reg_sel, s10reg_sel,
      s09reg_sel, s08reg_sel, s07reg_sel, s06reg_sel, s05reg_sel, s04reg_sel, s03reg_sel, s02reg_sel,
@@ -189,9 +189,10 @@ wire s25reg_sel, s24reg_sel, s23reg_sel, s22reg_sel, s21reg_sel, s20reg_sel, s19
 
 assign reg_wr_en = io_sync & io_wr_en;
 
-assign scntrlreg_sel = io_sel && (io_addr[4:0] == 5'b11010);
+assign   rdbkreg_sel = io_sel && (io_addr[4:0] == 5'b11011);    // register readback
+assign scntrlreg_sel = io_sel && (io_addr[4:0] == 5'b11010);    // internal control reg
 assign    s25reg_sel = io_sel && (io_addr[4:0] == 5'b11001);    // clk synth reg 31
-assign    s24reg_sel = io_sel && (io_addr[4:0] == 5'b11000);    // clk synth reg 30 
+assign    s24reg_sel = io_sel && (io_addr[4:0] == 5'b11000);    // clk synth reg 30
 assign    s23reg_sel = io_sel && (io_addr[4:0] == 5'b10111);    // clk synth reg 29
 assign    s22reg_sel = io_sel && (io_addr[4:0] == 5'b10110);    // clk synth reg 28
 assign    s21reg_sel = io_sel && (io_addr[4:0] == 5'b10101);    // clk synth reg 27
@@ -227,7 +228,9 @@ assign    s00reg_sel = io_sel && (io_addr[4:0] == 5'b00000);    // clk synth reg
 //          and not the clk synth register number
 // ===================================================================
 
+reg [31:0] sreg_in;
 wire [31:0] scntrl_reg_out; // LSB controls the strobe
+wire [31:0] rdbk_reg_out;   // register readback
 
 // s[#]_reg_out wires used to write to the clk synth
 // these wires are driven by the reg inside the reg32_ce2 blocks
@@ -269,6 +272,16 @@ reg32_ce2 scntrl_reg (
     .clk_en2(scntrlreg_sel)
 );
 
+reg32_ce2 rdbk_reg (
+    .in(sreg_in[31:0]),
+    .reset(startup_rst_cntrl),
+    .def_value(32'h0000_0000),
+    .out(rdbk_reg_out[31:0]),
+    .clk(io_clk),
+    .clk_en1(1'b1),
+    .clk_en2(1'b1)
+);
+
 reg32_ce2 s25_reg (.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG31),      .out(s25_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s25reg_sel));
 reg32_ce2 s24_reg (.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG30),      .out(s24_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s24reg_sel));
 reg32_ce2 s23_reg (.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_DEF_REG29),      .out(s23_reg_out[31:0]), .clk(io_clk), .clk_en1(reg_wr_en), .clk_en2(s23reg_sel));
@@ -304,78 +317,145 @@ reg32_ce2 s00_reg (.in(io_wr_data[31:0]), .reset(resetS_ioclk), .def_value(`CS_D
 wire scntrl_LSB;
 wire scntrl_LSB_stretch;
 
-signal_stretch scntrl_stretch (
+signal_stretch scntrl_lsb_stretch (
     .signal_in(scntrl_reg_out[0]),
     .clk(io_clk),
     .n_extra_cycles(8'h28), // add more than enough extra clock cycles for synchronization into 6.25 MHz clock domain
     .signal_out(scntrl_LSB_stretch)
 );
 
-sync_2stage scntrl_sync (
+sync_2stage scntrl_lsb_sync (
     .clk(slow_clk),
     .in(scntrl_LSB_stretch),
     .out(scntrl_LSB)
 );
 
 
+// use the MSB of the control register to generate a strobe which will be used
+// to indicate a single register write, instead of all of them sequentially
+
+// synchronize the MSB with the slow_clk
+wire scntrl_MSB;
+wire scntrl_MSB_stretch;
+
+signal_stretch scntrl_msb_stretch (
+    .signal_in(scntrl_reg_out[31]),
+    .clk(io_clk),
+    .n_extra_cycles(8'h28), // add more than enough extra clock cycles for synchronization into 6.25 MHz clock domain
+    .signal_out(scntrl_MSB_stretch)
+);
+
+sync_2stage scntrl_msb_sync (
+    .clk(slow_clk),
+    .in(scntrl_MSB_stretch),
+    .out(scntrl_MSB)
+);
+
 
 // ==================================================
 // generate a single clock strobe based on scntrl_LSB
-// it's triggered by sctrlLSB going from low to high
+// it's triggered by sctrl_LSB going from low to high
 // ==================================================
 
-parameter STROBE_IDLE = 3'b001;
-parameter STROBE_TRIG = 3'b010;
-parameter STROBE_DONE = 3'b100;
+parameter STROBE_LSB_IDLE = 3'b001;
+parameter STROBE_LSB_TRIG = 3'b010;
+parameter STROBE_LSB_DONE = 3'b100;
 
-reg [2:0] strobe_state = 3'b000;
-reg strobe;
+reg [2:0] strobe_LSB_state = 3'b000;
+reg strobe_LSB;
 
 always @ (posedge slow_clk) begin
     if (resetS) begin
-        strobe <= 1'b0;
-        strobe_state <= STROBE_IDLE;
+        strobe_LSB <= 1'b0;
+        strobe_LSB_state <= STROBE_LSB_IDLE;
     end
     else begin
-        case (strobe_state)
-            STROBE_IDLE : begin
-                strobe <= 1'b0;
+        case (strobe_LSB_state)
+            STROBE_LSB_IDLE : begin
+                strobe_LSB <= 1'b0;
 
                 if (scntrl_LSB)
-                    strobe_state <= STROBE_TRIG;
+                    strobe_LSB_state <= STROBE_LSB_TRIG;
                 else
-                    strobe_state <= STROBE_IDLE;
+                    strobe_LSB_state <= STROBE_LSB_IDLE;
             end
             
-            STROBE_TRIG : begin
-                strobe <= 1'b1;
+            STROBE_LSB_TRIG : begin
+                strobe_LSB <= 1'b1;
 
-                strobe_state <= STROBE_DONE;
+                strobe_LSB_state <= STROBE_LSB_DONE;
             end
             
-            STROBE_DONE : begin
-                strobe <= 1'b0;
+            STROBE_LSB_DONE : begin
+                strobe_LSB <= 1'b0;
 
                 if (scntrl_LSB)
-                    strobe_state <= STROBE_DONE;
+                    strobe_LSB_state <= STROBE_LSB_DONE;
                 else
-                    strobe_state <= STROBE_IDLE;
+                    strobe_LSB_state <= STROBE_LSB_IDLE;
             end
         endcase
     end
 end
 
 
-// ==========================================================
-// shift register with counter, LSB wired to output of module
+// ==================================================
+// generate a single clock strobe based on scntrl_MSB
+// it's triggered by sctrl_MSB going from low to high
+// ==================================================
+
+parameter STROBE_MSB_IDLE = 3'b001;
+parameter STROBE_MSB_TRIG = 3'b010;
+parameter STROBE_MSB_DONE = 3'b100;
+
+reg [2:0] strobe_MSB_state = 3'b000;
+reg strobe_MSB;
+
+always @ (posedge slow_clk) begin
+    if (resetS) begin
+        strobe_MSB <= 1'b0;
+        strobe_MSB_state <= STROBE_MSB_IDLE;
+    end
+    else begin
+        case (strobe_MSB_state)
+            STROBE_MSB_IDLE : begin
+                strobe_MSB <= 1'b0;
+
+                if (scntrl_MSB)
+                    strobe_MSB_state <= STROBE_MSB_TRIG;
+                else
+                    strobe_MSB_state <= STROBE_MSB_IDLE;
+            end
+            
+            STROBE_MSB_TRIG : begin
+                strobe_MSB <= 1'b1;
+
+                strobe_MSB_state <= STROBE_MSB_DONE;
+            end
+            
+            STROBE_MSB_DONE : begin
+                strobe_MSB <= 1'b0;
+
+                if (scntrl_MSB)
+                    strobe_MSB_state <= STROBE_MSB_DONE;
+                else
+                    strobe_MSB_state <= STROBE_MSB_IDLE;
+            end
+        endcase
+    end
+end
+
+
+// ===============================================================
+// dual shift register with counter, MSB wired to output of module
 //
 // sreg_strobe - starts the shifting mechanism
 // payload     - what will be shifted
 // sreg_ready  - active high status signal
-// ==========================================================
+// ===============================================================
 
 reg sreg_strobe;
-reg [31:0] sreg;
+reg [31:0] sreg_out;
 reg [5:0] sreg_cnt = 6'b000000;
 reg sreg_ready;
 
@@ -389,7 +469,7 @@ reg sreg_cnt_ena;
 reg sreg_cnt_reset;
 
 wire sreg_cnt_max;
-assign sreg_cnt_max = (sreg_cnt == 6'b011110) ? 1'b1 : 1'b0;
+assign sreg_cnt_max = (scntrl_MSB & (loop_cnt == 6'd1)) ? (sreg_cnt == 6'd25) : (sreg_cnt == 6'd30);
 
 
 always @ (posedge slow_clk) begin
@@ -405,13 +485,17 @@ reg sreg_load;
 
 
 always @ (posedge slow_clk) begin
-    if (sreg_load)
-        sreg[31:0] <= synth_reg[31:0];
-    else
-        sreg[31:0] <= {sreg[30:0], 1'b0};        
+    if (sreg_load) begin
+        sreg_out[31:0] <= synth_reg[31:0];
+        sreg_in[31:0] <= sreg_in[31:0];
+    end
+    else begin
+        sreg_out[31:0] <= {sreg_out[30:0], 1'b0};
+        sreg_in[31:0] <= {sreg_in[30:0], rdbk};
+    end
 end
 
-assign ddat = sreg[31];
+assign ddat = sreg_out[31];
 
 
 always @ (posedge slow_clk) begin
@@ -429,7 +513,7 @@ always @ (posedge slow_clk) begin
             SHIFT_IDLE : begin
                 sreg_cnt_reset <= 1'b1;
                 sreg_cnt_ena   <= 1'b0;
-                sreg_load      <= 1'b1;                    
+                sreg_load      <= 1'b1;
                 dlen           <= 1'b1;
                 sreg_ready     <= 1'b1;
 
@@ -442,14 +526,14 @@ always @ (posedge slow_clk) begin
             SHIFT_LOAD : begin
                 sreg_cnt_reset <= 1'b1;
                 sreg_cnt_ena   <= 1'b0;
-                sreg_load      <= 1'b1;                    
+                sreg_load      <= 1'b1;
                 dlen           <= 1'b1;
                 sreg_ready     <= 1'b0;
 
                 if (sreg_strobe)
                     shift_state <= SHIFT_LOAD;
                 else
-                    shift_state <= SHIFT_SHIFTING;                
+                    shift_state <= SHIFT_SHIFTING;
             end
             
             SHIFT_SHIFTING : begin
@@ -543,10 +627,10 @@ reg [5:0] loop_cnt = `CS_NUM_REGS; // initialized to cnt_max so that the WRITE S
 reg loop_cnt_ena;
 
 wire loop_cnt_max;
-assign loop_cnt_max = (loop_cnt == `CS_NUM_REGS) ? 1'b1 : 1'b0;
+assign loop_cnt_max = (scntrl_MSB) ? (loop_cnt == 6'd1) : (loop_cnt == `CS_NUM_REGS);
 
 always @ (posedge slow_clk) begin
-    if (strobe)
+    if (strobe_LSB)
         loop_cnt[5:0] <= 6'b000000;
     else if (loop_cnt_ena)
         loop_cnt[5:0] <= loop_cnt[5:0] + 6'b000001; 
@@ -578,9 +662,13 @@ always @ (posedge slow_clk) begin
                 sync_cnt[4:0] <= 5'b00000;
                 sync_level    <= 1'b1;
 
+                // begin write to registers
                 if (!loop_cnt_max) begin               
                     synth_state <= WRITE_COUNT;
-                    synth_reg_addr[4:0] <= synth_reg_addr[4:0];
+                    if (scntrl_MSB) // register readback
+                        synth_reg_addr[4:0] <= 5'b11001;
+                    else
+                        synth_reg_addr[4:0] <= synth_reg_addr[4:0];
                 end
                 // don't toggle sync wire before startup configuration is complete
                 else if (!sync_asserted & startup_done) begin
@@ -620,9 +708,13 @@ always @ (posedge slow_clk) begin
                 loop_cnt_ena  <= 1'b0;
                 sync_asserted <= 1'b0;
 
-                if (sreg_ready) // wait here until the shift reg stops shifting
-                    synth_state <= WRITE_INCREMENT;
-                else
+                if (sreg_ready) begin
+                    if (scntrl_MSB)
+                        synth_state <= WRITE_IDLE;
+                    else
+                        synth_state <= WRITE_INCREMENT;
+                end
+                else // wait here until the shift reg stops shifting
                     synth_state <= WRITE_SHIFT;
             end
             
@@ -680,6 +772,7 @@ end
 // route the selected register to the 'io_rd_data' output
 always @(posedge io_clk) begin
     if (scntrlreg_sel) io_rd_data_reg[31:0] <= scntrl_reg_out[31:0];
+    if (  rdbkreg_sel) io_rd_data_reg[31:0] <=   rdbk_reg_out[31:0];
     if (   s25reg_sel) io_rd_data_reg[31:0] <=    s25_reg_out[31:0];
     if (   s24reg_sel) io_rd_data_reg[31:0] <=    s24_reg_out[31:0];
     if (   s23reg_sel) io_rd_data_reg[31:0] <=    s23_reg_out[31:0];

@@ -45,7 +45,7 @@ module wfd_top (
     input  wire adcclk_stat_ld,       // clock synth status, PLL lock detect
     input  wire adcclk_stat,          // clock synth status
     input  wire adcclk_clkin0_stat,   // clock synth status
-    input  wire adcclk_clkin1_stat,   // clock synth status
+    input  wire adcclk_clkin1_stat,   // clock synth status, uWire Readback
     output wire adcclk_sync,          //
     output wire adcclk_dlen,          //
     output wire adcclk_ddat,          //
@@ -1151,6 +1151,7 @@ module wfd_top (
         .adcclk_ddat(adcclk_ddat),
         .adcclk_dlen(adcclk_dlen),
         .adcclk_sync(adcclk_sync),
+        .adcclk_rdbk(adcclk_clkin1_stat),
 
         // analog front-end DAC connections
         .afe_dac_sclk(afe_dac_sclk),

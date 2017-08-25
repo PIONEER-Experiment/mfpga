@@ -32,7 +32,7 @@
     `define CS_DEF_REG10        32'h1642410a    // 
     `define CS_DEF_REG11        32'h0001100b    // 
     `define CS_DEF_REG12        32'h130c006c    // 
-    `define CS_DEF_REG13        32'h0b13902d    // EN_CLKin0 = 1
+    `define CS_DEF_REG13        32'h0b63902d    // Status_CLKin1_MUX = uWire Readback, EN_CLKin0 = 1
     `define CS_DEF_REG14        32'h1300000e    // 
     `define CS_DEF_REG15        32'h8000800f    // 
     `define CS_DEF_REG16        32'hc1550410    // 
@@ -44,6 +44,6 @@
     `define CS_DEF_REG28        32'h0010015c    // PLL1_N = 5, PLL2_R = 1
     `define CS_DEF_REG29        32'h008000dd    // 
     `define CS_DEF_REG30        32'h000000de    // PLL2_N = 6, PLL2_P = 8
-    `define CS_DEF_REG31        32'h001f001f    // 
+    `define CS_DEF_REG31        32'h0000001f    // 
 
 `endif

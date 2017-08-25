@@ -13,10 +13,9 @@ module afe_dac_intf (
 
     // inputs from IPbus
     input io_clk,             // IPbus interface clock
-    input io_reset,           // IPbus interface reset    
     input io_sel,             // this module has been selected for an I/O operation
     input io_sync,            // start the I/O operation
-    input [19:0] io_addr,     // local slave address, memory or register
+    input [4:0] io_addr,      // local slave address, memory or register
     input io_wr_en,           // this is a write operation, enable target for one clock
     input [31:0] io_wr_data,  // data to write for write operations
     input io_rd_en,           // this is a read operation, enable readback logic
@@ -380,7 +379,7 @@ end
 
 
 // ==========================================================
-// shift register with counter, LSB wired to output of module
+// shift register with counter, MSB wired to output of module
 //
 // sreg_strobe - starts the shifting mechanism
 // payload     - what will be shifted

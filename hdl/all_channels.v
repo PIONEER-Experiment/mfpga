@@ -127,6 +127,7 @@ module all_channels (
   output adcclk_ddat,
   output adcclk_dlen,
   output adcclk_sync,
+  input adcclk_rdbk,
 
   // AFE DAC connections
   output afe_dac_sclk,
@@ -451,10 +452,9 @@ module all_channels (
     
     // programming interface inputs
     .io_clk(ipb_clk),                        // programming clock
-    .io_reset(ipb_reset),
     .io_sel(clk_synth_reg_sel),              // this module has been selected for an I/O operation
     .io_sync(io_sync),                       // start the I/O operation
-    .io_addr(ipb_addr[19:0]),                // slave address, memory or register, top 12 bits have been consumed
+    .io_addr(ipb_addr[4:0]),                 // slave address, memory or register, top 12 bits have been consumed
     .io_rd_en(io_rd_en),                     // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),                     // this is a write operation, enable target for one clock
     .io_wr_data(ipb_wdata[31:0]),            // data to write for write operations
@@ -468,9 +468,10 @@ module all_channels (
     .ddat(adcclk_ddat),
     .dlen(adcclk_dlen),
     .sync(adcclk_sync),
+    .rdbk(adcclk_rdbk),
 
     // debug ports
-    .debug(debug[2:0]) 
+    .debug(debug[2:0])
   );
 
 
@@ -486,10 +487,9 @@ module all_channels (
     
     // programming interface inputs
     .io_clk(ipb_clk),                      // programming clock
-    .io_reset(ipb_reset),
     .io_sel(afe_dac_reg_sel),              // this module has been selected for an I/O operation
     .io_sync(io_sync),                     // start the I/O operation
-    .io_addr(ipb_addr[19:0]),              // slave address, memory or register, top 12 bits have been consumed
+    .io_addr(ipb_addr[4:0]),               // slave address, memory or register, top 12 bits have been consumed
     .io_rd_en(io_rd_en),                   // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),                   // this is a write operation, enable target for one clock
     .io_wr_data(ipb_wdata[31:0]),          // data to write for write operations
