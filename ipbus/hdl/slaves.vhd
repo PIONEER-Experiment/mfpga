@@ -39,6 +39,7 @@ port (
     ext_trig_pulse_en_out    : out std_logic;
     ttc_freq_rst_out         : out std_logic;
     i2c_temp_polling_dis_out : out std_logic;
+    i2c_temp_update_out      : out std_logic;
 
     -- threshold registers
     thres_data_corrupt  : out std_logic_vector(31 downto 0); -- data corruption
@@ -201,6 +202,7 @@ begin
     accept_pulse_trig_out    <= ctrl_reg(17);
     ttc_freq_rst_out         <= ctrl_reg(18); -- don't touch
     i2c_temp_polling_dis_out <= ctrl_reg(19); -- don't touch
+    i2c_temp_update_out      <= ctrl_reg(20);
 
 	
 	-- Slave 2: Write-only register

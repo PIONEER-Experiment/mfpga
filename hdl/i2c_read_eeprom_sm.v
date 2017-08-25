@@ -13,6 +13,7 @@ module i2c_read_eeprom_sm (
     input i2c_temp_rdy,            // temperature has been retrieved from the EEPROM
     input i2c_error,               // an error occurred
     input i2c_temp_polling_dis,    // disable temperature polling
+    input i2c_temp_update,         // update temperature value
     // outputs
     output reg i2c_start_read,     // start the sequence to read a byte
     output reg [7:0] image_wr_adr, // the 'wr' address
@@ -56,6 +57,17 @@ always @(posedge clk) begin
         temp_cntr[26:0] <= temp_cntr[26:0] - 1;
 end
 
+// Generate a single clock strobe to update the temperature value
+reg i2c_temp_update_sync1, i2c_temp_update_sync2, i2c_temp_update_sync3;
+wire update_strobe;
+always @(posedge clk) begin
+    i2c_temp_update_sync1 <= i2c_temp_update;
+    i2c_temp_update_sync2 <= i2c_temp_update_sync1;
+    i2c_temp_update_sync3 <= i2c_temp_update_sync2;
+end
+assign update_strobe = i2c_temp_update_sync2 & ~i2c_temp_update_sync3;
+
+
 ////////////////////////////////////////////////////////////////////////////////////////
 // Connect a state machine that will copy the entire EEPROM contents to the image memory
 // Four states are used to read each byte:
@@ -97,7 +109,7 @@ always @(posedge clk) begin
 end
 
 // combinational always block to determine next state (use blocking [=] assignments)
-always @(CS or i2c_error or i2c_byte_rdy or image_wr_adr[7:0] or pause_cntr[15:0] or i2c_temp_rdy or temp_cntr[26:0] or i2c_temp_polling_dis) begin
+always @(CS or i2c_error or i2c_byte_rdy or image_wr_adr[7:0] or pause_cntr[15:0] or i2c_temp_rdy or temp_cntr[26:0] or i2c_temp_polling_dis or update_strobe) begin
     NS = 13'b0; // default all bits to zero; will override one bit
 
     case (1'b1) // synopsys full_case parallel_case
@@ -163,8 +175,12 @@ always @(CS or i2c_error or i2c_byte_rdy or image_wr_adr[7:0] or pause_cntr[15:0
 
         // Transition to temperature loop
         CS[DONE_INIT]: begin
-            if (i2c_temp_polling_dis)
-                NS[DONE_INIT] = 1'b1; // stay here
+            if (i2c_temp_polling_dis) begin
+                if (update_strobe)
+                    NS[PAUSE3] = 1'b1; // continue on to read the temperature
+                else
+                    NS[DONE_INIT] = 1'b1; // stay here
+            end
             else
                 NS[PAUSE3] = 1'b1; // continue on to read the temperature
         end

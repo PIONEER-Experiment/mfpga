@@ -96,6 +96,7 @@ module wfd_top (
     wire ipb_accept_pulse_triggers;
     wire ipb_async_trig_type;
     wire i2c_temp_polling_dis;
+    wire i2c_temp_update;
 
     // ======== startup reset signals ========
     wire master_init_rst1_clk50, master_init_rst1_clk125;
@@ -334,6 +335,7 @@ module wfd_top (
 		.clk(clk125),
         .reset(ip_addr_rst),                         // IPbus reset for reloading addresses from EEPROM
         .i2c_temp_polling_dis(i2c_temp_polling_dis), // disable temperature polling
+        .i2c_temp_update(i2c_temp_update),           // update temperature value
         // outputs
         .i2c_startup_done(i2c_startup_done),         // MAC and IP will be valid when this is asserted
 		.i2c_mac_adr(i2c_mac_adr[47:0]),	         // MAC address read from I2C EEPROM
@@ -975,6 +977,7 @@ module wfd_top (
         .ext_trig_pulse_en_out(ext_trig_pulse_en),         // convert front panel triggers to single pulse triggers (for testing)
         .ttc_freq_rst_out(ttc_freq_rst),                   // dedicated reset to TTC decoder for frequency changes
         .i2c_temp_polling_dis_out(i2c_temp_polling_dis),   // disable EEPROM temperature polling
+        .i2c_temp_update_out(i2c_temp_update),             // read and update EEPROM temperature value
 
         // threshold registers
         .thres_data_corrupt(thres_data_corrupt),   // data corruption

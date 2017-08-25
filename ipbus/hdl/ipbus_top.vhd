@@ -75,6 +75,7 @@ port (
     ext_trig_pulse_en_out    : out std_logic;                     -- convert front panel triggers to single pulse triggers (for testing)
     ttc_freq_rst_out         : out std_logic;                     -- dedicated reset to TTC decoder for frequency changes
     i2c_temp_polling_dis_out : out std_logic;                     -- disable EEPROM temperature polling
+    i2c_temp_update_out      : out std_logic;                     -- read and update EEPROM temperature value
 
     -- threshold registers
     thres_data_corrupt  : out std_logic_vector(31 downto 0); -- data corruption
@@ -255,6 +256,7 @@ begin
         ext_trig_pulse_en_out    => ext_trig_pulse_en_out,
         ttc_freq_rst_out         => ttc_freq_rst_out,
         i2c_temp_polling_dis_out => i2c_temp_polling_dis_out,
+        i2c_temp_update_out      => i2c_temp_update_out,
 
         -- threshold register ports
         thres_data_corrupt  => thres_data_corrupt,
