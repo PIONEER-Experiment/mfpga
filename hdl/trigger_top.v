@@ -22,6 +22,7 @@ module trigger_top (
     input wire [ 4:0] chan_en,             // enabled channels
     input wire [31:0] trig_delay,          // trigger delay
     input wire [31:0] thres_ddr3_overflow, // DDR3 overflow threshold
+    input wire [ 3:0] fp_trig_width,       // width to separate short from long front panel triggers
 
     // channel interface
     input  wire [4:0] chan_dones,
@@ -68,7 +69,7 @@ module trigger_top (
     input  wire async_mode,            // asynchronous mode select 
     input  wire [ 3:0] xadc_alarms,    // XADC alarm signals
     output wire [ 3:0] ttr_state,      // TTC trigger receiver state
-    output wire [ 3:0] ptr_state,      // pulse trigger receiver state
+    output wire [ 4:0] ptr_state,      // pulse trigger receiver state
     output wire [ 3:0] cac_state,      // channel acquisition controller state
     output wire [ 3:0] caca_state,     // channel acquisition controller (asynchronous) state
     output wire [ 6:0] tp_state,       // trigger processor state
@@ -365,6 +366,7 @@ module trigger_top (
         .trigger(ext_trigger),                           // front panel trigger signal
         .thres_ddr3_overflow(thres_ddr3_overflow[22:0]), // DDR3 overflow threshold
         .chan_en(chan_en_clk40),                         // enabled channels
+        .fp_trig_width(fp_trig_width[3:0]),              // width to separate short from long front panel triggers
         .pulse_trigger(pulse_trigger),                   // channel trigger signal
         .trig_num(pulse_trig_num),                       // pulse trigger number
 

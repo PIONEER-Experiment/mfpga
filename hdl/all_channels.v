@@ -184,7 +184,7 @@ module all_channels (
     .io_rd_en(io_rd_en),                           // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),                           // this is a write operation, enable target for one clock
     .io_wr_data(ipb_wdata[31:0]),                  // data to write for write operations
-    // programming interface  outputs
+    // programming interface outputs
     .io_rd_data(chan0_io_rd_data[31:0]),           // data returned for read operations
     .io_rd_ack(chan0_io_rd_ack),                   // 'write' data has been stored, 'read' data is ready
     // the slave side of the transmit FIFO
@@ -240,7 +240,7 @@ module all_channels (
     .io_rd_en(io_rd_en),                           // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),                           // this is a write operation, enable target for one clock
     .io_wr_data(ipb_wdata[31:0]),                  // data to write for write operations
-    // programming interface  outputs
+    // programming interface outputs
     .io_rd_data(chan1_io_rd_data[31:0]),           // data returned for read operations
     .io_rd_ack(chan1_io_rd_ack),                   // 'write' data has been stored, 'read' data is ready
     // the slave side of the transmit FIFO
@@ -295,7 +295,7 @@ module all_channels (
     .io_rd_en(io_rd_en),                           // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),                           // this is a write operation, enable target for one clock
     .io_wr_data(ipb_wdata[31:0]),                  // data to write for write operations
-    // programming interface  outputs
+    // programming interface outputs
     .io_rd_data(chan2_io_rd_data[31:0]),           // data returned for read operations
     .io_rd_ack(chan2_io_rd_ack),                   // 'write' data has been stored, 'read' data is ready
     // the slave side of the transmit FIFO
@@ -350,7 +350,7 @@ module all_channels (
     .io_rd_en(io_rd_en),                           // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),                           // this is a write operation, enable target for one clock
     .io_wr_data(ipb_wdata[31:0]),                  // data to write for write operations
-    // programming interface  outputs
+    // programming interface outputs
     .io_rd_data(chan3_io_rd_data[31:0]),           // data returned for read operations
     .io_rd_ack(chan3_io_rd_ack),                   // 'write' data has been stored, 'read' data is ready
     // the slave side of the transmit FIFO
@@ -405,7 +405,7 @@ module all_channels (
     .io_rd_en(io_rd_en),                           // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),                           // this is a write operation, enable target for one clock
     .io_wr_data(ipb_wdata[31:0]),                  // data to write for write operations
-    // programming interface  outputs
+    // programming interface outputs
     .io_rd_data(chan4_io_rd_data[31:0]),           // data returned for read operations
     .io_rd_ack(chan4_io_rd_ack),                   // 'write' data has been stored, 'read' data is ready
     // the slave side of the transmit FIFO
@@ -527,7 +527,7 @@ module all_channels (
   // connect a MUX to steer the readback data from one of the channels to the IPbus
   reg [31:0] io_rd_data_reg;
   assign ipb_rdata = io_rd_data_reg;
-  // Assert 'io_rd_ack' if any modules below this function assert their 'io_rd_ack'.
+  // Assert 'io_rd_ack' if any modules below this function assert their 'io_rd_ack'
   reg io_rd_ack_reg;
   always @(posedge ipb_clk) begin
     // 'io_rd_ack' comes from the selected channel

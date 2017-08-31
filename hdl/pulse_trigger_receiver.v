@@ -15,6 +15,7 @@ module pulse_trigger_receiver (
   input wire trigger,                    // front panel trigger signal
   input wire [22:0] thres_ddr3_overflow, // DDR3 overflow threshold
   input wire [ 4:0] chan_en,             // enabled channels
+  input wire [ 3:0] fp_trig_width,       // width to separate short from long front panel triggers
   output reg pulse_trigger,              // channel trigger signal
   output reg [23:0] trig_num,            // global trigger number
 
@@ -43,7 +44,7 @@ module pulse_trigger_receiver (
   // status connections
   input wire accept_pulse_triggers, // accept front panel triggers select
   input wire async_mode,            // asynchronous mode select
-  output reg [3:0] state,           // state of finite state machine
+  output reg [4:0] state,           // state of finite state machine
 
   // error connections
   output reg [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
@@ -52,14 +53,15 @@ module pulse_trigger_receiver (
 
   // state bits, with one-hot encoding
   parameter IDLE            = 0;
-  parameter SEND_TRIGGER    = 1;
-  parameter WAIT            = 2;
+  parameter WAIT            = 1;
+  parameter READY_TRIG_INFO = 2;
   parameter STORE_TRIG_INFO = 3;
+  parameter REARM           = 4;
 
 
+  reg trig_went_lo;              // trigger went low before final check
   reg [43:0] trig_timestamp;     // global trigger timestamp
-  reg [ 3:0] trig_history;       // record of past trigger levels
-  reg [ 3:0] wait_cnt;           // wait state count
+  reg [ 3:0] wait_cnt;           // wait state count (for monitoring the trigger width)
   reg [ 1:0] trig_length;        // short or long trigger type
   reg [43:0] trig_timestamp_cnt; // clock cycle count
 
@@ -80,8 +82,8 @@ module pulse_trigger_receiver (
                      ((524288 - stored_bursts_chan4[22:0]) < chan_en[4]*(burst_count_chan4[22:0] + 1));
 
   reg next_pulse_trigger;
-  reg [ 3:0] nextstate;
-  reg [ 3:0] next_trig_history;
+  reg next_trig_went_lo;
+  reg [ 4:0] nextstate;
   reg [ 3:0] next_wait_cnt;
   reg [ 1:0] next_trig_length;
   reg [23:0] next_trig_num;
@@ -91,9 +93,9 @@ module pulse_trigger_receiver (
 
   // combinational always block
   always @* begin
-    nextstate = 4'd0;
+    nextstate = 5'd0;
 
-    next_trig_history       [ 3:0] = trig_history       [ 3:0];
+    next_trig_went_lo              = trig_went_lo;
     next_wait_cnt           [ 3:0] = wait_cnt           [ 3:0];
     next_trig_length        [ 1:0] = trig_length        [ 1:0];
     next_trig_num           [23:0] = trig_num           [23:0];
@@ -114,71 +116,82 @@ module pulse_trigger_receiver (
           end
           // pass along the trigger to channels
           else begin
+            next_pulse_trigger        = 1'b1;                     // pass on the trigger
+            next_trig_went_lo         = 1'b0;                     // clear
+            next_trig_length   [ 1:0] = 2'd0;                     // clear
             next_trig_num      [23:0] = trig_num[23:0] + 1;       // increment trigger counter, starts at zero
             next_trig_timestamp[43:0] = trig_timestamp_cnt[43:0]; // latch trigger timestamp counter
-            next_trig_history  [   0] = trigger;                  // start recording trigger level history
             next_wait_cnt      [ 3:0] = wait_cnt[3:0] + 1;
 
-            nextstate[SEND_TRIGGER] = 1'b1;
+            if (fp_trig_width[3:0] == 4'h0) // trigger monitoring disabled
+              nextstate[READY_TRIG_INFO] = 1'b1;
+            else
+              nextstate[WAIT] = 1'b1;
           end
         end
         else begin
+          next_wait_cnt[3:0] = 4'h0; // clear
+          
           nextstate[IDLE] = 1'b1;
         end
-      end
-      // pass trigger et al. to channel acquisition controller (asynchronous)
-      state[SEND_TRIGGER] : begin
-        next_pulse_trigger     = 1'b1;    // pass on the trigger
-        next_trig_history[  1] = trigger; // store trigger level
-        next_wait_cnt    [3:0] = wait_cnt[3:0] + 1;
-
-        nextstate[WAIT] = 1'b1;
       end
       // finish monitoring the trigger level to determine if it's short or long
       state[WAIT] : begin
         // wait period is over
-        if (wait_cnt[3:0] == 4'd3) begin
-          next_wait_cnt[3:0] = wait_cnt[3:0] + 1;
-          
+        if (wait_cnt[3:0] == fp_trig_width[3:0]) begin
           // determine trigger length
-          if (~trigger) begin
-            next_trig_length[1:0] = 2'b10; // laser only
-          end
-          else if (trig_history[2:0] == 3'b111) begin
-            next_trig_length[1:0] = 2'b01; // Am only
+          if (trigger) begin
+            if (trig_went_lo)
+              next_trig_length[1:0] = 2'b11; // mixed
+            else
+              next_trig_length[1:0] = 2'b10; // long width
           end
           else begin
-            next_trig_length[1:0] = 2'b11; // laser + Am
+            next_trig_length[1:0] = 2'b01;   // short width
           end
 
-          // wait one more cycle to ready trigger information
-          nextstate[WAIT] = 1'b1;
-        end
-        else if (wait_cnt[3:0] == 4'd4) begin
-          // trigger information is ready for storage
-          nextstate[STORE_TRIG_INFO] = 1'b1;
+          // prepare the trigger information for storage
+          nextstate[READY_TRIG_INFO] = 1'b1;
         end
         // keep waiting
         else begin
           next_wait_cnt[3:0] = wait_cnt[3:0] + 1;
-          next_trig_history[wait_cnt] = trigger; // store trigger level
+
+          if (~trigger) // caught the trigger low during monitoring
+            next_trig_went_lo = 1'b1;
 
           nextstate[WAIT] = 1'b1;
         end
+      end
+      // prepare trigger information for storage
+      state[READY_TRIG_INFO] : begin
+        // trigger information is now ready for storage
+        nextstate[STORE_TRIG_INFO] = 1'b1;
       end
       // store the trigger information in the FIFO, for the trigger processor
       state[STORE_TRIG_INFO] : begin
         // FIFO accepted the data word
         if (fifo_ready) begin
-          next_trig_history[3:0] = 4'h0; // reset history
-          next_wait_cnt    [3:0] = 4'h0; // reset wait count
+          next_trig_went_lo      = 1'b0; // reset trigger monitor flag
+          next_wait_cnt   [3:0]  = 4'h0; // reset wait count
+          next_trig_length[1:0]  = 2'd0; // reset trigger length
 
-          nextstate[IDLE] = 1'b1;
+          if (~trigger)
+            nextstate[IDLE] = 1'b1;
+          else
+            nextstate[REARM] = 1'b1;
         end
         // FIFO is not ready for data word
         else begin
           nextstate[STORE_TRIG_INFO] = 1'b1;
         end
+      end
+      // wait here for input trigger to go low before rearming
+      state[REARM] : begin
+        if (~trigger)
+          nextstate[IDLE] = 1'b1;
+        else // continue waiting
+          nextstate[REARM] = 1'b1;
       end
     endcase
   end
@@ -188,24 +201,24 @@ module pulse_trigger_receiver (
   always @(posedge clk) begin
     // reset state machine
     if (reset) begin
-      state <= 4'd1 << IDLE;
+      state <= 5'd1 << IDLE;
 
-      trig_history       [ 3:0] <=  3'd0;
-      wait_cnt           [ 3:0] <=  3'd0;
+      wait_cnt           [ 3:0] <=  4'h0;
       trig_length        [ 1:0] <=  2'd0;
       ddr3_overflow_count[31:0] <= 32'd0;
 
-      pulse_trigger <= 1'b0;
+      trig_went_lo      <= 1'b0;
+      pulse_trigger     <= 1'b0;
     end
     else begin
       state <= nextstate;
 
-      trig_history       [ 3:0] <= next_trig_history       [ 3:0];
       wait_cnt           [ 3:0] <= next_wait_cnt           [ 3:0];
       trig_length        [ 1:0] <= next_trig_length        [ 1:0];
       ddr3_overflow_count[31:0] <= next_ddr3_overflow_count[31:0];
 
-      pulse_trigger <= next_pulse_trigger;
+      trig_went_lo      <= next_trig_went_lo;
+      pulse_trigger     <= next_pulse_trigger;
     end
 
     // reset trigger number
@@ -256,17 +269,21 @@ module pulse_trigger_receiver (
           fifo_valid       <=   1'b0;
           fifo_data[127:0] <= 128'd0;
         end
-        nextstate[SEND_TRIGGER] : begin
+        nextstate[WAIT] : begin
           fifo_valid       <=   1'b0;
           fifo_data[127:0] <= 128'd0;
         end
-        nextstate[WAIT] : begin
+        nextstate[READY_TRIG_INFO] : begin
           fifo_valid       <=   1'b0;
           fifo_data[127:0] <= 128'd0;
         end
         nextstate[STORE_TRIG_INFO] : begin
           fifo_valid       <= 1'b1;
           fifo_data[127:0] <= {58'd0, trig_length[1:0], trig_num[23:0], trig_timestamp[43:0]};
+        end
+        nextstate[REARM] : begin
+          fifo_valid       <=   1'b0;
+          fifo_data[127:0] <= 128'd0;
         end
       endcase
     end

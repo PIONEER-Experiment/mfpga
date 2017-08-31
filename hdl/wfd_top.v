@@ -92,6 +92,9 @@ module wfd_top (
     wire async_mode_clk50;
     wire async_mode_clk125;
 
+    wire [3:0] fp_trig_width_from_ipbus;
+    wire [3:0] fp_trig_width;
+
     // IPbus overrides
     wire ipb_accept_pulse_triggers;
     wire ipb_async_trig_type;
@@ -209,7 +212,7 @@ module wfd_top (
 
     // ======== finite state machine states ========
     wire [ 3:0] ttr_state;
-    wire [ 3:0] ptr_state;
+    wire [ 4:0] ptr_state;
     wire [ 3:0] cac_state;
     wire [ 3:0] caca_state;
     wire [ 6:0] tp_state;
@@ -626,6 +629,15 @@ module wfd_top (
         .out(async_mode_clk125)
     );
 
+    // for use in trigger_top
+    sync_2stage #(
+        .WIDTH(4)
+    ) fp_trig_width_ttc_clk_module (
+        .clk(ttc_clk),
+        .in(fp_trig_width_from_ipbus),
+        .out(fp_trig_width)
+    );
+
 
     // ======== triggers and data transfer ========
 
@@ -978,6 +990,7 @@ module wfd_top (
         .ttc_freq_rst_out(ttc_freq_rst),                   // dedicated reset to TTC decoder for frequency changes
         .i2c_temp_polling_dis_out(i2c_temp_polling_dis),   // disable EEPROM temperature polling
         .i2c_temp_update_out(i2c_temp_update),             // read and update EEPROM temperature value
+        .fp_trig_width_out(fp_trig_width_from_ipbus[3:0]), // width to separate short from long front panel triggers
 
         // threshold registers
         .thres_data_corrupt(thres_data_corrupt),   // data corruption
@@ -1199,9 +1212,9 @@ module wfd_top (
     );
 
     // synchronize ptr_state
-    wire [3:0] ptr_state_clk125;
+    wire [4:0] ptr_state_clk125;
     sync_2stage #(
-        .WIDTH(4)
+        .WIDTH(5)
     ) ptr_state_sync (
         .clk(clk125),
         .in(ptr_state),
@@ -1487,6 +1500,7 @@ module wfd_top (
         .chan_en(chan_en),                                 // enabled channels
         .trig_delay(trig_delay),                           // trigger delay
         .thres_ddr3_overflow(thres_ddr3_overflow),         // DDR3 overflow threshold
+        .fp_trig_width(fp_trig_width[3:0]),                // width to separate short from long front panel triggers
 
         // channel interface
         .chan_dones(acq_dones),

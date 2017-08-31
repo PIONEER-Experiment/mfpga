@@ -985,11 +985,11 @@ module command_manager (
 
           next_data_count[31:0] = data_count[31:0]+1;
 
-          if (trig_type[2] & (data_count[31:0] == 0) & (data_wfm_count[22:0] != wfm_count[22:0]) & (num_chan_en[2:0] == 3'h1)) begin
+          if (trig_type[2] & (data_count[31:0] == 0) & (data_wfm_count[22:0] != wfm_count[22:0]) & (num_chan_en[2:0] == 3'd1)) begin
             // asynchronous trigger readout, start of waveform header, first channel
             nextstate[READ_PULSE_FIFO] = 1'b1;
           end
-          else if (trig_type[2] & (data_count[31:0] == 0) & (data_wfm_count[22:0] != wfm_count[22:0]) & (num_chan_en[2:0] > 3'h1)) begin
+          else if (trig_type[2] & (data_count[31:0] == 0) & (data_wfm_count[22:0] != wfm_count[22:0]) & (num_chan_en[2:0] > 3'd1)) begin
             // asynchronous trigger readout, start of waveform header, subsequent channel
             nextstate[READ_READOUT_FIFO] = 1'b1;
           end
