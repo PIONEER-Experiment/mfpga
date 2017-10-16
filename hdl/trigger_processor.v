@@ -19,6 +19,7 @@ module trigger_processor (
   input wire readout_ready,    // command manager is idle
   input wire readout_done,     // initiated readout has finished
   output reg send_empty_event, // request an empty event
+  output reg skip_payload,     // request to skip the channel payloads
   output reg initiate_readout, // request for the channels to be read out
 
   output reg [23:0] ttc_event_num,      // channel's trigger number
@@ -45,6 +46,7 @@ module trigger_processor (
 
   // latched data from TTC Trigger FIFO
   reg ttc_empty_event;
+  reg ttc_empty_payload;
 
   // latched data from Acquisition Event FIFO
   reg [ 4:0] acq_trig_type;
@@ -53,6 +55,7 @@ module trigger_processor (
   // 'next' signals
   reg [ 6:0] nextstate;
   reg        next_ttc_empty_event;
+  reg        next_ttc_empty_payload;
   reg [ 4:0] next_ttc_trig_type;
   reg [23:0] next_ttc_event_num;
   reg [23:0] next_ttc_trig_num;
@@ -67,6 +70,7 @@ module trigger_processor (
     nextstate = 7'd0;
 
     next_ttc_empty_event          = ttc_empty_event;
+    next_ttc_empty_payload        = ttc_empty_payload;
     next_ttc_trig_type     [ 4:0] = ttc_trig_type     [ 4:0];
     next_ttc_event_num     [23:0] = ttc_event_num     [23:0];
     next_ttc_trig_num      [23:0] = ttc_trig_num      [23:0];
@@ -80,6 +84,7 @@ module trigger_processor (
     acq_fifo_ready  = 1'b0; // default
 
     send_empty_event = 1'b0; // default
+    skip_payload     = 1'b0; // default
     initiate_readout = 1'b0; // default
 
     case (1'b1) // synopsys parallel_case full_case
@@ -87,12 +92,13 @@ module trigger_processor (
       state[IDLE] : begin
         // watch for unread triggers
         if (trig_fifo_valid) begin
-          next_ttc_xadc_alarms   [ 3:0] = trig_fifo_data[101:98];
-          next_ttc_empty_event          = trig_fifo_data[    97];
-          next_ttc_trig_type     [ 4:0] = trig_fifo_data[ 96:92];
-          next_ttc_event_num     [23:0] = trig_fifo_data[ 91:68];
-          next_ttc_trig_num      [23:0] = trig_fifo_data[ 67:44];
-          next_ttc_trig_timestamp[43:0] = trig_fifo_data[ 43: 0];
+          next_ttc_empty_payload        = trig_fifo_data[    102];
+          next_ttc_xadc_alarms   [ 3:0] = trig_fifo_data[101: 98];
+          next_ttc_empty_event          = trig_fifo_data[     97];
+          next_ttc_trig_type     [ 4:0] = trig_fifo_data[ 96: 92];
+          next_ttc_event_num     [23:0] = trig_fifo_data[ 91: 68];
+          next_ttc_trig_num      [23:0] = trig_fifo_data[ 67: 44];
+          next_ttc_trig_timestamp[43:0] = trig_fifo_data[ 43:  0];
 
           trig_fifo_ready = 1'b1; // acknowledge the data word
           nextstate[READ_TRIG_FIFO] = 1'b1;
@@ -143,6 +149,9 @@ module trigger_processor (
         end
         // check if we're ready for a readout
         else if (readout_ready) begin
+          if (ttc_empty_payload) begin
+            skip_payload = 1'b1;
+          end
           initiate_readout = 1'b1;
           nextstate[READOUT] = 1'b1;
         end
@@ -179,6 +188,7 @@ module trigger_processor (
       state <= 7'd1 << IDLE;
 
       ttc_empty_event          <=  1'd0;
+      ttc_empty_payload        <=  1'd0;
       ttc_trig_type     [ 4:0] <=  5'd0;
       ttc_event_num     [23:0] <= 24'd0;
       ttc_trig_num      [23:0] <= 24'd0;
@@ -192,6 +202,7 @@ module trigger_processor (
       state <= nextstate;
 
       ttc_empty_event          <= next_ttc_empty_event;
+      ttc_empty_payload        <= next_ttc_empty_payload;
       ttc_trig_type     [ 4:0] <= next_ttc_trig_type     [ 4:0];
       ttc_event_num     [23:0] <= next_ttc_event_num     [23:0];
       ttc_trig_num      [23:0] <= next_ttc_trig_num      [23:0];

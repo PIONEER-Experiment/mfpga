@@ -311,8 +311,8 @@ module wfd_top (
     signal_stretch event_reset_stretch (
         .signal_in(rst_trigger_num),
         .clk(ttc_clk),
-        .n_extra_cycles(8'h01),
-        .signal_out(rst_trigger_num_stretch) // 50-ns wide
+        .n_extra_cycles(8'h02),
+        .signal_out(rst_trigger_num_stretch) // 75-ns wide
     );
 
     // active-high reset signal to channels
@@ -839,6 +839,7 @@ module wfd_top (
     wire readout_ready, readout_done;
     wire async_readout_done;
     wire send_empty_event;
+    wire skip_payload;
     wire initiate_readout;
 
     wire [22:0] burst_count_chan0, burst_count_chan1, burst_count_chan2, burst_count_chan3, burst_count_chan4;
@@ -1512,6 +1513,7 @@ module wfd_top (
         .readout_done(readout_done),             // initiated readout has finished
         .async_readout_done(async_readout_done), // asynchronous readout has finished
         .send_empty_event(send_empty_event),     // request an empty event
+        .skip_payload(skip_payload),             // request to skip channel payloads
         .initiate_readout(initiate_readout),     // request for the channels to be read out
         .pulse_trig_num(pulse_trig_num),         // asynchronous pulse trigger number
 
@@ -1619,7 +1621,8 @@ module wfd_top (
         .daq_data(daq_data),               // output [63:0]
 
         // interface to trigger processor
-        .send_empty_event(send_empty_event),     // request to send an empty event
+        .send_empty_event(send_empty_event),     // request an empty event
+        .skip_payload(skip_payload),             // request to skip channel payloads
         .initiate_readout(initiate_readout),     // request for the channels to be read out
         .event_num(ttc_event_num),               // channel's trigger number
         .trig_num(ttc_trig_num),                 // global trigger number, starts at 1

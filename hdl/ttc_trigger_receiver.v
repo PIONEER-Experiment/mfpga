@@ -15,6 +15,8 @@ module ttc_trigger_receiver (
   input wire [31:0] trig_settings,       // trigger settings
   input wire [22:0] thres_ddr3_overflow, // DDR3 overflow threshold
   input wire [ 4:0] chan_en,             // enabled channels
+  input wire [23:0] pulse_trig_num,      // pulse trigger number
+  input wire pulse_trigger,              // front panel trigger signal to channels
 
   // command manager interface
   input wire readout_done, // a readout has completed
@@ -54,6 +56,7 @@ module ttc_trigger_receiver (
 
   // status connections
   input wire async_mode,            // asynchronous mode select
+  input wire accept_pulse_triggers, // accept front panel triggers select
   input wire [ 3:0] xadc_alarms,    // XADC alarm signals
   output reg [ 3:0] state,          // state of finite state machine
   output reg [23:0] trig_num,       // global trigger number
@@ -80,6 +83,7 @@ module ttc_trigger_receiver (
 
 
   reg        empty_event;        // flag for an empty event response
+  reg        empty_payload;      // flag for an async readout with no processed triggers
   reg [43:0] trig_timestamp_cnt; // clock cycle count
   reg [23:0] acq_event_cnt;      // channel's trigger number, starts at 1
   reg [ 3:0] acq_xadc_alarms;    // XADC alarm signals
@@ -116,6 +120,7 @@ module ttc_trigger_receiver (
   reg [ 4:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
   reg        next_empty_event;
+  reg        next_empty_payload;
   reg [23:0] next_trig_num;
   reg [43:0] next_trig_timestamp;
   reg [23:0] next_acq_event_cnt;
@@ -131,6 +136,7 @@ module ttc_trigger_receiver (
     next_acq_trig_type      [ 4:0] = acq_trig_type      [ 4:0];
     next_acq_trig_num       [23:0] = acq_trig_num       [23:0];
     next_empty_event               = empty_event;
+    next_empty_payload             = empty_payload;
     next_trig_num           [23:0] = trig_num           [23:0];
     next_trig_timestamp     [43:0] = trig_timestamp     [43:0];
     next_acq_event_cnt      [23:0] = acq_event_cnt      [23:0];
@@ -152,13 +158,18 @@ module ttc_trigger_receiver (
           // determine empty_event flag ahead of time;
           // this is to ensure that it has been updated before writing to the FIFO
           if (~async_mode) begin
+            // in synchronous mode
             if (~trig_settings[trig_type] | ddr3_full) begin
               next_empty_event = 1'b1; // indicate to send an empty event
             end
           end
           else begin
+            // in asynchronous mode
             if ((trig_type[4:0] != 5'b00111) | ~acq_activated) begin
               next_empty_event = 1'b1; // indicate to send an empty event
+            end
+            else if (pulse_trig_num[23:0] == 24'd0) begin
+              next_empty_payload = 1'b1; // indicate to skip channel payloads
             end
           end
 
@@ -170,8 +181,12 @@ module ttc_trigger_receiver (
       end
       // pass trigger et al. to channel acquisition controller, if the trigger type is enabled
       state[SEND_TRIGGER] : begin
+        // pulse trigger to channels is still high
+        if (accept_pulse_triggers & async_mode & pulse_trigger) begin
+          nextstate[SEND_TRIGGER] = 1'b1; // wait here
+        end
         // channels are not ready for data collection
-        if (~acq_ready) begin
+        else if (~acq_ready) begin
           nextstate[ERROR] = 1'b1; // throw error
         end
         // in synchronous mode
@@ -212,7 +227,8 @@ module ttc_trigger_receiver (
       state[STORE_TRIG_INFO] : begin
         // FIFO accepted the data word
         if (fifo_ready) begin
-          next_empty_event = 1'b0; // clear the empty event flag
+          next_empty_event   = 1'b0; // clear the empty event flag
+          next_empty_payload = 1'b0; // clear the empty payload flag
           nextstate[IDLE] = 1'b1;
         end
         // FIFO is not ready for data word
@@ -235,6 +251,7 @@ module ttc_trigger_receiver (
       state <= 4'd1 << IDLE;
 
       empty_event               <=  1'b0;
+      empty_payload             <=  1'b0;
       acq_trig_type      [ 4:0] <=  5'd0;
       acq_xadc_alarms    [ 3:0] <=  4'd0;
       ddr3_overflow_count[31:0] <= 32'd0;
@@ -244,6 +261,7 @@ module ttc_trigger_receiver (
       state <= nextstate;
 
       empty_event               <= next_empty_event;
+      empty_payload             <= next_empty_payload;
       acq_trig_type      [ 4:0] <= next_acq_trig_type      [ 4:0];
       acq_xadc_alarms    [ 3:0] <= next_acq_xadc_alarms    [ 3:0];
       ddr3_overflow_count[31:0] <= next_ddr3_overflow_count[31:0];
@@ -323,7 +341,7 @@ module ttc_trigger_receiver (
         end
         nextstate[STORE_TRIG_INFO] : begin
           fifo_valid       <= 1'b1;
-          fifo_data[127:0] <= {26'd0, acq_xadc_alarms[3:0], empty_event, acq_trig_type[4:0], acq_event_cnt[23:0], acq_trig_num[23:0], trig_timestamp[43:0]};
+          fifo_data[127:0] <= {25'd0, empty_payload, acq_xadc_alarms[3:0], empty_event, acq_trig_type[4:0], acq_event_cnt[23:0], acq_trig_num[23:0], trig_timestamp[43:0]};
         end
         nextstate[ERROR] : begin
           fifo_valid       <=   1'b0;

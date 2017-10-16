@@ -86,7 +86,8 @@ module channel_acq_controller_async (
         end
         // pass on front panel trigger to channels
         else if (accept_pulse_triggers & async_mode) begin
-          next_acq_enable[9:0] = { 5{2'b11} }; // enable lines should be fixed and not set by the trigger type
+          // enable lines should be fixed and not set by the trigger type
+          next_acq_enable[9:0] = { {2{chan_en[4]}}, {2{chan_en[3]}}, {2{chan_en[2]}}, {2{chan_en[1]}}, {2{chan_en[0]}} };
           next_acq_trig  [4:0] = (pulse_trigger) ? chan_en[4:0] : 5'b00000;
           next_ttc_acq_activated = 1'b1;
 

@@ -34,6 +34,7 @@ module trigger_top (
     input  wire readout_done,          // initiated readout has finished
     input  wire async_readout_done,    // asynchronous readout has finished
     output wire send_empty_event,      // request an empty event
+    output wire skip_payload,          // request to skip channel payloads
     output wire initiate_readout,      // request for the channels to be read out
     output wire [23:0] pulse_trig_num, // pulse trigger number
 
@@ -250,6 +251,18 @@ module trigger_top (
     sync_2stage #( .WIDTH(23) ) readout_size_chan4_sync3 ( .clk(ttc_clk), .in(readout_size_chan4_delay2), .out(readout_size_chan4_delay3) );
     sync_2stage #( .WIDTH(23) ) readout_size_chan4_sync4 ( .clk(ttc_clk), .in(readout_size_chan4_delay3), .out(readout_size_chan4_clk40)  );
 
+    // ----------------
+    // signal stretches
+    // ----------------
+
+    wire pulse_trigger_stretch;
+    signal_stretch pulse_trigger_stretch_inst (
+        .signal_in(pulse_trigger),
+        .clk(ttc_clk),
+        .n_extra_cycles(8'h02),
+        .signal_out(pulse_trigger_stretch) // 75-ns wide
+    );
+
     // -------------------
     // signal multiplexers
     // -------------------
@@ -297,6 +310,8 @@ module trigger_top (
         .trig_settings(trig_settings),                   // trigger settings
         .thres_ddr3_overflow(thres_ddr3_overflow[22:0]), // DDR3 overflow threshold
         .chan_en(chan_en_clk40),                         // enabled channels
+        .pulse_trig_num(pulse_trig_num),                 // pulse trigger number
+        .pulse_trigger(pulse_trigger_stretch),           // front panel trigger signal to channels
 
         // command manager interface
         .readout_done(readout_done_clk40), // a readout has completed
@@ -332,11 +347,12 @@ module trigger_top (
         .fifo_data(s_trig_fifo_tdata),
 
         // status connections
-        .async_mode(async_mode),         // asynchronous mode select
-        .xadc_alarms(xadc_alarms[3:0]),  // XADC alarm signals
-        .state(ttr_state),               // state of finite state machine
-        .trig_num(trig_num),             // global trigger number
-        .trig_timestamp(trig_timestamp), // global trigger timestamp
+        .async_mode(async_mode),                       // asynchronous mode select
+        .accept_pulse_triggers(accept_pulse_triggers), // accept front panel triggers select
+        .xadc_alarms(xadc_alarms[3:0]),                // XADC alarm signals
+        .state(ttr_state),                             // state of finite state machine
+        .trig_num(trig_num),                           // global trigger number
+        .trig_timestamp(trig_timestamp),               // global trigger timestamp
         
         // number of bursts stored in the DDR3
         .stored_bursts_chan0(stored_bursts_chan0_ttr),
@@ -367,6 +383,8 @@ module trigger_top (
         .thres_ddr3_overflow(thres_ddr3_overflow[22:0]), // DDR3 overflow threshold
         .chan_en(chan_en_clk40),                         // enabled channels
         .fp_trig_width(fp_trig_width[3:0]),              // width to separate short from long front panel triggers
+        .ttc_trigger(ttc_trigger),                       // backplane trigger signal
+        .ttc_acq_ready(acq_ready_async),                 // channels are ready to acquire/readout data
         .pulse_trigger(pulse_trigger),                   // channel trigger signal
         .trig_num(pulse_trig_num),                       // pulse trigger number
 
@@ -452,11 +470,11 @@ module trigger_top (
         .ttc_trigger(acq_trigger),         // trigger signal
         .ttc_trig_type(acq_trig_type),     // recognized trigger type (muon fill, laser, async readout)
         .ttc_trig_num(acq_trig_num),       // trigger number
-        .ttc_acq_ready(acq_ready_async),   // channels are ready to readout data
+        .ttc_acq_ready(acq_ready_async),   // channels are ready to acquire/readout data
         .ttc_acq_activated(acq_activated),
 
         // interface from pulse trigger receiver
-        .pulse_trigger(pulse_trigger), // trigger signal
+        .pulse_trigger(pulse_trigger_stretch), // trigger signal
 
         // interface to Channel FPGAs
         .acq_dones(chan_dones_clk40),
@@ -494,6 +512,7 @@ module trigger_top (
         .readout_ready(readout_ready),       // command manager is idle
         .readout_done(readout_done),         // initiated readout has finished
         .send_empty_event(send_empty_event), // request an empty event
+        .skip_payload(skip_payload),         // request to skip channel payloads
         .initiate_readout(initiate_readout), // request for the channels to be read out
 
         .ttc_event_num(ttc_event_num),           // channel's trigger number

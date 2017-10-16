@@ -16,6 +16,8 @@ module pulse_trigger_receiver (
   input wire [22:0] thres_ddr3_overflow, // DDR3 overflow threshold
   input wire [ 4:0] chan_en,             // enabled channels
   input wire [ 3:0] fp_trig_width,       // width to separate short from long front panel triggers
+  input wire ttc_trigger,                // backplane trigger signal
+  input wire ttc_acq_ready,              // channels are ready to acquire/readout data
   output reg pulse_trigger,              // channel trigger signal
   output reg [23:0] trig_num,            // global trigger number
 
@@ -107,7 +109,7 @@ module pulse_trigger_receiver (
     case (1'b1) // synopsys parallel_case full_case
       // idle state
       state[IDLE] : begin
-        if (trigger & async_mode & accept_pulse_triggers) begin
+        if (trigger & async_mode & accept_pulse_triggers & ~ttc_trigger & ttc_acq_ready) begin
           // this trigger would overwrite valid data in DDR3, ignore this trigger
           if (ddr3_full) begin
             next_ddr3_overflow_count[31:0] = ddr3_overflow_count[31:0] + 1; // increment overflow error counter
