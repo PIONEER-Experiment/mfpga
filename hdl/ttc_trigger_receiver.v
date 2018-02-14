@@ -165,7 +165,7 @@ module ttc_trigger_receiver (
           end
           else begin
             // in asynchronous mode
-            if ((trig_type[4:0] != 5'b00111) | ~acq_activated) begin
+            if ((trig_type[4:0] != 5'b00100) | ~acq_activated) begin
               next_empty_event = 1'b1; // indicate to send an empty event
             end
             else if (pulse_trig_num[23:0] == 24'd0) begin

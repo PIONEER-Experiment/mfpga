@@ -182,7 +182,7 @@ module command_manager (
   reg [22:0] chan_burst_count_type1 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 1
   reg [22:0] chan_burst_count_type2 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 2
   reg [22:0] chan_burst_count_type3 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 3
-  reg [22:0] chan_burst_count_type7 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 7
+  reg [22:0] chan_burst_count_type4 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 4
   reg [11:0] chan_wfm_count_type1   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 1
   reg [11:0] chan_wfm_count_type2   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 2
   reg [11:0] chan_wfm_count_type3   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 3
@@ -234,14 +234,14 @@ module command_manager (
   reg [22:0] next_chan_burst_count_type1 [4:0];
   reg [22:0] next_chan_burst_count_type2 [4:0];
   reg [22:0] next_chan_burst_count_type3 [4:0];
-  reg [22:0] next_chan_burst_count_type7 [4:0];
+  reg [22:0] next_chan_burst_count_type4 [4:0];
   reg [11:0] next_chan_wfm_count_type1   [4:0];
   reg [11:0] next_chan_wfm_count_type2   [4:0];
   reg [11:0] next_chan_wfm_count_type3   [4:0];
 
 
   // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
-  wire [19:0] event_size_type1, event_size_type2, event_size_type3, event_size_type7;
+  wire [19:0] event_size_type1, event_size_type2, event_size_type3, event_size_type4;
 
   // muon fill trigger type
   assign event_size_type1 = ((chan_burst_count_type1[0]*2+2)*chan_wfm_count_type1[0]+5)*chan_en[0]+ 
@@ -265,18 +265,18 @@ module command_manager (
                             ((chan_burst_count_type3[4]*2+2)*chan_wfm_count_type3[4]+5)*chan_en[4]+4;
 
   // asychronous readout trigger type
-  assign event_size_type7 = ((chan_burst_count_type7[0]*2+2)*total_fp_triggers[23:0]+5)*chan_en[0]+ 
-                            ((chan_burst_count_type7[1]*2+2)*total_fp_triggers[23:0]+5)*chan_en[1]+ 
-                            ((chan_burst_count_type7[2]*2+2)*total_fp_triggers[23:0]+5)*chan_en[2]+ 
-                            ((chan_burst_count_type7[3]*2+2)*total_fp_triggers[23:0]+5)*chan_en[3]+ 
-                            ((chan_burst_count_type7[4]*2+2)*total_fp_triggers[23:0]+5)*chan_en[4]+4;
+  assign event_size_type4 = ((chan_burst_count_type4[0]*2+2)*total_fp_triggers[23:0]+5)*chan_en[0]+ 
+                            ((chan_burst_count_type4[1]*2+2)*total_fp_triggers[23:0]+5)*chan_en[1]+ 
+                            ((chan_burst_count_type4[2]*2+2)*total_fp_triggers[23:0]+5)*chan_en[2]+ 
+                            ((chan_burst_count_type4[3]*2+2)*total_fp_triggers[23:0]+5)*chan_en[3]+ 
+                            ((chan_burst_count_type4[4]*2+2)*total_fp_triggers[23:0]+5)*chan_en[4]+4;
 
   // mux the correct event size for this trigger type
   wire [19:0] event_size;
   assign event_size = (trig_type[4:0] == 5'b00001) ? event_size_type1[19:0] :
                       (trig_type[4:0] == 5'b00010) ? event_size_type2[19:0] :
                       (trig_type[4:0] == 5'b00011) ? event_size_type3[19:0] : 
-                      (trig_type[4:0] == 5'b00111) ? event_size_type7[19:0] :
+                      (trig_type[4:0] == 5'b00100) ? event_size_type4[19:0] :
                                                      20'hfffff;
 
   // number of buffered burst counts to be read out
@@ -308,27 +308,27 @@ module command_manager (
 
 
   // determine burst counts for the trigger logic
-  assign burst_count_chan0 = (async_mode)                      ? chan_burst_count_type7[0] :
+  assign burst_count_chan0 = (async_mode)                      ? chan_burst_count_type4[0] :
                              (curr_trig_type[4:0] == 5'b00001) ? chan_burst_count_type1[0] :
                              (curr_trig_type[4:0] == 5'b00010) ? chan_burst_count_type2[0] :
                              (curr_trig_type[4:0] == 5'b00011) ? chan_burst_count_type3[0] :
                                                                  23'd0;
-  assign burst_count_chan1 = (async_mode)                      ? chan_burst_count_type7[1] :
+  assign burst_count_chan1 = (async_mode)                      ? chan_burst_count_type4[1] :
                              (curr_trig_type[4:0] == 5'b00001) ? chan_burst_count_type1[1] :
                              (curr_trig_type[4:0] == 5'b00010) ? chan_burst_count_type2[1] :
                              (curr_trig_type[4:0] == 5'b00011) ? chan_burst_count_type3[1] :
                                                                  23'd0;
-  assign burst_count_chan2 = (async_mode)                      ? chan_burst_count_type7[2] :
+  assign burst_count_chan2 = (async_mode)                      ? chan_burst_count_type4[2] :
                              (curr_trig_type[4:0] == 5'b00001) ? chan_burst_count_type1[2] :
                              (curr_trig_type[4:0] == 5'b00010) ? chan_burst_count_type2[2] :
                              (curr_trig_type[4:0] == 5'b00011) ? chan_burst_count_type3[2] :
                                                                  23'd0;
-  assign burst_count_chan3 = (async_mode)                      ? chan_burst_count_type7[3] :
+  assign burst_count_chan3 = (async_mode)                      ? chan_burst_count_type4[3] :
                              (curr_trig_type[4:0] == 5'b00001) ? chan_burst_count_type1[3] :
                              (curr_trig_type[4:0] == 5'b00010) ? chan_burst_count_type2[3] :
                              (curr_trig_type[4:0] == 5'b00011) ? chan_burst_count_type3[3] :
                                                                  23'd0;
-  assign burst_count_chan4 = (async_mode)                      ? chan_burst_count_type7[4] :
+  assign burst_count_chan4 = (async_mode)                      ? chan_burst_count_type4[4] :
                              (curr_trig_type[4:0] == 5'b00001) ? chan_burst_count_type1[4] :
                              (curr_trig_type[4:0] == 5'b00010) ? chan_burst_count_type2[4] :
                              (curr_trig_type[4:0] == 5'b00011) ? chan_burst_count_type3[4] :
@@ -447,11 +447,11 @@ module command_manager (
     next_chan_burst_count_type3[2] = chan_burst_count_type3[2];
     next_chan_burst_count_type3[3] = chan_burst_count_type3[3];
     next_chan_burst_count_type3[4] = chan_burst_count_type3[4];
-    next_chan_burst_count_type7[0] = chan_burst_count_type7[0];
-    next_chan_burst_count_type7[1] = chan_burst_count_type7[1];
-    next_chan_burst_count_type7[2] = chan_burst_count_type7[2];
-    next_chan_burst_count_type7[3] = chan_burst_count_type7[3];
-    next_chan_burst_count_type7[4] = chan_burst_count_type7[4];
+    next_chan_burst_count_type4[0] = chan_burst_count_type4[0];
+    next_chan_burst_count_type4[1] = chan_burst_count_type4[1];
+    next_chan_burst_count_type4[2] = chan_burst_count_type4[2];
+    next_chan_burst_count_type4[3] = chan_burst_count_type4[3];
+    next_chan_burst_count_type4[4] = chan_burst_count_type4[4];
     next_chan_wfm_count_type1[0]   = chan_wfm_count_type1[0];
     next_chan_wfm_count_type1[1]   = chan_wfm_count_type1[1];
     next_chan_wfm_count_type1[2]   = chan_wfm_count_type1[2];
@@ -540,7 +540,7 @@ module command_manager (
             next_chan_burst_count_type3[chan_tx_fifo_dest] = ipbus_cmd_data[22:0]; // burst count value, pedestal fill
           end
           else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0014)) begin
-            next_chan_burst_count_type7[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, asynchronous acquisition
+            next_chan_burst_count_type4[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, asynchronous acquisition
           end
           else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_000e)) begin
             next_chan_wfm_count_type1[chan_tx_fifo_dest]   = ipbus_cmd_data[11:0]; // waveform count value, muon fill
@@ -712,8 +712,13 @@ module command_manager (
             // trigger numbers aren't synchronized; throw an error
             nextstate[ERROR_TRIG_NUM] = 1'b1;
           end
-          // check that trigger type from channel header and trigger logic match
-          else if (trig_type[2:0] != chan_rx_fifo_data[26:24]) begin
+          // check that trigger type from channel header and trigger logic match in synchronous mode
+          else if (~trig_type[2] & (trig_type[2:0] != chan_rx_fifo_data[26:24])) begin
+            // trigger types aren't synchronized; throw an error
+            nextstate[ERROR_TRIG_TYPE] = 1'b1;
+          end
+          // check that trigger type from channel header in asynchronous mode
+          else if (trig_type[2] & (chan_rx_fifo_data[26:24] != 3'b111)) begin
             // trigger types aren't synchronized; throw an error
             nextstate[ERROR_TRIG_TYPE] = 1'b1;
           end
@@ -969,7 +974,7 @@ module command_manager (
             // asynchronous mode
             else begin
               // keep pre- and post-trigger waveform length in units of bursts
-              next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+              next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:27], 4'd4, chan_rx_fifo_data[23:0]};
             end
           end
           // this is the waveform header [95:64]
@@ -1387,11 +1392,11 @@ module command_manager (
       chan_burst_count_type3[2] <= 23'd100;   // channel default is 100
       chan_burst_count_type3[3] <= 23'd100;   // channel default is 100
       chan_burst_count_type3[4] <= 23'd100;   // channel default is 100
-      chan_burst_count_type7[0] <= 23'd10;    // channel default is 10
-      chan_burst_count_type7[1] <= 23'd10;    // channel default is 10
-      chan_burst_count_type7[2] <= 23'd10;    // channel default is 10
-      chan_burst_count_type7[3] <= 23'd10;    // channel default is 10
-      chan_burst_count_type7[4] <= 23'd10;    // channel default is 10
+      chan_burst_count_type4[0] <= 23'd10;    // channel default is 10
+      chan_burst_count_type4[1] <= 23'd10;    // channel default is 10
+      chan_burst_count_type4[2] <= 23'd10;    // channel default is 10
+      chan_burst_count_type4[3] <= 23'd10;    // channel default is 10
+      chan_burst_count_type4[4] <= 23'd10;    // channel default is 10
       chan_wfm_count_type1[0]   <= 12'd1;     // channel default is 1
       chan_wfm_count_type1[1]   <= 12'd1;     // channel default is 1
       chan_wfm_count_type1[2]   <= 12'd1;     // channel default is 1
@@ -1460,11 +1465,11 @@ module command_manager (
       chan_burst_count_type3[2]   <= next_chan_burst_count_type3[2];
       chan_burst_count_type3[3]   <= next_chan_burst_count_type3[3];
       chan_burst_count_type3[4]   <= next_chan_burst_count_type3[4];
-      chan_burst_count_type7[0]   <= next_chan_burst_count_type7[0];
-      chan_burst_count_type7[1]   <= next_chan_burst_count_type7[1];
-      chan_burst_count_type7[2]   <= next_chan_burst_count_type7[2];
-      chan_burst_count_type7[3]   <= next_chan_burst_count_type7[3];
-      chan_burst_count_type7[4]   <= next_chan_burst_count_type7[4];
+      chan_burst_count_type4[0]   <= next_chan_burst_count_type4[0];
+      chan_burst_count_type4[1]   <= next_chan_burst_count_type4[1];
+      chan_burst_count_type4[2]   <= next_chan_burst_count_type4[2];
+      chan_burst_count_type4[3]   <= next_chan_burst_count_type4[3];
+      chan_burst_count_type4[4]   <= next_chan_burst_count_type4[4];
       chan_wfm_count_type1[0]     <= next_chan_wfm_count_type1[0];
       chan_wfm_count_type1[1]     <= next_chan_wfm_count_type1[1];
       chan_wfm_count_type1[2]     <= next_chan_wfm_count_type1[2];
@@ -1634,9 +1639,9 @@ module command_manager (
           ;
         end
         nextstate[SEND_AMC13_TRAILER]    : begin
-          daq_trailer <= 1;
+          daq_trailer  <= 1;
           readout_done <= 1;
-          if (~async_mode | (trig_type_latch[4:0] == 5'd7)) begin
+          if (~async_mode | (trig_type_latch[4:0] == 5'd4)) begin
             async_readout_done <= 1;
           end
         end

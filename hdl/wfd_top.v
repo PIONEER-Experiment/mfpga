@@ -229,7 +229,7 @@ module wfd_top (
     wire ttc_accept_pulse_triggers;
     wire accept_pulse_triggers;
 
-    assign fill_type[4:0]        = (ipb_async_trig_type) ? 5'b00111 : ttc_fill_type[4:0];
+    assign fill_type[4:0]        = (ipb_async_trig_type) ? 5'b00100 : ttc_fill_type[4:0];
     assign accept_pulse_triggers = ttc_accept_pulse_triggers | ipb_accept_pulse_triggers;
 
     // front panel clock   : sel0 = 1'b0, sel1 = 1'b1

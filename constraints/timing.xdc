@@ -32,7 +32,7 @@ set_false_path -from [get_cells ipb/slaves/slave4/flash_cmd_strobe_reg*] -to [ge
 set_false_path -from [get_cells command_manager/chan_burst_count_type1_reg*] -to [get_cells command_manager/daq_data_reg*]
 set_false_path -from [get_cells command_manager/chan_burst_count_type2_reg*] -to [get_cells command_manager/daq_data_reg*]
 set_false_path -from [get_cells command_manager/chan_burst_count_type3_reg*] -to [get_cells command_manager/daq_data_reg*]
-set_false_path -from [get_cells command_manager/chan_burst_count_type7_reg*] -to [get_cells command_manager/daq_data_reg*]
+set_false_path -from [get_cells command_manager/chan_burst_count_type4_reg*] -to [get_cells command_manager/daq_data_reg*]
 set_false_path -from [get_cells command_manager/chan_wfm_count_type1_reg*] -to [get_cells command_manager/daq_data_reg*]
 set_false_path -from [get_cells command_manager/chan_wfm_count_type2_reg*] -to [get_cells command_manager/daq_data_reg*]
 set_false_path -from [get_cells command_manager/chan_wfm_count_type3_reg*] -to [get_cells command_manager/daq_data_reg*]
