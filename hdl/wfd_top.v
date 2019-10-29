@@ -79,6 +79,8 @@ module wfd_top (
     wire gtrefclk0;
     wire ttc_clk;         // 40 MHz output from TTC decoder module
     wire spi_clk;
+    wire ttc_clk_x5;      // 200 MHz clock derived from ttc_clk
+    wire ttc_clk_lock_200M;
 
     assign clk50 = clkin; // just to make the frequency explicit
 
@@ -207,6 +209,13 @@ module wfd_top (
         .adcclk_ld(adcclk_stat_ld),
         .adcclk_stat(adcclk_stat),
         .adcclk_clkin0_stat(adcclk_clkin0_stat)
+    );
+
+    // ======== derived clock =======
+    clk_wiz_200M clk_wiz_trig_200M(
+        .clk_in1(ttc_clk),
+        .clk_out1(ttc_clk_x5),
+        .locked(ttc_clk_lock_200M)
     );
 
 
@@ -881,8 +890,10 @@ module wfd_top (
     
     // ======== module instantiations ========
 
+    wire [4:0] delay_count;
+    wire       delay_rdy;
     // TTC decoder module
-    TTC_decoder ttc (
+    TTC_decoder_ddelay ttc (
         .TTC_CLK_p(ttc_clkp),            // in  STD_LOGIC
         .TTC_CLK_n(ttc_clkn),            // in  STD_LOGIC
         .TTC_rst(ttc_freq_rst),          // in  STD_LOGIC -- asynchronous reset after TTC_CLK_p/TTC_CLK_n frequency changed
@@ -896,7 +907,10 @@ module wfd_top (
         .SinErrStr(SinErrStr),           // out STD_LOGIC
         .DbErrStr(DbErrStr),             // out STD_LOGIC
         .BrcstStr(ttc_chan_b_valid),     // out STD_LOGIC
-        .Brcst(ttc_chan_b_info)          // out STD_LOGIC_VECTOR(7 DOWNTO 2)
+        .Brcst(ttc_chan_b_info),         // out STD_LOGIC_VECTOR(7 DOWNTO 2)
+        .TTC_CLK_ddelay(ttc_clk_x5),     // in  clock for IDELAYE2 for data
+        .delay_count(ttc_data_delay),    // out amount that ttc data gets delayed
+        .delay_rdy(ttc_ddelay_rdy)       // out delay unit ready for data delay
     );
 
 
@@ -1178,7 +1192,6 @@ module wfd_top (
         // debug outputs
         .debug()
     );
-
 
     // =====================================================================================
     // synchronize signals into 125 MHz clock domain for use in status register block module 

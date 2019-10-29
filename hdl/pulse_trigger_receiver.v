@@ -75,13 +75,24 @@ module pulse_trigger_receiver (
                             (stored_bursts_chan4[22:0] > thres_ddr3_overflow[22:0]);
 
   // DDR3 is full in a channel
-  // "full" in asynchronous mode is limited by the AMC13 event size of 2^20 64-bit words
   wire ddr3_full;
-  assign ddr3_full = ((524288 - stored_bursts_chan0[22:0]) < chan_en[0]*(burst_count_chan0[22:0] + 1)) |
-                     ((524288 - stored_bursts_chan1[22:0]) < chan_en[1]*(burst_count_chan1[22:0] + 1)) |
-                     ((524288 - stored_bursts_chan2[22:0]) < chan_en[2]*(burst_count_chan2[22:0] + 1)) |
-                     ((524288 - stored_bursts_chan3[22:0]) < chan_en[3]*(burst_count_chan3[22:0] + 1)) |
-                     ((524288 - stored_bursts_chan4[22:0]) < chan_en[4]*(burst_count_chan4[22:0] + 1));
+  assign ddr3_full = ((8388608 - stored_bursts_chan0[22:0]) < chan_en[0]*(burst_count_chan0[22:0] + 1)) |
+                     ((8388608 - stored_bursts_chan1[22:0]) < chan_en[1]*(burst_count_chan1[22:0] + 1)) |
+                     ((8388608 - stored_bursts_chan2[22:0]) < chan_en[2]*(burst_count_chan2[22:0] + 1)) |
+                     ((8388608 - stored_bursts_chan3[22:0]) < chan_en[3]*(burst_count_chan3[22:0] + 1)) |
+                     ((8388608 - stored_bursts_chan4[22:0]) < chan_en[4]*(burst_count_chan4[22:0] + 1));
+
+  // "full" in asynchronous mode is limited by the AMC13 event size of 2^20 64-bit words
+  reg amc13_payload_full;
+  reg [22:0] check_event_size;
+  always @* begin
+     check_event_size = stored_bursts_chan0[22:0]*2 + chan_en[0]*((burst_count_chan0[22:0]+1)*2 + 5) +
+                        stored_bursts_chan1[22:0]*2 + chan_en[1]*((burst_count_chan1[22:0]+1)*2 + 5) +
+                        stored_bursts_chan2[22:0]*2 + chan_en[2]*((burst_count_chan2[22:0]+1)*2 + 5) +
+                        stored_bursts_chan3[22:0]*2 + chan_en[3]*((burst_count_chan3[22:0]+1)*2 + 5) +
+                        stored_bursts_chan4[22:0]*2 + chan_en[4]*((burst_count_chan4[22:0]+1)*2 + 5) + 4;
+     amc13_payload_full = 1048576 < check_event_size;
+  end
 
   reg next_pulse_trigger;
   reg next_trig_went_lo;
@@ -111,7 +122,7 @@ module pulse_trigger_receiver (
       state[IDLE] : begin
         if (trigger & async_mode & accept_pulse_triggers & ~ttc_trigger & ttc_acq_ready) begin
           // this trigger would overwrite valid data in DDR3, ignore this trigger
-          if (ddr3_full) begin
+          if (ddr3_full | amc13_payload_full) begin
             next_ddr3_overflow_count[31:0] = ddr3_overflow_count[31:0] + 1; // increment overflow error counter
 
             nextstate[IDLE] = 1'b1;
