@@ -417,7 +417,7 @@ module trigger_top (
 
         // error connections
         .ddr3_overflow_count(ddr3_overflow_count_ptr), // number of triggers received that would overflow DDR3
-        .ddr3_almost_full(ddr3_almost_full_ptr)        // DDR3 overflow warning
+        .ddr3_almost_full(ddr3_almost_full_ptr)       // DDR3 overflow warning
     );
 
     
@@ -550,8 +550,10 @@ module trigger_top (
 
 
     // Pulse Trigger FIFO : 2048 depth, 2047 almost full threshold, 16-byte data width
+    // Increased FIFO to 8192 depth, and 8191 almost full thresold, to accommodate higher
+    // front panel trigger rates between TTC readouts
     // holds the trigger timestamp, trigger nuber, and trigger type from the front panel
-    trigger_info_fifo pulse_trigger_fifo (
+    trigger_info_fifo_pulse pulse_trigger_fifo (
         // writing side
         .s_aclk(ttc_clk),                    // input
         .s_aresetn(reset40_n),               // input

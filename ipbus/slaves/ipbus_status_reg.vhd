@@ -43,13 +43,14 @@ port(
 	reg25 : in STD_LOGIC_VECTOR(31 downto 0);
 	reg26 : in STD_LOGIC_VECTOR(31 downto 0);
 	reg27 : in STD_LOGIC_VECTOR(31 downto 0);
-	reg28 : in STD_LOGIC_VECTOR(31 downto 0)
+	reg28 : in STD_LOGIC_VECTOR(31 downto 0);
+   reg29 : in STD_LOGIC_VECTOR(31 downto 0)
 );
 end ipbus_status_reg;
 
 architecture rtl of ipbus_status_reg is
 
-	type reg_array is array(28 downto 0) of std_logic_vector(31 downto 0);
+	type reg_array is array(29 downto 0) of std_logic_vector(31 downto 0);
 
 	signal reg : reg_array;
 	signal sel : integer;
@@ -108,5 +109,6 @@ begin
 	reg(26) <= reg26;
 	reg(27) <= reg27;
 	reg(28) <= reg28;
+   reg(29) <= reg29;
 
 end rtl;

@@ -869,7 +869,7 @@ module wfd_top (
                 status_reg10, status_reg11, status_reg12, status_reg13, status_reg14,
                 status_reg15, status_reg16, status_reg17, status_reg18, status_reg19,
                 status_reg20, status_reg21, status_reg22, status_reg23, status_reg24,
-                status_reg25, status_reg26, status_reg27, status_reg28;
+                status_reg25, status_reg26, status_reg27, status_reg28, status_reg29;
 
     // ======== trigger information signals ========
     wire [ 2:0] trig_settings;
@@ -881,6 +881,7 @@ module wfd_top (
     wire [23:0] trig_num;
     wire [43:0] trig_timestamp;
     wire [23:0] pulse_trig_num;
+    wire [31:0] raw_ext_trigger_count;
 
     // ======== FIFO signals ========
     wire trig_fifo_full;
@@ -1042,6 +1043,7 @@ module wfd_top (
         .status_reg26(status_reg26),
         .status_reg27(status_reg27),
         .status_reg28(status_reg28),
+        .status_reg29(status_reg29),
 
         // flash interface ports
         .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
@@ -1427,6 +1429,7 @@ module wfd_top (
         .chan_en(chan_en),
         .endianness_sel(endianness_sel),
         .acq_dones(acq_dones_clk125),
+        .accept_pulse_triggers(accept_pulse_triggers),
 
         // trigger
         .trig_fifo_full(trig_fifo_full),
@@ -1437,6 +1440,7 @@ module wfd_top (
         .trig_num(trig_num_clk125),
         .trig_timestamp(trig_timestamp_clk125),
         .pulse_trig_num(pulse_trig_num_clk125),
+        .raw_ext_trigger_count(raw_ext_trigger_count),
 
         // slow control
         .i2c_temp(i2c_temp),
@@ -1487,9 +1491,28 @@ module wfd_top (
         .status_reg25(status_reg25),
         .status_reg26(status_reg26),
         .status_reg27(status_reg27),
-        .status_reg28(status_reg28)
+        .status_reg28(status_reg28),
+        .status_reg29(status_reg29)
     );
 
+    // zero deadtime (aside from external trigger overlaps) external trigger counter
+    //    - since Wfd5s stop acting on (and counting) triggers during previous triggers and during DDR3 readout,
+    //      this counter allows a zeroth order determination of deadtime.
+    //
+    wire ext_trigger_send;
+    assign ext_trigger_send = ext_trig_pulse & accept_pulse_triggers;
+    ext_trigger_counter ext_trigger_counter (
+        // clock
+        .ttc_clk(ttc_clk), //  40 MHz
+
+        // resets
+        .reset40(reset40),           // in  40 MHz clock domain
+        .rst_trigger_num(rst_trigger_num),             // from TTC Channel B
+
+        // the trigger to count
+        .ext_trigger(ext_trigger_send),
+        .raw_ext_trigger_count(raw_ext_trigger_count)
+    );
 
     // trigger top module
     trigger_top trigger_top (
@@ -1580,11 +1603,11 @@ module wfd_top (
         .stored_bursts_chan4(stored_bursts_chan4),
 
         // error connections
-        .ddr3_overflow_count(ddr3_overflow_count), // number of triggers received that would overflow DDR3
-        .ddr3_almost_full(ddr3_almost_full),       // DDR3 overflow warning
-        .error_trig_rate(error_trig_rate),         // trigger rate error
-        .error_trig_num(error_trig_num_from_tt),   // trigger number error
-        .error_trig_type(error_trig_type_from_tt)  // trigger type error
+        .ddr3_overflow_count(ddr3_overflow_count),   // number of triggers received that would overflow DDR3
+        .ddr3_almost_full(ddr3_almost_full),         // DDR3 overflow warning
+        .error_trig_rate(error_trig_rate),           // trigger rate error
+        .error_trig_num(error_trig_num_from_tt),     // trigger number error
+        .error_trig_type(error_trig_type_from_tt)    // trigger type error
     );
 
     

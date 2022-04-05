@@ -50,7 +50,7 @@ module pulse_trigger_receiver (
 
   // error connections
   output reg [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
-  output wire ddr3_almost_full           // DDR3 overflow warning, combined for all channels
+  output wire ddr3_almost_full          // DDR3 overflow warning, combined for all channels
 );
 
   // state bits, with one-hot encoding

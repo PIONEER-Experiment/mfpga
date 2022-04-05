@@ -34,7 +34,7 @@ module status_reg_block (
 
   // warnings
   input wire ddr3_almost_full,
-
+  
   // other error signals
   input wire [4:0] chan_error_sn,
   input wire [4:0] chan_error_rc,
@@ -72,6 +72,7 @@ module status_reg_block (
   input wire [4:0] chan_en,
   input wire endianness_sel,
   input wire [4:0] acq_dones,
+  input wire accept_pulse_triggers,
 
   // trigger
   input wire trig_fifo_full,
@@ -82,6 +83,7 @@ module status_reg_block (
   input wire [23:0] trig_num,
   input wire [43:0] trig_timestamp,
   input wire [23:0] pulse_trig_num,
+  input wire [31:0] raw_ext_trigger_count,
 
   // slow control
   input wire [11:0] i2c_temp,
@@ -132,7 +134,8 @@ module status_reg_block (
   output wire [31:0] status_reg25,
   output wire [31:0] status_reg26,
   output wire [31:0] status_reg27,
-  output wire [31:0] status_reg28
+  output wire [31:0] status_reg28,
+  output wire [31:0] status_reg29
 );
 
 
@@ -161,7 +164,7 @@ assign status_reg06 = cm_state[31:0];
 assign status_reg07 = {cm_state[34:32], 5'd0, ptr_state[4], tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
 
 // Register 08: Acquisition
-assign status_reg08 = {11'd0, acq_dones[4:0], endianness_sel, acq_readout_pause[4:0], fill_type[4:0], chan_en[4:0]};
+assign status_reg08 = {10'd0, accept_pulse_triggers, acq_dones[4:0], endianness_sel, acq_readout_pause[4:0], fill_type[4:0], chan_en[4:0]};
 
 // Register 09: TTC trigger information
 assign status_reg09 = {26'd0, pulse_fifo_full, trig_settings[2:0], acq_fifo_full, trig_fifo_full};
@@ -223,4 +226,6 @@ assign status_reg27 = {xadc_vccbram[15:0], xadc_vccaux[15:0]};
 // Register 28: XADC alarms
 assign status_reg28 = {27'd0, xadc_alarm_vccbram, xadc_alarm_vccaux, xadc_alarm_vccint, xadc_alarm_temp, xadc_over_temp};
 
+// Register 29: raw front panel trigger count
+assign status_reg29 = raw_ext_trigger_count[31:0];
 endmodule
