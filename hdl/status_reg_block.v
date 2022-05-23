@@ -73,6 +73,9 @@ module status_reg_block (
   input wire endianness_sel,
   input wire [4:0] acq_dones,
   input wire accept_pulse_triggers,
+  input wire ttc_accept_pulse_triggers,
+  input wire ipb_accept_pulse_triggers,
+
 
   // trigger
   input wire trig_fifo_full,
@@ -83,7 +86,11 @@ module status_reg_block (
   input wire [23:0] trig_num,
   input wire [43:0] trig_timestamp,
   input wire [23:0] pulse_trig_num,
+  input wire [23:0] pulse_trigs_last_readout,
   input wire [31:0] raw_ext_trigger_count,
+  input wire [31:0] accepted_ext_trigger_count,
+  //input wire [31:0] ext_pulse_delta_t,
+  //input wire [31:0] ext_trig_delta_t,
 
   // slow control
   input wire [11:0] i2c_temp,
@@ -135,7 +142,11 @@ module status_reg_block (
   output wire [31:0] status_reg26,
   output wire [31:0] status_reg27,
   output wire [31:0] status_reg28,
-  output wire [31:0] status_reg29
+  output wire [31:0] status_reg29,
+  output wire [31:0] status_reg30,
+  output wire [31:0] status_reg31
+  //output wire [31:0] status_reg32,
+  //output wire [31:0] status_reg33
 );
 
 
@@ -164,7 +175,7 @@ assign status_reg06 = cm_state[31:0];
 assign status_reg07 = {cm_state[34:32], 5'd0, ptr_state[4], tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
 
 // Register 08: Acquisition
-assign status_reg08 = {10'd0, accept_pulse_triggers, acq_dones[4:0], endianness_sel, acq_readout_pause[4:0], fill_type[4:0], chan_en[4:0]};
+assign status_reg08 = {8'd0, ipb_accept_pulse_triggers, ttc_accept_pulse_triggers, accept_pulse_triggers, acq_dones[4:0], endianness_sel, acq_readout_pause[4:0], fill_type[4:0], chan_en[4:0]};
 
 // Register 09: TTC trigger information
 assign status_reg09 = {26'd0, pulse_fifo_full, trig_settings[2:0], acq_fifo_full, trig_fifo_full};
@@ -228,4 +239,17 @@ assign status_reg28 = {27'd0, xadc_alarm_vccbram, xadc_alarm_vccaux, xadc_alarm_
 
 // Register 29: raw front panel trigger count
 assign status_reg29 = raw_ext_trigger_count[31:0];
+
+//// Register 30: time between front panel triggers a la pulse receiver
+//assign status_reg30 = ext_pulse_delta_t[31:0];
+//
+//// Register 31: time between front panel triggers a la raw front panel trigger counter
+//assign status_reg31 = ext_trig_delta_t[31:0];
+
+// Register 30: number of front panel triggers processed by last readout
+assign status_reg30 = {8'd0, pulse_trigs_last_readout[23:0]};
+
+// Register 31: cummulative front panel trigger count
+assign status_reg31 = accepted_ext_trigger_count[31:0];
+
 endmodule

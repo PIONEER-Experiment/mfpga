@@ -37,6 +37,8 @@ module trigger_top (
     output wire skip_payload,          // request to skip channel payloads
     output wire initiate_readout,      // request for the channels to be read out
     output wire [23:0] pulse_trig_num, // pulse trigger number
+    output wire [31:0] accepted_ext_trigger_count, // cumulative # of pulse triggers this run
+    output wire [23:0] pulse_trigs_last_readout,   // # of pulse triggers during last readout
 
     input  wire m_pulse_fifo_tready,
     output wire m_pulse_fifo_tvalid,
@@ -79,6 +81,7 @@ module trigger_top (
     output wire trig_fifo_full,        // TTC trigger FIFO is almost full
     output wire pulse_fifo_full,       // pulse trigger FIFO is almost full
     output wire acq_fifo_full,         // acquisition event FIFO is almost full
+    //output wire [31:0] ext_pulse_delta_t,    // latched time between triggers in this processor
 
     // number of bursts stored in the DDR3
     output wire [22:0] stored_bursts_chan0,
@@ -387,6 +390,9 @@ module trigger_top (
         .ttc_acq_ready(acq_ready_async),                 // channels are ready to acquire/readout data
         .pulse_trigger(pulse_trigger),                   // channel trigger signal
         .trig_num(pulse_trig_num),                       // pulse trigger number
+        .accepted_ext_trigger_count(accepted_ext_trigger_count),  // cumulative asynchronous pulse trigger number
+        .pulse_trigs_last_readout(pulse_trigs_last_readout),      // # asynchronous pulse triggers read by last TTC readout
+        //.ext_pulse_delta_t(ext_pulse_delta_t),           // latched time between triggers in this processor
 
         // interface to Pulse Trigger FIFO
         .fifo_ready(s_pulse_fifo_tready),

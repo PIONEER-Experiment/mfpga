@@ -20,6 +20,9 @@ module pulse_trigger_receiver (
   input wire ttc_acq_ready,              // channels are ready to acquire/readout data
   output reg pulse_trigger,              // channel trigger signal
   output reg [23:0] trig_num,            // global trigger number
+  output reg [31:0] accepted_ext_trigger_count, // cumulative # of pulse triggers this run
+  output reg [23:0] pulse_trigs_last_readout,   // # of pulse triggers during last readout
+  //output reg [31:0] ext_pulse_delta_t,    // latched time between triggers in this processor
 
   // interface to Pulse Trigger FIFO
   input wire fifo_ready,
@@ -66,6 +69,7 @@ module pulse_trigger_receiver (
   reg [ 3:0] wait_cnt;           // wait state count (for monitoring the trigger width)
   reg [ 1:0] trig_length;        // short or long trigger type
   reg [43:0] trig_timestamp_cnt; // clock cycle count
+  //reg [31:0] delta_t_counter;    // track the time between triggers
 
   // mux overflow warnings for all channels
   assign ddr3_almost_full = (stored_bursts_chan0[22:0] > thres_ddr3_overflow[22:0]) |
@@ -83,16 +87,23 @@ module pulse_trigger_receiver (
                      ((8388608 - stored_bursts_chan4[22:0]) < chan_en[4]*(burst_count_chan4[22:0] + 1));
 
   // "full" in asynchronous mode is limited by the AMC13 event size of 2^20 64-bit words
-  reg amc13_payload_full;
-  reg [22:0] check_event_size;
-  always @* begin
-     check_event_size = stored_bursts_chan0[22:0]*2 + chan_en[0]*((burst_count_chan0[22:0]+1)*2 + 5) +
-                        stored_bursts_chan1[22:0]*2 + chan_en[1]*((burst_count_chan1[22:0]+1)*2 + 5) +
-                        stored_bursts_chan2[22:0]*2 + chan_en[2]*((burst_count_chan2[22:0]+1)*2 + 5) +
-                        stored_bursts_chan3[22:0]*2 + chan_en[3]*((burst_count_chan3[22:0]+1)*2 + 5) +
-                        stored_bursts_chan4[22:0]*2 + chan_en[4]*((burst_count_chan4[22:0]+1)*2 + 5) + 4;
-     amc13_payload_full = 1048576 < check_event_size;
-  end
+  // for now, assume all channels read with identical parameters and with every trigger.
+  // then the total allowed 64 bit word size of 1048576 must be reduced by 5 (# channels) and further
+  // reduced by 2 to account for 2 64 words in each burst of 8 adc words -- so 104857 bursts
+  // This can be compared to one channel's storage
+  wire amc13_payload_full;
+  assign amc13_payload_full = ((104857 - stored_bursts_chan0[22:0]) < chan_en[0]*(burst_count_chan0[22:0] + 1));
+  
+  //reg amc13_payload_full;
+  //reg [22:0] check_event_size;
+  //always @* begin
+  //   check_event_size = stored_bursts_chan0[22:0]*2 + chan_en[0]*((burst_count_chan0[22:0]+1)*2 + 5) +
+  //                      stored_bursts_chan1[22:0]*2 + chan_en[1]*((burst_count_chan1[22:0]+1)*2 + 5) +
+  //                      stored_bursts_chan2[22:0]*2 + chan_en[2]*((burst_count_chan2[22:0]+1)*2 + 5) +
+  //                      stored_bursts_chan3[22:0]*2 + chan_en[3]*((burst_count_chan3[22:0]+1)*2 + 5) +
+  //                      stored_bursts_chan4[22:0]*2 + chan_en[4]*((burst_count_chan4[22:0]+1)*2 + 5) + 4;
+  //   amc13_payload_full = 1048576 < check_event_size;
+  //end
 
   reg next_pulse_trigger;
   reg next_trig_went_lo;
@@ -100,27 +111,37 @@ module pulse_trigger_receiver (
   reg [ 3:0] next_wait_cnt;
   reg [ 1:0] next_trig_length;
   reg [23:0] next_trig_num;
+  reg [31:0] next_accepted_ext_trigger_count;
+  reg [23:0] next_pulse_trigs_last_readout;
   reg [43:0] next_trig_timestamp;
   reg [31:0] next_ddr3_overflow_count;
+  //reg [31:0] next_ext_pulse_delta_t;
+  //reg [31:0] next_delta_t_counter;
+  
 
 
   // combinational always block
   always @* begin
     nextstate = 5'd0;
 
-    next_trig_went_lo              = trig_went_lo;
-    next_wait_cnt           [ 3:0] = wait_cnt           [ 3:0];
-    next_trig_length        [ 1:0] = trig_length        [ 1:0];
-    next_trig_num           [23:0] = trig_num           [23:0];
-    next_trig_timestamp     [43:0] = trig_timestamp     [43:0];
-    next_ddr3_overflow_count[31:0] = ddr3_overflow_count[31:0];
-
+    next_trig_went_lo                     = trig_went_lo;
+    next_wait_cnt                  [ 3:0] = wait_cnt           [ 3:0];
+    next_trig_length               [ 1:0] = trig_length        [ 1:0];
+    next_trig_num                  [23:0] = trig_num           [23:0];
+    next_accepted_ext_trigger_count[31:0] = accepted_ext_trigger_count[31:0];
+    next_pulse_trigs_last_readout  [23:0] = pulse_trigs_last_readout  [23:0];
+    next_trig_timestamp            [43:0] = trig_timestamp     [43:0];
+    next_ddr3_overflow_count       [31:0] = ddr3_overflow_count[31:0];
+    //next_ext_pulse_delta_t       [31:0] = ext_pulse_delta_t  [31:0];
+    //next_delta_t_counter         [31:0] = delta_t_counter    [31:0];
     next_pulse_trigger = 1'b0; // default
 
     case (1'b1) // synopsys parallel_case full_case
       // idle state
       state[IDLE] : begin
         if (trigger & async_mode & accept_pulse_triggers & ~ttc_trigger & ttc_acq_ready) begin
+          //next_ext_pulse_delta_t[31:0] = delta_t_counter[31:0];
+          //next_delta_t_counter  [31:0] = 32'd0;
           // this trigger would overwrite valid data in DDR3, ignore this trigger
           if (ddr3_full | amc13_payload_full) begin
             next_ddr3_overflow_count[31:0] = ddr3_overflow_count[31:0] + 1; // increment overflow error counter
@@ -133,6 +154,7 @@ module pulse_trigger_receiver (
             next_trig_went_lo         = 1'b0;                     // clear
             next_trig_length   [ 1:0] = 2'd0;                     // clear
             next_trig_num      [23:0] = trig_num[23:0] + 1;       // increment trigger counter, starts at zero
+            next_accepted_ext_trigger_count[31:0] = accepted_ext_trigger_count[31:0] + 1;
             next_trig_timestamp[43:0] = trig_timestamp_cnt[43:0]; // latch trigger timestamp counter
             next_wait_cnt      [ 3:0] = wait_cnt[3:0] + 1;
 
@@ -144,12 +166,13 @@ module pulse_trigger_receiver (
         end
         else begin
           next_wait_cnt[3:0] = 4'h0; // clear
-          
+          //next_delta_t_counter[31:0] = delta_t_counter[31:0] + 1;
           nextstate[IDLE] = 1'b1;
         end
       end
       // finish monitoring the trigger level to determine if it's short or long
       state[WAIT] : begin
+        //next_delta_t_counter[31:0] = delta_t_counter[31:0] + 1;
         // wait period is over
         if (wait_cnt[3:0] == fp_trig_width[3:0]) begin
           // determine trigger length
@@ -183,6 +206,7 @@ module pulse_trigger_receiver (
       end
       // store the trigger information in the FIFO, for the trigger processor
       state[STORE_TRIG_INFO] : begin
+        //next_delta_t_counter[31:0] = delta_t_counter[31:0] + 1;
         // FIFO accepted the data word
         if (fifo_ready) begin
           next_trig_went_lo      = 1'b0; // reset trigger monitor flag
@@ -222,6 +246,9 @@ module pulse_trigger_receiver (
 
       trig_went_lo      <= 1'b0;
       pulse_trigger     <= 1'b0;
+      
+      //ext_pulse_delta_t[31:0] <= 32'd0;
+      //delta_t_counter  [31:0] <= 32'd0;
     end
     else begin
       state <= nextstate;
@@ -232,24 +259,32 @@ module pulse_trigger_receiver (
 
       trig_went_lo      <= next_trig_went_lo;
       pulse_trigger     <= next_pulse_trigger;
+      
+      //ext_pulse_delta_t[31:0] <= next_ext_pulse_delta_t[31:0];
+      //delta_t_counter  [31:0] <= next_delta_t_counter  [31:0];
     end
 
     // reset trigger number
     if (reset | reset_trig_num | readout_done) begin
       trig_num[23:0] <= 24'd0;
+      if (!reset) pulse_trigs_last_readout[23:0] <= trig_num[23:0];
     end
     else begin
       trig_num[23:0] <= next_trig_num[23:0];
+      pulse_trigs_last_readout[23:0] <= next_pulse_trigs_last_readout[23:0];
     end
     
-    // reset trigger timestamp and counter
+    // reset trigger timestamp and counter.  Also reset the cumulative front panel trigger counter
     if (reset | reset_trig_timestamp) begin
       trig_timestamp    [43:0] <= 44'd0;
       trig_timestamp_cnt[43:0] <= 44'd0;
+      accepted_ext_trigger_count[31:0] <= 32'd0;
+      pulse_trigs_last_readout[23:0] <= 24'd0;
     end
     else begin
       trig_timestamp    [43:0] <= next_trig_timestamp[43:0];
       trig_timestamp_cnt[43:0] <= trig_timestamp_cnt [43:0] + 1;
+      accepted_ext_trigger_count[31:0] <= next_accepted_ext_trigger_count[31:0];
     end
 
     // reset stored bursts

@@ -177,6 +177,8 @@ module wfd_top (
     wire pulse_fifo_tready;
     wire pulse_fifo_tvalid;
     wire [127:0] pulse_fifo_tdata;
+    //wire [31:0] ext_pulse_delta_t;    // latched time between triggers in pulse_trigger_receiver
+    //wire [31:0] ext_trig_delta_t;     // lated time between triggers seen in the raw trigger counting
 
     // ======== TTC signals ========
     wire ttc_ready;
@@ -869,7 +871,9 @@ module wfd_top (
                 status_reg10, status_reg11, status_reg12, status_reg13, status_reg14,
                 status_reg15, status_reg16, status_reg17, status_reg18, status_reg19,
                 status_reg20, status_reg21, status_reg22, status_reg23, status_reg24,
-                status_reg25, status_reg26, status_reg27, status_reg28, status_reg29;
+                status_reg25, status_reg26, status_reg27, status_reg28, status_reg29,
+                status_reg30, status_reg31;
+                // status_reg32, status_reg33;
 
     // ======== trigger information signals ========
     wire [ 2:0] trig_settings;
@@ -881,7 +885,9 @@ module wfd_top (
     wire [23:0] trig_num;
     wire [43:0] trig_timestamp;
     wire [23:0] pulse_trig_num;
+    wire [23:0] pulse_trigs_last_readout;
     wire [31:0] raw_ext_trigger_count;
+    wire [31:0] accepted_ext_trigger_count;
 
     // ======== FIFO signals ========
     wire trig_fifo_full;
@@ -1044,6 +1050,10 @@ module wfd_top (
         .status_reg27(status_reg27),
         .status_reg28(status_reg28),
         .status_reg29(status_reg29),
+        .status_reg30(status_reg30),
+        .status_reg31(status_reg31),
+        //.status_reg32(status_reg32),
+        //.status_reg33(status_reg33),
 
         // flash interface ports
         .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
@@ -1430,6 +1440,8 @@ module wfd_top (
         .endianness_sel(endianness_sel),
         .acq_dones(acq_dones_clk125),
         .accept_pulse_triggers(accept_pulse_triggers),
+        .ttc_accept_pulse_triggers(ttc_accept_pulse_triggers),
+        .ipb_accept_pulse_triggers(ipb_accept_pulse_triggers),
 
         // trigger
         .trig_fifo_full(trig_fifo_full),
@@ -1440,7 +1452,11 @@ module wfd_top (
         .trig_num(trig_num_clk125),
         .trig_timestamp(trig_timestamp_clk125),
         .pulse_trig_num(pulse_trig_num_clk125),
+        .pulse_trigs_last_readout(pulse_trigs_last_readout),
         .raw_ext_trigger_count(raw_ext_trigger_count),
+        .accepted_ext_trigger_count(accepted_ext_trigger_count),
+        //.ext_pulse_delta_t(ext_pulse_delta_t),
+        //.ext_trig_delta_t(ext_trig_delta_t),
 
         // slow control
         .i2c_temp(i2c_temp),
@@ -1492,7 +1508,11 @@ module wfd_top (
         .status_reg26(status_reg26),
         .status_reg27(status_reg27),
         .status_reg28(status_reg28),
-        .status_reg29(status_reg29)
+        .status_reg29(status_reg29),
+        .status_reg30(status_reg30),
+        .status_reg31(status_reg31)
+        //.status_reg32(status_reg32),
+        //.status_reg33(status_reg33)
     );
 
     // zero deadtime (aside from external trigger overlaps) external trigger counter
@@ -1504,14 +1524,16 @@ module wfd_top (
     ext_trigger_counter ext_trigger_counter (
         // clock
         .ttc_clk(ttc_clk), //  40 MHz
-
+        .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
+        
         // resets
         .reset40(reset40),           // in  40 MHz clock domain
-        .rst_trigger_num(rst_trigger_num),             // from TTC Channel B
+        
 
         // the trigger to count
         .ext_trigger(ext_trigger_send),
         .raw_ext_trigger_count(raw_ext_trigger_count)
+        //.ext_trig_delta_t(ext_trig_delta_t)
     );
 
     // trigger top module
@@ -1552,6 +1574,8 @@ module wfd_top (
         .skip_payload(skip_payload),             // request to skip channel payloads
         .initiate_readout(initiate_readout),     // request for the channels to be read out
         .pulse_trig_num(pulse_trig_num),         // asynchronous pulse trigger number
+        .accepted_ext_trigger_count(accepted_ext_trigger_count),  // cumulative asynchronous pulse trigger number
+        .pulse_trigs_last_readout(pulse_trigs_last_readout),      // # asynchronous pulse triggers read by last TTC readout
 
         .m_pulse_fifo_tready(pulse_fifo_tready), // input
         .m_pulse_fifo_tvalid(pulse_fifo_tvalid), // output
@@ -1594,7 +1618,8 @@ module wfd_top (
         .trig_fifo_full(trig_fifo_full),   // TTC trigger FIFO is almost full
         .pulse_fifo_full(pulse_fifo_full), // pulse trigger FIFO is almost full
         .acq_fifo_full(acq_fifo_full),     // acquisition event FIFO is almost full
-
+        //.ext_pulse_delta_t(ext_pulse_delta_t), // time between front panel pulses seen in pulse_trigger_receiver
+        
         // number of bursts stored in the DDR3
         .stored_bursts_chan0(stored_bursts_chan0),
         .stored_bursts_chan1(stored_bursts_chan1),
