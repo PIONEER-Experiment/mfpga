@@ -1,6 +1,6 @@
 // Finite state machine to control triggering of the channels
 
-module channel_acq_controller (
+module channel_acq_controller_cbuf (
   // clock and reset
   input wire clk,   // 40 MHz TTC clock
   input wire reset,
@@ -44,11 +44,14 @@ module channel_acq_controller (
   reg [ 3:0] nextstate;
   reg [ 4:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
-  reg [ 9:0] next_acq_enable;
   reg [ 4:0] next_acq_trig;
 
   reg [31:0] delay_cnt; // counter to keep track of trigger delay 
 
+  // for the circular buffer mode, as long as the acq_trig_type for a channel
+  // is nonzero, it will collect data to its circular buffer, and watch for
+  // a trigger to move the data to the DDR3
+  assign acq_enable[9:0] = { 5{acq_trig_type[1:0]} };
 
   // combinational always block
   always @* begin
@@ -57,13 +60,12 @@ module channel_acq_controller (
     next_acq_trig_type[ 4:0] = acq_trig_type[ 4:0];
     next_acq_trig_num [23:0] = acq_trig_num [23:0];
 
-    next_acq_enable[9:0] = 10'd0; // default
     next_acq_trig  [4:0] =  5'd0; // default
 
     case (1'b1) // synopsys parallel_case full_case
       // idle state
       state[IDLE] : begin
-        if (trigger & ~async_mode & ~cbuf_mode ) begin
+        if (trigger & ~async_mode & cbuf_mode ) begin
           next_acq_trig_type[ 4:0] = trig_type[ 4:0]; // latch trigger type
           next_acq_trig_num [23:0] = trig_num [23:0]; // latch trigger number
 
@@ -90,7 +92,6 @@ module channel_acq_controller (
       // pass trigger and fill type to channels, and
       // wait for channel to report back 'done'
       state[FILL] : begin
-        next_acq_enable[9:0] = { 5{acq_trig_type[1:0]} };
         next_acq_trig  [4:0] = chan_en[4:0];
 
         if (acq_dones[4:0] == chan_en[4:0]) begin
@@ -124,7 +125,6 @@ module channel_acq_controller (
       acq_trig_type[ 4:0] <=  5'd0;
       acq_trig_num [23:0] <= 24'd0;
 
-      acq_enable[9:0] <= 10'd0;
       acq_trig  [4:0] <=  5'd0;
     end
     else begin
@@ -133,7 +133,6 @@ module channel_acq_controller (
       acq_trig_type[ 4:0] <= next_acq_trig_type[ 4:0];
       acq_trig_num [23:0] <= next_acq_trig_num [23:0];
 
-      acq_enable[9:0] <= next_acq_enable[9:0];
       acq_trig  [4:0] <= next_acq_trig  [4:0];
     end
 

@@ -8,9 +8,10 @@
 // To start state machine, assert the 'prog_chan_start' input signal
 
 module prog_channels (
-	input  clk,
-	input  reset,
+    input  clk,
+    input  reset,
     input  async_mode,                // asychronous mode enable
+    input  cbuf_mode,                 // circular buffer mode enable
     input  prog_chan_start,           // start signal from IPbus
     output reg c_progb,               // configuration signal to all five channels
     output c_clk,                     // configuration clock to all five channels
@@ -29,6 +30,7 @@ module prog_channels (
     input  end_bitstream,             // done signal from spi_flash_intf
     output reg prog_chan_done = 1'b0, // done programming the channels
     output reg async_channels = 1'b0  // flag for if the channels are sync or async
+    output reg cbuf_channels = 1'b0   // flag for if the channels are in circular buffer mode
 );
 
 
@@ -199,10 +201,12 @@ always @(posedge clk) begin
                 wbuf_address[6:0]     <=  7'd0;
                 flash_wr_nBits[11:0]  <= 12'd0;
 
-                if (~async_mode)
+                if (async_mode)
+                    flash_command[31:0] <= {8'h03, `ASYNC_FLASH_ADDR};   // READ, ASYNCHRONOUS MODE
+                else if (cbuf_mode)
                     flash_command[31:0] <= {8'h03, `CHANNEL_FLASH_ADDR}; // READ, SYNCHRONOUS MODE
                 else
-                    flash_command[31:0] <= {8'h03, `ASYNC_FLASH_ADDR};   // READ, ASYNCHRONOUS MODE
+                    flash_command[31:0] <= {8'h03, `CBUF_FLASH_ADDR};    // READ, CIRCULAR BUFFER MODE
 
                 state <= START;
             end
@@ -401,6 +405,10 @@ always @(posedge clk) begin
                     async_channels <= 1'b0; //  synchronous channel image loaded
                 else
                     async_channels <= 1'b1; // asynchronous channel image loaded
+                if (~cbuf_mode)
+                    cbuf_channels <=  1'b0; //  synchronous pattern channel image loaded if synch mode
+                else
+                    cbuf_channels <=  1'b1; //  circular buffer channel image loaded if synch mode
 
                 if (~prog_chan_start) begin
                     state <= IDLE;

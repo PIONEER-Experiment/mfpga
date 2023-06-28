@@ -69,12 +69,14 @@ module trigger_top (
     input wire [11:0] wfm_count_chan4,
 
     // status connections
-    input  wire async_mode,            // asynchronous mode select 
+    input  wire async_mode,            // asynchronous mode select
+    input  wire cbuf_mode,             // TTC-triggered circular buffer mode select
     input  wire [ 3:0] xadc_alarms,    // XADC alarm signals
     output wire [ 3:0] ttr_state,      // TTC trigger receiver state
     output wire [ 4:0] ptr_state,      // pulse trigger receiver state
     output wire [ 3:0] cac_state,      // channel acquisition controller state
     output wire [ 3:0] caca_state,     // channel acquisition controller (asynchronous) state
+    output wire [ 3:0] cacc_state,     // channel acquisition controller (cbuf) state
     output wire [ 6:0] tp_state,       // trigger processor state
     output wire [23:0] trig_num,       // global trigger number
     output wire [43:0] trig_timestamp, // timestamp for latest trigger received
@@ -455,8 +457,42 @@ module trigger_top (
 
         // status connections
         .async_mode(async_mode), // asynchronous mode select
+        .cbuf_mode(cbuf_mode),
         .state(cac_state)        // state of finite state machine
     );
+
+    // channel acquisition controller module (synchronous)
+    channel_acq_controller_cbuf channel_acq_controller_cbuf (
+        // clock and reset
+        .clk(ttc_clk),   // 40 MHz TTC clock
+        .reset(reset40),
+    
+        // trigger configuration
+        .chan_en(chan_en_clk40), // which channels should receive the trigger
+        .trig_delay(trig_delay), // delay between receiving trigger and passing it onto channels
+    
+        // interface from TTC trigger receiver
+        .trigger(acq_trigger),      // trigger signal
+        .trig_type(acq_trig_type),  // recognized trigger type (muon fill, laser, pedestal, async readout)
+        .trig_num(acq_trig_num),    // trigger number
+        .acq_ready(acq_ready_sync), // channels are ready to acquire data
+    
+        // interface to Channel FPGAs
+        .acq_dones(chan_dones_clk40),
+        .acq_enable(chan_enable_sync),
+        .acq_trig(chan_trig_sync),
+    
+        // interface to Acquisition Event FIFO
+        .fifo_ready(s_acq_fifo_tready),
+        .fifo_valid(s_acq_fifo_tvalid_sync),
+        .fifo_data(s_acq_fifo_tdata_sync),
+    
+        // status connections
+        .async_mode(async_mode), // asynchronous mode select
+        .cbus_mode(cbus_mode),
+        .state(cacc_state)        // state of finite state machine
+    );
+
 
 
     // channel acquisition controller module (asynchronous)

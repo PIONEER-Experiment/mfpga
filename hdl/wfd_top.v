@@ -93,6 +93,13 @@ module wfd_top (
     wire async_mode_ttc_clk;
     wire async_mode_clk50;
     wire async_mode_clk125;
+    // cbuf
+    wire cbuf_mode_from_ipbus; // cbuf mode select
+    wire cbuf_channels;
+    wire cbuf_mode_ttc_clk;
+    wire cbuf_mode_clk50;
+    wire cbuf_mode_clk125;
+
 
     wire [3:0] fp_trig_width_from_ipbus;
     wire [3:0] fp_trig_width;
@@ -508,6 +515,9 @@ module wfd_top (
     wire async_mode_on;
     wire async_mode_off;
 
+    wire cbuf_mode_on;
+    wire cbuf_mode_off;
+
     sync_2stage prog_chan_start_sync (
         .clk(clk50),
         .in(prog_chan_start_from_ipbus),
@@ -529,16 +539,25 @@ module wfd_top (
         .falling(async_mode_off) // falling edge detect
     );
 
+    // active-high, single-pulse signals for when asychronous mode changes
+    edge_detect cbuf_mode_edge_detect (
+        .clk(clk50),             // clock
+        .in(cbuf_mode_clk50),   // input signal
+        .rising(cbuf_mode_on),  // rising edge detect
+        .falling(cbuf_mode_off) // falling edge detect
+    );
+
 
     // combine IPbus and startup triggers
     // reprogram channels when: Master FPGA startup, IPbus configuration, asynchronous mode change
     wire prog_chan_start;
-    assign prog_chan_start = master_init_rst2_clk50 | ipb_prog_chan_start_on | async_mode_on | async_mode_off;
+    assign prog_chan_start = master_init_rst2_clk50 | ipb_prog_chan_start_on | async_mode_on | async_mode_off | cbuf_mode_on | cbuf_mode_off;
 
     prog_channels prog_channels (
         .clk(clk50),
         .reset(clk50_reset),
         .async_mode(async_mode_clk50),                 // asynchronous mode enable
+        .cbuf_mode(cbuf_mode_clk50),                   // circular buffer mode enable
         .prog_chan_start(prog_chan_start),             // start signal from IPbus
         .c_progb(c_progb),                             // configuration signal to all five channels
         .c_clk(c_clk),                                 // configuration clock to all five channels
@@ -557,6 +576,7 @@ module wfd_top (
         .end_bitstream(end_bitstream),                 // done signal from spi_flash_intf
         .prog_chan_done(prog_chan_done),               // done programming the channels
         .async_channels(async_channels)                // flag for if the channels are sync or async
+        .cbuf_channels(cbuf_channels)                  // flag for circular buffer or patterns in sync mode
     );
 
 
@@ -625,6 +645,12 @@ module wfd_top (
         .in(async_mode_from_ipbus),
         .out(async_mode_clk50)
     );
+    sync_2stage cbuf_mode_clk50_module (
+        .clk(clk50),
+        .in(cbuf_mode_from_ipbus),
+        .out(cbuf_mode_clk50)
+    );
+
 
     // for use in trigger_top
     sync_2stage async_mode_ttc_clk_module (
@@ -632,12 +658,27 @@ module wfd_top (
         .in(async_channels),
         .out(async_mode_ttc_clk)
     );
+    sync_2stage cbuf_mode_ttc_clk_module (
+        .clk(ttc_clk),
+        .in(cbuf_channels),
+        .out(cbuf_mode_ttc_clk)
+    );
 
     // for use in ipbus_top, status_reg_block, and command_manager
+    // -- asyncMods: in ipbus, forces mode type.  Needs review for what happens for front panel vs ttc ring buffering
+                     in status_reg_block, flags asynch mode.  Also needs review: flags front panel trigs or type of channel image?
+                     in Command Manage: i) affects burst counting for readout -- needs to refer explicitly to front panel triggering!
+                                       ii) in a related action, affects the async_readout_done flag, presumably
+                                           associated with the TTC readout trigger of front panel triggers.
     sync_2stage async_mode_clk125_module (
         .clk(clk125),
         .in(async_channels),
         .out(async_mode_clk125)
+    );
+    sync_2stage cbuf_mode_clk125_module (
+        .clk(clk125),
+        .in(cbuf_channels),
+        .out(cbuf_mode_clk125)
     );
 
     // for use in trigger_top
@@ -1001,6 +1042,8 @@ module wfd_top (
         .async_mode_out(async_mode_from_ipbus),            // asynchronous mode select
         .accept_pulse_trig_out(ipb_accept_pulse_triggers), // allow front panel triggers (for testing)
         .async_trig_type_out(ipb_async_trig_type),         // fix TTC trigger type to be asynchronous readout (for testing)
+        .cbuf_mode_in(cbuf_mode_clk125),                   // set circular buffer mode in channels
+        .cbuf_mode_out(cbuf_mode_from_ipbus),              // circular buffer mode select
         .chan_en_out(chan_en),                             // channel enable to command manager
         .prog_chan_out(prog_chan_start_from_ipbus),        // signal to start programming sequence for channel FPGAs
         .reprog_trigger_out(reprog_trigger_from_ipbus),    // signal to issue IPROG command to re-program FPGA from flash
@@ -1267,6 +1310,16 @@ module wfd_top (
         .out(caca_state_clk125)
     );
 
+    // synchronize cacc_state
+    wire [3:0] cacc_state_clk125;
+    sync_2stage #(
+        .WIDTH(4)
+    ) cacc_state_sync (
+        .clk(clk125),
+        .in(cacc_state),
+        .out(cacc_state_clk125)
+    );
+
     // synchronize fill_type
     wire [4:0] fill_type_clk125;
     sync_2stage #(
@@ -1377,6 +1430,7 @@ module wfd_top (
         // FPGA status
         .prog_chan_done(prog_chan_done),
         .async_mode(async_mode_clk125),
+        .cbuf_mode(cbuf_mode_clk125),
         .is_golden(1'b0),
 
         // soft error thresholds
@@ -1431,6 +1485,7 @@ module wfd_top (
         .ptr_state(ptr_state_clk125),
         .cac_state(cac_state_clk125),
         .caca_state(caca_state_clk125),
+        .cacc_state(cacc_state_clk125),
         .tp_state(tp_state),
 
         // acquisition
@@ -1536,6 +1591,7 @@ module wfd_top (
         //.ext_trig_delta_t(ext_trig_delta_t)
     );
 
+    // -- asyncMods: all usages here refer to front panel trigger and associated asynch readout
     // trigger top module
     trigger_top trigger_top (
         // clocks
@@ -1607,11 +1663,13 @@ module wfd_top (
 
         // status connections
         .async_mode(async_mode_ttc_clk),   // asynchronous mode select
+        .cbuf_mode(cbuf_mode_ttc_clk),     // circular buffer mode select
         .xadc_alarms(xadc_alarms[3:0]),    // XADC alarm signals
         .ttr_state(ttr_state),             // TTC trigger receiver state
         .ptr_state(ptr_state),             // pulse trigger receiver state
         .cac_state(cac_state),             // channel acquisition controller state
         .caca_state(caca_state),           // channel acquisition controller (asynchronous) state
+        .cacc_state(cacc_state),           // channel acquisition controller (circular buffer) state
         .tp_state(tp_state),               // trigger processor state
         .trig_num(trig_num),               // global trigger number
         .trig_timestamp(trig_timestamp),   // timestamp for latest trigger received
@@ -1727,6 +1785,7 @@ module wfd_top (
         .endianness_sel(endianness_sel),         // input, from IPbus
         .thres_data_corrupt(thres_data_corrupt), // input  [31:0], from IPbus
         .async_mode(async_mode_clk125),          // input, from IPbus
+        .cbuf_mode(cbuf_mode_clk125),            // input, from IPbus
         .state(cm_state),                        // output [34:0]
 
         // error connections

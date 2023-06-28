@@ -28,6 +28,8 @@ port (
     async_mode_out           : out std_logic;
     accept_pulse_trig_out    : out std_logic;
     async_trig_type_out      : out std_logic;
+    cbuf_mode_in             : in  std_logic;
+    cbuf_mode_out            : out std_logic;
     ip_addr_rst_out          : out std_logic;
     chan_en_out              : out std_logic_vector( 4 downto 0);
     prog_chan_out            : out std_logic;
@@ -184,6 +186,7 @@ begin
         ipbus_in  => ipbw(1),
         ipbus_out => ipbr(1),
         async_mode_in => async_mode_in,
+        cbuf_mode_in  => cbuf_mode_in,
         -- output registers
         reg0 => ctrl_reg,
         reg1 => thres_data_corrupt,
@@ -218,6 +221,7 @@ begin
     fp_trig_width_out(1)     <= ctrl_reg(22);
     fp_trig_width_out(2)     <= ctrl_reg(23);
     fp_trig_width_out(3)     <= ctrl_reg(24);
+    cbuf_mode_out            <= ctrl_reg(25); -- don't touch
 
     
     -- Slave 2: Write-only register

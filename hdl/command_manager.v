@@ -100,6 +100,7 @@ module command_manager (
   input wire endianness_sel,            // select bit for the endianness of ADC data
   input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
   input wire async_mode,                // asynchronous mode flag
+  input wire cbuf_mode,                 // circular buffer mode flag
   //(* mark_debug = "true" *) output reg [34:0] state,              // state of finite state machine
   output reg [34:0] state,              // state of finite state machine
 
@@ -470,22 +471,40 @@ module command_manager (
     next_chan_burst_count_type4[2] = chan_burst_count_type4[2];
     next_chan_burst_count_type4[3] = chan_burst_count_type4[3];
     next_chan_burst_count_type4[4] = chan_burst_count_type4[4];
-    next_chan_wfm_count_type1[0]   = chan_wfm_count_type1[0];
-    next_chan_wfm_count_type1[1]   = chan_wfm_count_type1[1];
-    next_chan_wfm_count_type1[2]   = chan_wfm_count_type1[2];
-    next_chan_wfm_count_type1[3]   = chan_wfm_count_type1[3];
-    next_chan_wfm_count_type1[4]   = chan_wfm_count_type1[4];
-    next_chan_wfm_count_type2[0]   = chan_wfm_count_type2[0];
-    next_chan_wfm_count_type2[1]   = chan_wfm_count_type2[1];
-    next_chan_wfm_count_type2[2]   = chan_wfm_count_type2[2];
-    next_chan_wfm_count_type2[3]   = chan_wfm_count_type2[3];
-    next_chan_wfm_count_type2[4]   = chan_wfm_count_type2[4];
-    next_chan_wfm_count_type3[0]   = chan_wfm_count_type3[0];
-    next_chan_wfm_count_type3[1]   = chan_wfm_count_type3[1];
-    next_chan_wfm_count_type3[2]   = chan_wfm_count_type3[2];
-    next_chan_wfm_count_type3[3]   = chan_wfm_count_type3[3];
-    next_chan_wfm_count_type3[4]   = chan_wfm_count_type3[4];
-
+    if (~cbuf_mode) begin
+       next_chan_wfm_count_type1[0]   = chan_wfm_count_type1[0];
+       next_chan_wfm_count_type1[1]   = chan_wfm_count_type1[1];
+       next_chan_wfm_count_type1[2]   = chan_wfm_count_type1[2];
+       next_chan_wfm_count_type1[3]   = chan_wfm_count_type1[3];
+       next_chan_wfm_count_type1[4]   = chan_wfm_count_type1[4];
+       next_chan_wfm_count_type2[0]   = chan_wfm_count_type2[0];
+       next_chan_wfm_count_type2[1]   = chan_wfm_count_type2[1];
+       next_chan_wfm_count_type2[2]   = chan_wfm_count_type2[2];
+       next_chan_wfm_count_type2[3]   = chan_wfm_count_type2[3];
+       next_chan_wfm_count_type2[4]   = chan_wfm_count_type2[4];
+       next_chan_wfm_count_type3[0]   = chan_wfm_count_type3[0];
+       next_chan_wfm_count_type3[1]   = chan_wfm_count_type3[1];
+       next_chan_wfm_count_type3[2]   = chan_wfm_count_type3[2];
+       next_chan_wfm_count_type3[3]   = chan_wfm_count_type3[3];
+       next_chan_wfm_count_type3[4]   = chan_wfm_count_type3[4];
+    end
+    else
+       next_chan_wfm_count_type1[0]   = 12'd1; // force 1 waveform in circular buffer mode
+       next_chan_wfm_count_type1[1]   = 12'd1;
+       next_chan_wfm_count_type1[2]   = 12'd1;
+       next_chan_wfm_count_type1[3]   = 12'd1;
+       next_chan_wfm_count_type1[4]   = 12'd1;
+       next_chan_wfm_count_type2[0]   = 12'd1;
+       next_chan_wfm_count_type2[1]   = 12'd1;
+       next_chan_wfm_count_type2[2]   = 12'd1;
+       next_chan_wfm_count_type2[3]   = 12'd1;
+       next_chan_wfm_count_type2[4]   = 12'd1;
+       next_chan_wfm_count_type3[0]   = 12'd1;
+       next_chan_wfm_count_type3[1]   = 12'd1;
+       next_chan_wfm_count_type3[2]   = 12'd1;
+       next_chan_wfm_count_type3[3]   = 12'd1;
+       next_chan_wfm_count_type3[4]   = 12'd1;
+    end
     next_daq_valid          = 0; // default
     chan_tx_fifo_data[31:0] = 0; // default
     ipbus_res_data[31:0]    = 0; // default
@@ -548,26 +567,36 @@ module command_manager (
           next_ipbus_chan_reg[31:0] = ipbus_cmd_data[31:0];
 
           // watch for write register commands
-          if      ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0002)) begin
-            next_chan_burst_count_type1[chan_tx_fifo_dest] = ipbus_cmd_data[22:0]; // burst count value, muon fill
+          if ( ~cbuf_mode ) begin
+             if      ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0002)) begin
+               next_chan_burst_count_type1[chan_tx_fifo_dest] = ipbus_cmd_data[22:0]; // burst count value, muon fill
+             end
+             else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0003)) begin
+               next_chan_burst_count_type2[chan_tx_fifo_dest] = ipbus_cmd_data[22:0]; // burst count value, laser fill
+             end
+             else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0004)) begin
+               next_chan_burst_count_type3[chan_tx_fifo_dest] = ipbus_cmd_data[22:0]; // burst count value, pedestal fill
+             end
+             else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0014)) begin
+               next_chan_burst_count_type4[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, asynchronous acquisition
+             end
+             else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_000e)) begin
+               next_chan_wfm_count_type1[chan_tx_fifo_dest]   = ipbus_cmd_data[11:0]; // waveform count value, muon fill
+             end
+             else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0010)) begin
+               next_chan_wfm_count_type2[chan_tx_fifo_dest]   = ipbus_cmd_data[11:0]; // waveform count value, laser fill
+             end
+             else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0012)) begin
+               next_chan_wfm_count_type3[chan_tx_fifo_dest]   = ipbus_cmd_data[11:0]; // waveform count value, pedestal fill
+             end
           end
-          else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0003)) begin
-            next_chan_burst_count_type2[chan_tx_fifo_dest] = ipbus_cmd_data[22:0]; // burst count value, laser fill
-          end
-          else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0004)) begin
-            next_chan_burst_count_type3[chan_tx_fifo_dest] = ipbus_cmd_data[22:0]; // burst count value, pedestal fill
-          end
-          else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0014)) begin
-            next_chan_burst_count_type4[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, asynchronous acquisition
-          end
-          else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_000e)) begin
-            next_chan_wfm_count_type1[chan_tx_fifo_dest]   = ipbus_cmd_data[11:0]; // waveform count value, muon fill
-          end
-          else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0010)) begin
-            next_chan_wfm_count_type2[chan_tx_fifo_dest]   = ipbus_cmd_data[11:0]; // waveform count value, laser fill
-          end
-          else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0012)) begin
-            next_chan_wfm_count_type3[chan_tx_fifo_dest]   = ipbus_cmd_data[11:0]; // waveform count value, pedestal fill
+          else
+             // for the circular buffer mode, we will use the async mode registers
+             if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0014)) begin
+               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
+               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
+               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
+             end
           end
 
           nextstate[CHECK_LAST] = 1'b1;

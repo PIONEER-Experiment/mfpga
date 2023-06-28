@@ -65,6 +65,8 @@ port (
     async_mode_out           : out std_logic;                     -- enable asynchronous mode
     accept_pulse_trig_out    : out std_logic;                     -- allow front panel triggers (for testing)
     async_trig_type_out      : out std_logic;                     -- fix TTC trigger type to be asynchronous readout (for testing)
+    cbuf_mode_in             : in  std_logic;                     -- set circular buffer mode in channels
+    cbuf_mode_out            : out std_logic;                     -- circular buffer mode select
     chan_en_out              : out std_logic_vector( 4 downto 0); -- enable channels in command manager
     prog_chan_out            : out std_logic;                     -- signal to start programming sequence for channel FPGAs
     reprog_trigger_out       : out std_logic_vector( 1 downto 0); -- signal to issue IPROG command to re-program FPGA from flash
@@ -251,6 +253,8 @@ begin
         async_mode_out           => async_mode_out,
         accept_pulse_trig_out    => accept_pulse_trig_out,
         async_trig_type_out      => async_trig_type_out,
+        cbuf_mode_in             => cbuf_mode_in,
+        cbuf_mode_out            => cbuf_mode_out,
         ip_addr_rst_out          => ip_addr_rst_out,
         chan_en_out              => chan_en_out,
         prog_chan_out            => prog_chan_out,

@@ -18,6 +18,7 @@ port (
 	ipbus_in      : in  ipb_wbus;  -- fabric bus in
 	ipbus_out     : out ipb_rbus;  -- fabric bus out
 	async_mode_in : in  std_logic;
+   cbuf_mode_in  : in  std_logic;
 	-- output registers
 	reg0 : out STD_LOGIC_VECTOR(31 downto 0);
 	reg1 : out STD_LOGIC_VECTOR(31 downto 0);
@@ -57,6 +58,7 @@ begin
 				reg(0)(12) <= '1';           -- enable laser trigger type
 				reg(0)(13) <= '1';           -- enable pedestal trigger type
 				reg(0)(19) <= '1';           -- disable EEPROM temperature polling
+            reg(0)(25) <= cbuf_mode_in;  -- never reset circular buffer mode
 				reg(1)     <= x"0000000a";   -- 10 threshold for data corruption
 				reg(2)     <= x"0000000a";   -- 10 threshold for unknown TTC broadcast commands
 				reg(3)     <= x"00733334";   -- 7,549,747 (90% full) threshold for DDR3 overflow warning
