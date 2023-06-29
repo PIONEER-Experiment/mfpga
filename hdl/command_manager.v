@@ -471,40 +471,21 @@ module command_manager (
     next_chan_burst_count_type4[2] = chan_burst_count_type4[2];
     next_chan_burst_count_type4[3] = chan_burst_count_type4[3];
     next_chan_burst_count_type4[4] = chan_burst_count_type4[4];
-    if (~cbuf_mode) begin
-       next_chan_wfm_count_type1[0]   = chan_wfm_count_type1[0];
-       next_chan_wfm_count_type1[1]   = chan_wfm_count_type1[1];
-       next_chan_wfm_count_type1[2]   = chan_wfm_count_type1[2];
-       next_chan_wfm_count_type1[3]   = chan_wfm_count_type1[3];
-       next_chan_wfm_count_type1[4]   = chan_wfm_count_type1[4];
-       next_chan_wfm_count_type2[0]   = chan_wfm_count_type2[0];
-       next_chan_wfm_count_type2[1]   = chan_wfm_count_type2[1];
-       next_chan_wfm_count_type2[2]   = chan_wfm_count_type2[2];
-       next_chan_wfm_count_type2[3]   = chan_wfm_count_type2[3];
-       next_chan_wfm_count_type2[4]   = chan_wfm_count_type2[4];
-       next_chan_wfm_count_type3[0]   = chan_wfm_count_type3[0];
-       next_chan_wfm_count_type3[1]   = chan_wfm_count_type3[1];
-       next_chan_wfm_count_type3[2]   = chan_wfm_count_type3[2];
-       next_chan_wfm_count_type3[3]   = chan_wfm_count_type3[3];
-       next_chan_wfm_count_type3[4]   = chan_wfm_count_type3[4];
-    end
-    else begin
-       next_chan_wfm_count_type1[0]   = 12'd1; // force 1 waveform in circular buffer mode
-       next_chan_wfm_count_type1[1]   = 12'd1;
-       next_chan_wfm_count_type1[2]   = 12'd1;
-       next_chan_wfm_count_type1[3]   = 12'd1;
-       next_chan_wfm_count_type1[4]   = 12'd1;
-       next_chan_wfm_count_type2[0]   = 12'd1;
-       next_chan_wfm_count_type2[1]   = 12'd1;
-       next_chan_wfm_count_type2[2]   = 12'd1;
-       next_chan_wfm_count_type2[3]   = 12'd1;
-       next_chan_wfm_count_type2[4]   = 12'd1;
-       next_chan_wfm_count_type3[0]   = 12'd1;
-       next_chan_wfm_count_type3[1]   = 12'd1;
-       next_chan_wfm_count_type3[2]   = 12'd1;
-       next_chan_wfm_count_type3[3]   = 12'd1;
-       next_chan_wfm_count_type3[4]   = 12'd1;
-    end
+    next_chan_wfm_count_type1[0]   = chan_wfm_count_type1[0];
+    next_chan_wfm_count_type1[1]   = chan_wfm_count_type1[1];
+    next_chan_wfm_count_type1[2]   = chan_wfm_count_type1[2];
+    next_chan_wfm_count_type1[3]   = chan_wfm_count_type1[3];
+    next_chan_wfm_count_type1[4]   = chan_wfm_count_type1[4];
+    next_chan_wfm_count_type2[0]   = chan_wfm_count_type2[0];
+    next_chan_wfm_count_type2[1]   = chan_wfm_count_type2[1];
+    next_chan_wfm_count_type2[2]   = chan_wfm_count_type2[2];
+    next_chan_wfm_count_type2[3]   = chan_wfm_count_type2[3];
+    next_chan_wfm_count_type2[4]   = chan_wfm_count_type2[4];
+    next_chan_wfm_count_type3[0]   = chan_wfm_count_type3[0];
+    next_chan_wfm_count_type3[1]   = chan_wfm_count_type3[1];
+    next_chan_wfm_count_type3[2]   = chan_wfm_count_type3[2];
+    next_chan_wfm_count_type3[3]   = chan_wfm_count_type3[3];
+    next_chan_wfm_count_type3[4]   = chan_wfm_count_type3[4];
     next_daq_valid          = 0; // default
     chan_tx_fifo_data[31:0] = 0; // default
     ipbus_res_data[31:0]    = 0; // default

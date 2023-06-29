@@ -575,7 +575,7 @@ module wfd_top (
         .end_write_command(end_write_command),         // done signal from spi_flash_intf
         .end_bitstream(end_bitstream),                 // done signal from spi_flash_intf
         .prog_chan_done(prog_chan_done),               // done programming the channels
-        .async_channels(async_channels)                // flag for if the channels are sync or async
+        .async_channels(async_channels),               // flag for if the channels are sync or async
         .cbuf_channels(cbuf_channels)                  // flag for circular buffer or patterns in sync mode
     );
 
@@ -666,10 +666,10 @@ module wfd_top (
 
     // for use in ipbus_top, status_reg_block, and command_manager
     // -- asyncMods: in ipbus, forces mode type.  Needs review for what happens for front panel vs ttc ring buffering
-                     in status_reg_block, flags asynch mode.  Also needs review: flags front panel trigs or type of channel image?
-                     in Command Manage: i) affects burst counting for readout -- needs to refer explicitly to front panel triggering!
-                                       ii) in a related action, affects the async_readout_done flag, presumably
-                                           associated with the TTC readout trigger of front panel triggers.
+    //                 in status_reg_block, flags asynch mode.  Also needs review: flags front panel trigs or type of channel image?
+    //                 in Command Manage: i) affects burst counting for readout -- needs to refer explicitly to front panel triggering!
+    //                                   ii) in a related action, affects the async_readout_done flag, presumably
+    //                                       associated with the TTC readout trigger of front panel triggers.
     sync_2stage async_mode_clk125_module (
         .clk(clk125),
         .in(async_channels),
