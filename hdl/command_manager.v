@@ -567,7 +567,15 @@ module command_manager (
           next_ipbus_chan_reg[31:0] = ipbus_cmd_data[31:0];
 
           // watch for write register commands
-          if ( ~cbuf_mode ) begin
+          if ( cbuf_mode ) begin
+             // for the circular buffer mode, we will use the async mode registers
+             if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0014)) begin
+               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
+               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
+               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
+             end
+          end
+          else begin
              if      ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0002)) begin
                next_chan_burst_count_type1[chan_tx_fifo_dest] = ipbus_cmd_data[22:0]; // burst count value, muon fill
              end
@@ -590,15 +598,6 @@ module command_manager (
                next_chan_wfm_count_type3[chan_tx_fifo_dest]   = ipbus_cmd_data[11:0]; // waveform count value, pedestal fill
              end
           end
-          else
-             // for the circular buffer mode, we will use the async mode registers
-             if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0014)) begin
-               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
-               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
-               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
-             end
-          end
-
           nextstate[CHECK_LAST] = 1'b1;
         end
         else begin
