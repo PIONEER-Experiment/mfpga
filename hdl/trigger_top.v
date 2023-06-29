@@ -489,7 +489,7 @@ module trigger_top (
     
         // status connections
         .async_mode(async_mode), // asynchronous mode select
-        .cbus_mode(cbus_mode),
+        .cbuf_mode(cbuf_mode),
         .state(cacc_state)        // state of finite state machine
     );
 
