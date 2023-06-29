@@ -10,6 +10,7 @@ module status_reg_block (
   // FPGA status
   input wire prog_chan_done,
   input wire async_mode,
+  input wire cbuf_mode,
   input wire is_golden,
 
   // soft error thresholds
@@ -64,6 +65,7 @@ module status_reg_block (
   input wire [ 4:0] ptr_state,
   input wire [ 3:0] cac_state,
   input wire [ 3:0] caca_state,
+  input wire [ 3:0] cacc_state,
   input wire [ 6:0] tp_state,
 
   // acquisition
@@ -151,7 +153,7 @@ module status_reg_block (
 
 
 // Register 00: FPGA status and firmware version
-assign status_reg00 = {is_golden, prog_chan_done, async_mode, 5'd0, `MAJOR_REV, `MINOR_REV, `PATCH_REV};
+assign status_reg00 = {is_golden, prog_chan_done, async_mode, cbuf_mode, 4'd0, `MAJOR_REV, `MINOR_REV, `PATCH_REV};
 
 // Register 01: Error
 assign status_reg01 = {21'd0, ddr3_almost_full, chan_error_rc[4:0], chan_error_sn[4:0], error_trig_type_from_cm, error_trig_type_from_tt, error_trig_num_from_cm, error_trig_num_from_tt, error_data_corrupt, error_trig_rate, error_unknown_ttc, error_pll_unlock};
@@ -172,7 +174,7 @@ assign status_reg05 = {21'd0, tts_state[3:0], ttc_chan_b_info[5:0], ttc_ready};
 assign status_reg06 = cm_state[31:0];
 
 // Register 07: FSM state 1
-assign status_reg07 = {cm_state[34:32], 5'd0, ptr_state[4], tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
+assign status_reg07 = {cm_state[34:32], 1'd0, caca_state[3:0], ptr_state[4], tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
 
 // Register 08: Acquisition
 assign status_reg08 = {8'd0, ipb_accept_pulse_triggers, ttc_accept_pulse_triggers, accept_pulse_triggers, acq_dones[4:0], endianness_sel, acq_readout_pause[4:0], fill_type[4:0], chan_en[4:0]};
