@@ -1,4 +1,4 @@
-`include "icap_values.txt"
+`include "ICAP_values.txt"
 `include "flash_addresses.txt"
 
 // Module to re-program FPGA from flash by issuing an IPROG command

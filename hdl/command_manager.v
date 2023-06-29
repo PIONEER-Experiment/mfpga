@@ -488,7 +488,7 @@ module command_manager (
        next_chan_wfm_count_type3[3]   = chan_wfm_count_type3[3];
        next_chan_wfm_count_type3[4]   = chan_wfm_count_type3[4];
     end
-    else
+    else begin
        next_chan_wfm_count_type1[0]   = 12'd1; // force 1 waveform in circular buffer mode
        next_chan_wfm_count_type1[1]   = 12'd1;
        next_chan_wfm_count_type1[2]   = 12'd1;

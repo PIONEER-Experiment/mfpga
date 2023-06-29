@@ -51,7 +51,11 @@ module channel_acq_controller_cbuf (
   // for the circular buffer mode, as long as the acq_trig_type for a channel
   // is nonzero, it will collect data to its circular buffer, and watch for
   // a trigger to move the data to the DDR3
-  assign acq_enable[9:0] = { 5{acq_trig_type[1:0]} };
+  wire assemble_acq_enable[9:0];
+  assign assemble_acq_enable[9:0] = { 5{acq_trig_type[1:0]} };
+  always@* begin
+     acq_enable[9:0] = assemble_acq_enable[9:0];
+  end
 
   // combinational always block
   always @* begin
