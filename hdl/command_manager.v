@@ -570,9 +570,9 @@ module command_manager (
           if ( cbuf_mode ) begin
              // for the circular buffer mode, we will use the async mode registers
              if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0014)) begin
-               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
-               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
-               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
+               next_chan_burst_count_type1[chan_tx_fifo_dest] <= {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
+               next_chan_burst_count_type1[chan_tx_fifo_dest] <= {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
+               next_chan_burst_count_type1[chan_tx_fifo_dest] <= {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
              end
           end
           else begin

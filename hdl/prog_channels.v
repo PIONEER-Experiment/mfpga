@@ -29,7 +29,7 @@ module prog_channels (
     input  end_write_command,         // done signal from spi_flash_intf
     input  end_bitstream,             // done signal from spi_flash_intf
     output reg prog_chan_done = 1'b0, // done programming the channels
-    output reg async_channels = 1'b0  // flag for if the channels are sync or async
+    output reg async_channels = 1'b0, // flag for if the channels are sync or async
     output reg cbuf_channels = 1'b0   // flag for if the channels are in circular buffer mode
 );
 
