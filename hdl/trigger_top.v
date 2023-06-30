@@ -156,6 +156,9 @@ module trigger_top (
     wire s_acq_fifo_tvalid_async;
     wire [31:0] s_acq_fifo_tdata_async;
 
+    wire s_acq_fifo_tvalid_cbuf;
+    wire [31:0] s_acq_fifo_tdata_cbuf;
+
     wire m_acq_fifo_tready;
     wire m_acq_fifo_tvalid;
     wire [31:0] m_acq_fifo_tdata;
@@ -280,8 +283,8 @@ module trigger_top (
     assign acq_ready = (async_mode) ? acq_ready_async : (cbuf_mode) ? acq_ready_cbuf : acq_ready_sync;
 
     // signals to/from Acquisition Event FIFO
-    assign s_acq_fifo_tvalid      = (async_mode) ? s_acq_fifo_tvalid_async      : s_acq_fifo_tvalid_sync;
-    assign s_acq_fifo_tdata[31:0] = (async_mode) ? s_acq_fifo_tdata_async[31:0] : s_acq_fifo_tdata_sync[31:0];
+    assign s_acq_fifo_tvalid      = (async_mode) ? s_acq_fifo_tvalid_async      : (cbuf_mode) ? s_acq_fifo_tvalid_cbuf      : s_acq_fifo_tvalid_sync;
+    assign s_acq_fifo_tdata[31:0] = (async_mode) ? s_acq_fifo_tdata_async[31:0] : (cbuf_mode) ? s_acq_fifo_tdata_sync[31:0] : s_acq_fifo_tdata_sync[31:0];
 
     // signals between TTC Trigger Receiver and Pulse Trigger Receiver
     assign stored_bursts_chan0[22:0] = (async_mode) ? stored_bursts_chan0_ptr[22:0] : stored_bursts_chan0_ttr[22:0];
@@ -484,8 +487,8 @@ module trigger_top (
     
         // interface to Acquisition Event FIFO
         .fifo_ready(s_acq_fifo_tready),
-        .fifo_valid(s_acq_fifo_tvalid_sync),
-        .fifo_data(s_acq_fifo_tdata_sync),
+        .fifo_valid(s_acq_fifo_tvalid_cbuf),
+        .fifo_data(s_acq_fifo_tdata_cbuf),
     
         // status connections
         .async_mode(async_mode), // asynchronous mode select
