@@ -21,6 +21,7 @@ create_clock -period 8.000 -name user_clk_chan4 [get_pins channels/chan4/clock_m
 # Statements to deal with inter-clock timing problems
 set_false_path -from [get_cells reset_stretch/signal_out_reg*] -to [get_cells clk50_reset_sync/sync1_reg*]
 set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][1]*}] -to [get_cells async_mode_clk50_module/sync1_reg*]
+set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][25]*}] -to [get_cells cbuf_mode_clk50_module/sync1_reg*]
 set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][2]*}] -to [get_cells prog_chan_start_sync/sync2_reg*]
 set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][3]*}] -to [get_cells reprog_trigger_sync/sync1_reg*]
 set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][4]*}] -to [get_cells reprog_trigger_sync/sync1_reg*]
