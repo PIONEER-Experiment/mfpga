@@ -105,12 +105,12 @@ module trigger_top (
     // -------------------
 
     // signals between Channel Acquisition Controllers and Channel FPGAs
-    wire [9:0] chan_enable_sync, chan_enable_async;
-    wire [4:0] chan_trig_sync, chan_trig_async;
+    wire [9:0] chan_enable_sync, chan_enable_async, chan_enable_cbuf;
+    wire [4:0] chan_trig_sync, chan_trig_async, chan_trig_cbuf;
 
     // signals between TTC Trigger Receiver and Channel Acquisition Controllers
     wire acq_ready;
-    wire acq_ready_sync, acq_ready_async;
+    wire acq_ready_sync, acq_ready_async, acq_ready_cbuf;
     wire acq_activated;
     wire acq_trigger;
     wire [ 4:0] acq_trig_type;
@@ -273,11 +273,11 @@ module trigger_top (
     // -------------------
 
     // signals between Channel Acquisition Controllers and Channel FPGAs
-    assign chan_enable[9:0] = (async_mode) ? chan_enable_async[9:0] : chan_enable_sync[9:0];
-    assign chan_trig[4:0]   = (async_mode) ? chan_trig_async[4:0]   : chan_trig_sync[4:0];
+    assign chan_enable[9:0] = (async_mode) ? chan_enable_async[9:0] : (cbuf_mode) ? chan_enable_cbuf[9:0] : chan_enable_sync[9:0];
+    assign chan_trig[4:0]   = (async_mode) ? chan_trig_async[4:0]   : (cbuf_mode) ? chan_trig_cbuf[4:0]   : chan_trig_sync[4:0];
 
     // signals between TTC Trigger Receiver and Channel Acquisition Controllers
-    assign acq_ready = (async_mode) ? acq_ready_async : acq_ready_sync;
+    assign acq_ready = (async_mode) ? acq_ready_async : (cbuf_mode) ? acq_ready_cbuf : acq_ready_sync;
 
     // signals to/from Acquisition Event FIFO
     assign s_acq_fifo_tvalid      = (async_mode) ? s_acq_fifo_tvalid_async      : s_acq_fifo_tvalid_sync;
@@ -475,12 +475,12 @@ module trigger_top (
         .trigger(acq_trigger),      // trigger signal
         .trig_type(acq_trig_type),  // recognized trigger type (muon fill, laser, pedestal, async readout)
         .trig_num(acq_trig_num),    // trigger number
-        .acq_ready(acq_ready_sync), // channels are ready to acquire data
+        .acq_ready(acq_ready_cbuf), // channels are ready to acquire data
     
         // interface to Channel FPGAs
         .acq_dones(chan_dones_clk40),
-        .acq_enable(chan_enable_sync),
-        .acq_trig(chan_trig_sync),
+        .acq_enable(chan_enable_cbuf),
+        .acq_trig(chan_trig_cbuf),
     
         // interface to Acquisition Event FIFO
         .fifo_ready(s_acq_fifo_tready),
