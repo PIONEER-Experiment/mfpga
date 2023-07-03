@@ -203,7 +203,7 @@ always @(posedge clk) begin
 
                 if (async_mode)
                     flash_command[31:0] <= {8'h03, `ASYNC_FLASH_ADDR};   // READ, ASYNCHRONOUS MODE
-                else if (cbuf_mode)
+                else if (~cbuf_mode)
                     flash_command[31:0] <= {8'h03, `CHANNEL_FLASH_ADDR}; // READ, SYNCHRONOUS MODE
                 else
                     flash_command[31:0] <= {8'h03, `CBUF_FLASH_ADDR};    // READ, CIRCULAR BUFFER MODE
