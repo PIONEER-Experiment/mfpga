@@ -16,7 +16,7 @@ module channel_acq_controller_cbuf (
   output wire acq_ready,       // channels are ready to acquire data
 
   // interface to Channel FPGAs
-  input wire [4:0] acq_dones,
+  (* mark_debug = "true" *) input wire [4:0] acq_dones,
   output reg [9:0] acq_enable,
   output reg [4:0] acq_trig,
 
@@ -28,7 +28,7 @@ module channel_acq_controller_cbuf (
   // status connections
   input wire async_mode, // asynchronous mode select
   input wire cbuf_mode,  // cifcular buffer mode select
-  output reg [3:0] state // state of finite state machine
+  (* mark_debug = "true" *) output reg [3:0] state // state of finite state machine
 );
 
   // state bits

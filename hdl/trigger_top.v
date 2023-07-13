@@ -109,8 +109,8 @@ module trigger_top (
     wire [4:0] chan_trig_sync, chan_trig_async, chan_trig_cbuf;
 
     // signals between TTC Trigger Receiver and Channel Acquisition Controllers
-    wire acq_ready;
-    wire acq_ready_sync, acq_ready_async, acq_ready_cbuf;
+    (* mark_debug = "true" *) wire acq_ready;
+    (* mark_debug = "true" *) wire acq_ready_sync, acq_ready_async, acq_ready_cbuf;
     wire acq_activated;
     wire acq_trigger;
     wire [ 4:0] acq_trig_type;
