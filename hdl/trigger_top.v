@@ -95,7 +95,7 @@ module trigger_top (
     // error connections
     output wire [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
     output wire ddr3_almost_full,           // DDR3 overflow warning
-    output wire error_trig_rate,            // trigger rate error
+    (* mark_debug = "true" *) output wire error_trig_rate,            // trigger rate error
     output wire error_trig_num,             // trigger number error
     output wire error_trig_type             // trigger type error
 );
