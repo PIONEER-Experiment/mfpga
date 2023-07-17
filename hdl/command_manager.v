@@ -25,8 +25,8 @@ module command_manager (
   //(* mark_debug = "true" *) input wire chan_rx_fifo_valid,
   input wire chan_rx_fifo_valid,
   input wire chan_rx_fifo_last,
-  //(* mark_debug = "true" *) input wire [31:0] chan_rx_fifo_data,
-  input wire [31:0] chan_rx_fifo_data,
+  (* mark_debug = "true" *) input wire [31:0] chan_rx_fifo_data,
+  //input wire [31:0] chan_rx_fifo_data,
   output reg chan_rx_fifo_ready,
 
   // interface to IPbus AXI output
@@ -55,7 +55,7 @@ module command_manager (
   input wire send_empty_event,       // request an empty event
   input wire skip_payload,           // request to skip channel payloads
   input wire initiate_readout,       // request for the channels to be read out
-  input wire [23:0] event_num,       // channel's trigger number
+  (* mark_debug = "true" *) input wire [23:0] event_num,       // channel's trigger number
   input wire [23:0] trig_num,        // global trigger number, starts at 1
   input wire [ 4:0] trig_type,       // trigger type
   input wire [43:0] trig_timestamp,  // trigger timestamp, defined by when trigger is received by trigger receiver module
@@ -107,7 +107,7 @@ module command_manager (
   // error connections
   output reg [31:0] cs_mismatch_count, // number of checksum mismatches
   output reg error_data_corrupt,       // data corruption error
-  output reg error_trig_num,           // trigger number mismatch between channel and master
+  (* mark_debug = "true" *) output reg error_trig_num,           // trigger number mismatch between channel and master
   output reg error_trig_type,          // trigger type mismatch between channel and master
   output reg [ 4:0] chan_error_sn,     // command serial number mismatch between channel and master
   output reg [ 4:0] chan_error_rc      // master received an error response code, one bit for each channel
