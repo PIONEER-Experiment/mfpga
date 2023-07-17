@@ -47,7 +47,7 @@ module ttc_trigger_receiver (
   input wire acq_activated,
   output reg acq_trigger,          // trigger signal
   output reg [ 4:0] acq_trig_type, // recognized trigger type (muon fill, laser, pedestal, async readout)
-  output reg [23:0] acq_trig_num,  // trigger number, starts at 1
+  (* mark_debug = "true" *) output reg [23:0] acq_trig_num,  // trigger number, starts at 1
 
   // interface to TTC Trigger FIFO
   input wire fifo_ready,
