@@ -18,7 +18,7 @@ module channel_acq_controller_cbuf (
   // interface to Channel FPGAs
   (* mark_debug = "true" *) input wire [4:0] acq_dones,
   output reg [9:0] acq_enable,
-  output reg [4:0] acq_trig,
+  (* mark_debug = "true" *) output reg [4:0] acq_trig,
 
   // interface to Acquisition Event FIFO
   input wire fifo_ready,
