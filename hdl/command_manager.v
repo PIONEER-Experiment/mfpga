@@ -56,8 +56,8 @@ module command_manager (
   input wire skip_payload,           // request to skip channel payloads
   input wire initiate_readout,       // request for the channels to be read out
   (* mark_debug = "true" *) input wire [23:0] event_num,       // channel's trigger number
-  input wire [23:0] trig_num,        // global trigger number, starts at 1
-  input wire [ 4:0] trig_type,       // trigger type
+  (* mark_debug = "true" *) input wire [23:0] trig_num,        // global trigger number, starts at 1
+  (* mark_debug = "true" *) input wire [ 4:0] trig_type,       // trigger type
   input wire [43:0] trig_timestamp,  // trigger timestamp, defined by when trigger is received by trigger receiver module
   input wire [ 3:0] ttc_xadc_alarms, // XADC alarms
   input wire [ 4:0] curr_trig_type,  // currently set trigger type
@@ -102,13 +102,13 @@ module command_manager (
   input wire async_mode,                // asynchronous mode flag
   input wire cbuf_mode,                 // circular buffer mode flag
   //(* mark_debug = "true" *) output reg [34:0] state,              // state of finite state machine
-  output reg [34:0] state,              // state of finite state machine
+  (* mark_debug = "true" *) output reg [34:0] state,              // state of finite state machine
 
   // error connections
-  output reg [31:0] cs_mismatch_count, // number of checksum mismatches
-  output reg error_data_corrupt,       // data corruption error
+  (* mark_debug = "true" *) output reg [31:0] cs_mismatch_count, // number of checksum mismatches
+  (* mark_debug = "true" *) output reg error_data_corrupt,       // data corruption error
   (* mark_debug = "true" *) output reg error_trig_num,           // trigger number mismatch between channel and master
-  output reg error_trig_type,          // trigger type mismatch between channel and master
+  (* mark_debug = "true" *) output reg error_trig_type,          // trigger type mismatch between channel and master
   output reg [ 4:0] chan_error_sn,     // command serial number mismatch between channel and master
   output reg [ 4:0] chan_error_rc      // master received an error response code, one bit for each channel
 );
