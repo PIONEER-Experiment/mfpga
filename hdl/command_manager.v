@@ -23,8 +23,8 @@ module command_manager (
 
   // interface to RX channel FIFO (through AXI4-Stream RX Switch)
   //(* mark_debug = "true" *) input wire chan_rx_fifo_valid,
-  input wire chan_rx_fifo_valid,
-  input wire chan_rx_fifo_last,
+  (* mark_debug = "true" *) input wire chan_rx_fifo_valid,
+  (* mark_debug = "true" *) input wire chan_rx_fifo_last,
   (* mark_debug = "true" *) input wire [31:0] chan_rx_fifo_data,
   //input wire [31:0] chan_rx_fifo_data,
   output reg chan_rx_fifo_ready,
@@ -554,6 +554,9 @@ module command_manager (
                next_chan_burst_count_type1[chan_tx_fifo_dest] <= {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
                next_chan_burst_count_type1[chan_tx_fifo_dest] <= {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
                next_chan_burst_count_type1[chan_tx_fifo_dest] <= {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
+               next_chan_wfm_count_type1[chan_tx_fifo_dest]   = 12'd1; // waveform count value, always 1 for circular buffer acquistion
+               next_chan_wfm_count_type2[chan_tx_fifo_dest]   = 12'd1; // waveform count value, always 1 for circular buffer acquistion
+               next_chan_wfm_count_type3[chan_tx_fifo_dest]   = 12'd1; // waveform count value, always 1 for circular buffer acquistion
              end
           end
           else begin
@@ -773,8 +776,8 @@ module command_manager (
         if (chan_rx_fifo_valid) begin
           // synchronous mode
           if (~trig_type[2]) begin
-            next_ddr3_start_addr[13:0] = chan_rx_fifo_data[31:18];
             next_burst_count[22:0]     = {chan_rx_fifo_data[17:0], burst_count[4:0]};
+            next_ddr3_start_addr[13:0] = chan_rx_fifo_data[31:18];
           end
           // asynchronous mode
           else begin
@@ -797,7 +800,12 @@ module command_manager (
           if (~trig_type[2]) begin
             next_ddr3_start_addr[25:14] = chan_rx_fifo_data[11:0];
             next_wfm_count[22:0]        = {11'd0, chan_rx_fifo_data[23:12]};
-            next_wfm_gap_length[8:0]    = chan_rx_fifo_data[31:24];
+            if (~cbuf_mode ) // pattern mode
+               next_wfm_gap_length[8:0]    = chan_rx_fifo_data[31:24];
+            else begin
+               next_wfm_gap_length[8:0]    = 9'd0;
+               next_pretrigger_count[7:0] = chan_rx_fifo_data[31:24];
+            end
           end
           // asynchronous mode
           else begin
@@ -819,8 +827,12 @@ module command_manager (
         if (chan_rx_fifo_valid) begin
           // synchronous mode
           if (~trig_type[2]) begin
-            next_wfm_gap_length[21:9]  = chan_rx_fifo_data[13:0];
-            next_chan_xadc_alarms[3:0] = chan_rx_fifo_data[29:26];
+            if (~cbuf_mode ) // pattern mode
+               next_wfm_gap_length[21:9]  = chan_rx_fifo_data[13:0];
+            else begin
+               next_wfm_gap_length[21:9]    = 13'd0;
+               next_pretrigger_count[15:8] = chan_rx_fifo_data[7:0];
+            end
           end
           // asynchronous mode
           else begin
@@ -869,7 +881,11 @@ module command_manager (
 
           // synchronous mode
           if (~trig_type[2]) begin
-            next_daq_data[63:0] = {2'b01, chan_xadc_alarms[3:0], chan_tag[11:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
+             if (~cbuf_mode ) // pattern mode
+                next_daq_data[63:0] = {2'b01, 4'h0, chan_tag[11:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
+             else begin
+                next_daq_data[63:0] = {2'b01, 4'h1, chan_tag[11:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
+             end
           end
           // asynchronous mode
           else begin
@@ -933,7 +949,12 @@ module command_manager (
 
           // synchronous mode
           if (~trig_type[2]) begin
-            next_daq_data[63:0] = {2'b01, chan_xadc_alarms[3:0], chan_tag[11:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
+             if (~cbuf_mode ) begin // pattern mode
+                next_daq_data[63:0] = {2'b01, 4'h0, chan_tag[11:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
+             end
+             else begin
+                next_daq_data[63:0] = {2'b01, 4'h1, chan_tag[11:0], 6'h0, pretrigger_count[15:0], wfm_count[11:0], ddr3_start_addr[25:14]};
+             end
           end
           // asynchronous mode
           else begin
