@@ -233,7 +233,7 @@ module wfd_top (
     wire [ 4:0] ptr_state;
     wire [ 3:0] cac_state;
     wire [ 3:0] caca_state;
-    (* mark_debug = "true" *) wire [ 3:0] cacc_state;
+    wire [ 3:0] cacc_state;
     wire [ 6:0] tp_state;
     wire [34:0] cm_state;
 

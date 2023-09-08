@@ -16,19 +16,19 @@ module channel_acq_controller_cbuf (
   output wire acq_ready,       // channels are ready to acquire data
 
   // interface to Channel FPGAs
-  (* mark_debug = "true" *) input wire [4:0] acq_dones,
+  input wire [4:0] acq_dones,
   output reg [9:0] acq_enable,
-  (* mark_debug = "true" *) output reg [4:0] acq_trig,
+  output reg [4:0] acq_trig,
 
   // interface to Acquisition Event FIFO
   input wire fifo_ready,
   output reg fifo_valid,
-  (* mark_debug = "true" *) output reg [31:0] fifo_data,
+  output reg [31:0] fifo_data,
 
   // status connections
   input wire async_mode, // asynchronous mode select
   input wire cbuf_mode,  // cifcular buffer mode select
-  (* mark_debug = "true" *) output reg [3:0] state // state of finite state machine
+  output reg [3:0] state // state of finite state machine
 );
 
   // state bits
@@ -39,7 +39,7 @@ module channel_acq_controller_cbuf (
   
 
   reg [ 4:0] acq_trig_type; // latched trigger type
-  (* mark_debug = "true" *) reg [23:0] acq_trig_num;  // latched trigger number
+  reg [23:0] acq_trig_num;  // latched trigger number
 
   reg [ 3:0] nextstate;
   reg [ 4:0] next_acq_trig_type;

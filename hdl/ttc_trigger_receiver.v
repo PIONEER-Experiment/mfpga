@@ -47,7 +47,7 @@ module ttc_trigger_receiver (
   input wire acq_activated,
   output reg acq_trigger,          // trigger signal
   output reg [ 4:0] acq_trig_type, // recognized trigger type (muon fill, laser, pedestal, async readout)
-  (* mark_debug = "true" *) output reg [23:0] acq_trig_num,  // trigger number, starts at 1
+  output reg [23:0] acq_trig_num,  // trigger number, starts at 1
 
   // interface to TTC Trigger FIFO
   input wire fifo_ready,
@@ -58,7 +58,7 @@ module ttc_trigger_receiver (
   input wire async_mode,            // asynchronous mode select
   input wire accept_pulse_triggers, // accept front panel triggers select
   input wire [ 3:0] xadc_alarms,    // XADC alarm signals
-  (* mark_debug = "true" *) output reg [ 3:0] state,          // state of finite state machine
+  output reg [ 3:0] state,          // state of finite state machine
   output reg [23:0] trig_num,       // global trigger number
   output reg [43:0] trig_timestamp, // global trigger timestamp
 
@@ -72,7 +72,7 @@ module ttc_trigger_receiver (
   // error connections
   output reg [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
   output wire ddr3_almost_full,          // DDR3 overflow warning, combined for all channels
-  (* mark_debug = "true" *) output wire error_trig_rate            // trigger received while acquiring data
+  output wire error_trig_rate            // trigger received while acquiring data
 );
 
   // state bits, with one-hot encoding

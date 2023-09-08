@@ -7,12 +7,12 @@ module trigger_processor (
 
   // interface to TTC Trigger FIFO
   input wire trig_fifo_valid,
-  (* mark_debug = "true" *) input wire [127:0] trig_fifo_data,
+  input wire [127:0] trig_fifo_data,
   output reg trig_fifo_ready,
 
   // interface to Acquisition Event FIFO
   input wire acq_fifo_valid,
-  (* mark_debug = "true" *) input wire [31:0] acq_fifo_data,
+  input wire [31:0] acq_fifo_data,
   output reg acq_fifo_ready,
 
   // interface to command manager
@@ -30,7 +30,7 @@ module trigger_processor (
 
   // status connections
   output reg [6:0] state,     // state of finite state machine
-  (* mark_debug = "true" *) output wire error_trig_num, // trigger number mismatch between FIFOs
+  output wire error_trig_num, // trigger number mismatch between FIFOs
   output wire error_trig_type // trigger type mismatch between FIFOs
 );
 

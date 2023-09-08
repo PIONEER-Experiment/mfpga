@@ -17,15 +17,13 @@ module command_manager (
   input wire chan_tx_fifo_ready,
   output reg chan_tx_fifo_valid,
   output reg chan_tx_fifo_last,
-  //(* mark_debug = "true" *) output reg [ 3:0] chan_tx_fifo_dest,
   output reg [ 3:0] chan_tx_fifo_dest,
   output reg [31:0] chan_tx_fifo_data,
 
   // interface to RX channel FIFO (through AXI4-Stream RX Switch)
-  //(* mark_debug = "true" *) input wire chan_rx_fifo_valid,
-  (* mark_debug = "true" *) input wire chan_rx_fifo_valid,
-  (* mark_debug = "true" *) input wire chan_rx_fifo_last,
-  (* mark_debug = "true" *) input wire [31:0] chan_rx_fifo_data,
+  input wire chan_rx_fifo_valid,
+  input wire chan_rx_fifo_last,
+  input wire [31:0] chan_rx_fifo_data,
   //input wire [31:0] chan_rx_fifo_data,
   output reg chan_rx_fifo_ready,
 
@@ -43,7 +41,6 @@ module command_manager (
   output reg [31:0] ipbus_res_data,
 
   // interface to AMC13 DAQ Link
-  //(* mark_debug = "true" *) input wire daq_ready,
   input wire daq_ready,
   input wire daq_almost_full,
   output reg daq_valid,
@@ -55,9 +52,9 @@ module command_manager (
   input wire send_empty_event,       // request an empty event
   input wire skip_payload,           // request to skip channel payloads
   input wire initiate_readout,       // request for the channels to be read out
-  (* mark_debug = "true" *) input wire [23:0] event_num,       // channel's trigger number
-  (* mark_debug = "true" *) input wire [23:0] trig_num,        // global trigger number, starts at 1
-  (* mark_debug = "true" *) input wire [ 4:0] trig_type,       // trigger type
+  input wire [23:0] event_num,       // channel's trigger number
+  input wire [23:0] trig_num,        // global trigger number, starts at 1
+  input wire [ 4:0] trig_type,       // trigger type
   input wire [43:0] trig_timestamp,  // trigger timestamp, defined by when trigger is received by trigger receiver module
   input wire [ 3:0] ttc_xadc_alarms, // XADC alarms
   input wire [ 4:0] curr_trig_type,  // currently set trigger type
@@ -101,14 +98,13 @@ module command_manager (
   input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
   input wire async_mode,                // asynchronous mode flag
   input wire cbuf_mode,                 // circular buffer mode flag
-  //(* mark_debug = "true" *) output reg [34:0] state,              // state of finite state machine
-  (* mark_debug = "true" *) output reg [34:0] state,              // state of finite state machine
+  output reg [34:0] state,              // state of finite state machine
 
   // error connections
-  (* mark_debug = "true" *) output reg [31:0] cs_mismatch_count, // number of checksum mismatches
-  (* mark_debug = "true" *) output reg error_data_corrupt,       // data corruption error
-  (* mark_debug = "true" *) output reg error_trig_num,           // trigger number mismatch between channel and master
-  (* mark_debug = "true" *) output reg error_trig_type,          // trigger type mismatch between channel and master
+  output reg [31:0] cs_mismatch_count, // number of checksum mismatches
+  output reg error_data_corrupt,       // data corruption error
+  output reg error_trig_num,           // trigger number mismatch between channel and master
+  output reg error_trig_type,          // trigger type mismatch between channel and master
   output reg [ 4:0] chan_error_sn,     // command serial number mismatch between channel and master
   output reg [ 4:0] chan_error_rc      // master received an error response code, one bit for each channel
 );
@@ -159,17 +155,14 @@ module command_manager (
   reg [22:0] burst_count;       // burst count for data acquisition, 1 burst count = 8 ADC samples
   reg [25:0] ddr3_start_addr;   // DDR3 start address (3 LSBs always zero)
   reg [22:0] wfm_count;         // number of waveform acquired
-  //(* mark_debug = "true" *)  reg [10:0] wfm_cnt_shrt;     // lower 11 bits of above
   reg [10:0] wfm_cnt_shrt;     // lower 11 bits of above
   reg [21:0] wfm_gap_length;    // gap in unit of 2.5 ns between two consecutive waveforms
   reg [11:0] chan_tag;          // channel tag
   reg [ 3:0] chan_xadc_alarms;  // channel alarms from XADC
   reg [31:0] csn;               // channel serial number
   reg [31:0] data_count;        // # of 32-bit data words received from Aurora, per waveform
-  //(* mark_debug = "true" *)  reg [ 3:0] data_count_shrt;   // lowest 4 bits of above
   reg [ 3:0] data_count_shrt;   // lowest 4 bits of above
   reg [22:0] data_wfm_count;    // # of waveforms received from Aurora
-  //(* mark_debug = "true" *) reg [10:0] data_wfm_cnt_shrt; // lower 11 bits of above
   reg [10:0] data_wfm_cnt_shrt; // lower 11 bits of above
   reg [31:0] ipbus_buf;         // buffer for IPbus data
   reg [31:0] readout_timestamp; // channel data readout timestamp
@@ -177,9 +170,6 @@ module command_manager (
   reg sent_amc13_header;        // flag to indicate that the AMC13 header has been sent
 
   // regs for channel checksum verification
-  //(* mark_debug = "true" *) reg update_mcs_lsb;           // flag to update the 64 LSBs of the 128-bit master checksum (mcs)
-  //(* mark_debug = "true" *) reg [127:0] master_checksum;  // checksum calculated in this module
-  //(* mark_debug = "true" *) reg [127:0] channel_checksum; // checksum from received channel data
   reg update_mcs_lsb;           // flag to update the 64 LSBs of the 128-bit master checksum (mcs)
   reg [127:0] master_checksum;  // checksum calculated in this module
   reg [127:0] channel_checksum; // checksum from received channel data
@@ -204,7 +194,6 @@ module command_manager (
   reg [31:0] ipbus_chan_cmd;               // buffer for issued channel command
   reg [31:0] ipbus_chan_reg;               // buffer for issued channel register
   reg [ 4:0] trig_type_latch;              // latched trigger type from TTC Trigger FIFO
-  //(* mark_debug = "true" *) reg [1:0] cs_error_seen;
   reg [1:0] cs_error_seen;
 
 

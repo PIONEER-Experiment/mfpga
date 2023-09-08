@@ -95,7 +95,7 @@ module trigger_top (
     // error connections
     output wire [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
     output wire ddr3_almost_full,           // DDR3 overflow warning
-    (* mark_debug = "true" *) output wire error_trig_rate,            // trigger rate error
+    output wire error_trig_rate,            // trigger rate error
     output wire error_trig_num,             // trigger number error
     output wire error_trig_type             // trigger type error
 );
@@ -109,8 +109,8 @@ module trigger_top (
     wire [4:0] chan_trig_sync, chan_trig_async, chan_trig_cbuf;
 
     // signals between TTC Trigger Receiver and Channel Acquisition Controllers
-    (* mark_debug = "true" *) wire acq_ready;
-    (* mark_debug = "true" *) wire acq_ready_sync, acq_ready_async, acq_ready_cbuf;
+    wire acq_ready;
+    wire acq_ready_sync, acq_ready_async, acq_ready_cbuf;
     wire acq_activated;
     wire acq_trigger;
     wire [ 4:0] acq_trig_type;
