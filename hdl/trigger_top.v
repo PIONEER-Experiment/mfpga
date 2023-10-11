@@ -28,6 +28,7 @@ module trigger_top (
     input  wire [4:0] chan_dones,
     output wire [9:0] chan_enable,
     output wire [4:0] chan_trig,
+    input  wire cbuf_acquire,          // stream data from adc to circular buf
 
     // command manager interface
     input  wire readout_ready,         // command manager is idle
@@ -484,6 +485,7 @@ module trigger_top (
         .acq_dones(chan_dones_clk40),
         .acq_enable(chan_enable_cbuf),
         .acq_trig(chan_trig_cbuf),
+        .cbuf_acquire(cbuf_acquire),
     
         // interface to Acquisition Event FIFO
         .fifo_ready(s_acq_fifo_tready),

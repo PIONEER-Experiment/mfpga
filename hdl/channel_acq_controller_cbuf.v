@@ -19,6 +19,7 @@ module channel_acq_controller_cbuf (
   input wire [4:0] acq_dones,
   output reg [9:0] acq_enable,
   output reg [4:0] acq_trig,
+  input  wire cbuf_acquire,
 
   // interface to Acquisition Event FIFO
   input wire fifo_ready,
@@ -51,12 +52,20 @@ module channel_acq_controller_cbuf (
   // for the circular buffer mode, as long as the acq_trig_type for a channel
   // is nonzero, it will collect data to its circular buffer, and watch for
   // a trigger to move the data to the DDR3
+  
+  //always@* begin
+  //   acq_enable[1:0] <= acq_trig_type[1:0];
+  //   acq_enable[3:2] <= acq_trig_type[1:0];
+  //   acq_enable[5:4] <= acq_trig_type[1:0];
+  //   acq_enable[7:6] <= acq_trig_type[1:0];
+  //   acq_enable[9:8] <= acq_trig_type[1:0];
+  //end
   always@* begin
-     acq_enable[1:0] <= acq_trig_type[1:0];
-     acq_enable[3:2] <= acq_trig_type[1:0];
-     acq_enable[5:4] <= acq_trig_type[1:0];
-     acq_enable[7:6] <= acq_trig_type[1:0];
-     acq_enable[9:8] <= acq_trig_type[1:0];
+     acq_enable[1:0] <= 1'b0 & cbuf_acquire;
+     acq_enable[3:2] <= 1'b0 & cbuf_acquire;
+     acq_enable[5:4] <= 1'b0 & cbuf_acquire;
+     acq_enable[7:6] <= 1'b0 & cbuf_acquire;
+     acq_enable[9:8] <= 1'b0 & cbuf_acquire;
   end
 
   // combinational always block

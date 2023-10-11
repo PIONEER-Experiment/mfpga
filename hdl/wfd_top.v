@@ -95,11 +95,12 @@ module wfd_top (
     wire async_mode_clk125;
     // cbuf
     wire cbuf_mode_from_ipbus; // cbuf mode select
+    wire cbuf_acquire;         // stream data from adc to circular buffer
     wire cbuf_channels;
     wire cbuf_mode_ttc_clk;
     wire cbuf_mode_clk50;
     wire cbuf_mode_clk125;
-
+    wire cbuf_acquire_ttc_clk;
 
     wire [3:0] fp_trig_width_from_ipbus;
     wire [3:0] fp_trig_width;
@@ -664,6 +665,12 @@ module wfd_top (
         .in(cbuf_channels),
         .out(cbuf_mode_ttc_clk)
     );
+    sync_2stage cbuf_acquire_ttc_clk_module (
+        .clk(ttc_clk),
+        .in(cbuf_acquire),
+        .out(cbuf_acquire_ttc_clk)
+    );
+
 
     // for use in ipbus_top, status_reg_block, and command_manager
     // -- asyncMods: in ipbus, forces mode type.  Needs review for what happens for front panel vs ttc ring buffering
@@ -1043,8 +1050,9 @@ module wfd_top (
         .async_mode_out(async_mode_from_ipbus),            // asynchronous mode select
         .accept_pulse_trig_out(ipb_accept_pulse_triggers), // allow front panel triggers (for testing)
         .async_trig_type_out(ipb_async_trig_type),         // fix TTC trigger type to be asynchronous readout (for testing)
-        .cbuf_mode_in(cbuf_mode_clk125),                   // set circular buffer mode in channels
+        .cbuf_mode_in(cbuf_mode_clk125),                   // circular buffer mode is set in channels
         .cbuf_mode_out(cbuf_mode_from_ipbus),              // circular buffer mode select
+        .cbuf_acquire(cbuf_acquire),                       // stream adc data tp circular buffer
         .chan_en_out(chan_en),                             // channel enable to command manager
         .prog_chan_out(prog_chan_start_from_ipbus),        // signal to start programming sequence for channel FPGAs
         .reprog_trigger_out(reprog_trigger_from_ipbus),    // signal to issue IPROG command to re-program FPGA from flash
@@ -1622,6 +1630,7 @@ module wfd_top (
         .chan_dones(acq_dones),
         .chan_enable(acq_enable),
         .chan_trig(acq_trigs),
+        .cbuf_acquire(cbuf_acquire_ttc_clk),
 
         // command manager interface
         .readout_ready(readout_ready),           // command manager is idle
