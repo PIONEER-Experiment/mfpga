@@ -60,11 +60,13 @@ module channel_acq_controller_cbuf (
   //   acq_enable[7:6] <= acq_trig_type[1:0];
   //   acq_enable[9:8] <= acq_trig_type[1:0];
   //end
-  assign acq_enable[0] = cbuf_acquire;
-  assign acq_enable[2] = cbuf_acquire;
-  assign acq_enable[4] = cbuf_acquire;
-  assign acq_enable[6] = cbuf_acquire;
-  assign acq_enable[8] = cbuf_acquire;
+  always@* begin
+     acq_enable[0] <= cbuf_acquire;
+     acq_enable[2] <= cbuf_acquire;
+     acq_enable[4] <= cbuf_acquire;
+     acq_enable[6] <= cbuf_acquire;
+     acq_enable[8] <= cbuf_acquire;
+  end
 
   // combinational always block
   always @* begin
