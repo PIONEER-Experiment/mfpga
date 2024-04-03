@@ -5,6 +5,7 @@
 
 module reprog (
 	input clk,
+  input clkb,
 	input reset,
 	input [1:0] trigger // trigger[0] for golden image, trigger[1] for regular master image
 );
@@ -13,7 +14,8 @@ module reprog (
 // declare signals
 // ===============
 
-wire clk_180 = ~clk;
+wire clk_180;
+assign clk_180 = clkb;
 wire [31:0] ICAP_input;
 
 reg ICAP_enable;
@@ -30,7 +32,7 @@ reg bitstream_select;  // 0 for golden image, 1 for regular master image
 // Xilinx HDL Libraries Guide, version 13.4
 
 ICAPE2 #(
-	.DEVICE_ID(0'h3651093),    // specifies the pre-programmed Device ID value to be used for simulation purposes
+	.DEVICE_ID(32'h03651093),    // specifies the pre-programmed Device ID value to be used for simulation purposes
 	.ICAP_WIDTH("X32"),        // specifies the input and output data width
 	.SIM_CFG_FILE_NAME("NONE") // specifies the Raw Bitstream (RBT) file to be parsed by the simulation model
 ) ICAPE2_inst (

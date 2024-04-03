@@ -95,11 +95,27 @@ if {[string equal [get_filesets -quiet constrs_1] ""]} {
   create_fileset -constrset constrs_1
 }
 
+# Create 'constrs_impl_1' fileset (if not found)
+if {[string equal [get_filesets -quiet constrs_impl_1] ""]} {
+  create_fileset -constrset constrs_impl_1
+}
+
+set cflist [glob $origin_dir/constraints/ios.xdc \
+                 $origin_dir/constraints/timing.xdc \
+                 $origin_dir/constraints/synthesis.xdc \
+                 $origin_dir/constraints/bitstream.xdc]
+
+set ciflist [glob $origin_dir/constraints/ios.xdc \
+                  $origin_dir/constraints/timing.xdc \
+                  $origin_dir/constraints/timing_impl.xdc \
+                  $origin_dir/constraints/synthesis.xdc \
+                  $origin_dir/constraints/bitstream.xdc]
+
 # Set 'constrs_1' fileset object
 set obj [get_filesets constrs_1]
 
 # Add/Import constrs file and set constrs file properties
-foreach file_temp [glob $origin_dir/constraints/*.xdc] {
+foreach file_temp $cflist {
 	set file "[file normalize "$file_temp"]"
 	set file_added [add_files -norecurse -fileset $obj $file]
 	set file "$file_temp"
@@ -110,6 +126,23 @@ foreach file_temp [glob $origin_dir/constraints/*.xdc] {
 
 # Set 'constrs_1' fileset properties
 set obj [get_filesets constrs_1]
+
+# Set 'constrs_impl_1' fileset object
+set obj [get_filesets constrs_impl_1]
+
+# Add/Import constrs file and set constrs file properties that will be used in implementation
+foreach file_temp $ciflist {
+  set file "[file normalize "$file_temp"]"
+  set file_added [add_files -norecurse -fileset $obj $file]
+  set file "$file_temp"
+  set file [file normalize $file]
+  set file_obj [get_files -of_objects [get_filesets constrs_impl_1] [list "*$file"]]
+  set_property "file_type" "XDC" $file_obj
+}
+
+# Set 'constrs_impl_1' fileset properties
+set obj [get_filesets constrs_impl_1]
+
 
 # Create 'sim_1' fileset (if not found)
 if {[string equal [get_filesets -quiet sim_1] ""]} {
@@ -125,10 +158,10 @@ set obj [get_filesets sim_1]
 
 # Create 'synth_1' run (if not found)
 if {[string equal [get_runs -quiet synth_1] ""]} {
-  create_run -name synth_1 -part xc7k160tfbg676-1 -flow {Vivado Synthesis 2014} -strategy "Vivado Synthesis Defaults" -constrset constrs_1
+  create_run -name synth_1 -part xc7k160tfbg676-1 -flow {Vivado Synthesis 2023} -strategy "Vivado Synthesis Defaults" -constrset constrs_1
 } else {
   set_property strategy "Vivado Synthesis Defaults" [get_runs synth_1]
-  set_property flow "Vivado Synthesis 2014" [get_runs synth_1]
+  set_property flow "Vivado Synthesis 2023" [get_runs synth_1]
 }
 set obj [get_runs synth_1]
 set_property "part" "xc7k160tfbg676-1" $obj
@@ -138,10 +171,11 @@ current_run -synthesis [get_runs synth_1]
 
 # Create 'impl_1' run (if not found)
 if {[string equal [get_runs -quiet impl_1] ""]} {
-  create_run -name impl_1 -part xc7k160tfbg676-1 -flow {Vivado Implementation 2014} -strategy "Vivado Implementation Defaults" -constrset constrs_1 -parent_run synth_1
+  create_run -name impl_1 -part xc7k160tfbg676-1 -flow {Vivado Implementation 2023} -strategy "Vivado Implementation Defaults" -constrset constrs_impl_1 -parent_run synth_1
 } else {
   set_property strategy "Vivado Implementation Defaults" [get_runs impl_1]
-  set_property flow "Vivado Implementation 2014" [get_runs impl_1]
+  set_property flow "Vivado Implementation 2023" [get_runs impl_1]
+  set_property constrset constrs_impl_1 [get_runs impl_1]
 }
 set obj [get_runs impl_1]
 set_property "part" "xc7k160tfbg676-1" $obj

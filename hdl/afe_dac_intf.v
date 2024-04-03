@@ -400,6 +400,12 @@ reg [1:0] shift_state = 2'b00;
 reg sreg_cnt_ena;
 reg sreg_cnt_reset;
 
+// ==================
+// array of registers
+// ==================
+
+reg [4:0] dac_reg_addr = 5'd0;
+
 // flags for sending out 32, 64, and 96 bit register values
 wire sreg_cnt_max_32, sreg_cnt_max_64, sreg_cnt_max_96;
 assign sreg_cnt_max_32 = (sreg_cnt == 8'd30) ? 1'b1 : 1'b0;
@@ -492,12 +498,6 @@ always @ (posedge clk10) begin
     end
 end
 
-
-// ==================
-// array of registers
-// ==================
-
-reg [4:0] dac_reg_addr = 5'd0;
 
 always @ (posedge clk10) begin
     case (dac_reg_addr[4:0])

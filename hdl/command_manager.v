@@ -395,7 +395,11 @@ module command_manager (
       .m_axis_tdata(m_readout_fifo_tdata),   // output [127:0]
     
       // FIFO almost full port
-      .axis_prog_full(readout_fifo_full)     // output
+      .axis_prog_full(readout_fifo_full),    // output
+
+      // handshaking (currently unused)
+      .wr_rst_busy(),
+      .rd_rst_busy()
   );
 
 
@@ -540,9 +544,9 @@ module command_manager (
           if ( cbuf_mode ) begin
              // for the circular buffer mode, we will use the async mode registers
              if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0014)) begin
-               next_chan_burst_count_type1[chan_tx_fifo_dest] <= {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
-               next_chan_burst_count_type1[chan_tx_fifo_dest] <= {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
-               next_chan_burst_count_type1[chan_tx_fifo_dest] <= {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
+               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
+               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
+               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
                next_chan_wfm_count_type1[chan_tx_fifo_dest]   = 12'd1; // waveform count value, always 1 for circular buffer acquistion
                next_chan_wfm_count_type2[chan_tx_fifo_dest]   = 12'd1; // waveform count value, always 1 for circular buffer acquistion
                next_chan_wfm_count_type3[chan_tx_fifo_dest]   = 12'd1; // waveform count value, always 1 for circular buffer acquistion

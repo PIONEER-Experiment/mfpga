@@ -2,45 +2,49 @@
 # io standards
 # ############
 
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gige_rx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gige_rx_N]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gige_tx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gige_tx_N]
+# -- the commented IOSTANDARDs create critical errors in 2023.2 -|
+#                                                                v
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gige_rx]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gige_rx_N]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gige_tx]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gige_tx_N]
 
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports daq_rx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports daq_rx_N]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports daq_tx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports daq_tx_N]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports daq_rx]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports daq_rx_N]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports daq_tx]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports daq_tx_N]
 
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gtx_clk0]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gtx_clk0_N]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gtx_clk0]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gtx_clk0_N]
 set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gtx_clk1]
 set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gtx_clk1_N]
 
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c0_tx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c0_tx_N]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c0_rx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c0_rx_N]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c0_tx]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c0_tx_N]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c0_rx]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c0_rx_N]
 
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c1_tx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c1_tx_N]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c1_rx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c1_rx_N]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c1_tx]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c1_tx_N]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c1_rx]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c1_rx_N]
 
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c2_tx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c2_tx_N]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c2_rx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c2_rx_N]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c2_tx]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c2_tx_N]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c2_rx]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c2_rx_N]
 
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c3_tx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c3_tx_N]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c3_rx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c3_rx_N]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c3_tx]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c3_tx_N]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c3_rx]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c3_rx_N]
 
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c4_tx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c4_tx_N]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c4_rx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c4_rx_N]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c4_tx]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c4_tx_N]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c4_rx]
+# set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports c4_rx_N]
+#                                                                ^
+# -- the commented IOSTANDARDs create critical errors in 2023.2 -|
 
 set_property IOSTANDARD LVCMOS33 [get_ports {mmc_io[3]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {mmc_io[2]}]
@@ -168,8 +172,8 @@ set_property IOSTANDARD LVCMOS33 [get_ports fp_sw_master]
 # extra properties
 # ################
 
-set_property PULLUP TRUE [get_ports bbus_scl]
-set_property PULLUP TRUE [get_ports bbus_sda]
+set_property PULLTYPE PULLUP [get_ports bbus_scl]
+set_property PULLTYPE PULLUP [get_ports bbus_sda]
 
 set_property SLEW FAST [get_ports afe_dac_sync_n]
 set_property SLEW FAST [get_ports afe_dac_sdi]
@@ -207,20 +211,20 @@ set_property PACKAGE_PIN A14 [get_ports bbus_sda]
 
 set_property PACKAGE_PIN E18 [get_ports ext_trig]
 
-set_property PACKAGE_PIN H26  [get_ports {acq_trigs[4]}]
+set_property PACKAGE_PIN H26 [get_ports {acq_trigs[4]}]
 set_property PACKAGE_PIN AE21 [get_ports {acq_trigs[3]}]
 set_property PACKAGE_PIN AD26 [get_ports {acq_trigs[2]}]
-set_property PACKAGE_PIN A24  [get_ports {acq_trigs[1]}]
-set_property PACKAGE_PIN B9   [get_ports {acq_trigs[0]}]
+set_property PACKAGE_PIN A24 [get_ports {acq_trigs[1]}]
+set_property PACKAGE_PIN B9 [get_ports {acq_trigs[0]}]
 
-set_property PACKAGE_PIN G25  [get_ports {acq_dones[4]}]
+set_property PACKAGE_PIN G25 [get_ports {acq_dones[4]}]
 set_property PACKAGE_PIN AE22 [get_ports {acq_dones[3]}]
 set_property PACKAGE_PIN AA25 [get_ports {acq_dones[2]}]
-set_property PACKAGE_PIN B22  [get_ports {acq_dones[1]}]
-set_property PACKAGE_PIN A10  [get_ports {acq_dones[0]}]
+set_property PACKAGE_PIN B22 [get_ports {acq_dones[1]}]
+set_property PACKAGE_PIN A10 [get_ports {acq_dones[0]}]
 
-set_property PACKAGE_PIN F8  [get_ports {debug[7]}]
-set_property PACKAGE_PIN F9  [get_ports {debug[6]}]
+set_property PACKAGE_PIN F8 [get_ports {debug[7]}]
+set_property PACKAGE_PIN F9 [get_ports {debug[6]}]
 set_property PACKAGE_PIN F10 [get_ports {debug[5]}]
 set_property PACKAGE_PIN F12 [get_ports {debug[4]}]
 set_property PACKAGE_PIN F13 [get_ports {debug[3]}]
@@ -259,8 +263,8 @@ set_property PACKAGE_PIN B12 [get_ports {c0_io[2]}]
 set_property PACKAGE_PIN B10 [get_ports {c0_io[1]}]
 set_property PACKAGE_PIN A12 [get_ports {c0_io[0]}]
 
-set_property PACKAGE_PIN V24  [get_ports {mezzb[5]}]
-set_property PACKAGE_PIN W24  [get_ports {mezzb[4]}]
+set_property PACKAGE_PIN V24 [get_ports {mezzb[5]}]
+set_property PACKAGE_PIN W24 [get_ports {mezzb[4]}]
 set_property PACKAGE_PIN AA24 [get_ports {mezzb[3]}]
 
 set_property PACKAGE_PIN AB24 [get_ports afe_dac_sync_n]
@@ -285,8 +289,8 @@ set_property PACKAGE_PIN K23 [get_ports daq_clk_sel]
 set_property PACKAGE_PIN K26 [get_ports daq_clk_en]
 
 set_property PACKAGE_PIN AB4 [get_ports ttc_clkn]
-set_property PACKAGE_PIN V1  [get_ports ttc_rxn]
-set_property PACKAGE_PIN Y2  [get_ports ttc_txn]
+set_property PACKAGE_PIN V1 [get_ports ttc_rxn]
+set_property PACKAGE_PIN Y2 [get_ports ttc_txn]
 
 set_property PACKAGE_PIN C12 [get_ports clkin]
 
@@ -298,20 +302,21 @@ set_property PACKAGE_PIN D25 [get_ports c_din]
 set_property PACKAGE_PIN C26 [get_ports c_progb]
 set_property PACKAGE_PIN D24 [get_ports test_point6]
 
-set_property PACKAGE_PIN K17  [get_ports {prog_done[4]}]
+set_property PACKAGE_PIN K17 [get_ports {prog_done[4]}]
 set_property PACKAGE_PIN AE23 [get_ports {prog_done[3]}]
-set_property PACKAGE_PIN Y26  [get_ports {prog_done[2]}]
-set_property PACKAGE_PIN A23  [get_ports {prog_done[1]}]
-set_property PACKAGE_PIN A8   [get_ports {prog_done[0]}]
+set_property PACKAGE_PIN Y26 [get_ports {prog_done[2]}]
+set_property PACKAGE_PIN A23 [get_ports {prog_done[1]}]
+set_property PACKAGE_PIN A8 [get_ports {prog_done[0]}]
 
-set_property PACKAGE_PIN J26  [get_ports {initb[4]}]
+set_property PACKAGE_PIN J26 [get_ports {initb[4]}]
 set_property PACKAGE_PIN AF22 [get_ports {initb[3]}]
 set_property PACKAGE_PIN AC26 [get_ports {initb[2]}]
-set_property PACKAGE_PIN C24  [get_ports {initb[1]}]
-set_property PACKAGE_PIN A9   [get_ports {initb[0]}]
+set_property PACKAGE_PIN C24 [get_ports {initb[1]}]
+set_property PACKAGE_PIN A9 [get_ports {initb[0]}]
 
 set_property PACKAGE_PIN A25 [get_ports spi_miso]
 set_property PACKAGE_PIN B24 [get_ports spi_mosi]
 set_property PACKAGE_PIN C23 [get_ports spi_ss]
 
 set_property PACKAGE_PIN J21 [get_ports fp_sw_master]
+

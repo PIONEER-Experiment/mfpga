@@ -72,6 +72,7 @@ architecture rtl of eth_k7_1000basex is
 	    gtrefclk_p : IN STD_LOGIC;
 	    gtrefclk_n : IN STD_LOGIC;
 	    gtrefclk_out : OUT STD_LOGIC;
+      gtrefclk_bufg_out : out STD_LOGIC;
 	    txn : OUT STD_LOGIC;
 	    txp : OUT STD_LOGIC;
 	    rxn : IN STD_LOGIC;
@@ -207,6 +208,7 @@ begin
 			gtrefclk_p => gt_clkp,
 			gtrefclk_n => gt_clkn,
 			gtrefclk_out => gtrefclk_out,
+      gtrefclk_bufg_out => open,
 			txn => gt_txn,
 			txp => gt_txp,
 			rxn => gt_rxn,

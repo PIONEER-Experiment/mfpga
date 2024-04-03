@@ -1,8 +1,52 @@
 ///////////////////////////////////////////////////////////////////////////////
-// Xilinx legal notes moved to end of file.
+// (c) Copyright 2023 Advanced Micro Devices, Inc. All rights reserved.
 //
-// This file was originally generated as part of the Vivado Aurora example design.
-
+// This file contains confidential and proprietary information
+// of Advanced Micro Devices, Inc. and is protected under U.S. and
+// international copyright and other intellectual property
+// laws.
+//
+// DISCLAIMER
+// This disclaimer is not a license and does not grant any
+// rights to the materials distributed herewith. Except as
+// otherwise provided in a valid license issued to you by
+// AMD, and to the maximum extent permitted by applicable
+// law: (1) THESE MATERIALS ARE MADE AVAILABLE "AS IS" AND
+// WITH ALL FAULTS, AND AMD HEREBY DISCLAIMS ALL WARRANTIES
+// AND CONDITIONS, EXPRESS, IMPLIED, OR STATUTORY, INCLUDING
+// BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, NON-
+// INFRINGEMENT, OR FITNESS FOR ANY PARTICULAR PURPOSE; and
+// (2) AMD shall not be liable (whether in contract or tort,
+// including negligence, or under any other theory of
+// liability) for any loss or damage of any kind or nature
+// related to, arising under or in connection with these
+// materials, including for any direct, or any indirect,
+// special, incidental, or consequential loss or damage
+// (including loss of data, profits, goodwill, or any type of
+// loss or damage suffered as a result of any action brought
+// by a third party) even if such damage or loss was
+// reasonably foreseeable or AMD had been advised of the
+// possibility of the same.
+//
+// CRITICAL APPLICATIONS
+// AMD products are not designed or intended to be fail-
+// safe, or for use in any application requiring fail-safe
+// performance, such as life-support or safety devices or
+// systems, Class III medical devices, nuclear facilities,
+// applications related to the deployment of airbags, or any
+// other applications that could lead to death, personal
+// injury, or severe property or environmental damage
+// (individually and collectively, "Critical
+// Applications"). Customer assumes the sole risk and
+// liability of any use of AMD products in Critical
+// Applications, subject only to applicable laws and
+// regulations governing limitations on product liability.
+//
+// THIS COPYRIGHT NOTICE AND DISCLAIMER MUST BE RETAINED AS
+// PART OF THIS FILE AT ALL TIMES.
+//
+//
+////////////////////////////////////////////////////////////////////////////////
 //Generic Help
 //C_CDC_TYPE : Defines the type of CDC needed
 //             0 means pulse synchronizer. Used to transfer one clock pulse 
@@ -36,7 +80,7 @@
 //
 //Whenever this file is used following XDC constraint has to be added 
 
-//         set_false_path -to [get_pins -hier *cdc_to*]        
+//         set_false_path -to [get_pins -hier *aurora_8b10b_0_cdc_to*/D]        
 
 
 //IO Ports 
@@ -82,7 +126,7 @@ module aurora_8b10b_0_cdc_sync_exdes
     // Internal signal declarations
     wire s_out_re;
     reg p_in_d1_cdc_from = 1'b0;
-    (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg s_out_d1_cdc_to = 1'b0;
+    (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg s_out_d1_aurora_8b10b_0_cdc_to = 1'b0;
     (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg s_out_d2 = 1'b0;
     (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg s_out_d3 = 1'b0;
     (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg s_out_d4 = 1'b0;
@@ -91,19 +135,19 @@ module aurora_8b10b_0_cdc_sync_exdes
     (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg s_out_d7 = 1'b0;
     reg scndry_out_int_d1 = 1'b0;
 
-    (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg s_level_out_d1_cdc_to = 1'b0;
+    (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg s_level_out_d1_aurora_8b10b_0_cdc_to = 1'b0;
     (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg s_level_out_d2 = 1'b0;
     (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg s_level_out_d3 = 1'b0;
     (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg s_level_out_d4 = 1'b0;
     (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg s_level_out_d5 = 1'b0;
     (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg s_level_out_d6 = 1'b0;
 
-    reg p_level_in_d1_cdc_from = 1'b0;
+    (* KEEP = "TRUE" *) reg p_level_in_d1_cdc_from = 1'b0;
     wire p_level_in_int;
 
     wire [( c_vector_width - 1 ):0]p_level_in_bus_d1_cdc_from;
     wire [( c_vector_width - 1 ):0]s_level_out_bus_d1_cdc_tig;
-    (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg [( c_vector_width - 1 ):0] s_level_out_bus_d1_cdc_to = 'b0;
+    (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg [( c_vector_width - 1 ):0] s_level_out_bus_d1_aurora_8b10b_0_cdc_to = 'b0;
     (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg [( c_vector_width - 1 ):0] s_level_out_bus_d2 = 'b0;
     (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg [( c_vector_width - 1 ):0] s_level_out_bus_d3 = 'b0;
     (* ASYNC_REG = "true" *) (* shift_extract = "{no}" *) reg [( c_vector_width - 1 ):0] s_level_out_bus_d4 = 'b0;
@@ -114,7 +158,7 @@ module aurora_8b10b_0_cdc_sync_exdes
     wire scndry_out_int;
     wire prmry_pulse_ack;
     reg prmry_ack_int = 1'b0;
-    reg p_level_out_d1_cdc_to = 1'b0;
+    reg p_level_out_d1_aurora_8b10b_0_cdc_to = 1'b0;
     reg p_level_out_d2 = 1'b0;
     reg p_level_out_d3 = 1'b0;
     reg p_level_out_d4 = 1'b0;
@@ -142,7 +186,7 @@ generate if (c_cdc_type == 0) begin
     begin : P_IN_CROSS2SCNDRY
             if ( ( scndry_rst_n == 1'b0 ) & ( c_reset_state == 1 ) ) 
             begin
-                s_out_d1_cdc_to <= 1'b0;
+                s_out_d1_aurora_8b10b_0_cdc_to <= 1'b0;
                 s_out_d2 <= 1'b0;
                 s_out_d3 <= 1'b0;
                 s_out_d4 <= 1'b0;
@@ -153,8 +197,8 @@ generate if (c_cdc_type == 0) begin
             end
             else
             begin 
-                s_out_d1_cdc_to <= p_in_d1_cdc_from;
-                s_out_d2 <= s_out_d1_cdc_to;
+                s_out_d1_aurora_8b10b_0_cdc_to <= p_in_d1_cdc_from;
+                s_out_d2 <= s_out_d1_aurora_8b10b_0_cdc_to;
                 s_out_d3 <= s_out_d2;
                 s_out_d4 <= s_out_d3;
                 s_out_d5 <= s_out_d4;
@@ -247,7 +291,7 @@ generate if (c_single_bit == 1 & c_cdc_type == 1) begin
     begin : CROSS_PLEVEL_IN2SCNDRY
             if ( ( scndry_rst_n == 1'b0 ) & ( c_reset_state == 1 ) ) 
             begin
-                s_level_out_d1_cdc_to <= 1'b0;
+                s_level_out_d1_aurora_8b10b_0_cdc_to <= 1'b0;
                 s_level_out_d2 <= 1'b0;
                 s_level_out_d3 <= 1'b0;
                 s_level_out_d4 <= 1'b0;
@@ -256,8 +300,8 @@ generate if (c_single_bit == 1 & c_cdc_type == 1) begin
             end
             else
             begin 
-                s_level_out_d1_cdc_to <= p_level_in_int;
-                s_level_out_d2 <= s_level_out_d1_cdc_to;
+                s_level_out_d1_aurora_8b10b_0_cdc_to <= p_level_in_int;
+                s_level_out_d2 <= s_level_out_d1_aurora_8b10b_0_cdc_to;
                 s_level_out_d3 <= s_level_out_d2;
                 s_level_out_d4 <= s_level_out_d3;
                 s_level_out_d5 <= s_level_out_d4;
@@ -270,7 +314,7 @@ endgenerate
 
 generate if (c_mtbf_stages == 1 & c_cdc_type == 1 & c_single_bit == 1) begin
 
-    assign scndry_out = s_level_out_d1_cdc_to;
+    assign scndry_out = s_level_out_d1_aurora_8b10b_0_cdc_to;
 end
 endgenerate
 
@@ -313,7 +357,7 @@ generate if (c_single_bit == 0 & c_cdc_type == 1) begin
     begin : CROSS_PLEVEL_IN2SCNDRY
             if ( ( scndry_rst_n == 1'b0 ) & ( c_reset_state == 1 ) ) 
             begin
-                s_level_out_bus_d1_cdc_to <= 0;
+                s_level_out_bus_d1_aurora_8b10b_0_cdc_to <= 0;
                 s_level_out_bus_d2 <= 0 ;
                 s_level_out_bus_d3 <= 0 ;
                 s_level_out_bus_d4 <= 0 ;
@@ -322,8 +366,8 @@ generate if (c_single_bit == 0 & c_cdc_type == 1) begin
             end
             else
             begin 
-                s_level_out_bus_d1_cdc_to <= prmry_vect_in;
-                s_level_out_bus_d2 <= s_level_out_bus_d1_cdc_to;
+                s_level_out_bus_d1_aurora_8b10b_0_cdc_to <= prmry_vect_in;
+                s_level_out_bus_d2 <= s_level_out_bus_d1_aurora_8b10b_0_cdc_to;
                 s_level_out_bus_d3 <= s_level_out_bus_d2;
                 s_level_out_bus_d4 <= s_level_out_bus_d3;
                 s_level_out_bus_d5 <= s_level_out_bus_d4;
@@ -336,7 +380,7 @@ endgenerate
 
 generate if (c_mtbf_stages == 1 & c_single_bit == 0 & c_cdc_type == 1) begin
 
-    assign scndry_vect_out = s_level_out_bus_d1_cdc_to;
+    assign scndry_vect_out = s_level_out_bus_d1_aurora_8b10b_0_cdc_to;
 end
 endgenerate
 
@@ -404,7 +448,7 @@ generate if (c_cdc_type == 2) begin
     begin : CROSS_PLEVEL_IN2SCNDRY
             if ( ( scndry_rst_n == 1'b0 ) & ( c_reset_state == 1 ) ) 
             begin
-                s_level_out_d1_cdc_to <= 1'b0;
+                s_level_out_d1_aurora_8b10b_0_cdc_to <= 1'b0;
                 s_level_out_d2 <= 1'b0;
                 s_level_out_d3 <= 1'b0;
                 s_level_out_d4 <= 1'b0;
@@ -413,8 +457,8 @@ generate if (c_cdc_type == 2) begin
             end
             else
             begin 
-                s_level_out_d1_cdc_to <= p_level_in_int;
-                s_level_out_d2 <= s_level_out_d1_cdc_to;
+                s_level_out_d1_aurora_8b10b_0_cdc_to <= p_level_in_int;
+                s_level_out_d2 <= s_level_out_d1_aurora_8b10b_0_cdc_to;
                 s_level_out_d3 <= s_level_out_d2;
                 s_level_out_d4 <= s_level_out_d3;
                 s_level_out_d5 <= s_level_out_d4;
@@ -426,7 +470,7 @@ generate if (c_cdc_type == 2) begin
     begin : CROSS_PLEVEL_SCNDRY2PRMRY
             if ( ( prmry_rst_n == 1'b0 ) & ( c_reset_state == 1 ) ) 
             begin
-                p_level_out_d1_cdc_to <= 1'b0;
+                p_level_out_d1_aurora_8b10b_0_cdc_to <= 1'b0;
                 p_level_out_d2 <= 1'b0;
                 p_level_out_d3 <= 1'b0;
                 p_level_out_d4 <= 1'b0;
@@ -437,8 +481,8 @@ generate if (c_cdc_type == 2) begin
             end
             else
             begin 
-                p_level_out_d1_cdc_to <= scndry_out_int;
-                p_level_out_d2 <= p_level_out_d1_cdc_to;
+                p_level_out_d1_aurora_8b10b_0_cdc_to <= scndry_out_int;
+                p_level_out_d2 <= p_level_out_d1_aurora_8b10b_0_cdc_to;
                 p_level_out_d3 <= p_level_out_d2;
                 p_level_out_d4 <= p_level_out_d3;
                 p_level_out_d5 <= p_level_out_d4;
@@ -489,53 +533,3 @@ endgenerate
   endgenerate
 
 endmodule 
-
-///////////////////////////////////////////////////////////////////////////////
-// (c) Copyright 2013 Xilinx, Inc. All rights reserved.
-//
-// This file contains confidential and proprietary information
-// of Xilinx, Inc. and is protected under U.S. and
-// international copyright and other intellectual property
-// laws.
-//
-// DISCLAIMER
-// This disclaimer is not a license and does not grant any
-// rights to the materials distributed herewith. Except as
-// otherwise provided in a valid license issued to you by
-// Xilinx, and to the maximum extent permitted by applicable
-// law: (1) THESE MATERIALS ARE MADE AVAILABLE "AS IS" AND
-// WITH ALL FAULTS, AND XILINX HEREBY DISCLAIMS ALL WARRANTIES
-// AND CONDITIONS, EXPRESS, IMPLIED, OR STATUTORY, INCLUDING
-// BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, NON-
-// INFRINGEMENT, OR FITNESS FOR ANY PARTICULAR PURPOSE; and
-// (2) Xilinx shall not be liable (whether in contract or tort,
-// including negligence, or under any other theory of
-// liability) for any loss or damage of any kind or nature
-// related to, arising under or in connection with these
-// materials, including for any direct, or any indirect,
-// special, incidental, or consequential loss or damage
-// (including loss of data, profits, goodwill, or any type of
-// loss or damage suffered as a result of any action brought
-// by a third party) even if such damage or loss was
-// reasonably foreseeable or Xilinx had been advised of the
-// possibility of the same.
-//
-// CRITICAL APPLICATIONS
-// Xilinx products are not designed or intended to be fail-
-// safe, or for use in any application requiring fail-safe
-// performance, such as life-support or safety devices or
-// systems, Class III medical devices, nuclear facilities,
-// applications related to the deployment of airbags, or any
-// other applications that could lead to death, personal
-// injury, or severe property or environmental damage
-// (individually and collectively, "Critical
-// Applications"). Customer assumes the sole risk and
-// liability of any use of Xilinx products in Critical
-// Applications, subject only to applicable laws and
-// regulations governing limitations on product liability.
-//
-// THIS COPYRIGHT NOTICE AND DISCLAIMER MUST BE RETAINED AS
-// PART OF THIS FILE AT ALL TIMES.
-//
-//
-////////////////////////////////////////////////////////////////////////////////

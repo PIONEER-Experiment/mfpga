@@ -58,7 +58,7 @@ always @(posedge clk) begin
 end
 
 // Generate a single clock strobe to update the temperature value
-reg i2c_temp_update_sync1, i2c_temp_update_sync2, i2c_temp_update_sync3;
+(* ASYNC_REG = "TRUE" *) reg i2c_temp_update_sync1, i2c_temp_update_sync2, i2c_temp_update_sync3;
 wire update_strobe;
 always @(posedge clk) begin
     i2c_temp_update_sync1 <= i2c_temp_update;

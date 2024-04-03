@@ -592,7 +592,11 @@ module trigger_top (
         .m_axis_tdata(m_trig_fifo_tdata),   // output [127:0]
       
         // FIFO almost full port
-        .axis_prog_full(trig_fifo_full)     // output
+        .axis_prog_full(trig_fifo_full),    // output
+
+        // handshaking (currently unused)
+        .wr_rst_busy(),
+        .rd_rst_busy()
     );
 
 
@@ -615,7 +619,11 @@ module trigger_top (
         .m_axis_tdata(m_pulse_fifo_tdata),   // output [127:0]
       
         // FIFO almost full port
-        .axis_prog_full(pulse_fifo_full)     // output
+        .axis_prog_full(pulse_fifo_full),    // output
+
+        // handshaking (currently unused)
+        .wr_rst_busy(),
+        .rd_rst_busy()
     );
 
 
@@ -636,7 +644,12 @@ module trigger_top (
         .m_axis_tdata(m_acq_fifo_tdata),   // output [31:0]
       
         // FIFO almost full port
-        .axis_prog_full(acq_fifo_full)     // output
+        .axis_prog_full(acq_fifo_full),    // output
+
+        // unused
+        .wr_rst_busy(),        // output wire wr_rst_busy
+        .rd_rst_busy()         // output wire rd_rst_busy
+
     );
 
 endmodule

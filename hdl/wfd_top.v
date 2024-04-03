@@ -72,7 +72,7 @@ module wfd_top (
 
     // ======== clock signals ========
     wire clk_10, clk10;   // 10 MHz clock for AFE DAC interface
-    wire clk50;
+    wire clk_50, clk_50b, clk50, clk50b;
     wire clk_125, clk125;
     wire clk200;
     wire clkfb;
@@ -82,7 +82,8 @@ module wfd_top (
     wire ttc_clk_x5;      // 200 MHz clock derived from ttc_clk
     wire ttc_clk_lock_200M;
 
-    assign clk50 = clkin; // just to make the frequency explicit
+    // now generate the clk and clk-bar using the PLL to avoid creating a LUT in the clock tree in reprog
+    //    assign clk50 = clkin; // just to make the frequency explicit
 
     wire ipb_clk50_reset, clk50_reset;
     wire prog_chan_done; // channels have been programmed signal
@@ -274,14 +275,17 @@ module wfd_top (
         .CLKIN1_PERIOD(20), // in ns, so 20 -> 50 MHz
         .CLKOUT0_DIVIDE(5),
         .CLKOUT1_DIVIDE(8),
-        .CLKOUT2_DIVIDE(100)
+        .CLKOUT2_DIVIDE(100),
+        .CLKOUT3_DIVIDE(20),
+        .CLKOUT4_DIVIDE(20),
+        .CLKOUT4_PHASE(180)
     ) clk (
         .CLKIN1(clkin),
         .CLKOUT0(clk200),
         .CLKOUT1(clk_125),
         .CLKOUT2(clk_10),
-        .CLKOUT3(),
-        .CLKOUT4(),
+        .CLKOUT3(clk_50),
+        .CLKOUT4(clk_50b),
         .CLKOUT5(),
         .LOCKED(),
         .RST(0),
@@ -294,6 +298,8 @@ module wfd_top (
     // "Clock net clk125 is not driven by a Clock Buffer and has more than 2000 loads."
     BUFG BUFG_clk125 (.I(clk_125), .O(clk125));
     BUFG BUFG_clk10  (.I(clk_10 ), .O(clk10 ));
+    BUFG BUFG_clk50  (.I(clk_50 ), .O(clk50 ));
+    BUFG BUFG_clk50b (.I(clk_50b), .O(clk50b));
 
 
     // ======== reset signals ========
@@ -634,6 +640,7 @@ module wfd_top (
 
     reprog reprog (
         .clk(clk50),
+        .clkb(clk50b),
         .reset(clk50_reset),
         .trigger(reprog_trigger_mux)
     );
@@ -727,7 +734,7 @@ module wfd_top (
         .out(ext_trig_sync)
     );
 
-    reg ext_trig_pulse_sync1, ext_trig_pulse_sync2, ext_trig_pulse_sync3;
+    (* ASYNC_REG = "TRUE" *) reg ext_trig_pulse_sync1, ext_trig_pulse_sync2, ext_trig_pulse_sync3;
     reg ext_trig_pulse;
 
     // level-to-pulse converter
@@ -946,8 +953,8 @@ module wfd_top (
     
     // ======== module instantiations ========
 
-    wire [4:0] delay_count;
-    wire       delay_rdy;
+    wire [4:0] ttc_data_delay;
+    wire       ttc_ddelay_rdy;
     // TTC decoder module
     TTC_decoder_ddelay ttc (
         .TTC_CLK_p(ttc_clkp),            // in  STD_LOGIC

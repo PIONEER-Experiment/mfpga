@@ -106,7 +106,11 @@ module one_channel (
     .m_axis_tkeep(local_axis_tx_tkeep),   // output [ 3:0]
     .m_axis_tlast(local_axis_tx_tlast),   // output
 
-    .axis_prog_full()                     // output, unused
+    .axis_prog_full(),                    // output, unused
+
+    // handshaking (currently unused)
+    .wr_rst_busy(),
+    .rd_rst_busy()
   );
 
 
@@ -128,7 +132,11 @@ module one_channel (
     .m_axis_tkeep(m_axis_rx_tkeep),       // output [ 3:0]
     .m_axis_tlast(m_axis_rx_tlast),       // output
 
-    .axis_prog_full(acq_readout_pause)    // output, check the FIFO almost_full status
+    .axis_prog_full(acq_readout_pause),   // output, check the FIFO almost_full status
+
+    // handshaking (currently unused)
+    .wr_rst_busy(),
+    .rd_rst_busy()
   );
 
 
@@ -156,19 +164,14 @@ module one_channel (
     .soft_err(soft_err),                         // output, to IPbus I/O
     .channel_up(channel_up),                     // output, to IPbus I/O
     .lane_up(lane_up),                           // output, to IPbus I/O
-    // Clock Compensation Control Interface
-    .warn_cc(warn_cc),                           // input, from clock compensation module
-    .do_cc(do_cc),                               // input, from clock compensation module
     // System Interface Inputs
     .user_clk(aurora_user_clk),                   // input, from channel clock module
     .sync_clk(sync_clk),                          // input, from channel clock module
-    .tx_out_clk(tx_out_clk),                      // output, from channel clock module
-    .tx_lock(tx_lock),                            // input, from channel clock module
     .reset(system_reset),                         // input, from aurora_8b10b_0_SUPPORT_RESET_LOGIC
-    .gt_reset(local_gt_reset),                    // input, from aurora_8b10b_0_SUPPORT_RESET_LOGIC
-    .sys_reset_out(sys_reset_out),                // output, synched to 'aurora_user_clk', to TX FIFO and RX FIFO
     .power_down(power_down),                      // input, from IPbus I/O
     .loopback(loopback_set[2:0]),                 // input [2:0], from IPbus I/O
+    .gt_reset(local_gt_reset),                    // input, from aurora_8b10b_0_SUPPORT_RESET_LOGIC
+    .tx_lock(tx_lock),                            // input, from channel clock module
     .init_clk_in(clk50),                          // input, 50 MHz clock, passed to module
     .pll_not_locked(pll_not_locked),              // input, from channel clock module
     .tx_resetdone_out(tx_resetdone),              // output, to IPbus I/O
@@ -187,8 +190,11 @@ module one_channel (
     .gt0_qpllrefclklost_in(gt0_qpllrefclklost),   // input
     .gt_qpllclk_quad2_in(gt_qpllclk_quad2),       // input
     .gt_qpllrefclk_quad2_in(gt_qpllrefclk_quad2), // input
-    .gt0_qpllreset_out(gt0_qpllreset)             // output
-  );
+    .gt0_qpllreset_out(gt0_qpllreset),            // output
+    //
+    .tx_out_clk(tx_out_clk),                      // output, from channel clock module
+    .sys_reset_out(sys_reset_out)                 // output, synched to 'aurora_user_clk', to TX FIFO and RX FIFO
+);
 
   // Instantiate a channel clock module
   aurora_8b10b_0_CLOCK_MODULE clock_module (
@@ -201,16 +207,17 @@ module one_channel (
     .PLL_NOT_LOCKED(pll_not_locked)
   );
 
-  // Connect a clock-compensation module for this channel
-  aurora_8b10b_0_STANDARD_CC_MODULE standard_cc_module (
-    .RESET(rst_cc_module_i),
-    // Clock Compensation Control Interface
-    .WARN_CC(warn_cc),
-    .DO_CC(do_cc),
-    // System Interface
-    .PLL_NOT_LOCKED(pll_not_locked),
-    .USER_CLK(aurora_user_clk)
-  );
+// lkg (02/2024) -- the clock compensation now kept within core.
+//  // Connect a clock-compensation module for this channel
+//  aurora_8b10b_0_STANDARD_CC_MODULE standard_cc_module (
+//    .RESET(rst_cc_module_i),
+//    // Clock Compensation Control Interface
+//    .WARN_CC(warn_cc),
+//    .DO_CC(do_cc),
+//    // System Interface
+//    .PLL_NOT_LOCKED(pll_not_locked),
+//    .USER_CLK(aurora_user_clk)
+//  );
 
   // connect a reset module
   // the names of I/O ports are confusing
@@ -225,16 +232,17 @@ module one_channel (
     .GT_RESET_OUT(local_gt_reset) // local reset signal in 'clk50' domain
   );
 
-  // SLACK Registers
-  // This is from the example code. I don't know what it does.
-  reg lane_up_r, lane_up_r2;
-  always @ (posedge aurora_user_clk) begin
-    lane_up_r  <=  lane_up;
-    lane_up_r2 <=  lane_up_r;
-  end
-
-  assign lane_up_reduce_i = &lane_up_r2;
-  assign rst_cc_module_i  = !lane_up_reduce_i;
+// lkg (02/2024) -- the clock compensation now kept within core.
+//  // SLACK Registers
+//  // This is from the example code. I don't know what it does.
+//  reg lane_up_r, lane_up_r2;
+//  always @ (posedge aurora_user_clk) begin
+//    lane_up_r  <=  lane_up;
+//    lane_up_r2 <=  lane_up_r;
+//  end
+//
+//  assign lane_up_reduce_i = &lane_up_r2;
+//  assign rst_cc_module_i  = !lane_up_reduce_i;
 
 
   ////////////////////////////////////

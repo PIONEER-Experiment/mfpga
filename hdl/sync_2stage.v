@@ -9,7 +9,7 @@ module sync_2stage #(
     output wire [WIDTH-1:0] out
 );
     
-    reg [WIDTH-1:0] sync1, sync2;
+    (* ASYNC_REG = "TRUE" *) reg [WIDTH-1:0] sync1, sync2;
     
     always @ (posedge clk) begin
         sync1 <= in;

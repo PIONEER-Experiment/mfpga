@@ -70,9 +70,9 @@ module ttc_broadcast_receiver (
     end
     // invalid broadcast command
     else if (chan_b_valid & ~evt_count_reset & ~reset_trig_timestamp) begin
-      next_fill_type[4:0]          <= fill_type[4:0];
-      next_accept_pulse_triggers   <= accept_pulse_triggers;
-      next_unknown_cmd_count[31:0] <= unknown_cmd_count[31:0] + 1; // increment soft error counter
+      next_fill_type[4:0]          = fill_type[4:0];
+      next_accept_pulse_triggers   = accept_pulse_triggers;
+      next_unknown_cmd_count[31:0] = unknown_cmd_count[31:0] + 1; // increment soft error counter
     end
   end
 

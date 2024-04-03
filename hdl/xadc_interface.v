@@ -24,8 +24,6 @@ wire [ 7:0] alarm;
 reg [6:0] daddr;
 reg [1:0] den_reg;
 
-reg [2:0] state = read_reg00;
-
 parameter read_reg00     = 3'h0,
           reg00_waitdrdy = 3'h1,
           read_reg01     = 3'h2,
@@ -34,6 +32,8 @@ parameter read_reg00     = 3'h0,
           reg02_waitdrdy = 3'h5,
           read_reg06     = 3'h6,
           reg06_waitdrdy = 3'h7;
+
+reg [2:0] state = read_reg00;
 
 always @(posedge dclk) begin
     if (reset) begin

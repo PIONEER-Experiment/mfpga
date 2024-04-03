@@ -443,11 +443,19 @@ module all_channels (
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Clock Synthesizer
+  // create clock for synthesizer
+  wire clk_6p25M;
+  slow_i2c_clock slow_i2c_clk_clksynth (
+    .clk_in1(clk50),
+    .clk_6p25M(clk_6p25M),                      // 6.25 MHz clock that drives i2c logic
+    .adcclk_dclk(adcclk_dclk)                 // 6.25 MHz clock with 180 degree phase shift
+  );
   wire ipb_clk_synth_strobe, ipb_clk_synth_ack, ipb_clk_synth_err;
   wire [31:0] ipb_clk_synth_rdata;
   clk_synth_intf clock_synth (
     // clocks and reset
     .clk50(clk50),                           // Aurora 'init_clk' uses 50 MHz clock per PG046-20
+    .slow_clk(clk_6p25M),                     // 6.25 MHz clock that drives logic
     .clk50_reset(ipb_clk50_reset),           // active_hi synched to 'clk50' with no startup reset
     
     // programming interface inputs
@@ -464,7 +472,7 @@ module all_channels (
     .io_rd_ack(clk_synth_io_rd_ack),         // 'write' data has been stored, 'read' data is ready
 
     // physical connections
-    .dclk(adcclk_dclk),
+//    .dclk(adcclk_dclk),
     .ddat(adcclk_ddat),
     .dlen(adcclk_dlen),
     .sync(adcclk_sync),

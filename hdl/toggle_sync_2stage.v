@@ -10,7 +10,7 @@ module toggle_sync_2stage (
 );
 
     wire in_stretch, out_stretch;
-    reg sync1, sync2, sync3;
+    (* ASYNC_REG = "TRUE" *) reg sync1, sync2, sync3;
 
     // signal stretcher
     signal_stretch in_stretch_inst (
