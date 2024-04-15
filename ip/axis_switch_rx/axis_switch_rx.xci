@@ -3,7 +3,7 @@
   "ip_inst": {
     "xci_name": "axis_switch_rx",
     "component_reference": "xilinx.com:ip:axis_switch:1.1",
-    "ip_revision": "29",
+    "ip_revision": "30",
     "gen_directory": ".",
     "parameters": {
       "component_parameters": {
@@ -356,12 +356,12 @@
       },
       "runtime_parameters": {
         "IPCONTEXT": [ { "value": "IP_Flow" } ],
-        "IPREVISION": [ { "value": "29" } ],
+        "IPREVISION": [ { "value": "30" } ],
         "MANAGED": [ { "value": "TRUE" } ],
         "OUTPUTDIR": [ { "value": "." } ],
         "SELECTEDSIMMODEL": [ { "value": "" } ],
         "SHAREDDIR": [ { "value": "." } ],
-        "SWVERSION": [ { "value": "2023.2" } ],
+        "SWVERSION": [ { "value": "2023.2.2" } ],
         "SYNTHESISFLOW": [ { "value": "OUT_OF_CONTEXT" } ]
       }
     },

@@ -11,3 +11,12 @@ set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks chan
 #set_clock_groups -asynchronous -group [get_clocks clkin] -group [get_clocks clk_6p25M_slow_i2c_clock]
 #set_false_path -from [get_clocks clk_125] -to [get_clocks clk_6p25M_slow_i2c_clock]
 
+# Statements to deal with intra-clock timing problems
+set_false_path -from [get_cells {command_manager/chan_burst_count_type1_reg[*]}] -to [get_cells {command_manager/daq_data_reg[*]}]
+set_false_path -from [get_cells {command_manager/chan_burst_count_type2_reg[*]}] -to [get_cells {command_manager/daq_data_reg[*]}]
+set_false_path -from [get_cells {command_manager/chan_burst_count_type3_reg[*]}] -to [get_cells {command_manager/daq_data_reg[*]}]
+set_false_path -from [get_cells {command_manager/chan_burst_count_type4_reg[*]}] -to [get_cells {command_manager/daq_data_reg[*]}]
+set_false_path -from [get_cells {command_manager/chan_wfm_count_type1_reg[*]}] -to [get_cells {command_manager/daq_data_reg[*]}]
+set_false_path -from [get_cells {command_manager/chan_wfm_count_type2_reg[*]}] -to [get_cells {command_manager/daq_data_reg[*]}]
+set_false_path -from [get_cells {command_manager/chan_wfm_count_type3_reg[*]}] -to [get_cells {command_manager/daq_data_reg[*]}]
+

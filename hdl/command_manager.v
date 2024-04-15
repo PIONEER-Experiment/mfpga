@@ -646,13 +646,13 @@ module command_manager (
         if (cs_mismatch_count > thres_data_corrupt) begin
           nextstate[ERROR_DATA_CORRUPTION] = 1'b1;
         end
+        else if (chan_tx_fifo_dest[3:0] == 4'h5) begin
+          nextstate[READY_AMC13_TRAILER] = 1'b1;
+        end
         else if (chan_en[chan_tx_fifo_dest] == 1) begin
           next_num_chan_en[2:0] = num_chan_en[2:0] + 1;
           next_chan_tx_fifo_last = 0;
           nextstate[SEND_CHAN_CSN] = 1'b1;
-        end
-        else if (chan_tx_fifo_dest[3:0] == 4'h5) begin
-          nextstate[READY_AMC13_TRAILER] = 1'b1;
         end
         else begin
           next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0] + 1;
