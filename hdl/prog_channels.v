@@ -12,6 +12,7 @@ module prog_channels (
     input  reset,
     input  async_mode,                // asychronous mode enable
     input  cbuf_mode,                 // circular buffer mode enable
+    input  strg_mode,                 // self trigger mode enable
     input  prog_chan_start,           // start signal from IPbus
     output reg c_progb,               // configuration signal to all five channels
     output c_clk,                     // configuration clock to all five channels
@@ -203,10 +204,12 @@ always @(posedge clk) begin
 
                 if (async_mode)
                     flash_command[31:0] <= {8'h03, `ASYNC_FLASH_ADDR};   // READ, ASYNCHRONOUS MODE
-                else if (~cbuf_mode)
-                    flash_command[31:0] <= {8'h03, `CHANNEL_FLASH_ADDR}; // READ, SYNCHRONOUS MODE
-                else
+                else if (cbuf_mode)
                     flash_command[31:0] <= {8'h03, `CBUF_FLASH_ADDR};    // READ, CIRCULAR BUFFER MODE
+                else if ( strg_mode )
+                    flash_command[31:0] <= {8'h03, `STRG_FLASH_ADDR};    // READ, CIRCULAR BUFFER MODE
+                else
+                    flash_command[31:0] <= {8'h03, `CHANNEL_FLASH_ADDR}; // READ, SYNCHRONOUS MODE
 
                 state <= START;
             end

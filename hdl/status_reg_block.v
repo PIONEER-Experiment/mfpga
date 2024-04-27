@@ -12,6 +12,7 @@ module status_reg_block (
   input wire async_mode,
   input wire cbuf_mode,
   input wire is_golden,
+  input wire is_self_trigger_mode,
 
   // soft error thresholds
   input wire [31:0] thres_data_corrupt,
@@ -156,7 +157,7 @@ module status_reg_block (
 assign status_reg00 = {is_golden, prog_chan_done, async_mode, cbuf_mode, 2'd0, 2'd1, `MAJOR_REV, `MINOR_REV, `PATCH_REV};
 
 // Register 01: Error
-assign status_reg01 = {21'd0, ddr3_almost_full, chan_error_rc[4:0], chan_error_sn[4:0], error_trig_type_from_cm, error_trig_type_from_tt, error_trig_num_from_cm, error_trig_num_from_tt, error_data_corrupt, error_trig_rate, error_unknown_ttc, error_pll_unlock};
+assign status_reg01 = {20'd0, is_self_trigger_mode, ddr3_almost_full, chan_error_rc[4:0], chan_error_sn[4:0], error_trig_type_from_cm, error_trig_type_from_tt, error_trig_num_from_cm, error_trig_num_from_tt, error_data_corrupt, error_trig_rate, error_unknown_ttc, error_pll_unlock};
 
 // Register 02: External clock and temperature
 assign status_reg02 = {i2c_temp[11:0], 18'd0, daq_clk_sel, daq_clk_en};
