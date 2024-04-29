@@ -274,6 +274,10 @@ module wfd_top (
                                           // (stays high until you use ipbus to set it low again)
     wire [1:0] reprog_trigger_delayed;    // after passing through 32-bit shift register
                                           // (to allow time for IPbus ack before reprogramming FPGA)
+    reg  [2:0] reprog_master_selection;   // convert the 2 bit encoding to three bits
+                                          // 01 -> 001 = GOLDEN
+                                          // 10 -> 010 = MASTER (standard)
+                                          // 01 -> 100 = Self Trigger Master
 
     sync_2stage #(
         .WIDTH(2)
@@ -316,10 +320,19 @@ module wfd_top (
     wire [1:0] reprog_trigger_mux; // combine IPbus and front panel switch
     assign reprog_trigger_mux = (fp_sw_master) ? reprog_trigger_delayed : 2'b01;
 
+    always @ ( reprog_trigger_mux ) begin
+       if ( reprog_trigger_mux = 2'b01 )
+           reprog_master_selection <= 3'b001;
+       else if ( reprog_trigger_mux = 2'b10 )
+           reprog_master_selection <= 3'b010;
+       else if ( reprog_trigger_mux = 2'b11 )
+           reprog_master_selection <= 3'b100;
+    end
+
     reprog reprog (
         .clk(clk50),
         .reset(clk50_reset),
-        .trigger(reprog_trigger_mux)
+        .trigger(reprog_master_selection)
     );
 
 
@@ -490,6 +503,7 @@ module wfd_top (
         .prog_chan_done(1'b0),
         .async_mode(1'b0),
         .is_golden(1'b1),
+        .is_self_trigger_mode(1'b0),
 
         // soft error thresholds
         .thres_data_corrupt(32'd0),

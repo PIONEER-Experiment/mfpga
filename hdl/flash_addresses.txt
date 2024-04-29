@@ -8,11 +8,15 @@
   `define FLASH_ADDRESSES_INCLUDED
 
   	// master images
-  	`define GOLDEN_FLASH_ADDR	24'h000000
-  	`define MASTER_FLASH_ADDR	24'h670000
+    // master images
+    `define GOLDEN_FLASH_ADDR  24'h000000
+    `define MASTER_FLASH_ADDR  24'h670000
+    `define STMSTR_FLASH_ADDR 24'hB38000
 
-  	// channel images
-  	`define CHANNEL_FLASH_ADDR	24'h000000
-  	`define ASYNC_FLASH_ADDR	24'h2E0000
+    // channel images
+    `define CHANNEL_FLASH_ADDR    24'h000000
+    `define ASYNC_FLASH_ADDR      24'h2E0000
+    `define CBUF_FLASH_ADDR       24'h5C0000
+    `define STRG_FLASH_ADDR       24'hAE0000
 
 `endif
