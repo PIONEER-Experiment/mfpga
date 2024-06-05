@@ -2,13 +2,13 @@
 set origin_dir [file dirname [info script]]/../
 
 # Create project
-create_project WFD_Master $origin_dir/project
+create_project WFD_Master_selftrig $origin_dir/project_selftrig
 
 # Set the directory path for the new project
 set proj_dir [get_property directory [current_project]]
 
 # Set project properties
-set obj [get_projects WFD_Master]
+set obj [get_projects WFD_Master_selftrig]
 set_property "default_lib" "xil_defaultlib" $obj
 set_property "part" "xc7k160tfbg676-1" $obj
 set_property "simulator_language" "Mixed" $obj
@@ -23,16 +23,15 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 set obj [get_filesets sources_1]
 
 add_files -norecurse -fileset $obj [glob $origin_dir/ip/*/*.xci]
-add_files -norecurse -fileset $obj [glob $origin_dir/ip/standard_mode_only/*/*.xci]
 add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/hdl/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/ipbus_core/hdl/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/ethernet/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/slaves/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/hdl/*.v]
 add_files -norecurse -fileset $obj [glob $origin_dir/hdl/*.vhd]
-add_files -norecurse -fileset $obj [glob $origin_dir/hdl/standard_mode_only/*.v]
+add_files -norecurse -fileset $obj [glob $origin_dir/hdl/selftrig_mode_only/*.v]
 # uncomment if vhdl files get added to self_trig_mode-only
-#add_files -norecurse -fileset $obj [glob $origin_dir/hdl/standard_mode_only/*.vhd]
+#add_files -norecurse -fileset $obj [glob $origin_dir/hdl/selftrig_mode_only/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/DAQ_Link_7S/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/hdl/*.txt]
 
@@ -82,10 +81,10 @@ foreach file [glob $origin_dir/hdl/*.vhd] {
 }
 
 # uncomment if vhdl files get added to self_trig_mode-only
-#foreach file [glob $origin_dir/hdl/standard_mode_only/*.vhd] {
+#foreach file [glob $origin_dir/hdl/self_trig_mode_only/*.vhd] {
 #    set file [file normalize $file]
-#	set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-#	set_property "file_type" "VHDL" $file_obj
+#    set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+#    set_property "file_type" "VHDL" $file_obj
 #}
 
 foreach file [glob $origin_dir/DAQ_Link_7S/*.vhd] {
@@ -99,7 +98,7 @@ foreach file [glob $origin_dir/DAQ_Link_7S/*.vhd] {
 
 # Set 'sources_1' fileset properties
 set obj [get_filesets sources_1]
-set_property "top" "wfd_top" $obj
+set_property "top" "wfd_selftrig_top" $obj
 
 # Create 'constrs_1' fileset (if not found)
 if {[string equal [get_filesets -quiet constrs_1] ""]} {
@@ -111,14 +110,14 @@ if {[string equal [get_filesets -quiet constrs_impl_1] ""]} {
   create_fileset -constrset constrs_impl_1
 }
 
-set cflist [glob $origin_dir/constraints/standard/ios.xdc \
-                 $origin_dir/constraints/standard/timing.xdc \
+set cflist [glob $origin_dir/constraints/self_trig/ios.xdc \
+                 $origin_dir/constraints/self_trig/timing.xdc \
                  $origin_dir/constraints/synthesis.xdc \
                  $origin_dir/constraints/bitstream.xdc]
 
-set ciflist [glob $origin_dir/constraints/standard/ios.xdc \
-                  $origin_dir/constraints/standard/timing.xdc \
-                  $origin_dir/constraints/standard/timing_impl.xdc \
+set ciflist [glob $origin_dir/constraints/self_trig/ios.xdc \
+                  $origin_dir/constraints/self_trig/timing.xdc \
+                  $origin_dir/constraints/self_trig/timing_impl.xdc \
                   $origin_dir/constraints/synthesis.xdc \
                   $origin_dir/constraints/bitstream.xdc]
 
@@ -196,4 +195,4 @@ set_property "steps.write_bitstream.tcl.post" "[file normalize "$origin_dir/scri
 # set the current impl run
 current_run -implementation [get_runs impl_1]
 
-puts "INFO: Project created: WFD_Master"
+puts "INFO: Project created: WFD_Master_selftrig"

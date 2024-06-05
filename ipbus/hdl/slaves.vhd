@@ -31,6 +31,8 @@ port (
     cbuf_mode_in             : in  std_logic;
     cbuf_mode_out            : out std_logic;
     cbuf_acquire             : out std_logic;
+    strg_mode_in             : in  std_logic;
+    strg_mode_out            : out std_logic;
     ip_addr_rst_out          : out std_logic;
     chan_en_out              : out std_logic_vector( 4 downto 0);
     prog_chan_out            : out std_logic;
@@ -93,8 +95,8 @@ port (
     status_reg29 : in std_logic_vector(31 downto 0);
     status_reg30 : in std_logic_vector(31 downto 0);
     status_reg31 : in std_logic_vector(31 downto 0);
-    -- status_reg32 : in std_logic_vector(31 downto 0);
-    -- status_reg33 : in std_logic_vector(31 downto 0);
+    status_reg32 : in std_logic_vector(31 downto 0);
+    status_reg33 : in std_logic_vector(31 downto 0);
 
     -- flash interface ports
     flash_wr_nBytes  : out std_logic_vector( 8 downto 0);
@@ -172,9 +174,9 @@ begin
         reg28 => status_reg28,
         reg29 => status_reg29,
         reg30 => status_reg30,
-        reg31 => status_reg31
-        -- reg32 => status_reg32,
-        -- reg33 => status_reg33
+        reg31 => status_reg31,
+        reg32 => status_reg32,
+        reg33 => status_reg33
     );
     
 
@@ -188,6 +190,7 @@ begin
         ipbus_out => ipbr(1),
         async_mode_in => async_mode_in,
         cbuf_mode_in  => cbuf_mode_in,
+        strg_mode_in  => strg_mode_in,
         -- output registers
         reg0 => ctrl_reg,
         reg1 => thres_data_corrupt,
@@ -224,6 +227,7 @@ begin
     fp_trig_width_out(3)     <= ctrl_reg(24);
     cbuf_mode_out            <= ctrl_reg(25); -- don't touch
     cbuf_acquire             <= ctrl_reg(26); -- don't touch
+    strg_mode_out            <= ctrl_reg(27); -- don't touch
 
     
     -- Slave 2: Write-only register

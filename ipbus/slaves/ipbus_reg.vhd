@@ -13,18 +13,19 @@ use work.ipbus.all;
 entity ipbus_reg is
 generic (addr_width: natural := 0);
 port (
-	clk           : in  std_logic; -- ipbus clock
-	reset         : in  std_logic; -- ipbus reset
-	ipbus_in      : in  ipb_wbus;  -- fabric bus in
-	ipbus_out     : out ipb_rbus;  -- fabric bus out
-	async_mode_in : in  std_logic;
+   clk           : in  std_logic; -- ipbus clock
+   reset         : in  std_logic; -- ipbus reset
+   ipbus_in      : in  ipb_wbus;  -- fabric bus in
+   ipbus_out     : out ipb_rbus;  -- fabric bus out
+   async_mode_in : in  std_logic;
    cbuf_mode_in  : in  std_logic;
-	-- output registers
-	reg0 : out STD_LOGIC_VECTOR(31 downto 0);
-	reg1 : out STD_LOGIC_VECTOR(31 downto 0);
-	reg2 : out STD_LOGIC_VECTOR(31 downto 0);
-	reg3 : out STD_LOGIC_VECTOR(31 downto 0);
-	reg4 : out STD_LOGIC_VECTOR(31 downto 0)
+   strg_mode_in  : in  std_logic;
+   -- output registers
+   reg0 : out STD_LOGIC_VECTOR(31 downto 0);
+   reg1 : out STD_LOGIC_VECTOR(31 downto 0);
+   reg2 : out STD_LOGIC_VECTOR(31 downto 0);
+   reg3 : out STD_LOGIC_VECTOR(31 downto 0);
+   reg4 : out STD_LOGIC_VECTOR(31 downto 0)
 );
 end ipbus_reg;
 
@@ -59,6 +60,7 @@ begin
 				reg(0)(13) <= '1';           -- enable pedestal trigger type
 				reg(0)(19) <= '1';           -- disable EEPROM temperature polling
             reg(0)(25) <= cbuf_mode_in;  -- never reset circular buffer mode
+            reg(0)(27) <= strg_mode_in;  -- never reset self trigger buffer mode
 				reg(1)     <= x"0000000a";   -- 10 threshold for data corruption
 				reg(2)     <= x"0000000a";   -- 10 threshold for unknown TTC broadcast commands
 				reg(3)     <= x"00733334";   -- 7,549,747 (90% full) threshold for DDR3 overflow warning

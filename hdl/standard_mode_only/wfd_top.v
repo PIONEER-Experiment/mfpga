@@ -643,11 +643,11 @@ module wfd_top (
     assign reprog_trigger_mux = (fp_sw_master) ? reprog_trigger_delayed : 2'b01;
 
     always @ ( reprog_trigger_mux ) begin
-       if ( reprog_trigger_mux = 2'b01 )
+       if ( reprog_trigger_mux == 2'b01 )
            reprog_master_selection <= 3'b001;
-       else if ( reprog_trigger_mux = 2'b10 )
+       else if ( reprog_trigger_mux == 2'b10 )
            reprog_master_selection <= 3'b010;
-       else if ( reprog_trigger_mux = 2'b11 )
+       else if ( reprog_trigger_mux == 2'b11 )
            reprog_master_selection <= 3'b100;
     end
 

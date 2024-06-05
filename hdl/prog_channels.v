@@ -31,7 +31,8 @@ module prog_channels (
     input  end_bitstream,             // done signal from spi_flash_intf
     output reg prog_chan_done = 1'b0, // done programming the channels
     output reg async_channels = 1'b0, // flag for if the channels are sync or async
-    output reg cbuf_channels = 1'b0   // flag for if the channels are in circular buffer mode
+    output reg cbuf_channels = 1'b0,  // flag for if the channels are in circular buffer mode
+    output reg strg_channels = 1'b0   // flag for if the channels are in self triggering mode
 );
 
 
@@ -412,7 +413,11 @@ always @(posedge clk) begin
                     cbuf_channels <=  1'b0; //  synchronous pattern channel image loaded if synch mode
                 else
                     cbuf_channels <=  1'b1; //  circular buffer channel image loaded if synch mode
-
+                if (~strg_mode)
+                    strg_channels <=  1'b0; //  circular buffer channel image loaded if synch mode
+                else
+                    strg_channels <=  1'b1; //  circular buffer channel image loaded if synch mode
+                
                 if (~prog_chan_start) begin
                     state <= IDLE;
                 end

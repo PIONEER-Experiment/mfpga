@@ -2,7 +2,7 @@
 
 // Register block to hold status of the Rider
 
-module status_reg_block (
+module status_reg_block_selftrig (
   // user interface clock and reset
   input wire clk,
   input wire reset,
@@ -11,8 +11,9 @@ module status_reg_block (
   input wire prog_chan_done,
   input wire async_mode,
   input wire cbuf_mode,
+  input wire strg_mode,
   input wire is_golden,
-  input wire is_self_trigger_mode,
+  input wire reprog_done,
 
   // soft error thresholds
   input wire [31:0] thres_data_corrupt,
@@ -21,7 +22,6 @@ module status_reg_block (
 
   // soft error counts
   input wire [31:0] unknown_cmd_count,
-  input wire [31:0] ddr3_overflow_count,
   input wire [31:0] cs_mismatch_count,
 
   // hard errors
@@ -63,10 +63,12 @@ module status_reg_block (
   // FSM state
   input wire [34:0] cm_state,
   input wire [ 3:0] ttr_state,
-  input wire [ 4:0] ptr_state,
-  input wire [ 3:0] cac_state,
-  input wire [ 3:0] caca_state,
-  input wire [ 3:0] cacc_state,
+  input wire [ 1:0] ctr_state_chan0,// channel trigger receiver state
+  input wire [ 1:0] ctr_state_chan1,// channel trigger receiver state
+  input wire [ 1:0] ctr_state_chan2,// channel trigger receiver state
+  input wire [ 1:0] ctr_state_chan3,// channel trigger receiver state
+  input wire [ 1:0] ctr_state_chan4,// channel trigger receiver state
+  input wire [ 4:0] cac_state,
   input wire [ 6:0] tp_state,
 
   // acquisition
@@ -75,9 +77,9 @@ module status_reg_block (
   input wire [4:0] chan_en,
   input wire endianness_sel,
   input wire [4:0] acq_dones,
-  input wire accept_pulse_triggers,
-  input wire ttc_accept_pulse_triggers,
-  input wire ipb_accept_pulse_triggers,
+  input wire accept_self_triggers,
+  input wire ttc_accept_self_triggers,
+  input wire ipb_accept_self_triggers,
 
 
   // trigger
@@ -88,10 +90,15 @@ module status_reg_block (
   input wire [ 2:0] trig_settings,
   input wire [23:0] trig_num,
   input wire [43:0] trig_timestamp,
-  input wire [23:0] pulse_trig_num,
-  input wire [23:0] pulse_trigs_last_readout,
-  input wire [31:0] raw_ext_trigger_count,
-  input wire [31:0] accepted_ext_trigger_count,
+  input wire [23:0] chan_trig_num_0,
+  input wire [23:0] chan_trig_num_1,
+  input wire [23:0] chan_trig_num_2,
+  input wire [23:0] chan_trig_num_3,
+  input wire [23:0] chan_trig_num_4,
+  //input wire [23:0] pulse_trig_num,
+  //input wire [23:0] pulse_trigs_last_readout,
+  //input wire [31:0] raw_ext_trigger_count,
+  //input wire [31:0] accepted_ext_trigger_count,
   //input wire [31:0] ext_pulse_delta_t,
   //input wire [31:0] ext_trig_delta_t,
 
@@ -147,17 +154,17 @@ module status_reg_block (
   output wire [31:0] status_reg28,
   output wire [31:0] status_reg29,
   output wire [31:0] status_reg30,
-  output wire [31:0] status_reg31
-  //output wire [31:0] status_reg32,
-  //output wire [31:0] status_reg33
+  output wire [31:0] status_reg31,
+  output wire [31:0] status_reg32,
+  output wire [31:0] status_reg33
 );
 
 
 // Register 00: FPGA status, board type ("1") and firmware version
-assign status_reg00 = {is_golden, prog_chan_done, async_mode, cbuf_mode, 2'd0, 2'd1, `MAJOR_REV, `MINOR_REV, `PATCH_REV};
+assign status_reg00 = {is_golden, prog_chan_done, async_mode, cbuf_mode, strg_mode, reprog_done, 2'd1, `MAJOR_REV, `MINOR_REV, `PATCH_REV};
 
 // Register 01: Error
-assign status_reg01 = {20'd0, is_self_trigger_mode, ddr3_almost_full, chan_error_rc[4:0], chan_error_sn[4:0], error_trig_type_from_cm, error_trig_type_from_tt, error_trig_num_from_cm, error_trig_num_from_tt, error_data_corrupt, error_trig_rate, error_unknown_ttc, error_pll_unlock};
+assign status_reg01 = {22'd0, ddr3_almost_full, chan_error_rc[4:0], chan_error_sn[4:0], error_trig_type_from_cm, error_trig_type_from_tt, error_trig_num_from_cm, error_trig_num_from_tt, error_data_corrupt, error_trig_rate, error_unknown_ttc, error_pll_unlock};
 
 // Register 02: External clock and temperature
 assign status_reg02 = {i2c_temp[11:0], 18'd0, daq_clk_sel, daq_clk_en};
@@ -175,10 +182,10 @@ assign status_reg05 = {21'd0, tts_state[3:0], ttc_chan_b_info[5:0], ttc_ready};
 assign status_reg06 = cm_state[31:0];
 
 // Register 07: FSM state 1
-assign status_reg07 = {cm_state[34:32], 1'd0, cacc_state[3:0], ptr_state[4], tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
+assign status_reg07 = {cm_state[34:32], ctr_state_chan0[1:0], ctr_state_chan1[1:0], ctr_state_chan2[1:0], tp_state[6:0], ctr_state_chan3[1:0], ctr_state_chan4[1:0], cac_state[3:0], 4'd0, ttr_state[3:0]};
 
 // Register 08: Acquisition
-assign status_reg08 = {8'd0, ipb_accept_pulse_triggers, ttc_accept_pulse_triggers, accept_pulse_triggers, acq_dones[4:0], endianness_sel, acq_readout_pause[4:0], fill_type[4:0], chan_en[4:0]};
+assign status_reg08 = {8'd0, ipb_accept_self_triggers, ttc_accept_self_triggers, accept_self_triggers, acq_dones[4:0], endianness_sel, acq_readout_pause[4:0], fill_type[4:0], chan_en[4:0]};
 
 // Register 09: TTC trigger information
 assign status_reg09 = {26'd0, pulse_fifo_full, trig_settings[2:0], acq_fifo_full, trig_fifo_full};
@@ -195,8 +202,8 @@ assign status_reg12 = trig_timestamp[31:0];
 // Register 13: TTC trigger timestamp, MSB
 assign status_reg13 = {20'd0, trig_timestamp[43:32]};
 
-// Register 14: Front panel trigger number
-assign status_reg14 = {8'd0, pulse_trig_num[23:0]};
+// Register 14: unused
+assign status_reg14 = 32'd0;
 
 // Register 15: Data corruption threshold
 assign status_reg15 = thres_data_corrupt[31:0];
@@ -210,11 +217,11 @@ assign status_reg17 = thres_unknown_ttc[31:0];
 // Register 18: Unknown TTC broadcast command count
 assign status_reg18 = unknown_cmd_count[31:0];
 
-// Register 19: DDR3 overflow threshold
-assign status_reg19 = thres_ddr3_overflow[31:0];
+// Register 19: currently unused
+assign status_reg19 = 32'd0;
 
-// Register 20: DDR3 overflow count
-assign status_reg20 = ddr3_overflow_count[31:0];
+// Register 20: currently unused
+assign status_reg20 = 32'd0;
 
 // Register 21: Channel 0 DDR3 burst count
 assign status_reg21 = {7'd0, stored_bursts_chan0[22:0]};
@@ -240,19 +247,11 @@ assign status_reg27 = {xadc_vccbram[15:0], xadc_vccaux[15:0]};
 // Register 28: XADC alarms
 assign status_reg28 = {27'd0, xadc_alarm_vccbram, xadc_alarm_vccaux, xadc_alarm_vccint, xadc_alarm_temp, xadc_over_temp};
 
-// Register 29: raw front panel trigger count
-assign status_reg29 = raw_ext_trigger_count[31:0];
-
-//// Register 30: time between front panel triggers a la pulse receiver
-//assign status_reg30 = ext_pulse_delta_t[31:0];
-//
-//// Register 31: time between front panel triggers a la raw front panel trigger counter
-//assign status_reg31 = ext_trig_delta_t[31:0];
-
-// Register 30: number of front panel triggers processed by last readout
-assign status_reg30 = {8'd0, pulse_trigs_last_readout[23:0]};
-
-// Register 31: cummulative front panel trigger count
-assign status_reg31 = accepted_ext_trigger_count[31:0];
+// Registers 29-33: accumulated triggers in each channel
+assign status_reg29 = {8'd0, chan_trig_num_0[23:0]};
+assign status_reg30 = {8'd0, chan_trig_num_1[23:0]};
+assign status_reg31 = {8'd0, chan_trig_num_2[23:0]};
+assign status_reg32 = {8'd0, chan_trig_num_3[23:0]};
+assign status_reg33 = {8'd0, chan_trig_num_4[23:0]};
 
 endmodule

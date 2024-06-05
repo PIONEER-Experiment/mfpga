@@ -7,7 +7,8 @@ module reprog (
 	input clk,
   input clkb,
 	input reset,
-	input [2:0] trigger // trigger[0] for golden image, trigger[1] for regular master image, trigger[2] for self-triggering master image
+	input [2:0] trigger, // trigger[0] for golden image, trigger[1] for regular master image, trigger[2] for self-triggering master image
+  output reprog_done
 );
 
 // ===============
@@ -203,5 +204,7 @@ always @(posedge clk) begin
         endcase
     end
 end
+
+assign reprog_done = (state == DONE);
 
 endmodule

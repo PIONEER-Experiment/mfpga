@@ -33,11 +33,11 @@ module ttc_broadcast_receiver (
   // 00001_1_00 -> switch to muon trigger type
   // 00010_1_00 -> switch to laser trigger type
   // 00011_1_00 -> switch to pedestal trigger type
-  // 00100_1_00 -> switch to asynchronous readout trigger type
+  // 00100_1_00 -> switch to asynchronous readout trigger type, also used for self-triggering
   //
   // 00101_0_00 -> timestamp reset
-  // 11000_0_00 -> start asynchronous pulse storage
-  // 10000_0_00 -> stop asynchronous pulse storage
+  // 11000_0_00 -> start asynchronous pulse storage or self-triggering
+  // 10000_0_00 -> stop asynchronous pulse storage or self-triggering
 
 
   reg [ 4:0] next_fill_type;

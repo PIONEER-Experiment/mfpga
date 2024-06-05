@@ -68,6 +68,8 @@ port (
     cbuf_mode_in             : in  std_logic;                     -- whether circular buffer mode is set
     cbuf_mode_out            : out std_logic;                     -- circular buffer mode select
     cbuf_acquire             : out std_logic;                     -- capture data to circular buffer
+    strg_mode_in             :  in std_logic;                     -- self triggering mode has been loaded
+    strg_mode_out            : out std_logic;                     -- self triggering mode select
     chan_en_out              : out std_logic_vector( 4 downto 0); -- enable channels in command manager
     prog_chan_out            : out std_logic;                     -- signal to start programming sequence for channel FPGAs
     reprog_trigger_out       : out std_logic_vector( 1 downto 0); -- signal to issue IPROG command to re-program FPGA from flash
@@ -119,8 +121,8 @@ port (
     status_reg29 : in std_logic_vector(31 downto 0);
     status_reg30 : in std_logic_vector(31 downto 0);
     status_reg31 : in std_logic_vector(31 downto 0);
-    -- status_reg32 : in std_logic_vector(31 downto 0);
-    -- status_reg33 : in std_logic_vector(31 downto 0);
+    status_reg32 : in std_logic_vector(31 downto 0);
+    status_reg33 : in std_logic_vector(31 downto 0);
 
     -- flash interface ports
     flash_wr_nBytes  : out std_logic_vector( 8 downto 0);
@@ -257,6 +259,8 @@ begin
         cbuf_mode_in             => cbuf_mode_in,
         cbuf_mode_out            => cbuf_mode_out,
         cbuf_acquire             => cbuf_acquire,
+        strg_mode_in             => strg_mode_in,
+        strg_mode_out            => strg_mode_out,
         ip_addr_rst_out          => ip_addr_rst_out,
         chan_en_out              => chan_en_out,
         prog_chan_out            => prog_chan_out,
@@ -319,8 +323,8 @@ begin
         status_reg29 => status_reg29,
         status_reg30 => status_reg30,
         status_reg31 => status_reg31,
-        -- status_reg32 => status_reg32,
-        -- status_reg33 => status_reg33,
+        status_reg32 => status_reg32,
+        status_reg33 => status_reg33,
 
         -- flash interface ports
         flash_wr_nBytes  => flash_wr_nBytes,
