@@ -22,7 +22,7 @@ module selftrigger_top (
     input wire [31:0] thres_ddr3_overflow, // DDR3 overflow threshold
 
     // channel interface:  these use the direct i/o lines to pins on the channel FPGAs
-    input  wire [4:0] chan_dones,          // the last event before switching buffers (or ending) has been moved to DDR3 memory
+(* mark_debug = "true" *) input  wire [4:0] chan_dones,          // the last event before switching buffers (or ending) has been moved to DDR3 memory
     output wire [4:0] chan_enable,         // the channel should accept triggers
     input  wire [4:0] chan_trigs,          // a self-trigger condition has been seen on a channel
     output wire [4:0] chan_buffer_write,   // the buffer the channels should be using for writing
@@ -63,7 +63,7 @@ module selftrigger_top (
     output wire [ 1:0] ctr_state_chan2,// channel trigger receiver state
     output wire [ 1:0] ctr_state_chan3,// channel trigger receiver state
     output wire [ 1:0] ctr_state_chan4,// channel trigger receiver state
-    output wire [ 4:0] cac_state,      // channel acquisition controller state
+    output wire [ 5:0] cac_state,      // channel acquisition controller state
     output wire [ 6:0] tp_state,       // trigger processor state
     output wire [23:0] trig_num,       // global trigger number
     output wire [43:0] trig_timestamp, // timestamp for latest trigger received
@@ -89,13 +89,14 @@ module selftrigger_top (
     // -------------------
 
     // signals between Channel Acquisition Controllers and Channel FPGAs
-    wire [4:0] chan_buffer_read;
+(* mark_debug = "true" *) wire [4:0] chan_buffer_read;
     assign chan_buffer_read[4:0] = ~chan_buffer_write[4:0];
 
     // signals between TTC Trigger Receiver and Channel Acquisition Controllers
     wire acq_ready;
     wire acq_activated;
-    wire acq_trigger;
+(* mark_debug = "true", keep = "true" *) wire acq_trigger;
+    wire [ 4:0] acq_ready_channel;
     wire [ 4:0] acq_trig_type;
     wire [23:0] acq_trig_num;
 
@@ -127,21 +128,21 @@ module selftrigger_top (
     // error or warning signals
     wire [4:0] ddr3_almost_full_chan;
 
-    wire [19:0] selftriggers_lo[4:0];
-    wire [19:0] selftriggers_hi[4:0];
-    assign selftriggers_chan0[19:0] = chan_buffer_read[0] ? selftriggers_hi[0][19:0] : selftriggers_lo[0][19:0];
-    assign selftriggers_chan1[19:0] = chan_buffer_read[1] ? selftriggers_hi[1][19:0] : selftriggers_lo[1][19:0];
-    assign selftriggers_chan2[19:0] = chan_buffer_read[2] ? selftriggers_hi[2][19:0] : selftriggers_lo[2][19:0];
-    assign selftriggers_chan3[19:0] = chan_buffer_read[3] ? selftriggers_hi[3][19:0] : selftriggers_lo[3][19:0];
-    assign selftriggers_chan4[19:0] = chan_buffer_read[4] ? selftriggers_hi[4][19:0] : selftriggers_lo[4][19:0];
+(* mark_debug = "true" *) wire [19:0] selftriggers_lo[4:0];
+(* mark_debug = "true" *) wire [19:0] selftriggers_hi[4:0];
+    assign selftriggers_chan0[19:0] = chan_buffer_write[0] ? selftriggers_hi[0][19:0] : selftriggers_lo[0][19:0];
+    assign selftriggers_chan1[19:0] = chan_buffer_write[1] ? selftriggers_hi[1][19:0] : selftriggers_lo[1][19:0];
+    assign selftriggers_chan2[19:0] = chan_buffer_write[2] ? selftriggers_hi[2][19:0] : selftriggers_lo[2][19:0];
+    assign selftriggers_chan3[19:0] = chan_buffer_write[3] ? selftriggers_hi[3][19:0] : selftriggers_lo[3][19:0];
+    assign selftriggers_chan4[19:0] = chan_buffer_write[4] ? selftriggers_hi[4][19:0] : selftriggers_lo[4][19:0];
 
     wire [45:0] stored_bursts_lo[4:0];
     wire [45:0] stored_bursts_hi[4:0];
-    assign stored_bursts_chan0[22:0] = chan_buffer_read[0] ? stored_bursts_hi[0][22:0] : stored_bursts_lo[0][22:0];
-    assign stored_bursts_chan1[22:0] = chan_buffer_read[1] ? stored_bursts_hi[1][22:0] : stored_bursts_lo[1][22:0];
-    assign stored_bursts_chan2[22:0] = chan_buffer_read[2] ? stored_bursts_hi[2][22:0] : stored_bursts_lo[2][22:0];
-    assign stored_bursts_chan3[22:0] = chan_buffer_read[3] ? stored_bursts_hi[3][22:0] : stored_bursts_lo[3][22:0];
-    assign stored_bursts_chan4[22:0] = chan_buffer_read[4] ? stored_bursts_hi[4][22:0] : stored_bursts_lo[4][22:0];
+    assign stored_bursts_chan0[22:0] = chan_buffer_write[0] ? stored_bursts_hi[0][22:0] : stored_bursts_lo[0][22:0];
+    assign stored_bursts_chan1[22:0] = chan_buffer_write[1] ? stored_bursts_hi[1][22:0] : stored_bursts_lo[1][22:0];
+    assign stored_bursts_chan2[22:0] = chan_buffer_write[2] ? stored_bursts_hi[2][22:0] : stored_bursts_lo[2][22:0];
+    assign stored_bursts_chan3[22:0] = chan_buffer_write[3] ? stored_bursts_hi[3][22:0] : stored_bursts_lo[3][22:0];
+    assign stored_bursts_chan4[22:0] = chan_buffer_write[4] ? stored_bursts_hi[4][22:0] : stored_bursts_lo[4][22:0];
 
     assign selftriggers_seen = (selftriggers_chan0[19:0] > 0) |
                                (selftriggers_chan1[19:0] > 0) |
@@ -178,7 +179,7 @@ module selftrigger_top (
     assign chan_trigs_clk40 = ct_sync2 & ~ct_sync3;
 
     // synchronize chan_dones
-    wire [4:0] chan_dones_clk40;
+(* mark_debug = "true" *) wire [4:0] chan_dones_clk40;
     sync_2stage #(
         .WIDTH(5)
     ) chan_dones_sync (
@@ -188,7 +189,7 @@ module selftrigger_top (
     );
 
     // synchronize chan_en
-    wire [4:0] chan_en_clk40;
+(* mark_debug = "true" *) wire [4:0] chan_en_clk40;
     sync_2stage #(
         .WIDTH(5)
     ) chan_en_sync (
@@ -287,7 +288,7 @@ module selftrigger_top (
           .thres_ddr3_overflow(thres_ddr3_overflow[22:0]), // DDR3 overflow threshold
           .chan_en(chan_en_clk40[iChan]),                  // enabled channels
           .ttc_trigger(ttc_trigger),                       // backplane trigger signal
-          .ttc_acq_ready(acq_ready),                       // channels are ready to acquire/readout data
+          .ttc_acq_ready(acq_ready_channel[iChan]),                       // channels are ready to acquire/readout data
           .trig_num(chan_trig_num[iChan]),                 // pulse trigger number
           .selftriggers_lo(selftriggers_lo[iChan]),        // pulses accumulated in low  DDR3 buffer
           .selftriggers_hi(selftriggers_hi[iChan]),        // pulses accumulated in high DDR3 buffer
@@ -321,6 +322,7 @@ module selftrigger_top (
 
         // trigger configuration
         .chan_en(chan_en_clk40),                       // which channels should receive the trigger
+        .accept_self_triggers(accept_self_triggers),   // accept self panel triggers in enabled channels
 
         // command manager interface
         .readout_done(readout_done_clk40), // a readout has completed

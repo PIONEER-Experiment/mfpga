@@ -32,7 +32,6 @@ port (
     cbuf_mode_out            : out std_logic;
     cbuf_acquire             : out std_logic;
     strg_mode_in             : in  std_logic;
-    strg_mode_out            : out std_logic;
     ip_addr_rst_out          : out std_logic;
     chan_en_out              : out std_logic_vector( 4 downto 0);
     prog_chan_out            : out std_logic;
@@ -227,7 +226,6 @@ begin
     fp_trig_width_out(3)     <= ctrl_reg(24);
     cbuf_mode_out            <= ctrl_reg(25); -- don't touch
     cbuf_acquire             <= ctrl_reg(26); -- don't touch
-    strg_mode_out            <= ctrl_reg(27); -- don't touch
 
     
     -- Slave 2: Write-only register

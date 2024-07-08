@@ -31,7 +31,7 @@ add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/slaves/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/hdl/*.v]
 add_files -norecurse -fileset $obj [glob $origin_dir/hdl/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/hdl/standard_mode_only/*.v]
-# uncomment if vhdl files get added to self_trig_mode-only
+# uncomment if vhdl files get added to standard_mode_only
 #add_files -norecurse -fileset $obj [glob $origin_dir/hdl/standard_mode_only/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/DAQ_Link_7S/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/hdl/*.txt]

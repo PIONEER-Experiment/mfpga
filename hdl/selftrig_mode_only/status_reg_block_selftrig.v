@@ -68,7 +68,7 @@ module status_reg_block_selftrig (
   input wire [ 1:0] ctr_state_chan2,// channel trigger receiver state
   input wire [ 1:0] ctr_state_chan3,// channel trigger receiver state
   input wire [ 1:0] ctr_state_chan4,// channel trigger receiver state
-  input wire [ 4:0] cac_state,
+  input wire [ 5:0] cac_state,
   input wire [ 6:0] tp_state,
 
   // acquisition
@@ -182,7 +182,7 @@ assign status_reg05 = {21'd0, tts_state[3:0], ttc_chan_b_info[5:0], ttc_ready};
 assign status_reg06 = cm_state[31:0];
 
 // Register 07: FSM state 1
-assign status_reg07 = {cm_state[34:32], ctr_state_chan0[1:0], ctr_state_chan1[1:0], ctr_state_chan2[1:0], tp_state[6:0], ctr_state_chan3[1:0], ctr_state_chan4[1:0], cac_state[3:0], 4'd0, ttr_state[3:0]};
+assign status_reg07 = {cm_state[34:32], ctr_state_chan0[1:0], ctr_state_chan1[1:0], ctr_state_chan2[1:0], tp_state[6:0], ctr_state_chan3[1:0], ctr_state_chan4[1:0], cac_state[5:0], 2'd0, ttr_state[3:0]};
 
 // Register 08: Acquisition
 assign status_reg08 = {8'd0, ipb_accept_self_triggers, ttc_accept_self_triggers, accept_self_triggers, acq_dones[4:0], endianness_sel, acq_readout_pause[4:0], fill_type[4:0], chan_en[4:0]};

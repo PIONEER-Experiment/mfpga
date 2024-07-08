@@ -599,7 +599,7 @@ module wfd_top (
     reg  [2:0] reprog_master_selection;   // convert the 2 bit encoding to three bits
                                           // 01 -> 001 = GOLDEN
                                           // 10 -> 010 = MASTER (standard)
-                                          // 01 -> 100 = Self Trigger Master
+                                          // 11 -> 100 = Self Trigger Master
 
     sync_2stage #(
         .WIDTH(2)
@@ -649,6 +649,8 @@ module wfd_top (
            reprog_master_selection <= 3'b010;
        else if ( reprog_trigger_mux == 2'b11 )
            reprog_master_selection <= 3'b100;
+       else
+           reprog_master_selection <= 3'b000;
     end
 
     reprog reprog (
@@ -1073,6 +1075,7 @@ module wfd_top (
         .cbuf_mode_in(cbuf_mode_clk125),                   // circular buffer mode is set in channels
         .cbuf_mode_out(cbuf_mode_from_ipbus),              // circular buffer mode select
         .cbuf_acquire(cbuf_acquire),                       // stream adc data tp circular buffer
+        .strg_mode_in(1'b0),                               // self triggering mode is set in channels (never happens for the standard mode)
         .chan_en_out(chan_en),                             // channel enable to command manager
         .prog_chan_out(prog_chan_start_from_ipbus),        // signal to start programming sequence for channel FPGAs
         .reprog_trigger_out(reprog_trigger_from_ipbus),    // signal to issue IPROG command to re-program FPGA from flash

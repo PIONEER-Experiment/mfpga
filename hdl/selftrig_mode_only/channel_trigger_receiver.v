@@ -11,15 +11,15 @@ module channel_trigger_receiver (
   input wire reset_trig_num,
 
   // trigger interface
-  input wire trigger,                    // self trigger signal from channel in 40 MHz domain
+(* mark_debug = "true" *) input wire trigger,                    // self trigger signal from channel in 40 MHz domain
   input wire [22:0] thres_ddr3_overflow, // DDR3 overflow threshold
-  input wire chan_en,                    // is this channel enabled
+(* mark_debug = "true" *) input wire chan_en,                    // is this channel enabled
   input wire ttc_trigger,                // backplane trigger signal
   input wire ttc_acq_ready,              // channels are ready to acquire/readout data
   output reg [23:0] trig_num,            // global trigger number for this channel
-  output reg [19:0] selftriggers_lo,     // number of triggers currently in the lo 1/2 of DDR3 buffer
-  output reg [19:0] selftriggers_hi,     // number of triggers currently in the hi 1/2 of DDR3 buffer
-  input wire ddr3_buffer,                // the current buffer for collecting triggers in the channels
+(* mark_debug = "true" *) output reg [19:0] selftriggers_lo,     // number of triggers currently in the lo 1/2 of DDR3 buffer
+(* mark_debug = "true" *) output reg [19:0] selftriggers_hi,     // number of triggers currently in the hi 1/2 of DDR3 buffer
+(* mark_debug = "true" *) input wire ddr3_buffer,                // the current buffer for collecting triggers in the channels
 
   // command manager interface
   input wire readout_buffer_changed,
@@ -32,7 +32,7 @@ module channel_trigger_receiver (
   output reg [22:0] stored_bursts_hi,
 
   // status connections
-  output reg [1:0] state,               // state of finite state machine
+(* mark_debug = "true" *) output reg [1:0] state,               // state of finite state machine
 
   // error connections
   output wire ddr3_almost_full          // DDR3 overflow warning, combined for all channels
@@ -111,6 +111,11 @@ module channel_trigger_receiver (
 
   // sequential always block
   always @(posedge clk) begin
+
+    // defaults
+    selftriggers_lo = next_selftriggers_lo;
+    selftriggers_hi = next_selftriggers_hi;
+
     // reset state machine
     if (reset) begin
       state <= 5'd1 << IDLE;
@@ -135,16 +140,18 @@ module channel_trigger_receiver (
     else if ( readout_buffer_changed ) begin
        if ( ddr3_buffer ) begin
           selftriggers_hi = 20'd0;
-          selftriggers_lo = next_selftriggers_lo;
        end
        else begin
           selftriggers_lo = 20'd0;
-          selftriggers_hi = next_selftriggers_hi;
        end
     end
 
     // reset stored bursts
     if ( reset ) begin
+       stored_bursts_lo[22:0] <= 23'd0;
+       stored_bursts_hi[22:0] <= 23'd0;
+    end
+    else if ( readout_buffer_changed ) begin
       if ( ddr3_buffer) begin
         stored_bursts_hi[22:0] <= 23'd0;
       end
@@ -152,16 +159,12 @@ module channel_trigger_receiver (
         stored_bursts_lo[22:0] <= 23'd0;
       end
     end
-    else if ( readout_buffer_changed ) begin
-      stored_bursts_lo[22:0] <= 23'd0;
-      stored_bursts_hi[22:0] <= 23'd0;
-    end
     else if (trigger & chan_en) begin
       if ( ddr3_buffer) begin
         stored_bursts_hi[22:0] <= stored_bursts_hi[22:0] + (burst_count_selftrig[22:0] + 1);
       end
       else begin
-        stored_bursts_hi[22:0] <= stored_bursts_hi[22:0] + (burst_count_selftrig[22:0] + 1);
+        stored_bursts_lo[22:0] <= stored_bursts_lo[22:0] + (burst_count_selftrig[22:0] + 1);
       end
     end
   end

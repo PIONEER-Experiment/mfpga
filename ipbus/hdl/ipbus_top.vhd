@@ -69,7 +69,6 @@ port (
     cbuf_mode_out            : out std_logic;                     -- circular buffer mode select
     cbuf_acquire             : out std_logic;                     -- capture data to circular buffer
     strg_mode_in             :  in std_logic;                     -- self triggering mode has been loaded
-    strg_mode_out            : out std_logic;                     -- self triggering mode select
     chan_en_out              : out std_logic_vector( 4 downto 0); -- enable channels in command manager
     prog_chan_out            : out std_logic;                     -- signal to start programming sequence for channel FPGAs
     reprog_trigger_out       : out std_logic_vector( 1 downto 0); -- signal to issue IPROG command to re-program FPGA from flash
@@ -260,7 +259,6 @@ begin
         cbuf_mode_out            => cbuf_mode_out,
         cbuf_acquire             => cbuf_acquire,
         strg_mode_in             => strg_mode_in,
-        strg_mode_out            => strg_mode_out,
         ip_addr_rst_out          => ip_addr_rst_out,
         chan_en_out              => chan_en_out,
         prog_chan_out            => prog_chan_out,

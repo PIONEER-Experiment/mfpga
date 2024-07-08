@@ -113,13 +113,15 @@ if {[string equal [get_filesets -quiet constrs_impl_1] ""]} {
 set cflist [glob $origin_dir/constraints/self_trig/ios.xdc \
                  $origin_dir/constraints/self_trig/timing.xdc \
                  $origin_dir/constraints/synthesis.xdc \
-                 $origin_dir/constraints/bitstream.xdc]
+                 $origin_dir/constraints/bitstream.xdc \
+                 $origin_dir/constraints/wizard.xdc]
 
 set ciflist [glob $origin_dir/constraints/self_trig/ios.xdc \
                   $origin_dir/constraints/self_trig/timing.xdc \
                   $origin_dir/constraints/self_trig/timing_impl.xdc \
                   $origin_dir/constraints/synthesis.xdc \
-                  $origin_dir/constraints/bitstream.xdc]
+                  $origin_dir/constraints/bitstream.xdc \
+                  $origin_dir/constraints/wizard.xdc]
 
 # Set 'constrs_1' fileset object
 set obj [get_filesets constrs_1]
@@ -190,7 +192,7 @@ if {[string equal [get_runs -quiet impl_1] ""]} {
 set obj [get_runs impl_1]
 set_property "part" "xc7k160tfbg676-1" $obj
 set_property "steps.write_bitstream.tcl.pre" "[file normalize "$origin_dir/scripts/get_version.tcl"]" $obj
-set_property "steps.write_bitstream.tcl.post" "[file normalize "$origin_dir/scripts/export_bitstream.tcl"]" $obj
+set_property "steps.write_bitstream.tcl.post" "[file normalize "$origin_dir/scripts/export_bitstream_selftrig.tcl"]" $obj
 
 # set the current impl run
 current_run -implementation [get_runs impl_1]

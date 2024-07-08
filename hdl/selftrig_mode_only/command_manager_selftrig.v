@@ -202,18 +202,26 @@ module command_manager_selftrig (
   reg [22:0] next_burst_count_selftrig;
 
   // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
-  wire [19:0] event_size_type1, event_size_type2, event_size_type3, event_size_type4;
-
+  wire [19:0] event_size_type4;
   // asychronous or self-trigger readout trigger type
-  assign event_size_type4 = ((burst_count_selftrig*2+2)*chan_trig_num_0[23:0]+5)*chan_en[0]+
-                            ((burst_count_selftrig*2+2)*chan_trig_num_1[23:0]+5)*chan_en[1]+
-                            ((burst_count_selftrig*2+2)*chan_trig_num_2[23:0]+5)*chan_en[2]+
-                            ((burst_count_selftrig*2+2)*chan_trig_num_3[23:0]+5)*chan_en[3]+
-                            ((burst_count_selftrig*2+2)*chan_trig_num_4[23:0]+5)*chan_en[4]+4;
+  assign event_size_type4_wire = ((burst_count_selftrig*2+2)*chan_trig_num_0[23:0]+5)*chan_en[0]+
+                                 ((burst_count_selftrig*2+2)*chan_trig_num_1[23:0]+5)*chan_en[1]+
+                                 ((burst_count_selftrig*2+2)*chan_trig_num_2[23:0]+5)*chan_en[2]+
+                                 ((burst_count_selftrig*2+2)*chan_trig_num_3[23:0]+5)*chan_en[3]+
+                                 ((burst_count_selftrig*2+2)*chan_trig_num_4[23:0]+5)*chan_en[4]+4;
+  reg [19:0] event_size_reg;
+  always @(posedge clk) begin
+     if ( rst ) begin
+        event_size_reg <= 19'd0;
+     end
+     else begin
+        event_size_reg <= event_size_type4;
+     end
+  end
 
   // mux the correct event size for this trigger type
   wire [19:0] event_size;
-  assign event_size = (trig_type[4:0] == 5'b00100) ? event_size_type4[19:0] :  20'hfffff;
+  assign event_size = (trig_type[4:0] == 5'b00100) ? event_size_reg[19:0] :  20'hfffff;
 
   // this board's serial number
   wire [11:0] board_id;

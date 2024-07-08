@@ -7,58 +7,37 @@ module ttc_trigger_receiver_selftrig (
   input wire reset,
 
   // TTC Channel B resets
-  input wire reset_trig_num,
+(* mark_debug = "true" *)   input wire reset_trig_num,
   input wire reset_trig_timestamp,
 
   // trigger interface
-  input wire ttc_trigger,                // TTC trigger signal
-  input wire [ 4:0] trig_type,           // trigger type
+(* mark_debug = "true" *) input wire ttc_trigger,                // TTC trigger signal
+(* mark_debug = "true" *) input wire [ 4:0] trig_type,           // trigger type
   input wire [31:0] trig_settings,       // trigger settings
   input wire [ 4:0] chan_en,             // enabled channels
 
   // command manager interface
   input wire readout_done, // a readout has completed
 
-//st  // read out size for each channel
-//st  input wire [22:0] readout_size_chan0,
-//st  input wire [22:0] readout_size_chan1,
-//st  input wire [22:0] readout_size_chan2,
-//st  input wire [22:0] readout_size_chan3,
-//st  input wire [22:0] readout_size_chan4,
-//st
-//st  // set burst count for each channel
-//st  input wire [22:0] burst_count_chan0,
-//st  input wire [22:0] burst_count_chan1,
-//st  input wire [22:0] burst_count_chan2,
-//st  input wire [22:0] burst_count_chan3,
-//st  input wire [22:0] burst_count_chan4,
-//st
-//st  // set waveform count for each channel
-//st  input wire [11:0] wfm_count_chan0,
-//st  input wire [11:0] wfm_count_chan1,
-//st  input wire [11:0] wfm_count_chan2,
-//st  input wire [11:0] wfm_count_chan3,
-//st  input wire [11:0] wfm_count_chan4,
-
   // channel acquisition controller interface
-  input wire acq_ready,            // channels are ready to acquire data (or-reduce from 5 channels?)
-  input wire acq_activated,        // channels are acquiring date (again, or-reduce)
-  output reg acq_trigger,          // trigger signal to trigger the async readout
-  output reg [ 4:0] acq_trig_type, // recognized trigger type (async readout)
-  output reg [23:0] acq_trig_num,  // trigger number, starts at 1
+(* mark_debug = "true" *)   input wire acq_ready,            // channels are ready to acquire data (or-reduce from 5 channels?)
+(* mark_debug = "true" *)   input wire acq_activated,        // channels are acquiring date (again, or-reduce)
+(* mark_debug = "true" *)   output reg acq_trigger,          // trigger signal to trigger the async readout
+(* mark_debug = "true" *) output reg [ 4:0] acq_trig_type, // recognized trigger type (async readout)
+(* mark_debug = "true" *) output reg [23:0] acq_trig_num,  // trigger number, starts at 1
 
   // interface to TTC Trigger FIFO
   input wire fifo_ready,
   output reg fifo_valid,
-  output reg [127:0] fifo_data,
+(* mark_debug = "true" *) output reg [127:0] fifo_data,
 
   // status connections
 //st  input wire async_mode,        // asynchronous mode select -- this only gets used for selftriggering
-  input wire selftriggers_seen,  // at least one channel has a trigger
+(* mark_debug = "true" *) input wire selftriggers_seen,  // at least one channel has a trigger
 //st  input wire accept_pulse_triggers, // accept front panel triggers select
   input wire [ 3:0] xadc_alarms,    // XADC alarm signals
-  output reg [ 3:0] state,          // state of finite state machine
-  output reg [23:0] trig_num,       // global trigger number
+(* mark_debug = "true" *) output reg [ 3:0] state,          // state of finite state machine
+(* mark_debug = "true" *) output reg [23:0] trig_num,       // global trigger number
   output reg [43:0] trig_timestamp, // global trigger timestamp
 
 //st  // number of bursts stored in the DDR3
@@ -81,8 +60,8 @@ module ttc_trigger_receiver_selftrig (
   parameter ERROR           = 3;
 
 
-  reg        empty_event;        // flag for an empty event response
-  reg        empty_payload;      // flag for an async readout with no processed triggers
+(* mark_debug = "true" *)   reg        empty_event;        // flag for an empty event response
+(* mark_debug = "true" *)   reg        empty_payload;      // flag for an async readout with no processed triggers
   reg [43:0] trig_timestamp_cnt; // clock cycle count
   reg [23:0] acq_event_cnt;      // # of triggers passed to channel, starts at 1
   reg [ 3:0] acq_xadc_alarms;    // XADC alarm signals

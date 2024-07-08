@@ -22,7 +22,7 @@ module wfd_selftrig_top (
     input  wire c4_rx, c4_rx_N,       // Serial link to Channel 4 RX
     output wire c4_tx, c4_tx_N,       // Serial link to Channel 4 TX
     output wire [7:0] debug,          // debug header
-    input  wire [4:0] acq_trigs,      // triggers from self-triggered channel FPGAs
+(* mark_debug = "true" *) input  wire [4:0] acq_trigs,      // triggers from self-triggered channel FPGAs
     input  wire [4:0] acq_dones,      // done signals from channel FPGAs
     output wire master_led0,          // front panel LEDs for master status, led0 is green
     output wire master_led1,          // front panel LEDs for master status, led1 is red
@@ -32,7 +32,7 @@ module wfd_selftrig_top (
     inout  wire bbus_sda,             // I2C bus data,  connected to EEPROM Chip, Atmel Chip, Channel FPGAs
     input  wire ext_trig,             // front panel trigger
     input  wire [3:0] mmc_io,         // controls from the Atmel
-    output wire [3:0] c0_io,          // utility signals to Channel 0
+(* mark_debug = "true" *) output wire [3:0] c0_io,          // utility signals to Channel 0
     output wire [3:0] c1_io,          // utility signals to Channel 1
     output wire [3:0] c2_io,          // utility signals to Channel 2
     output wire [3:0] c3_io,          // utility signals to Channel 3
@@ -103,7 +103,8 @@ module wfd_selftrig_top (
     wire cbuf_mode_clk125;
     wire cbuf_acquire_ttc_clk;
     // self trigger (strg)
-    wire strg_mode_from_ipbus; // self-triggering mode select
+//    wire strg_mode_fixed; // self-triggering mode always selected for this image
+    assign strg_mode_fixed = 1'b1;
     wire strg_channels;
     wire strg_mode_ttc_clk;
     wire strg_mode_clk50;
@@ -172,7 +173,7 @@ module wfd_selftrig_top (
     wire [4:0] chan_error_rc; // master received an error response code, one bit for each channel
 
     // ======== I/O lines to channel ========
-    wire [4:0] acq_enable;
+(* mark_debug = "true", keep = "true" *) wire [4:0] acq_enable;
     wire [4:0] acq_readout_pause, acq_buffer;
 
     assign c0_io[0] = acq_readout_pause[0];
@@ -248,7 +249,7 @@ module wfd_selftrig_top (
     wire [ 1:0] ctr_state_chan2;
     wire [ 1:0] ctr_state_chan3;
     wire [ 1:0] ctr_state_chan4;
-    wire [ 4:0] cac_state;
+    wire [ 5:0] cac_state;
     wire [ 6:0] tp_state;
     wire [34:0] cm_state;
 
@@ -260,11 +261,42 @@ module wfd_selftrig_top (
     wire rst_trigger_timestamp;
     wire [4:0] ttc_fill_type;
     wire [4:0] fill_type;
-    wire ttc_accept_self_triggers;
-    wire accept_self_triggers;
+(* mark_debug = "true" *) wire ttc_accept_self_triggers;
+(* mark_debug = "true" *) wire accept_self_triggers;
 
-    assign fill_type[4:0]        = (ipb_async_trig_type) ? 5'b00100 : ttc_fill_type[4:0];
-    assign accept_self_triggers = ttc_accept_self_triggers | ipb_accept_self_triggers;
+     // Bring ipb_accept intp ttc clock domain. Assumption that signals are on / off for long periods
+(* mark_debug = "true" *) wire ipb_accept_self_triggers_ttc;
+     reg [1:0] sync_reg;
+     reg [1:0] sync_reg_slow;
+
+     always @(posedge clk125 or posedge rst_from_ipb) begin
+         if (rst_from_ipb) begin
+             sync_reg <= 2'b0;
+         end else begin
+             sync_reg <= {sync_reg[0], ipb_accept_self_triggers};
+         end
+     end
+
+    always @(posedge ttc_clk or posedge reset40) begin
+        if (reset40) begin
+            sync_reg_slow <= 2'b0;
+        end else begin
+            sync_reg_slow <= sync_reg;
+        end
+    end
+    assign ipb_accept_self_triggers_ttc = sync_reg_slow[1];
+
+    // ensure fill_type is in ttc clock domain.  It is configured and stable before running starts,
+    // so we can simply sync it into this domain
+    wire ipb_async_trig_type_sync;
+    sync_2stage async_type_sync (
+       .clk(ttc_clk),
+       .in(ipb_async_trig_type),
+       .out(ipb_async_trig_type_sync)
+    );
+
+    assign fill_type[4:0]        = (ipb_async_trig_type_sync) ? 5'b00100 : ttc_fill_type[4:0];
+    assign accept_self_triggers = ttc_accept_self_triggers | ipb_accept_self_triggers_ttc;
 
     // front panel clock   : sel0 = 1'b0, sel1 = 1'b1
     // uTCA backplane clock: sel0 = 1'b1, sel1 = 1'b0
@@ -335,7 +367,7 @@ module wfd_selftrig_top (
         .out(ipb_clk50_reset)
     );
 
-    wire reset40;
+(* mark_debug = "true", keep = "true" *) wire reset40;
     sync_2stage reset40_sync (
         .clk(ttc_clk),
         .in(ipb_rst_stretch),
@@ -588,9 +620,9 @@ module wfd_selftrig_top (
     prog_channels prog_channels (
         .clk(clk50),
         .reset(clk50_reset),
-        .async_mode(async_mode_clk50),                 // asynchronous mode enable
-        .cbuf_mode(cbuf_mode_clk50),                   // circular buffer mode enable
-        .strg_mode(strg_mode_clk50),                   // circular buffer mode enable
+        .async_mode(1'b0),                             // asynchronous mode enable -- not available in self triggering master
+        .cbuf_mode(1'b0),                              // circular buffer mode enable -- not available in self triggering master
+        .strg_mode(strg_mode_clk50),                   // self triggering  mode enable
         .prog_chan_start(prog_chan_start),             // start signal from IPbus
         .c_progb(c_progb),                             // configuration signal to all five channels
         .c_clk(c_clk),                                 // configuration clock to all five channels
@@ -692,6 +724,7 @@ module wfd_selftrig_top (
 
     // ======== operation modes ========
 
+    // for the self triggering mode, there is only one operational mode -- self triggering
     // for use in prog_channels
     sync_2stage async_mode_clk50_module (
         .clk(clk50),
@@ -705,7 +738,7 @@ module wfd_selftrig_top (
     );
     sync_2stage strg_mode_clk50_module (
         .clk(clk50),
-        .in(strg_mode_from_ipbus),
+        .in(strg_mode_fixed),
         .out(strg_mode_clk50)
     );
 
@@ -967,7 +1000,8 @@ module wfd_selftrig_top (
 
     wire [22:0] burst_count_chan0, burst_count_chan1, burst_count_chan2, burst_count_chan3, burst_count_chan4;
     wire [11:0] wfm_count_chan0, wfm_count_chan1, wfm_count_chan2, wfm_count_chan3, wfm_count_chan4;
-    wire [22:0] stored_bursts_chan0, stored_bursts_chan1, stored_bursts_chan2, stored_bursts_chan3, stored_bursts_chan4;
+    wire [22:0] stored_bursts_chan0;
+    wire [22:0] stored_bursts_chan1, stored_bursts_chan2, stored_bursts_chan3, stored_bursts_chan4;
     wire [22:0] readout_size_chan0, readout_size_chan1, readout_size_chan2, readout_size_chan3, readout_size_chan4;
 
 
@@ -1116,7 +1150,6 @@ module wfd_selftrig_top (
         .cbuf_mode_out(cbuf_mode_from_ipbus),              // circular buffer mode select
         .cbuf_acquire(cbuf_acquire),                       // stream adc data to circular buffer
         .strg_mode_in(strg_mode_clk125),                   // self triggering mode is set in channels
-        .strg_mode_out(strg_mode_from_ipbus),              // self triggering mode select
         .chan_en_out(chan_en),                             // channel enable to command manager
         .prog_chan_out(prog_chan_start_from_ipbus),        // signal to start programming sequence for channel FPGAs
         .reprog_trigger_out(reprog_trigger_from_ipbus),    // signal to issue IPROG command to re-program FPGA from flash
@@ -1396,9 +1429,9 @@ module wfd_selftrig_top (
     );
 
     // synchronize cac_state
-    wire [4:0] cac_state_clk125;
+    wire [5:0] cac_state_clk125;
     sync_2stage #(
-        .WIDTH(5)
+        .WIDTH(6)
     ) cac_state_sync (
         .clk(clk125),
         .in(cac_state),
@@ -1569,7 +1602,7 @@ module wfd_selftrig_top (
         .prog_chan_done(prog_chan_done),
         .async_mode(1'b0),
         .cbuf_mode(1'b0),
-        .strg_mode(strg_mode_clk125),
+        .strg_mode(1'b1),
         .is_golden(1'b0),
         .reprog_done(reprog_done),
 
