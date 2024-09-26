@@ -29,19 +29,19 @@ module trigger_processor (
   output reg [ 3:0] ttc_xadc_alarms,    // XADC alarms
 
   // status connections
-  output reg [6:0] state,     // state of finite state machine
+(* mark_debug = "true" *) output reg [6:0] state,     // state of finite state machine
   output wire error_trig_num, // trigger number mismatch between FIFOs
   output wire error_trig_type // trigger type mismatch between FIFOs
 );
 
   // state bits
-  parameter IDLE             = 0;
-  parameter READ_TRIG_FIFO   = 1;
-  parameter SEND_EMPTY_EVENT = 2;
-  parameter READ_ACQ_FIFO    = 3;
-  parameter READOUT          = 4;
-  parameter ERROR_TRIG_NUM   = 5;
-  parameter ERROR_TRIG_TYPE  = 6;
+  parameter IDLE             = 0;   // 01
+  parameter READ_TRIG_FIFO   = 1;   // 02
+  parameter SEND_EMPTY_EVENT = 2;   // 04
+  parameter READ_ACQ_FIFO    = 3;   // 08
+  parameter READOUT          = 4;   // 10
+  parameter ERROR_TRIG_NUM   = 5;   // 20
+  parameter ERROR_TRIG_TYPE  = 6;   // 40
   
 
   // latched data from TTC Trigger FIFO

@@ -7,12 +7,12 @@ module ttc_trigger_receiver_selftrig (
   input wire reset,
 
   // TTC Channel B resets
-(* mark_debug = "true" *)   input wire reset_trig_num,
+  input wire reset_trig_num,
   input wire reset_trig_timestamp,
 
   // trigger interface
-(* mark_debug = "true" *) input wire ttc_trigger,                // TTC trigger signal
-(* mark_debug = "true" *) input wire [ 4:0] trig_type,           // trigger type
+  input wire ttc_trigger,                // TTC trigger signal
+  input wire [ 4:0] trig_type,           // trigger type
   input wire [31:0] trig_settings,       // trigger settings
   input wire [ 4:0] chan_en,             // enabled channels
 
@@ -20,36 +20,25 @@ module ttc_trigger_receiver_selftrig (
   input wire readout_done, // a readout has completed
 
   // channel acquisition controller interface
-(* mark_debug = "true" *)   input wire acq_ready,            // channels are ready to acquire data (or-reduce from 5 channels?)
-(* mark_debug = "true" *)   input wire acq_activated,        // channels are acquiring date (again, or-reduce)
-(* mark_debug = "true" *)   output reg acq_trigger,          // trigger signal to trigger the async readout
-(* mark_debug = "true" *) output reg [ 4:0] acq_trig_type, // recognized trigger type (async readout)
-(* mark_debug = "true" *) output reg [23:0] acq_trig_num,  // trigger number, starts at 1
+  input wire acq_ready,            // channels are ready to acquire data (or-reduce from 5 channels?)
+  input wire acq_activated,        // channels are acquiring date (again, or-reduce)
+  output reg acq_trigger,          // trigger signal to trigger the async readout
+  output reg [ 4:0] acq_trig_type, // recognized trigger type (async readout)
+  output reg [23:0] acq_trig_num,  // trigger number, starts at 1
 
   // interface to TTC Trigger FIFO
   input wire fifo_ready,
   output reg fifo_valid,
-(* mark_debug = "true" *) output reg [127:0] fifo_data,
+  output reg [127:0] fifo_data,
 
   // status connections
-//st  input wire async_mode,        // asynchronous mode select -- this only gets used for selftriggering
-(* mark_debug = "true" *) input wire selftriggers_seen,  // at least one channel has a trigger
-//st  input wire accept_pulse_triggers, // accept front panel triggers select
+  input wire selftriggers_seen,  // at least one channel has a trigger
   input wire [ 3:0] xadc_alarms,    // XADC alarm signals
 (* mark_debug = "true" *) output reg [ 3:0] state,          // state of finite state machine
-(* mark_debug = "true" *) output reg [23:0] trig_num,       // global trigger number
+  output reg [23:0] trig_num,       // global trigger number
   output reg [43:0] trig_timestamp, // global trigger timestamp
 
-//st  // number of bursts stored in the DDR3
-//st  output reg [22:0] stored_bursts_chan0,
-//st  output reg [22:0] stored_bursts_chan1,
-//st  output reg [22:0] stored_bursts_chan2,
-//st  output reg [22:0] stored_bursts_chan3,
-//st  output reg [22:0] stored_bursts_chan4,
-
   // error connections
-//st  output reg [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
-//st  output wire ddr3_almost_full,          // DDR3 overflow warning, combined for all channels
   output wire error_trig_rate            // trigger received while acquiring data
 );
 
@@ -57,42 +46,15 @@ module ttc_trigger_receiver_selftrig (
   parameter IDLE            = 0;
   parameter SEND_TRIGGER    = 1;
   parameter STORE_TRIG_INFO = 2;
+//  parameter TRIG_HI         = 3;
   parameter ERROR           = 3;
 
 
-(* mark_debug = "true" *)   reg        empty_event;        // flag for an empty event response
-(* mark_debug = "true" *)   reg        empty_payload;      // flag for an async readout with no processed triggers
+  reg        empty_event;        // flag for an empty event response
+  reg        empty_payload;      // flag for an async readout with no processed triggers
   reg [43:0] trig_timestamp_cnt; // clock cycle count
   reg [23:0] acq_event_cnt;      // # of triggers passed to channel, starts at 1
   reg [ 3:0] acq_xadc_alarms;    // XADC alarm signals
-
-//st  // burst count of initiated acquisitions
-//st  wire [22:0] acq_size_chan0;
-//st  wire [22:0] acq_size_chan1;
-//st  wire [22:0] acq_size_chan2;
-//st  wire [22:0] acq_size_chan3;
-//st  wire [22:0] acq_size_chan4;
-//st
-//st  assign acq_size_chan0 = (burst_count_chan0[22:0] + 1)*wfm_count_chan0[11:0] + 2;
-//st  assign acq_size_chan1 = (burst_count_chan1[22:0] + 1)*wfm_count_chan1[11:0] + 2;
-//st  assign acq_size_chan2 = (burst_count_chan2[22:0] + 1)*wfm_count_chan2[11:0] + 2;
-//st  assign acq_size_chan3 = (burst_count_chan3[22:0] + 1)*wfm_count_chan3[11:0] + 2;
-//st  assign acq_size_chan4 = (burst_count_chan4[22:0] + 1)*wfm_count_chan4[11:0] + 2;
-
-//st  // mux overflow warnings for all channels
-//st  assign ddr3_almost_full = (stored_bursts_chan0[22:0] > thres_ddr3_overflow[22:0]) |
-//st                            (stored_bursts_chan1[22:0] > thres_ddr3_overflow[22:0]) |
-//st                            (stored_bursts_chan2[22:0] > thres_ddr3_overflow[22:0]) |
-//st                            (stored_bursts_chan3[22:0] > thres_ddr3_overflow[22:0]) |
-//st                            (stored_bursts_chan4[22:0] > thres_ddr3_overflow[22:0]);
-//st
-//st  // DDR3 is full in a channel
-//st  wire ddr3_full;
-//st  assign ddr3_full = ((8388608 - stored_bursts_chan0[22:0]) < chan_en[0]*acq_size_chan0[22:0]) |
-//st                     ((8388608 - stored_bursts_chan1[22:0]) < chan_en[1]*acq_size_chan1[22:0]) |
-//st                     ((8388608 - stored_bursts_chan2[22:0]) < chan_en[2]*acq_size_chan2[22:0]) |
-//st                     ((8388608 - stored_bursts_chan3[22:0]) < chan_en[3]*acq_size_chan3[22:0]) |
-//st                     ((8388608 - stored_bursts_chan4[22:0]) < chan_en[4]*acq_size_chan4[22:0]);
 
   reg [ 3:0] nextstate;
   reg [ 4:0] next_acq_trig_type;
@@ -103,7 +65,6 @@ module ttc_trigger_receiver_selftrig (
   reg [43:0] next_trig_timestamp;
   reg [23:0] next_acq_event_cnt;
   reg [ 3:0] next_acq_xadc_alarms;
-//st  reg [31:0] next_ddr3_overflow_count;
   reg        next_acq_trigger;
 
 
@@ -184,6 +145,17 @@ module ttc_trigger_receiver_selftrig (
           nextstate[STORE_TRIG_INFO] = 1'b1;
         end
       end
+
+//      // ensure that the TTC trigger signal has gone low
+//      state[TRIG_HI] : begin
+//         if ( ttc_trigger ) begin
+//            nextstate[TRIG_HI] = 1'b1;
+//         end
+//         else begin
+//            nextstate[IDLE] = 1'b1;
+//         end
+//      end
+
       // trigger received while acquiring data
       state[ERROR] : begin
         nextstate[ERROR] = 1'b1; // hard error, stay here
@@ -217,7 +189,7 @@ module ttc_trigger_receiver_selftrig (
 
     // reset trigger number
     if (reset | reset_trig_num) begin
-      // start counts at 1
+      // count starts at 1.
       trig_num     [23:0] <= 24'd1;
       acq_trig_num [23:0] <= 24'd1;
       acq_event_cnt[23:0] <= 24'd1;

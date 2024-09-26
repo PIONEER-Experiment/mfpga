@@ -58,11 +58,17 @@ module command_manager_selftrig (
   input wire [ 3:0] ttc_xadc_alarms, // XADC alarms
   output wire readout_ready,         // ready to readout data, i.e., when in idle state
   output reg  readout_done,          // finished readout flag
-  input wire [23:0] chan_trig_num_0, // # of triggers seen per channel
-  input wire [23:0] chan_trig_num_1, // # of triggers seen per channel
-  input wire [23:0] chan_trig_num_2, // # of triggers seen per channel
-  input wire [23:0] chan_trig_num_3, // # of triggers seen per channel
-  input wire [23:0] chan_trig_num_4, // # of triggers seen per channel
+  input wire [19:0] selftriggers_chan0_lo, // # of triggers seen per channel in channel lower buffer
+  input wire [19:0] selftriggers_chan1_lo, // # of triggers seen per channel in channel lower buffer
+  input wire [19:0] selftriggers_chan2_lo, // # of triggers seen per channel in channel lower buffer
+  input wire [19:0] selftriggers_chan3_lo, // # of triggers seen per channel in channel lower buffer
+  input wire [19:0] selftriggers_chan4_lo, // # of triggers seen per channel in channel lower buffer
+  input wire [19:0] selftriggers_chan0_hi, // # of triggers seen per channel in channel upper buffer
+  input wire [19:0] selftriggers_chan1_hi, // # of triggers seen per channel in channel upper buffer
+  input wire [19:0] selftriggers_chan2_hi, // # of triggers seen per channel in channel upper buffer
+  input wire [19:0] selftriggers_chan3_hi, // # of triggers seen per channel in channel upper buffer
+  input wire [19:0] selftriggers_chan4_hi, // # of triggers seen per channel in channel upper buffer
+  input wire        ddr3_buffer,
 
   // burst count for channel self trigs -- common to all channels
   output reg [22:0] burst_count_selftrig,  // the burst count -- this is "type 4" in the rest of the firmware world
@@ -74,7 +80,7 @@ module command_manager_selftrig (
   input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
 //st  input wire async_mode,                // asynchronous mode flag
 //st  input wire cbuf_mode,                 // circular buffer mode flag
-  output reg [34:0] state,              // state of finite state machine
+(* mark_debug = "true" *) output reg [34:0] state,              // state of finite state machine
 
   // error connections
   output reg [31:0] cs_mismatch_count, // number of checksum mismatches
@@ -82,7 +88,10 @@ module command_manager_selftrig (
   output reg error_trig_num,           // trigger number mismatch between channel and master
   output reg error_trig_type,          // trigger type mismatch between channel and master
   output reg [ 4:0] chan_error_sn,     // command serial number mismatch between channel and master
-  output reg [ 4:0] chan_error_rc      // master received an error response code, one bit for each channel
+  output reg [ 4:0] chan_error_rc,     // master received an error response code, one bit for each channel
+
+  // for debugging
+  input wire rst_trigger_num
 );
 
   // idle state bit
@@ -114,12 +123,12 @@ module command_manager_selftrig (
   parameter READ_CHAN_DATA1       = 23; // 0x 0_0080_0000
   parameter READ_CHAN_DATA2       = 24; // 0x 0_0100_0000
   parameter READ_CHAN_DATA_RESYNC = 25; // 0x 0_0200_0000
-  parameter SEND_CHAN_TRAILER1    = 26; // 0x 0_0_0400_0000
-  parameter READY_AMC13_TRAILER   = 27; // 0x 0_0_0800_0000
-  parameter SEND_AMC13_TRAILER    = 28; // 0x 0_0_1000_0000
+  parameter SEND_CHAN_TRAILER1    = 26; // 0x 0_0400_0000
+  parameter READY_AMC13_TRAILER   = 27; // 0x 0_0800_0000
+  parameter SEND_AMC13_TRAILER    = 28; // 0x 0_1000_0000
   // error state bits
   parameter ERROR_DATA_CORRUPTION = 29; // 0x 0_2000_0000
-  parameter ERROR_TRIG_NUM        = 30; // 0x 0_4000_0000
+  parameter ERROR_TRIG_NUM        = 30; // 0x 0_4000_0000  000 0100 0000 0000 0000 0000 0000 0000 0000
   parameter ERROR_TRIG_TYPE       = 31; // 0x 0_8000_0000
 
 
@@ -159,6 +168,8 @@ module command_manager_selftrig (
   reg [ 4:0] trig_type_latch;              // latched trigger type from TTC Trigger FIFO
   reg [1:0] cs_error_seen;
 
+  // debugging
+  wire [23:0] trig_num_from_channel;
 
   // for internal regs
   reg next_sent_amc13_header;
@@ -201,27 +212,97 @@ module command_manager_selftrig (
   reg [ 3:0] next_chan_tx_fifo_dest;
   reg [22:0] next_burst_count_selftrig;
 
-  // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
-  wire [19:0] event_size_type4;
+  wire [19:0] event_size_lo, event_size_hi, event_size;
+
+  reg [21:0] delta_trigger, next_delta_trigger, trigger_ticks, next_trigger_ticks;
+  ila_master selftriggers_dbg (
+    .clk(clk),                // input wire clk
+    .probe0(selftriggers_chan0_lo),          // input wire [19 : 0] probe_in0
+    .probe1(selftriggers_chan0_hi),          // input wire [19 : 0] probe_in1
+    .probe2(master_checksum),                // input wire [127: 0] probe_in2
+    .probe3(channel_checksum),               // input wire [127: 0] probe_in3
+    //.probe4(selftriggers_chan4_lo),          // input wire [19 : 0] probe_in4
+    //.probe5(selftriggers_chan0_hi),          // input wire [19 : 0] probe_in5
+    //.probe6(selftriggers_chan1_hi),          // input wire [19 : 0] probe_in6
+    //.probe7(selftriggers_chan2_hi),          // input wire [19 : 0] probe_in7
+    //.probe8(selftriggers_chan3_hi),          // input wire [19 : 0] probe_in8
+    //.probe9(selftriggers_chan4_hi),          // input wire [19 : 0] probe_in9
+    .probe4(event_size_lo),                 // input wire [19 : 0] probe_in10
+    .probe5(event_size_hi),                 // input wire [19 : 0] probe_in11
+    .probe6(event_size),                    // input wire [19 : 0] probe_in12
+    .probe7(initiate_readout),              // input wire [ 0 : 0] probe_in13
+    .probe8(ddr3_buffer),                   // input wire [ 0 : 0] probe_in14
+    .probe9(trig_num_from_channel),         // input wire [23 : 0] probe_in15
+    .probe10(event_num),                     // input wire [23 : 0] probe_in16
+    .probe11(state),                         // input wire [34 : 0] probe_in17
+    .probe12(delta_trigger),                 // input wire [21 : 0] probe_in18
+    .probe13(channel_header_last),
+    .probe14(channel_header_latch),
+    .probe15(data_count[3:0]),
+    .probe16(data_wfm_count[3:0]),
+    .probe17(wfm_count[3:0]),
+    .probe18(chan_rx_fifo_data[31:0]),
+    .probe19(chan_rx_fifo_valid),
+    .probe20(rst_trigger_num)
+  );
+
+
+// number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
   // asychronous or self-trigger readout trigger type
-  assign event_size_type4_wire = ((burst_count_selftrig*2+2)*chan_trig_num_0[23:0]+5)*chan_en[0]+
-                                 ((burst_count_selftrig*2+2)*chan_trig_num_1[23:0]+5)*chan_en[1]+
-                                 ((burst_count_selftrig*2+2)*chan_trig_num_2[23:0]+5)*chan_en[2]+
-                                 ((burst_count_selftrig*2+2)*chan_trig_num_3[23:0]+5)*chan_en[3]+
-                                 ((burst_count_selftrig*2+2)*chan_trig_num_4[23:0]+5)*chan_en[4]+4;
-  reg [19:0] event_size_reg;
+  assign event_size_lo = selftriggers_chan0_lo[19:0]+
+                         selftriggers_chan1_lo[19:0]+
+                         selftriggers_chan2_lo[19:0]+
+                         selftriggers_chan3_lo[19:0]+
+                         selftriggers_chan4_lo[19:0];
+  assign event_size_hi = selftriggers_chan0_hi[19:0]+
+                         selftriggers_chan1_hi[19:0]+
+                         selftriggers_chan2_hi[19:0]+
+                         selftriggers_chan3_hi[19:0]+
+                         selftriggers_chan4_hi[19:0];
+
+  // the number of 64 bit words used by the activated channel headers
+  wire [4:0] channel_header_words;
+  assign channel_header_words = 5*(chan_en[0]+chan_en[1]+chan_en[2]+chan_en[3]+chan_en[4]);
+
+  // the number of 64 bit words words, including waveform header, per self-trigger
+  wire [22:0] per_trigger_word_count;
+  assign per_trigger_word_count = (burst_count_selftrig*2+2);
+
+  // pipeline the two event sizes to help with timing.  The event_size not used until later in the readout,
+  // so there is time for this delay to happen
+  wire [19:0] event_size_lo_pipe;
+  wire [19:0] event_size_hi_pipe;
+
+  pipeline_2stage #(
+    .WIDTH(20)
+  ) evs_lo_pip_permanent (
+    .clk(clk),
+    .in( event_size_lo),
+    .out(event_size_lo_pipe)
+  );
+  pipeline_2stage #(
+    .WIDTH(20)
+  ) evs_hi_pip_permanent (
+    .clk(clk),
+    .in( event_size_hi),
+    .out(event_size_hi_pipe)
+  );
+
+  // the number of triggers, summed over channels, to be read out.  Inactive channels will contribute zero
+  reg [19:0] event_triggers;
   always @(posedge clk) begin
      if ( rst ) begin
-        event_size_reg <= 19'd0;
+        event_triggers <= 19'd0;
      end
      else begin
-        event_size_reg <= event_size_type4;
+        // we want the event size of the buffer being read, while ddr3_buffer indicates the buffer
+        // being written
+        event_triggers <= ddr3_buffer ? event_size_lo_pipe : event_size_hi_pipe;
      end
   end
+  // the total number of 64 bit words for the TTC readout event, including headers and trailers
+  assign event_size = per_trigger_word_count * event_triggers + channel_header_words + 4;
 
-  // mux the correct event size for this trigger type
-  wire [19:0] event_size;
-  assign event_size = (trig_type[4:0] == 5'b00100) ? event_size_reg[19:0] :  20'hfffff;
 
   // this board's serial number
   wire [11:0] board_id;
@@ -241,6 +322,10 @@ module command_manager_selftrig (
   wire rst_n;
   assign rst_n = ~rst;
   
+  // for debugging
+  assign trig_num_from_channel[23:0] = chan_rx_fifo_data[23:0];
+  reg [31:0] next_channel_header_last,  channel_header_last;
+  reg [31:0] next_channel_header_latch, channel_header_latch;
 
   // comb always block
   always @* begin
@@ -275,6 +360,10 @@ module command_manager_selftrig (
     next_pretrigger_count[15:0]      = pretrigger_count[15:0];
     next_trig_type_latch[4:0]        = trig_type_latch[4:0];
     next_stored_burst_count[13:0]    = stored_burst_count[13:0];
+    next_delta_trigger[21:0]         = delta_trigger[21:0];
+    next_trigger_ticks[21:0]         = trigger_ticks[21:0] + 1;
+    next_channel_header_last[31:0]   = channel_header_last[31:0] ;
+    next_channel_header_latch[31:0]  = channel_header_latch[31:0];
 
     // external regs
     next_daq_data[63:0]            = daq_data[63:0];
@@ -302,6 +391,8 @@ module command_manager_selftrig (
           next_empty_event = send_empty_event;
           next_empty_payload = skip_payload;
           next_chan_tx_fifo_dest[3:0] = 0;
+          next_delta_trigger[21:0] = trigger_ticks[21:0];
+          next_trigger_ticks[21:0] = 22'd0;
 
           if (send_empty_event) begin
             next_daq_valid = 1'b1;
@@ -504,6 +595,9 @@ module command_manager_selftrig (
       // get trigger number from channel's header word #1 (in channel firmware, this is the 1st of 4 32 bit words from the full header)
       state[READ_CHAN_INFO1] : begin
         if (chan_rx_fifo_valid) begin
+          next_channel_header_last[31:0]  = channel_header_latch[31:0];
+          next_channel_header_latch[31:0] = chan_rx_fifo_data[31:0];
+          
           // check that trigger number from channel header and trigger logic match
           if (event_num[23:0] != chan_rx_fifo_data[23:0]) begin
             // trigger numbers aren't synchronized; throw an error
@@ -615,7 +709,7 @@ module command_manager_selftrig (
         if (daq_ready) begin
           next_daq_valid = 1'b1;
           // this next prepares the 2nd AMC13 header word for sending
-          next_daq_data[63:0] = {chan_en[4:0], endianness_sel, ttc_xadc_alarms[3:0], (empty_event | empty_payload), trig_type[4:0], trig_timestamp[31:0], 3'd1, trig_type[2], board_id[11:0]};
+          next_daq_data[63:0] = {chan_en[4:0], endianness_sel, ttc_xadc_alarms[3:0], (empty_event | empty_payload), trig_type[4:0], trig_timestamp[31:0], 3'd1, 1'b0, board_id[11:0]};
           nextstate[SEND_AMC13_HEADER2] = 1'b1;
         end
         else if (~daq_almost_full) begin
@@ -1029,6 +1123,12 @@ module command_manager_selftrig (
       cs_error_seen[1:0]        <= 2'd0;
       wfm_cnt_shrt              <= 11'd0;
       stored_burst_count[13:0]  <= 0;
+      delta_trigger[21:0]       <= 22'd0;
+      trigger_ticks[21:0]       <= 22'd0;
+      
+      channel_header_last[31:0]   <= 32'd0;
+      channel_header_latch[31:0]  <= 32'd0;
+      
     end
     else begin
       state <= nextstate;
@@ -1061,6 +1161,12 @@ module command_manager_selftrig (
       cs_error_seen[1:0]          <= next_cs_mismatch_count[1:0];
       wfm_cnt_shrt[10:0]          <= next_wfm_count[10:0];
       data_count_shrt[3:0]        <= next_data_count[3:0];
+      channel_header_last[31:0]   <= next_channel_header_last[31:0] ;
+      channel_header_latch[31:0]  <= next_channel_header_latch[31:0];
+
+      
+      delta_trigger[21:0]       <= next_delta_trigger[21:0];
+      trigger_ticks[21:0]       <= next_trigger_ticks[21:0];
 
       
       burst_count_selftrig[22:0]  <= next_burst_count_selftrig[22:0];

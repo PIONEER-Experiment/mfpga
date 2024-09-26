@@ -11,15 +11,15 @@ module channel_trigger_receiver (
   input wire reset_trig_num,
 
   // trigger interface
-(* mark_debug = "true" *) input wire trigger,                    // self trigger signal from channel in 40 MHz domain
+  input wire trigger,                    // self trigger signal from channel in 40 MHz domain
   input wire [22:0] thres_ddr3_overflow, // DDR3 overflow threshold
-(* mark_debug = "true" *) input wire chan_en,                    // is this channel enabled
+  input wire chan_en,                    // is this channel enabled
   input wire ttc_trigger,                // backplane trigger signal
-  input wire ttc_acq_ready,              // channels are ready to acquire/readout data
+//  input wire ttc_acq_ready,              // channels are ready to acquire/readout data
   output reg [23:0] trig_num,            // global trigger number for this channel
-(* mark_debug = "true" *) output reg [19:0] selftriggers_lo,     // number of triggers currently in the lo 1/2 of DDR3 buffer
-(* mark_debug = "true" *) output reg [19:0] selftriggers_hi,     // number of triggers currently in the hi 1/2 of DDR3 buffer
-(* mark_debug = "true" *) input wire ddr3_buffer,                // the current buffer for collecting triggers in the channels
+  output reg [19:0] selftriggers_lo,     // number of triggers currently in the lo 1/2 of DDR3 buffer
+  output reg [19:0] selftriggers_hi,     // number of triggers currently in the hi 1/2 of DDR3 buffer
+  input wire ddr3_buffer,                // the current buffer for collecting triggers in the channels
 
   // command manager interface
   input wire readout_buffer_changed,
@@ -138,11 +138,15 @@ module channel_trigger_receiver (
        selftriggers_hi = 20'd0;
     end
     else if ( readout_buffer_changed ) begin
+       // note that ddr3_buffer switches state 1 cycle after readout_buffer_changed is asserted
+       // do when it is asserted, we will transition to collecting triggers in the "lo" buffer, and
+       // that buffer should be zero'd.  That leaves the trigger count in the "hi" buffer available
+       // for readout processing by the master
        if ( ddr3_buffer ) begin
-          selftriggers_hi = 20'd0;
+          selftriggers_lo = 20'd0;
        end
        else begin
-          selftriggers_lo = 20'd0;
+          selftriggers_hi = 20'd0;
        end
     end
 

@@ -1,7 +1,7 @@
-// 2-stage pipeline to help with timing constraints
+// Classic 2-stage synchronizer to bring asynchronous signals into a clock domain
 // for a signal of width 'WIDTH' which defaults to 1
 
-module sync_2stage #(
+module pipeline_2stage #(
     parameter WIDTH = 1
 ) (
     input  wire clk,
@@ -9,7 +9,7 @@ module sync_2stage #(
     output wire [WIDTH-1:0] out
 );
     
-    (* ASYNC_REG = "TRUE" *) reg [WIDTH-1:0] sync1, sync2;
+    reg [WIDTH-1:0] sync1, sync2;
     
     always @ (posedge clk) begin
         sync1 <= in;

@@ -22,7 +22,7 @@ module wfd_selftrig_top (
     input  wire c4_rx, c4_rx_N,       // Serial link to Channel 4 RX
     output wire c4_tx, c4_tx_N,       // Serial link to Channel 4 TX
     output wire [7:0] debug,          // debug header
-(* mark_debug = "true" *) input  wire [4:0] acq_trigs,      // triggers from self-triggered channel FPGAs
+    input  wire [4:0] acq_trigs,      // triggers from self-triggered channel FPGAs
     input  wire [4:0] acq_dones,      // done signals from channel FPGAs
     output wire master_led0,          // front panel LEDs for master status, led0 is green
     output wire master_led1,          // front panel LEDs for master status, led1 is red
@@ -32,7 +32,7 @@ module wfd_selftrig_top (
     inout  wire bbus_sda,             // I2C bus data,  connected to EEPROM Chip, Atmel Chip, Channel FPGAs
     input  wire ext_trig,             // front panel trigger
     input  wire [3:0] mmc_io,         // controls from the Atmel
-(* mark_debug = "true" *) output wire [3:0] c0_io,          // utility signals to Channel 0
+    output wire [3:0] c0_io,          // utility signals to Channel 0
     output wire [3:0] c1_io,          // utility signals to Channel 1
     output wire [3:0] c2_io,          // utility signals to Channel 2
     output wire [3:0] c3_io,          // utility signals to Channel 3
@@ -173,7 +173,7 @@ module wfd_selftrig_top (
     wire [4:0] chan_error_rc; // master received an error response code, one bit for each channel
 
     // ======== I/O lines to channel ========
-(* mark_debug = "true", keep = "true" *) wire [4:0] acq_enable;
+    wire [4:0] acq_enable;
     wire [4:0] acq_readout_pause, acq_buffer;
 
     assign c0_io[0] = acq_readout_pause[0];
@@ -261,11 +261,11 @@ module wfd_selftrig_top (
     wire rst_trigger_timestamp;
     wire [4:0] ttc_fill_type;
     wire [4:0] fill_type;
-(* mark_debug = "true" *) wire ttc_accept_self_triggers;
-(* mark_debug = "true" *) wire accept_self_triggers;
+    wire ttc_accept_self_triggers;
+    wire accept_self_triggers;
 
      // Bring ipb_accept intp ttc clock domain. Assumption that signals are on / off for long periods
-(* mark_debug = "true" *) wire ipb_accept_self_triggers_ttc;
+     wire ipb_accept_self_triggers_ttc;
      reg [1:0] sync_reg;
      reg [1:0] sync_reg_slow;
 
@@ -367,7 +367,7 @@ module wfd_selftrig_top (
         .out(ipb_clk50_reset)
     );
 
-(* mark_debug = "true", keep = "true" *) wire reset40;
+    wire reset40;
     sync_2stage reset40_sync (
         .clk(ttc_clk),
         .in(ipb_rst_stretch),
@@ -393,6 +393,14 @@ module wfd_selftrig_top (
     assign c3_io[3] = (ipb_rst_stretch | rst_trigger_num_stretch);
     assign c4_io[3] = (ipb_rst_stretch | rst_trigger_num_stretch);
 
+
+  // for debugging
+  wire rst_trigger_num_125;
+  sync_2stage rtn_125_sync (
+     .clk(clk125),
+     .in(rst_trigger_num),
+     .out(rst_trigger_num_125)
+  );
 
 	// connect a module that will read from the I2C temperature/memory chip.
 	// since the MAC and IP address are used with IPbus, run the block with 'clk125'
@@ -1548,47 +1556,94 @@ module wfd_selftrig_top (
         .out(stored_bursts_chan4_clk125)
     );
 
+    wire [19:0] chan_trig_num_0, chan_trig_num_1, chan_trig_num_2, chan_trig_num_3, chan_trig_num_4;
 
     // synchronize number of triggers in accumulated in each channel
-    wire [23:0] chan_trig_num_0, chan_trig_num_0_clk125;
-    wire [23:0] chan_trig_num_1, chan_trig_num_1_clk125;
-    wire [23:0] chan_trig_num_2, chan_trig_num_2_clk125;
-    wire [23:0] chan_trig_num_3, chan_trig_num_3_clk125;
-    wire [23:0] chan_trig_num_4, chan_trig_num_4_clk125;
-    sync_2stage #(
-        .WIDTH(24)
-    ) chan_trig_num_0_sync (
+    wire [23:0] selftriggers_chan0_lo, selftriggers_chan0_lo_clk125;
+    wire [23:0] selftriggers_chan1_lo, selftriggers_chan1_lo_clk125;
+    wire [23:0] selftriggers_chan2_lo, selftriggers_chan2_lo_clk125;
+    wire [23:0] selftriggers_chan3_lo, selftriggers_chan3_lo_clk125;
+    wire [23:0] selftriggers_chan4_lo, selftriggers_chan4_lo_clk125;
+    wire [23:0] selftriggers_chan0_hi, selftriggers_chan0_hi_clk125;
+    wire [23:0] selftriggers_chan1_hi, selftriggers_chan1_hi_clk125;
+    wire [23:0] selftriggers_chan2_hi, selftriggers_chan2_hi_clk125;
+    wire [23:0] selftriggers_chan3_hi, selftriggers_chan3_hi_clk125;
+    wire [23:0] selftriggers_chan4_hi, selftriggers_chan4_hi_clk125;
+    wire        ddr3_buffer_clk125;
+    sync_2stage ddr3_buffer_sync (
         .clk(clk125),
-        .in(chan_trig_num_0),
-        .out(chan_trig_num_0_clk125)
+        .in(ddr3_buffer),
+        .out(ddr3_buffer_clk125)
     );
     sync_2stage #(
-        .WIDTH(24)
-    ) chan_trig_num_1_sync (
+        .WIDTH(20)
+    ) chan_trig_num_l0_sync (
         .clk(clk125),
-        .in(chan_trig_num_1),
-        .out(chan_trig_num_1_clk125)
+        .in(selftriggers_chan0_lo),
+        .out(selftriggers_chan0_lo_clk125)
     );
     sync_2stage #(
-        .WIDTH(24)
-    ) chan_trig_num_2_sync (
+        .WIDTH(20)
+    ) chan_trig_num_l1_sync (
         .clk(clk125),
-        .in(chan_trig_num_2),
-        .out(chan_trig_num_2_clk125)
+        .in( selftriggers_chan1_lo),
+        .out(selftriggers_chan1_lo_clk125)
     );
     sync_2stage #(
-        .WIDTH(24)
-    ) chan_trig_num_3_sync (
+        .WIDTH(20)
+    ) chan_trig_num_l2_sync (
         .clk(clk125),
-        .in(chan_trig_num_3),
-        .out(chan_trig_num_3_clk125)
+        .in( selftriggers_chan2_lo),
+        .out(selftriggers_chan2_lo_clk125)
     );
     sync_2stage #(
-        .WIDTH(24)
-    ) chan_trig_num_4_sync (
+        .WIDTH(20)
+    ) chan_trig_num_l3_sync (
         .clk(clk125),
-        .in(chan_trig_num_4),
-        .out(chan_trig_num_4_clk125)
+        .in( selftriggers_chan3_lo),
+        .out(selftriggers_chan3_lo_clk125)
+    );
+    sync_2stage #(
+        .WIDTH(20)
+    ) chan_trig_num_l4_sync (
+        .clk(clk125),
+        .in( selftriggers_chan4_lo),
+        .out(selftriggers_chan4_lo_clk125)
+    );
+    sync_2stage #(
+        .WIDTH(20)
+    ) chan_trig_num_h0_sync (
+        .clk(clk125),
+        .in( selftriggers_chan0_hi),
+        .out(selftriggers_chan0_hi_clk125)
+    );
+    sync_2stage #(
+        .WIDTH(20)
+    ) chan_trig_num_h1_sync (
+        .clk(clk125),
+        .in( selftriggers_chan1_hi),
+        .out(selftriggers_chan1_hi_clk125)
+    );
+    sync_2stage #(
+        .WIDTH(20)
+    ) chan_trig_num_h2_sync (
+        .clk(clk125),
+        .in( selftriggers_chan2_hi),
+        .out(selftriggers_chan2_hi_clk125)
+    );
+    sync_2stage #(
+        .WIDTH(20)
+    ) chan_trig_num_h3_sync (
+        .clk(clk125),
+        .in( selftriggers_chan3_hi),
+        .out(selftriggers_chan3_hi_clk125)
+    );
+    sync_2stage #(
+        .WIDTH(20)
+    ) chan_trig_num_h4_sync (
+        .clk(clk125),
+        .in( selftriggers_chan4_hi),
+        .out(selftriggers_chan4_hi_clk125)
     );
 
 
@@ -1680,17 +1735,11 @@ module wfd_selftrig_top (
         .trig_settings(trig_settings),
         .trig_num(trig_num_clk125),
         .trig_timestamp(trig_timestamp_clk125),
-        .chan_trig_num_0(chan_trig_num_0_clk125),
-        .chan_trig_num_1(chan_trig_num_1_clk125),
-        .chan_trig_num_2(chan_trig_num_2_clk125),
-        .chan_trig_num_3(chan_trig_num_3_clk125),
-        .chan_trig_num_4(chan_trig_num_4_clk125),
-        //.pulse_trig_num(pulse_trig_num_clk125),
-        //.pulse_trigs_last_readout(pulse_trigs_last_readout),
-        //.raw_ext_trigger_count(raw_ext_trigger_count),
-        //.accepted_ext_trigger_count(accepted_ext_trigger_count),
-        //.ext_pulse_delta_t(ext_pulse_delta_t),
-        //.ext_trig_delta_t(ext_trig_delta_t),
+        .chan_trig_num_0(chan_trig_num_0),
+        .chan_trig_num_1(chan_trig_num_1),
+        .chan_trig_num_2(chan_trig_num_2),
+        .chan_trig_num_3(chan_trig_num_3),
+        .chan_trig_num_4(chan_trig_num_4),
 
         // slow control
         .i2c_temp(i2c_temp),
@@ -1752,13 +1801,7 @@ module wfd_selftrig_top (
 
     // trigger top module
     wire [22:0] burst_count_selftrig;
-    wire [19:0] selftriggers_chan0;
-    wire [19:0] selftriggers_chan1;
-    wire [19:0] selftriggers_chan2;
-    wire [19:0] selftriggers_chan3;
-    wire [19:0] selftriggers_chan4;
-
-selftrigger_top selftrigger_top (
+    selftrigger_top selftrigger_top (
         // clocks
         .ttc_clk(ttc_clk), //  40 MHz
         .clk125(clk125),   // 125 MHz
@@ -1783,6 +1826,7 @@ selftrigger_top selftrigger_top (
         .chan_dones(acq_dones),
         .chan_enable(acq_enable),
         .chan_buffer_write(acq_buffer),
+        .ddr3_buffer(ddr3_buffer),                        // the top (1) or bottom(0) half of the DDR3 currently used for accumulating triggers
         .chan_trigs(acq_trigs),
 
         // command manager interface
@@ -1798,22 +1842,6 @@ selftrigger_top selftrigger_top (
         .chan_trig_num_3(chan_trig_num_3),
         .chan_trig_num_4(chan_trig_num_4),
 
-//st2 -- don't need a pulse fifo        .m_pulse_fifo_tready_chan0(pulse_fifo_tready_chan0), // input
-//st2 -- don't need a pulse fifo        .m_pulse_fifo_tready_chan1(pulse_fifo_tready_chan1), // input
-//st2 -- don't need a pulse fifo        .m_pulse_fifo_tready_chan2(pulse_fifo_tready_chan2), // input
-//st2 -- don't need a pulse fifo        .m_pulse_fifo_tready_chan3(pulse_fifo_tready_chan3), // input
-//st2 -- don't need a pulse fifo        .m_pulse_fifo_tready_chan4(pulse_fifo_tready_chan4), // input
-//st2 -- don't need a pulse fifo        .m_pulse_fifo_tvalid_chan0(pulse_fifo_tvalid_chan0), // output
-//st2 -- don't need a pulse fifo        .m_pulse_fifo_tvalid_chan1(pulse_fifo_tvalid_chan1), // output
-//st2 -- don't need a pulse fifo        .m_pulse_fifo_tvalid_chan2(pulse_fifo_tvalid_chan2), // output
-//st2 -- don't need a pulse fifo        .m_pulse_fifo_tvalid_chan3(pulse_fifo_tvalid_chan3), // output
-//st2 -- don't need a pulse fifo        .m_pulse_fifo_tvalid_chan4(pulse_fifo_tvalid_chan4), // output
-//st2 -- don't need a pulse fifo        .m_pulse_fifo_tdata_chan0(pulse_fifo_tdata_chan0),   // output [63:0]
-//st2 -- don't need a pulse fifo        .m_pulse_fifo_tdata_chan1(pulse_fifo_tdata_chan1),   // output [63:0]
-//st2 -- don't need a pulse fifo        .m_pulse_fifo_tdata_chan2(pulse_fifo_tdata_chan2),   // output [63:0]
-//st2 -- don't need a pulse fifo        .m_pulse_fifo_tdata_chan3(pulse_fifo_tdata_chan3),   // output [63:0]
-//st2 -- don't need a pulse fifo        .m_pulse_fifo_tdata_chan4(pulse_fifo_tdata_chan4),   // output [63:0]
-
         .ttc_event_num(ttc_event_num),           // channel's trigger number (n'th ttc trigger sent to channel)
         .ttc_trig_num(ttc_trig_num),             // global trigger number (nth ttc trigger, including "ignored" ttc trigger types
         .ttc_trig_type(ttc_trig_type),           // trigger type
@@ -1823,18 +1851,17 @@ selftrigger_top selftrigger_top (
         .burst_count_selftrig(burst_count_selftrig), // # of bursts captured for each self trigger
 
         // the number of self-triggers that each channel has accumulated into the current write buffer
-        .selftriggers_chan0(selftriggers_chan0),
-        .selftriggers_chan1(selftriggers_chan1),
-        .selftriggers_chan2(selftriggers_chan2),
-        .selftriggers_chan3(selftriggers_chan3),
-        .selftriggers_chan4(selftriggers_chan4),
-
-//st2 -- don't need with pulse fifo gone        // the number of triggers that arrived while queuing the pulse triggers
-//st2 -- don't need with pulse fifo gone        .queued_triggers_chan0(queued_triggers_chan0),
-//st2 -- don't need with pulse fifo gone        .queued_triggers_chan1(queued_triggers_chan1),
-//st2 -- don't need with pulse fifo gone        .queued_triggers_chan2(queued_triggers_chan2),
-//st2 -- don't need with pulse fifo gone        .queued_triggers_chan3(queued_triggers_chan3),
-//st2 -- don't need with pulse fifo gone        .queued_triggers_chan4(queued_triggers_chan4),
+        .selftriggers_chan0_lo(selftriggers_chan0_lo),
+        .selftriggers_chan1_lo(selftriggers_chan1_lo),
+        .selftriggers_chan2_lo(selftriggers_chan2_lo),
+        .selftriggers_chan3_lo(selftriggers_chan3_lo),
+        .selftriggers_chan4_lo(selftriggers_chan4_lo),
+        // the number of self-triggers that each channel has accumulated into the current read buffer
+        .selftriggers_chan0_hi(selftriggers_chan0_hi),
+        .selftriggers_chan1_hi(selftriggers_chan1_hi),
+        .selftriggers_chan2_hi(selftriggers_chan2_hi),
+        .selftriggers_chan3_hi(selftriggers_chan3_hi),
+        .selftriggers_chan4_hi(selftriggers_chan4_hi),
 
         // status connections
         .xadc_alarms(xadc_alarms[3:0]),    // XADC alarm signals
@@ -1849,9 +1876,7 @@ selftrigger_top selftrigger_top (
         .trig_num(trig_num),               // global trigger number
         .trig_timestamp(trig_timestamp),   // timestamp for latest trigger received
         .trig_fifo_full(trig_fifo_full),   // TTC trigger FIFO is almost full
-//st2 no pulse / channel fifo        .pulse_fifo_full(pulse_fifo_full), // pulse trigger FIFO is almost full
         .acq_fifo_full(acq_fifo_full),     // acquisition event FIFO is almost full
-        //.ext_pulse_delta_t(ext_pulse_delta_t), // time between front panel pulses seen in pulse_trigger_receiver
         
         // number of bursts stored in the DDR3
         .stored_bursts_chan0(stored_bursts_chan0),
@@ -1925,16 +1950,17 @@ selftrigger_top selftrigger_top (
  //st       .curr_trig_type(fill_type_clk125),       // currently set trigger type
         .readout_ready(readout_ready),           // ready to readout data, i.e., when in idle state
         .readout_done(readout_done),             // finished readout flag
-        .chan_trig_num_0(selftriggers_chan0),   // number of self triggers in channel 0
-        .chan_trig_num_1(selftriggers_chan1),   // number of self triggers in channel 1
-        .chan_trig_num_2(selftriggers_chan2),   // number of self triggers in channel 2
-        .chan_trig_num_3(selftriggers_chan3),   // number of self triggers in channel 3
-        .chan_trig_num_4(selftriggers_chan4),   // number of self triggers in channel 4
-
-//st2 don't need the pulse buffer        // interface to pulse trigger FIFO (thru trigger top module)
-//st2 don't need the pulse buffer        .pulse_fifo_tvalid(pulse_fifo_tvalid), // input
-//st2 don't need the pulse buffer        .pulse_fifo_tdata(pulse_fifo_tdata),   // input  [127:0]
-//st2 don't need the pulse buffer        .pulse_fifo_tready(sdqw1), // output
+        .selftriggers_chan0_lo(selftriggers_chan0_lo_clk125),   // number of self triggers in channel 0, bottom buffer
+        .selftriggers_chan1_lo(selftriggers_chan1_lo_clk125),   // number of self triggers in channel 1, bottom buffer
+        .selftriggers_chan2_lo(selftriggers_chan2_lo_clk125),   // number of self triggers in channel 2, bottom buffer
+        .selftriggers_chan3_lo(selftriggers_chan3_lo_clk125),   // number of self triggers in channel 3, bottom buffer
+        .selftriggers_chan4_lo(selftriggers_chan4_lo_clk125),   // number of self triggers in channel 4, bottom buffer
+        .selftriggers_chan0_hi(selftriggers_chan0_hi_clk125),   // number of self triggers in channel 0, top buffer
+        .selftriggers_chan1_hi(selftriggers_chan1_hi_clk125),   // number of self triggers in channel 1, top buffer
+        .selftriggers_chan2_hi(selftriggers_chan2_hi_clk125),   // number of self triggers in channel 2, top buffer
+        .selftriggers_chan3_hi(selftriggers_chan3_hi_clk125),   // number of self triggers in channel 3, top buffer
+        .selftriggers_chan4_hi(selftriggers_chan4_hi_clk125),   // number of self triggers in channel 4, top buffer
+        .ddr3_buffer(ddr3_buffer_clk125),
 
         .burst_count_selftrig(burst_count_selftrig), // the total number
 
@@ -1953,7 +1979,10 @@ selftrigger_top selftrigger_top (
         .error_trig_num(error_trig_num_from_cm),   // output, trigger number mismatch between channel and master
         .error_trig_type(error_trig_type_from_cm), // output, trigger type mismatch between channel and master
         .chan_error_sn(chan_error_sn[4:0]),        // output [ 4:0]
-        .chan_error_rc(chan_error_rc[4:0])         // output [ 4:0]
+        .chan_error_rc(chan_error_rc[4:0]),        // output [ 4:0]
+        
+        // for debugging
+        .rst_trigger_num(rst_trigger_num_125)
     );
     
     wire ttc_ready_clk125_n;
