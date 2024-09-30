@@ -97,6 +97,8 @@ module channel_acq_controller_selftrig (
       state[ACQUIRE] : begin
         // readout trigger received -- the ttc_trigger_receiver_selftrig has already filtered out other types of triggers aside from readout
         // we will stop acquisition of channel self-triggers while we wait for any final events in the channels to get written to the DDR3
+        // If we are still acquiring data, flip the buffer and proceed.  If not, we can process the trigger without flipping
+        // the buffer
         if (ttc_trigger ) begin
           next_acq_dones_latched[4:0] = 5'b00000;
 
@@ -104,16 +106,23 @@ module channel_acq_controller_selftrig (
           next_acq_trig_num [23:0] = ttc_trig_num [23:0]; // latch trigger number
           //next_ttc_acq_activated   = 1'b0;                // clear flag
 
-          nextstate[FLIP_DDR3_BUFFERS] = 1'b1;
+          // If we are still running, flip the ddr3 buffer and have the channels proceed.
+          // If not, just wait for the readout to complete
+          if ( accept_self_triggers ) begin
+            nextstate[FLIP_DDR3_BUFFERS] = 1'b1;
+          end
+          else begin
+            nextstate[WAIT] = 1'b1;
+          end
         end
-        // tell the channels to keep on acquring data if we are accepting triggers
-        else if ( ~accept_self_triggers ) begin
-          // enable lines should be fixed and not set by the trigger type
-          next_acq_enable[4:0] = 5'b00000;
-          next_ttc_acq_activated = 1'b1;
-
-          //nextstate[FLIP_DDR3_BUFFERS] = 1'b0;
-        end
+        // otherwise, we will keep on accumulating data
+//        else if ( ~accept_self_triggers ) begin
+//          // enable lines should be fixed and not set by the trigger type
+//          next_acq_enable[4:0] = 5'b00000;
+//          next_ttc_acq_activated = 1'b1;
+//
+//          //nextstate[FLIP_DDR3_BUFFERS] = 1'b0;
+//        end
         else begin
           nextstate[ACQUIRE] = 1'b1;
         end

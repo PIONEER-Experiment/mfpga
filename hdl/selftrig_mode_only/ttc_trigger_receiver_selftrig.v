@@ -100,9 +100,9 @@ module ttc_trigger_receiver_selftrig (
           if ((trig_type[4:0] != 5'b00100) | ~acq_activated) begin
              next_empty_event = 1'b1; // indicate to send an empty event
            end
-           else if (~selftriggers_seen) begin
-             next_empty_payload = 1'b1; // indicate to skip channel payloads
-          end
+//           else if (~selftriggers_seen) begin
+//             next_empty_payload = 1'b1; // indicate to skip channel payloads
+//          end
 
           nextstate[SEND_TRIGGER] = 1'b1;
         end
