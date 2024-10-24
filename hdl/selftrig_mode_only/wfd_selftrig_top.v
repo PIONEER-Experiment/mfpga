@@ -1942,6 +1942,7 @@ module wfd_selftrig_top (
         .send_empty_event(send_empty_event),     // request an empty event
         .skip_payload(skip_payload),             // request to skip channel payloads
         .initiate_readout(initiate_readout),     // request for the channels to be read out
+        .accept_self_triggers(accept_self_triggers),
         .event_num(ttc_event_num),               // channel's trigger number
         .trig_num(ttc_trig_num),                 // global trigger number, starts at 1
         .trig_type(ttc_trig_type),               // trigger type

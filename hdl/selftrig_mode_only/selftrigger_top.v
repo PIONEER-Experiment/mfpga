@@ -267,7 +267,8 @@ module selftrigger_top (
 
         // channel acquisition controller interface
         .acq_ready(acq_ready),         // channels are ready to acquire/readout data
-        .acq_activated(acq_activated),
+        .acq_activated(acq_activated), 
+        .accept_self_triggers(accept_self_triggers), // enabled channels should start accepting triggers
         .acq_trigger(acq_trigger),     // trigger signal
         .acq_trig_type(acq_trig_type), // recongized trigger type (muon fill, laser, pedestal, async readout)
         .acq_trig_num(acq_trig_num),   // trigger number, starts at 1

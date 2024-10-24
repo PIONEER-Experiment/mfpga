@@ -22,6 +22,7 @@ module ttc_trigger_receiver_selftrig (
   // channel acquisition controller interface
   input wire acq_ready,            // channels are ready to acquire data (or-reduce from 5 channels?)
   input wire acq_activated,        // channels are acquiring date (again, or-reduce)
+  input wire accept_self_triggers, // self triggers will be collected when acq_activated allows
   output reg acq_trigger,          // trigger signal to trigger the async readout
   output reg [ 4:0] acq_trig_type, // recognized trigger type (async readout)
   output reg [23:0] acq_trig_num,  // trigger number, starts at 1
@@ -97,7 +98,8 @@ module ttc_trigger_receiver_selftrig (
           // determine empty_event flag ahead of time;
           // this is to ensure that it has been updated before writing to the FIFO
           // only respond to "async" readout requests in this mode
-          if ((trig_type[4:0] != 5'b00100) | ~acq_activated) begin
+//          if ((trig_type[4:0] != 5'b00100) | ~acq_activated) begin
+          if ((trig_type[4:0] != 5'b00100) | ~acq_activated | ~accept_self_triggers) begin
              next_empty_event = 1'b1; // indicate to send an empty event
            end
 //           else if (~selftriggers_seen) begin

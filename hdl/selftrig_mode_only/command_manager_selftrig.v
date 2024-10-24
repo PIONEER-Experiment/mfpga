@@ -58,6 +58,7 @@ module command_manager_selftrig (
   input wire [ 3:0] ttc_xadc_alarms, // XADC alarms
   output wire readout_ready,         // ready to readout data, i.e., when in idle state
   output reg  readout_done,          // finished readout flag
+  input wire        accept_self_triggers,
   input wire [19:0] selftriggers_chan0_lo, // # of triggers seen per channel in channel lower buffer
   input wire [19:0] selftriggers_chan1_lo, // # of triggers seen per channel in channel lower buffer
   input wire [19:0] selftriggers_chan2_lo, // # of triggers seen per channel in channel lower buffer
@@ -243,7 +244,8 @@ module command_manager_selftrig (
     .probe17(wfm_count[3:0]),
     .probe18(chan_rx_fifo_data[31:0]),
     .probe19(chan_rx_fifo_valid),
-    .probe20(rst_trigger_num)
+    .probe20(accept_self_triggers),
+    .probe21(send_empty_event)
   );
 
 
