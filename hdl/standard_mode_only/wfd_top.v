@@ -590,11 +590,11 @@ module wfd_top (
 
     // ======== module to reprogram FPGA from flash ========
 
-    wire [1:0] reprog_trigger_from_ipbus; // in 125 MHz clock domain
-    wire [1:0] reprog_trigger;            // in 50 MHz clock domain
+    wire [2:0] reprog_trigger_from_ipbus; // in 125 MHz clock domain
+    wire [2:0] reprog_trigger;            // in 50 MHz clock domain
                                           // don't have to worry about missing the faster signal
                                           // (stays high until you use ipbus to set it low again)
-    wire [1:0] reprog_trigger_delayed;    // after passing through 32-bit shift register
+    wire [2:0] reprog_trigger_delayed;    // after passing through 32-bit shift register
                                           // (to allow time for IPbus ack before reprogramming FPGA)
     reg  [2:0] reprog_master_selection;   // convert the 2 bit encoding to three bits
                                           // 01 -> 001 = GOLDEN
@@ -602,7 +602,7 @@ module wfd_top (
                                           // 11 -> 100 = Self Trigger Master
 
     sync_2stage #(
-        .WIDTH(2)
+        .WIDTH(3)
     ) reprog_trigger_sync (
         .clk(clk50),
         .in(reprog_trigger_from_ipbus),
@@ -637,27 +637,28 @@ module wfd_top (
         .D(reprog_trigger[1])          // SRL data input
     );
 
+SRLC32E #(
+    .INIT(32'h00000000) // Initial value of shift register
+) SRLC32E_inst2 (
+    .Q(reprog_trigger_delayed[2]), // SRL data output
+    .Q31(),                        // SRL cascade output pin
+    .A(5'b11111),                  // 5-bit shift depth select input (5'b11111 = 32-bit shift)
+    .CE(1'b1),                     // Clock enable input
+    .CLK(clk50),                   // Clock input
+    .D(reprog_trigger[2])          // SRL data input
+);
+
     // reprog_trigger_mux[0] for golden image
     // reprog_trigger_mux[1] for master image
-    wire [1:0] reprog_trigger_mux; // combine IPbus and front panel switch
-    assign reprog_trigger_mux = (fp_sw_master) ? reprog_trigger_delayed : 2'b01;
-
-    always @ ( reprog_trigger_mux ) begin
-       if ( reprog_trigger_mux == 2'b01 )
-           reprog_master_selection <= 3'b001;
-       else if ( reprog_trigger_mux == 2'b10 )
-           reprog_master_selection <= 3'b010;
-       else if ( reprog_trigger_mux == 2'b11 )
-           reprog_master_selection <= 3'b100;
-       else
-           reprog_master_selection <= 3'b000;
-    end
+    // reprog_trigger_mux[2] for self triggering image
+    wire [2:0] reprog_trigger_mux; // combine IPbus and front panel switch
+    assign reprog_trigger_mux = (fp_sw_master) ? reprog_trigger_delayed : 3'b001;
 
     reprog reprog (
         .clk(clk50),
         .clkb(clk50b),
         .reset(clk50_reset),
-        .trigger(reprog_master_selection)
+        .trigger(reprog_trigger_mux)
     );
    
 
@@ -1075,6 +1076,7 @@ module wfd_top (
         .cbuf_mode_in(cbuf_mode_clk125),                   // circular buffer mode is set in channels
         .cbuf_mode_out(cbuf_mode_from_ipbus),              // circular buffer mode select
         .cbuf_acquire(cbuf_acquire),                       // stream adc data tp circular buffer
+        .selftrig_acquire(selftrig_acquire),               // stream self-triggered adc data to circular buffer
         .strg_mode_in(1'b0),                               // self triggering mode is set in channels (never happens for the standard mode)
         .chan_en_out(chan_en),                             // channel enable to command manager
         .prog_chan_out(prog_chan_start_from_ipbus),        // signal to start programming sequence for channel FPGAs

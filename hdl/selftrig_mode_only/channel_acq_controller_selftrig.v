@@ -108,12 +108,12 @@ module channel_acq_controller_selftrig (
 
           // If we are still running, flip the ddr3 buffer and have the channels proceed.
           // If not, just wait for the readout to complete
-          if ( accept_self_triggers ) begin
+          //if ( accept_self_triggers ) begin
             nextstate[FLIP_DDR3_BUFFERS] = 1'b1;
-          end
-          else begin
-            nextstate[WAIT] = 1'b1;
-          end
+          //end
+          //else begin
+          //  nextstate[WAIT] = 1'b1;
+          //end
         end
         // otherwise, we will keep on accumulating data
 //        else if ( ~accept_self_triggers ) begin

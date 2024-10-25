@@ -21,7 +21,7 @@ wire [31:0] ICAP_input;
 
 reg ICAP_enable;
 reg [31:0] ICAP_value; // determined by state machine
-//reg bitstream_select;  // 0 for golden image, 1 for regular master image
+//reg bitstream_select;  // 0 for golden image, 1 for regular master image, 2 for selftrig master image
 parameter GOLDEN  = 2'd0;
 parameter MASTER  = 2'd1;
 parameter STMSTR  = 2'd2;

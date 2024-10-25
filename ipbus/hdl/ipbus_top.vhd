@@ -68,10 +68,11 @@ port (
     cbuf_mode_in             : in  std_logic;                     -- whether circular buffer mode is set
     cbuf_mode_out            : out std_logic;                     -- circular buffer mode select
     cbuf_acquire             : out std_logic;                     -- capture data to circular buffer
+    selftrig_acquire         : out std_logic;                     -- capture data to circular buffer
     strg_mode_in             :  in std_logic;                     -- self triggering mode has been loaded
     chan_en_out              : out std_logic_vector( 4 downto 0); -- enable channels in command manager
     prog_chan_out            : out std_logic;                     -- signal to start programming sequence for channel FPGAs
-    reprog_trigger_out       : out std_logic_vector( 1 downto 0); -- signal to issue IPROG command to re-program FPGA from flash
+    reprog_trigger_out       : out std_logic_vector( 2 downto 0); -- signal to issue IPROG command to re-program FPGA from flash
     trig_delay_out           : out std_logic_vector(31 downto 0); -- tells trigger manager how long to wait before passing the trigger onto channels
     endianness_out           : out std_logic;                     -- indicates the endianness of the ADC data sent to the DAQ
     trig_settings_out        : out std_logic_vector( 2 downto 0); -- indicates whether or not to respond to a given trigger type
@@ -258,6 +259,7 @@ begin
         cbuf_mode_in             => cbuf_mode_in,
         cbuf_mode_out            => cbuf_mode_out,
         cbuf_acquire             => cbuf_acquire,
+        selftrig_acquire         => selftrig_acquire,
         strg_mode_in             => strg_mode_in,
         ip_addr_rst_out          => ip_addr_rst_out,
         chan_en_out              => chan_en_out,

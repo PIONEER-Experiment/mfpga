@@ -810,7 +810,7 @@ module command_manager_selftrig (
           if ((data_count[31:0] == 0) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
               // keep pre- and post-trigger waveform length in units of bursts // st copying the pre-trigger length seems messed up here
               // prepare the lower half of the 1st 64 byte waveform header
-            next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:26], 3'd0, chan_rx_fifo_data[25:0]};
+            next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
           end
           // this is the waveform header [95:64]
           else if ((data_count[31:0] == 2) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
