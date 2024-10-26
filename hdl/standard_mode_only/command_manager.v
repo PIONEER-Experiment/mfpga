@@ -17,7 +17,7 @@ module command_manager (
   input wire chan_tx_fifo_ready,
   output reg chan_tx_fifo_valid,
   output reg chan_tx_fifo_last,
-  (* mark_debug = "true" *) output reg [ 3:0] chan_tx_fifo_dest,
+  output reg [ 3:0] chan_tx_fifo_dest,
   output reg [31:0] chan_tx_fifo_data,
 
   // interface to RX channel FIFO (through AXI4-Stream RX Switch)

@@ -121,8 +121,6 @@ module selftrigger_top (
     wire  [1:0] s_pulse_fifo_tvalid[4:0];
     wire [63:0] s_pulse_fifo_tdata[4:0];
 
-//st lkg -- need to see what I am doing with acq controllers.  One for all, or all their own
-// signals to/from Acquisition Event FIFO.  But, we at least don't need to mux from 3 different modes
     wire s_acq_fifo_tready;
     wire s_acq_fifo_tvalid;
     wire [31:0] s_acq_fifo_tdata;
@@ -332,26 +330,26 @@ module selftrigger_top (
     end // of the channel trigger receiver instantiations
     endgenerate
 
-    ila_40 ila_debug_clk40 (
-    	.clk(ttc_clk), // input wire clk
-    
-    
-      .probe0(selftriggers_lo[0][9:0]), // input wire [9:0]  probe0
-      .probe1(selftriggers_hi[0][9:0]), // input wire [9:0]  probe1
-      .probe2(chan_trig_num[0][9:0]),   // input wire [9:0]  probe2
-      .probe3(chan_trigs_clk40[0]),     // input wire [0:0]  probe3
-      .probe4(readout_buffer_changed),  // input wire [0:0]  probe4
-      .probe5(chan_buffer_write[0] ),   // input wire [0:0]  probe5
-      .probe6(selftriggers_seen_hi ),   // input wire [0:0]  probe6
-      .probe7(selftriggers_seen_lo ),   // input wire [0:0]  probe7
-      .probe8(selftriggers_seen ),      // input wire [0:0]  probe8
-      .probe9(ttc_trigger ),            // input wire [0:0]  probe9
-      .probe10(trig_type ),             // input wire [4:0]  probe10
-      .probe11(empty_payload ),         // input wire [0:0]  probe11
-      .probe12(empty_event ),           // input wire [0:0]  probe12
-      .probe13(acq_trig_num[23:0]),     // input wire [23:0] probe13
-      .probe14(ttr_state[3:0])          // input wire [3:0]  probe14
-    );
+//    ila_40 ila_debug_clk40 (
+//    	.clk(ttc_clk), // input wire clk
+//
+//
+//      .probe0(selftriggers_lo[0][9:0]), // input wire [9:0]  probe0
+//      .probe1(selftriggers_hi[0][9:0]), // input wire [9:0]  probe1
+//      .probe2(chan_trig_num[0][9:0]),   // input wire [9:0]  probe2
+//      .probe3(chan_trigs_clk40[0]),     // input wire [0:0]  probe3
+//      .probe4(readout_buffer_changed),  // input wire [0:0]  probe4
+//      .probe5(chan_buffer_write[0] ),   // input wire [0:0]  probe5
+//      .probe6(selftriggers_seen_hi ),   // input wire [0:0]  probe6
+//      .probe7(selftriggers_seen_lo ),   // input wire [0:0]  probe7
+//      .probe8(selftriggers_seen ),      // input wire [0:0]  probe8
+//      .probe9(ttc_trigger ),            // input wire [0:0]  probe9
+//      .probe10(trig_type ),             // input wire [4:0]  probe10
+//      .probe11(empty_payload ),         // input wire [0:0]  probe11
+//      .probe12(empty_event ),           // input wire [0:0]  probe12
+//      .probe13(acq_trig_num[23:0]),     // input wire [23:0] probe13
+//      .probe14(ttr_state[3:0])          // input wire [3:0]  probe14
+//    );
 
     // channel acquisition controller module (asynchronous)
     channel_acq_controller_selftrig channel_acq_controller_selftrig (

@@ -35,7 +35,7 @@ module ttc_trigger_receiver_selftrig (
   // status connections
   input wire selftriggers_seen,  // at least one channel has a trigger
   input wire [ 3:0] xadc_alarms,    // XADC alarm signals
-(* mark_debug = "true" *) output reg [ 3:0] state,          // state of finite state machine
+  output reg [ 3:0] state,          // state of finite state machine
   output reg [23:0] trig_num,       // global trigger number
   output reg [43:0] trig_timestamp, // global trigger timestamp
 

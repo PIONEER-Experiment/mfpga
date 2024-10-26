@@ -29,7 +29,7 @@ module channel_acq_controller_selftrig (
   input wire [4:0] acq_dones,
   output reg [4:0] acq_enable,
   output reg [4:0] acq_buffer_write,
-(* mark_debug = "true" *) output reg ddr3_buffer,
+  output reg ddr3_buffer,
 
   // interface to Acquisition Event FIFO
   input wire fifo_ready,
@@ -37,7 +37,7 @@ module channel_acq_controller_selftrig (
   output reg [31:0] fifo_data,
 
   // status connections
-(* mark_debug = "true" *) output reg [5:0] state // state of finite state machine
+  output reg [5:0] state // state of finite state machine
 );
 
   // state bits

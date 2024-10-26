@@ -79,9 +79,7 @@ module command_manager_selftrig (
   input wire [ 4:0] chan_en,            // enabled channels, one bit for each channel
   input wire endianness_sel,            // select bit for the endianness of ADC data
   input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
-//st  input wire async_mode,                // asynchronous mode flag
-//st  input wire cbuf_mode,                 // circular buffer mode flag
-(* mark_debug = "true" *) output reg [34:0] state,              // state of finite state machine
+  output reg [34:0] state,              // state of finite state machine
 
   // error connections
   output reg [31:0] cs_mismatch_count, // number of checksum mismatches
@@ -89,10 +87,10 @@ module command_manager_selftrig (
   output reg error_trig_num,           // trigger number mismatch between channel and master
   output reg error_trig_type,          // trigger type mismatch between channel and master
   output reg [ 4:0] chan_error_sn,     // command serial number mismatch between channel and master
-  output reg [ 4:0] chan_error_rc,     // master received an error response code, one bit for each channel
+  output reg [ 4:0] chan_error_rc      // master received an error response code, one bit for each channel
 
   // for debugging
-  input wire rst_trigger_num
+//  input wire rst_trigger_num
 );
 
   // idle state bit
@@ -170,7 +168,7 @@ module command_manager_selftrig (
   reg [1:0] cs_error_seen;
 
   // debugging
-  wire [23:0] trig_num_from_channel;
+  //wire [23:0] trig_num_from_channel;
 
   // for internal regs
   reg next_sent_amc13_header;
@@ -215,38 +213,38 @@ module command_manager_selftrig (
 
   wire [19:0] event_size_lo, event_size_hi, event_size;
 
-  reg [21:0] delta_trigger, next_delta_trigger, trigger_ticks, next_trigger_ticks;
-  ila_master selftriggers_dbg (
-    .clk(clk),                // input wire clk
-    .probe0(selftriggers_chan0_lo),          // input wire [19 : 0] probe_in0
-    .probe1(selftriggers_chan0_hi),          // input wire [19 : 0] probe_in1
-    .probe2(master_checksum),                // input wire [127: 0] probe_in2
-    .probe3(channel_checksum),               // input wire [127: 0] probe_in3
-    //.probe4(selftriggers_chan4_lo),          // input wire [19 : 0] probe_in4
-    //.probe5(selftriggers_chan0_hi),          // input wire [19 : 0] probe_in5
-    //.probe6(selftriggers_chan1_hi),          // input wire [19 : 0] probe_in6
-    //.probe7(selftriggers_chan2_hi),          // input wire [19 : 0] probe_in7
-    //.probe8(selftriggers_chan3_hi),          // input wire [19 : 0] probe_in8
-    //.probe9(selftriggers_chan4_hi),          // input wire [19 : 0] probe_in9
-    .probe4(event_size_lo),                 // input wire [19 : 0] probe_in10
-    .probe5(event_size_hi),                 // input wire [19 : 0] probe_in11
-    .probe6(event_size),                    // input wire [19 : 0] probe_in12
-    .probe7(initiate_readout),              // input wire [ 0 : 0] probe_in13
-    .probe8(ddr3_buffer),                   // input wire [ 0 : 0] probe_in14
-    .probe9(trig_num_from_channel),         // input wire [23 : 0] probe_in15
-    .probe10(event_num),                     // input wire [23 : 0] probe_in16
-    .probe11(state),                         // input wire [34 : 0] probe_in17
-    .probe12(delta_trigger),                 // input wire [21 : 0] probe_in18
-    .probe13(channel_header_last),
-    .probe14(channel_header_latch),
-    .probe15(data_count[3:0]),
-    .probe16(data_wfm_count[3:0]),
-    .probe17(wfm_count[3:0]),
-    .probe18(chan_rx_fifo_data[31:0]),
-    .probe19(chan_rx_fifo_valid),
-    .probe20(accept_self_triggers),
-    .probe21(send_empty_event)
-  );
+//  reg [21:0] delta_trigger, next_delta_trigger, trigger_ticks, next_trigger_ticks;
+//  ila_master selftriggers_dbg (
+//    .clk(clk),                // input wire clk
+//    .probe0(selftriggers_chan0_lo),          // input wire [19 : 0] probe_in0
+//    .probe1(selftriggers_chan0_hi),          // input wire [19 : 0] probe_in1
+//    .probe2(master_checksum),                // input wire [127: 0] probe_in2
+//    .probe3(channel_checksum),               // input wire [127: 0] probe_in3
+//    //.probe4(selftriggers_chan4_lo),          // input wire [19 : 0] probe_in4
+//    //.probe5(selftriggers_chan0_hi),          // input wire [19 : 0] probe_in5
+//    //.probe6(selftriggers_chan1_hi),          // input wire [19 : 0] probe_in6
+//    //.probe7(selftriggers_chan2_hi),          // input wire [19 : 0] probe_in7
+//    //.probe8(selftriggers_chan3_hi),          // input wire [19 : 0] probe_in8
+//    //.probe9(selftriggers_chan4_hi),          // input wire [19 : 0] probe_in9
+//    .probe4(event_size_lo),                 // input wire [19 : 0] probe_in10
+//    .probe5(event_size_hi),                 // input wire [19 : 0] probe_in11
+//    .probe6(event_size),                    // input wire [19 : 0] probe_in12
+//    .probe7(initiate_readout),              // input wire [ 0 : 0] probe_in13
+//    .probe8(ddr3_buffer),                   // input wire [ 0 : 0] probe_in14
+//    .probe9(trig_num_from_channel),         // input wire [23 : 0] probe_in15
+//    .probe10(event_num),                     // input wire [23 : 0] probe_in16
+//    .probe11(state),                         // input wire [34 : 0] probe_in17
+//    .probe12(delta_trigger),                 // input wire [21 : 0] probe_in18
+//    .probe13(channel_header_last),
+//    .probe14(channel_header_latch),
+//    .probe15(data_count[3:0]),
+//    .probe16(data_wfm_count[3:0]),
+//    .probe17(wfm_count[3:0]),
+//    .probe18(chan_rx_fifo_data[31:0]),
+//    .probe19(chan_rx_fifo_valid),
+//    .probe20(accept_self_triggers),
+//    .probe21(send_empty_event)
+//  );
 
 
 // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
@@ -325,22 +323,20 @@ module command_manager_selftrig (
   assign rst_n = ~rst;
   
   // for debugging
-  assign trig_num_from_channel[23:0] = chan_rx_fifo_data[23:0];
-  reg [31:0] next_channel_header_last,  channel_header_last;
-  reg [31:0] next_channel_header_latch, channel_header_latch;
+//  assign trig_num_from_channel[23:0] = chan_rx_fifo_data[23:0];
+//  reg [31:0] next_channel_header_last,  channel_header_last;
+//  reg [31:0] next_channel_header_latch, channel_header_latch;
 
   // comb always block
   always @* begin
     // internal regs
     nextstate = 35'd0;
     next_wfm_count[22:0]             = wfm_count[22:0];
-//st    next_wfm_gap_length[21:0]        = wfm_gap_length[21:0];
     next_chan_tag[11:0]              = chan_tag[11:0];
     next_chan_xadc_alarms[3:0]       = chan_xadc_alarms[3:0];
     next_csn[31:0]                   = csn[31:0];
     next_data_count[31:0]            = data_count[31:0];
     next_data_wfm_count[22:0]        = data_wfm_count[22:0];
-//st    next_ddr3_start_addr[25:0]       = ddr3_start_addr[25:0];
     next_ipbus_buf[31:0]             = ipbus_buf[31:0];
     next_chan_trig_num[23:0]         = chan_trig_num[23:0];
     next_readout_timestamp[31:0]     = readout_timestamp[31:0] + 1; // increment readout timestamp on each clock cycle
@@ -362,10 +358,10 @@ module command_manager_selftrig (
     next_pretrigger_count[15:0]      = pretrigger_count[15:0];
     next_trig_type_latch[4:0]        = trig_type_latch[4:0];
     next_stored_burst_count[13:0]    = stored_burst_count[13:0];
-    next_delta_trigger[21:0]         = delta_trigger[21:0];
-    next_trigger_ticks[21:0]         = trigger_ticks[21:0] + 1;
-    next_channel_header_last[31:0]   = channel_header_last[31:0] ;
-    next_channel_header_latch[31:0]  = channel_header_latch[31:0];
+//    next_delta_trigger[21:0]         = delta_trigger[21:0];
+//    next_trigger_ticks[21:0]         = trigger_ticks[21:0] + 1;
+//    next_channel_header_last[31:0]   = channel_header_last[31:0] ;
+//    next_channel_header_latch[31:0]  = channel_header_latch[31:0];
 
     // external regs
     next_daq_data[63:0]            = daq_data[63:0];
@@ -393,8 +389,8 @@ module command_manager_selftrig (
           next_empty_event = send_empty_event;
           next_empty_payload = skip_payload;
           next_chan_tx_fifo_dest[3:0] = 0;
-          next_delta_trigger[21:0] = trigger_ticks[21:0];
-          next_trigger_ticks[21:0] = 22'd0;
+//          next_delta_trigger[21:0] = trigger_ticks[21:0];
+//          next_trigger_ticks[21:0] = 22'd0;
 
           if (send_empty_event) begin
             next_daq_valid = 1'b1;
@@ -597,8 +593,8 @@ module command_manager_selftrig (
       // get trigger number from channel's header word #1 (in channel firmware, this is the 1st of 4 32 bit words from the full header)
       state[READ_CHAN_INFO1] : begin
         if (chan_rx_fifo_valid) begin
-          next_channel_header_last[31:0]  = channel_header_latch[31:0];
-          next_channel_header_latch[31:0] = chan_rx_fifo_data[31:0];
+//          next_channel_header_last[31:0]  = channel_header_latch[31:0];
+//          next_channel_header_latch[31:0] = chan_rx_fifo_data[31:0];
           
           // check that trigger number from channel header and trigger logic match
           if (event_num[23:0] != chan_rx_fifo_data[23:0]) begin
@@ -1125,11 +1121,11 @@ module command_manager_selftrig (
       cs_error_seen[1:0]        <= 2'd0;
       wfm_cnt_shrt              <= 11'd0;
       stored_burst_count[13:0]  <= 0;
-      delta_trigger[21:0]       <= 22'd0;
-      trigger_ticks[21:0]       <= 22'd0;
+//      delta_trigger[21:0]       <= 22'd0;
+//      trigger_ticks[21:0]       <= 22'd0;
       
-      channel_header_last[31:0]   <= 32'd0;
-      channel_header_latch[31:0]  <= 32'd0;
+//      channel_header_last[31:0]   <= 32'd0;
+//      channel_header_latch[31:0]  <= 32'd0;
       
     end
     else begin
@@ -1163,13 +1159,13 @@ module command_manager_selftrig (
       cs_error_seen[1:0]          <= next_cs_mismatch_count[1:0];
       wfm_cnt_shrt[10:0]          <= next_wfm_count[10:0];
       data_count_shrt[3:0]        <= next_data_count[3:0];
-      channel_header_last[31:0]   <= next_channel_header_last[31:0] ;
-      channel_header_latch[31:0]  <= next_channel_header_latch[31:0];
+//      channel_header_last[31:0]   <= next_channel_header_last[31:0] ;
+//      channel_header_latch[31:0]  <= next_channel_header_latch[31:0];
 
       
-      delta_trigger[21:0]       <= next_delta_trigger[21:0];
-      trigger_ticks[21:0]       <= next_trigger_ticks[21:0];
-
+//      delta_trigger[21:0]       <= next_delta_trigger[21:0];
+//      trigger_ticks[21:0]       <= next_trigger_ticks[21:0];
+//
       
       burst_count_selftrig[22:0]  <= next_burst_count_selftrig[22:0];
       ipbus_chan_cmd[31:0]        <= next_ipbus_chan_cmd[31:0];
@@ -1300,15 +1296,6 @@ module command_manager_selftrig (
         nextstate[READ_CHAN_DATA_RESYNC] : begin
           ;
         end
-//st        nextstate[READ_PULSE_FIFO]       : begin
-//st          pulse_fifo_tready <= 1;
-//st        end
-//st        nextstate[READ_READOUT_FIFO]     : begin
-//st          m_readout_fifo_tready <= 1;
-//st        end
-//st        nextstate[STORE_PULSE_INFO]      : begin
-//st          s_readout_fifo_tvalid <= 1;
-//st        end
         nextstate[SEND_CHAN_TRAILER1]    : begin
           ;
         end

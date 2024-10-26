@@ -395,13 +395,13 @@ module wfd_selftrig_top (
     assign c4_io[3] = (ipb_rst_stretch | rst_trigger_num_stretch);
 
 
-  // for debugging
-  wire rst_trigger_num_125;
-  sync_2stage rtn_125_sync (
-     .clk(clk125),
-     .in(rst_trigger_num),
-     .out(rst_trigger_num_125)
-  );
+//  // for debugging
+//  wire rst_trigger_num_125;
+//  sync_2stage rtn_125_sync (
+//     .clk(clk125),
+//     .in(rst_trigger_num),
+//     .out(rst_trigger_num_125)
+//  );
 
 	// connect a module that will read from the I2C temperature/memory chip.
 	// since the MAC and IP address are used with IPbus, run the block with 'clk125'
@@ -1981,10 +1981,10 @@ module wfd_selftrig_top (
         .error_trig_num(error_trig_num_from_cm),   // output, trigger number mismatch between channel and master
         .error_trig_type(error_trig_type_from_cm), // output, trigger type mismatch between channel and master
         .chan_error_sn(chan_error_sn[4:0]),        // output [ 4:0]
-        .chan_error_rc(chan_error_rc[4:0]),        // output [ 4:0]
+        .chan_error_rc(chan_error_rc[4:0])         // output [ 4:0]
         
-        // for debugging
-        .rst_trigger_num(rst_trigger_num_125)
+//        // for debugging
+//        .rst_trigger_num(rst_trigger_num_125)
     );
     
     wire ttc_ready_clk125_n;

@@ -29,7 +29,7 @@ module trigger_processor (
   output reg [ 3:0] ttc_xadc_alarms,    // XADC alarms
 
   // status connections
-(* mark_debug = "true" *) output reg [6:0] state,     // state of finite state machine
+  output reg [6:0] state,     // state of finite state machine
   output wire error_trig_num, // trigger number mismatch between FIFOs
   output wire error_trig_type // trigger type mismatch between FIFOs
 );

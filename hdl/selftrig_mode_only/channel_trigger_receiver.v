@@ -32,7 +32,7 @@ module channel_trigger_receiver (
   output reg [22:0] stored_bursts_hi,
 
   // status connections
-(* mark_debug = "true" *) output reg [1:0] state,               // state of finite state machine
+  output reg [1:0] state,               // state of finite state machine
 
   // error connections
   output wire ddr3_almost_full          // DDR3 overflow warning, combined for all channels
