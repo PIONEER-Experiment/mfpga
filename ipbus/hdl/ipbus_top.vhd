@@ -82,6 +82,7 @@ port (
     i2c_temp_polling_dis_out : out std_logic;                     -- disable EEPROM temperature polling
     i2c_temp_update_out      : out std_logic;                     -- read and update EEPROM temperature value
     fp_trig_width_out        : out std_logic_vector( 3 downto 0); -- width to separate short from long front panel triggers
+    reset_fifos_ipb          : out std_logic;                     -- reset the various trigger and readout fifo's'
 
     -- threshold registers
     thres_data_corrupt  : out std_logic_vector(31 downto 0); -- data corruption

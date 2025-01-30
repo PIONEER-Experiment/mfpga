@@ -46,6 +46,7 @@ port (
     i2c_temp_polling_dis_out : out std_logic;
     i2c_temp_update_out      : out std_logic;
     fp_trig_width_out        : out std_logic_vector( 3 downto 0);
+    reset_fifos_ipb          : out std_logic;
 
     -- threshold registers
     thres_data_corrupt  : out std_logic_vector(31 downto 0); -- data corruption
@@ -229,6 +230,7 @@ begin
     cbuf_acquire             <= ctrl_reg(26); -- don't touch
     selftrig_acquire         <= ctrl_reg(27); -- don't touch
     reprog_trigger_out(2)    <= ctrl_reg(28); -- don't touch
+    reset_fifos_ipb          <= ctrl_reg(29); -- don't touch
 
     
     -- Slave 2: Write-only register

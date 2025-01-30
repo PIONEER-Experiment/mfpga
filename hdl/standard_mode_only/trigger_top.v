@@ -9,6 +9,8 @@ module trigger_top (
     input wire reset40,      // in  40 MHz clock domain
     input wire reset40_n,    // in  40 MHz clock domain
     input wire rst_from_ipb, // in 125 MHz clock domain
+    (* mark_debug = "true" *) input wire evt_cnt_rst,  // in TTC (40 MHz) domain
+    input wire reset_fifos_ipb_ttc, // in TTC domain
 
     input wire rst_trigger_num,       // from TTC Channel B
     input wire rst_trigger_timestamp, // from TTC Channel B
@@ -16,6 +18,7 @@ module trigger_top (
     // trigger interface
     input wire ttc_trigger,                // TTC trigger signal
     input wire ext_trigger,                // front panel trigger signal
+    input wire second_trigger,             // second trigger generated from first
     input wire accept_pulse_triggers,      // accept front panel triggers select
     input wire [ 4:0] trig_type,           // trigger type (muon fill, laser, pedestal, async readout)
     input wire [31:0] trig_settings,       // trigger settings
@@ -42,7 +45,6 @@ module trigger_top (
     output wire [23:0] pulse_trigs_last_readout,   // # of pulse triggers during last readout
 
     input  wire m_pulse_fifo_tready,
-    output wire m_pulse_fifo_tvalid,
     output wire [127:0] m_pulse_fifo_tdata,
 
     output wire [23:0] ttc_event_num,      // channel's trigger number
@@ -85,6 +87,11 @@ module trigger_top (
     output wire pulse_fifo_full,       // pulse trigger FIFO is almost full
     output wire acq_fifo_full,         // acquisition event FIFO is almost full
     //output wire [31:0] ext_pulse_delta_t,    // latched time between triggers in this processor
+    // fifo status
+    output wire m_trig_fifo_tvalid,    // there is valid information waiting in the trigger info fifo
+    output wire m_pulse_fifo_tvalid,
+    output wire m_acq_fifo_tvalid,     // there is valid information waiting in the acquisition fifo
+
 
     // number of bursts stored in the DDR3
     output wire [22:0] stored_bursts_chan0,
@@ -97,7 +104,7 @@ module trigger_top (
     output wire [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
     output wire ddr3_almost_full,           // DDR3 overflow warning
     output wire error_trig_rate,            // trigger rate error
-    output wire error_trig_num,             // trigger number error
+    (* mark_debug = "true" *) output wire error_trig_num,             // trigger number error
     output wire error_trig_type             // trigger type error
 );
 
@@ -118,7 +125,7 @@ module trigger_top (
     wire [23:0] acq_trig_num;
 
     // signals between Pulse Trigger Receiver and Channel Acquisition Controllers
-    wire pulse_trigger;
+    (* mark_debug = "true" *) wire pulse_trigger;
 
     // signals to/from TTC Trigger FIFO
     wire s_trig_fifo_tready;
@@ -126,7 +133,7 @@ module trigger_top (
     wire [127:0] s_trig_fifo_tdata;
 
     wire m_trig_fifo_tready;
-    wire m_trig_fifo_tvalid;
+//    wire m_trig_fifo_tvalid;
     wire [127:0] m_trig_fifo_tdata;
 
     wire [22:0] stored_bursts_chan0_ttr;
@@ -147,11 +154,11 @@ module trigger_top (
     wire [22:0] stored_bursts_chan4_ptr;
 
     // signals to/from Acquisition Event FIFO
-    wire s_acq_fifo_tready;
-    wire s_acq_fifo_tvalid;
-    wire [31:0] s_acq_fifo_tdata;
+    (* mark_debug = "true" *) wire s_acq_fifo_tready;
+    (* mark_debug = "true" *) wire s_acq_fifo_tvalid;
+    (* mark_debug = "true" *) wire [31:0] s_acq_fifo_tdata;
 
-    wire s_acq_fifo_tvalid_sync;
+    (* mark_debug = "true" *) wire s_acq_fifo_tvalid_sync;
     wire [31:0] s_acq_fifo_tdata_sync;
 
     wire s_acq_fifo_tvalid_async;
@@ -161,7 +168,7 @@ module trigger_top (
     wire [31:0] s_acq_fifo_tdata_cbuf;
 
     wire m_acq_fifo_tready;
-    wire m_acq_fifo_tvalid;
+    //wire m_acq_fifo_tvalid;
     wire [31:0] m_acq_fifo_tdata;
 
     // error signals
@@ -270,6 +277,20 @@ module trigger_top (
         .clk(ttc_clk),
         .n_extra_cycles(8'h02),
         .signal_out(pulse_trigger_stretch) // 75-ns wide
+    );
+
+    wire second_trigger_stretch;
+    signal_stretch second_trigger_stretch_inst (
+        .signal_in(second_pulse_trigger),
+        .clk(ttc_clk),
+        .n_extra_cycles(8'h02),
+        .signal_out(second_trigger_stretch) // 75-ns wide
+    );
+    (* mark_debug = "true" *) wire pulse_trigger_125;
+    sync_2stage sync_pulse_125 (
+        .clk(clk125),
+        .in(pulse_trigger),
+        .out(pulse_trigger_125)
     );
 
     // -------------------
@@ -389,12 +410,14 @@ module trigger_top (
 
         // trigger interface
         .trigger(ext_trigger),                           // front panel trigger signal
+        .second_trigger(second_trigger),
         .thres_ddr3_overflow(thres_ddr3_overflow[22:0]), // DDR3 overflow threshold
         .chan_en(chan_en_clk40),                         // enabled channels
         .fp_trig_width(fp_trig_width[3:0]),              // width to separate short from long front panel triggers
         .ttc_trigger(ttc_trigger),                       // backplane trigger signal
         .ttc_acq_ready(acq_ready_async),                 // channels are ready to acquire/readout data
         .pulse_trigger(pulse_trigger),                   // channel trigger signal
+        .second_pulse_trigger(second_pulse_trigger),                   // channel trigger signal
         .trig_num(pulse_trig_num),                       // pulse trigger number
         .accepted_ext_trigger_count(accepted_ext_trigger_count),  // cumulative asynchronous pulse trigger number
         .pulse_trigs_last_readout(pulse_trigs_last_readout),      // # asynchronous pulse triggers read by last TTC readout
@@ -522,6 +545,8 @@ module trigger_top (
 
         // interface from pulse trigger receiver
         .pulse_trigger(pulse_trigger_stretch), // trigger signal
+        .second_trigger(second_trigger_stretch),
+
 
         // interface to Channel FPGAs
         .acq_dones(chan_dones_clk40),
@@ -575,12 +600,31 @@ module trigger_top (
     );
 
 
+    // FIFO resets: PG057 (pg 127 in v13.2) recommends that resets are held for at least 3
+    // of the slowest clock cycles to guarantee proper detection.  In all cases, this is the
+    // 40 MHz TTC clock.  We'll extend whatever signal is coming in by 3 clock cycles to be
+    // safe
+
+    assign fifo_reset_short = reset40 | reset_fifos_ipb_ttc;
+    (* mark_debug = "true" *) wire fifo_reset, fifo_reset_n;
+    signal_stretch fifo_reset_stretch(
+      .signal_in(fifo_reset_short),
+      .clk(ttc_clk),
+      .n_extra_cycles(8'd3),
+      .signal_out(fifo_reset)
+    );
+    assign fifo_reset_n = ~fifo_reset;
+
     // TTC Trigger FIFO : 2048 depth, 2047 almost full threshold, 16-byte data width
     // holds the trigger timestamp, trigger number, acquired event number, and trigger type
+    //(* mark_debug = "true" *) wire trigger_info_fifo_reset;
+    //assign trigger_info_fifo_reset = reset40_n & !evt_cnt_rst;
     trigger_info_fifo ttc_trigger_fifo (
         // writing side
         .s_aclk(ttc_clk),                   // input
-        .s_aresetn(reset40_n),              // input
+        .s_aresetn(fifo_reset_n),           // input
+        //.s_aresetn(reset40_n),            // input
+        //.s_aresetn(trigger_info_fifo_reset),// input
         .s_axis_tvalid(s_trig_fifo_tvalid), // input
         .s_axis_tready(s_trig_fifo_tready), // output
         .s_axis_tdata(s_trig_fifo_tdata),   // input  [127:0]
@@ -607,7 +651,9 @@ module trigger_top (
     trigger_info_fifo_pulse pulse_trigger_fifo (
         // writing side
         .s_aclk(ttc_clk),                    // input
-        .s_aresetn(reset40_n),               // input
+        .s_aresetn(fifo_reset_n),            // input
+        //.s_aresetn(reset40_n),             // input
+        //.s_aresetn(trigger_info_fifo_reset), // input
         .s_axis_tvalid(s_pulse_fifo_tvalid), // input
         .s_axis_tready(s_pulse_fifo_tready), // output
         .s_axis_tdata(s_pulse_fifo_tdata),   // input  [127:0]
@@ -632,7 +678,9 @@ module trigger_top (
     acq_event_fifo acq_event_fifo (
         // writing side
         .s_aclk(ttc_clk),                  // input
-        .s_aresetn(reset40_n),             // input
+        .s_aresetn(fifo_reset_n),          // input
+        //.s_aresetn(reset40_n),           // input
+        //.s_aresetn(trigger_info_fifo_reset), // input
         .s_axis_tvalid(s_acq_fifo_tvalid), // input
         .s_axis_tready(s_acq_fifo_tready), // output
         .s_axis_tdata(s_acq_fifo_tdata),   // input  [31:0]

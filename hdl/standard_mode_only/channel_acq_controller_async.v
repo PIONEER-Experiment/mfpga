@@ -9,34 +9,35 @@ module channel_acq_controller_async (
 
   // trigger configuration
   input wire [4:0] chan_en,         // which channels should receive the trigger
-  input wire accept_pulse_triggers, // accept front panel triggers select
+  (* mark_debug = "true" *) input wire accept_pulse_triggers, // accept front panel triggers select
 
   // command manager interface
-  input wire readout_done, // a readout has completed
+  (* mark_debug = "true" *) input wire readout_done, // a readout has completed
 
   // interface from TTC trigger receiver
-  input wire ttc_trigger,          // trigger signal
+  (* mark_debug = "true" *) input wire ttc_trigger,          // trigger signal
   input wire [ 4:0] ttc_trig_type, // recognized trigger type (muon fill, laser, pedestal, async readout)
   input wire [23:0] ttc_trig_num,  // trigger number
   output wire ttc_acq_ready,       // channels are ready for a readout
   output reg ttc_acq_activated,
 
   // interface from pulse trigger receiver
-  input wire pulse_trigger, // trigger signal
+  input wire pulse_trigger,  // trigger signal
+  input wire second_trigger, // for double triggers, this flags that it is the second trigger
 
   // interface to Channel FPGAs
-  input wire [4:0] acq_dones,
-  output reg [9:0] acq_enable,
-  output reg [4:0] acq_trig,
+  (* mark_debug = "true" *) input wire [4:0] acq_dones,
+  (* mark_debug = "true" *) output reg [9:0] acq_enable,
+  (* mark_debug = "true" *) output reg [4:0] acq_trig,
 
   // interface to Acquisition Event FIFO
-  input wire fifo_ready,
-  output reg fifo_valid,
-  output reg [31:0] fifo_data,
+  (* mark_debug = "true" *) input wire fifo_ready,
+  (* mark_debug = "true" *) output reg fifo_valid,
+  (* mark_debug = "true" *) output reg [31:0] fifo_data,
 
   // status connections
-  input wire async_mode, // asynchronous mode select
-  output reg [3:0] state // state of finite state machine
+  (* mark_debug = "true" *) input wire async_mode, // asynchronous mode select
+  (* mark_debug = "true" *) output reg [3:0] state // state of finite state machine
 );
 
   // state bits
@@ -45,10 +46,16 @@ module channel_acq_controller_async (
   parameter STORE_ACQ_INFO = 2;
   parameter READOUT        = 3;
   
+  (* mark_debug = "true" *) wire accept_pulse_triggers_40;
+  sync_2stage apt_sync (
+    .clk(clk),
+    .in(accept_pulse_triggers),
+    .out(accept_pulse_triggers_40)
+  );
 
   reg [ 4:0] acq_trig_type;     // latched trigger type
-  reg [23:0] acq_trig_num;      // latched trigger number
-  reg [ 4:0] acq_dones_latched; // latched channel dones reported
+  (* mark_debug = "true" *) reg [23:0] acq_trig_num;      // latched trigger number
+  (* mark_debug = "true" *) reg [ 4:0] acq_dones_latched; // latched channel dones reported
 
   reg [ 3:0] nextstate;
   reg [ 4:0] next_acq_trig_type;
@@ -58,6 +65,11 @@ module channel_acq_controller_async (
   reg [ 4:0] next_acq_trig;
   reg        next_ttc_acq_activated;
 
+  // while we need to pass along a second trigger to many places in the master code,
+  // do not pass it along to the channels since they will generate a trigger with
+  // more accurate time separation
+  wire pulse_trigger_use;
+  assign pulse_trigger_use = pulse_trigger & !second_trigger;
 
   // combinational always block
   always @* begin
@@ -88,7 +100,7 @@ module channel_acq_controller_async (
         else if (accept_pulse_triggers & async_mode) begin
           // enable lines should be fixed and not set by the trigger type
           next_acq_enable[9:0] = { {2{chan_en[4]}}, {2{chan_en[3]}}, {2{chan_en[2]}}, {2{chan_en[1]}}, {2{chan_en[0]}} };
-          next_acq_trig  [4:0] = (pulse_trigger) ? chan_en[4:0] : 5'b00000;
+          next_acq_trig  [4:0] = (pulse_trigger_use) ? chan_en[4:0] : 5'b00000;
           next_ttc_acq_activated = 1'b1;
 
           nextstate[IDLE] = 1'b1;

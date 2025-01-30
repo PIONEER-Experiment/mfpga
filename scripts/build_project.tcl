@@ -114,13 +114,15 @@ if {[string equal [get_filesets -quiet constrs_impl_1] ""]} {
 set cflist [glob $origin_dir/constraints/standard/ios.xdc \
                  $origin_dir/constraints/standard/timing.xdc \
                  $origin_dir/constraints/synthesis.xdc \
-                 $origin_dir/constraints/bitstream.xdc]
+                 $origin_dir/constraints/bitstream.xdc \
+                 $origin_dir/constraints/wizard.xdc]
 
 set ciflist [glob $origin_dir/constraints/standard/ios.xdc \
                   $origin_dir/constraints/standard/timing.xdc \
                   $origin_dir/constraints/standard/timing_impl.xdc \
                   $origin_dir/constraints/synthesis.xdc \
-                  $origin_dir/constraints/bitstream.xdc]
+                  $origin_dir/constraints/bitstream.xdc \
+                  $origin_dir/constraints/wizard.xdc]
 
 # Set 'constrs_1' fileset object
 set obj [get_filesets constrs_1]

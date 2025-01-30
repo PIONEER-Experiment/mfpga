@@ -13,12 +13,14 @@ module pulse_trigger_receiver (
 
   // trigger interface
   input wire trigger,                    // front panel trigger signal
+  input wire second_trigger,
   input wire [22:0] thres_ddr3_overflow, // DDR3 overflow threshold
   input wire [ 4:0] chan_en,             // enabled channels
   input wire [ 3:0] fp_trig_width,       // width to separate short from long front panel triggers
   input wire ttc_trigger,                // backplane trigger signal
   input wire ttc_acq_ready,              // channels are ready to acquire/readout data
   output reg pulse_trigger,              // channel trigger signal
+  output reg second_pulse_trigger,       // generated channel trigger signal
   output reg [23:0] trig_num,            // global trigger number
   output reg [31:0] accepted_ext_trigger_count, // cumulative # of pulse triggers this run
   output reg [23:0] pulse_trigs_last_readout,   // # of pulse triggers during last readout
@@ -106,6 +108,7 @@ module pulse_trigger_receiver (
   //end
 
   reg next_pulse_trigger;
+  reg next_second_pulse_trigger;
   reg next_trig_went_lo;
   reg [ 4:0] nextstate;
   reg [ 3:0] next_wait_cnt;
@@ -134,7 +137,8 @@ module pulse_trigger_receiver (
     next_ddr3_overflow_count       [31:0] = ddr3_overflow_count[31:0];
     //next_ext_pulse_delta_t       [31:0] = ext_pulse_delta_t  [31:0];
     //next_delta_t_counter         [31:0] = delta_t_counter    [31:0];
-    next_pulse_trigger = 1'b0; // default
+    next_pulse_trigger        = 1'b0; // default
+    next_second_pulse_trigger = 1'b0; // default;
 
     case (1'b1) // synopsys parallel_case full_case
       // idle state
@@ -151,6 +155,7 @@ module pulse_trigger_receiver (
           // pass along the trigger to channels
           else begin
             next_pulse_trigger        = 1'b1;                     // pass on the trigger
+            next_second_pulse_trigger = second_trigger;
             next_trig_went_lo         = 1'b0;                     // clear
             next_trig_length   [ 1:0] = 2'd0;                     // clear
             next_trig_num      [23:0] = trig_num[23:0] + 1;       // increment trigger counter, starts at zero
@@ -199,11 +204,13 @@ module pulse_trigger_receiver (
           nextstate[WAIT] = 1'b1;
         end
       end
+
       // prepare trigger information for storage
       state[READY_TRIG_INFO] : begin
         // trigger information is now ready for storage
         nextstate[STORE_TRIG_INFO] = 1'b1;
       end
+
       // store the trigger information in the FIFO, for the trigger processor
       state[STORE_TRIG_INFO] : begin
         //next_delta_t_counter[31:0] = delta_t_counter[31:0] + 1;
@@ -246,6 +253,7 @@ module pulse_trigger_receiver (
 
       trig_went_lo      <= 1'b0;
       pulse_trigger     <= 1'b0;
+      second_pulse_trigger     <= 1'b0;
       
       //ext_pulse_delta_t[31:0] <= 32'd0;
       //delta_t_counter  [31:0] <= 32'd0;
@@ -259,6 +267,7 @@ module pulse_trigger_receiver (
 
       trig_went_lo      <= next_trig_went_lo;
       pulse_trigger     <= next_pulse_trigger;
+      second_pulse_trigger <= next_second_pulse_trigger;
       
       //ext_pulse_delta_t[31:0] <= next_ext_pulse_delta_t[31:0];
       //delta_t_counter  [31:0] <= next_delta_t_counter  [31:0];

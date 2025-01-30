@@ -17,13 +17,13 @@ module command_manager (
   input wire chan_tx_fifo_ready,
   output reg chan_tx_fifo_valid,
   output reg chan_tx_fifo_last,
-  output reg [ 3:0] chan_tx_fifo_dest,
+  (* mark_debug = "true" *) output reg [ 3:0] chan_tx_fifo_dest,
   output reg [31:0] chan_tx_fifo_data,
 
   // interface to RX channel FIFO (through AXI4-Stream RX Switch)
-  input wire chan_rx_fifo_valid,
-  input wire chan_rx_fifo_last,
-  input wire [31:0] chan_rx_fifo_data,
+  (* mark_debug = "true" *) input wire chan_rx_fifo_valid,
+  (* mark_debug = "true" *) input wire chan_rx_fifo_last,
+  (* mark_debug = "true" *) input wire [31:0] chan_rx_fifo_data,
   //input wire [31:0] chan_rx_fifo_data,
   output reg chan_rx_fifo_ready,
 
@@ -54,13 +54,15 @@ module command_manager (
   input wire initiate_readout,       // request for the channels to be read out
   input wire [23:0] event_num,       // channel's trigger number
   input wire [23:0] trig_num,        // global trigger number, starts at 1
-  input wire [ 4:0] trig_type,       // trigger type
+  (* mark_debug = "true" *) input wire [ 4:0] trig_type,       // trigger type
   input wire [43:0] trig_timestamp,  // trigger timestamp, defined by when trigger is received by trigger receiver module
   input wire [ 3:0] ttc_xadc_alarms, // XADC alarms
   input wire [ 4:0] curr_trig_type,  // currently set trigger type
   output wire readout_ready,         // ready to readout data, i.e., when in idle state
   output reg  readout_done,          // finished readout flag
   output reg  async_readout_done,    // finished asynchronous readout flag
+  output wire double_fp_triggers,    // capture a 2nd waveform for each front panel trigger
+  output     [21:0] muon_gap_count,  // the gap count between waveforms for type 1 trigger, also used for gap when doubling front panel trigger
 
   // read out size for each channel
   output wire [22:0] readout_size_chan0,
@@ -98,7 +100,7 @@ module command_manager (
   input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
   input wire async_mode,                // asynchronous mode flag
   input wire cbuf_mode,                 // circular buffer mode flag
-  output reg [34:0] state,              // state of finite state machine
+  (* mark_debug = "true" *) output reg [34:0] state,              // state of finite state machine
 
   // error connections
   output reg [31:0] cs_mismatch_count, // number of checksum mismatches
@@ -175,7 +177,7 @@ module command_manager (
   reg [127:0] channel_checksum; // checksum from received channel data
 
   // regs for asynchronous mode
-  reg [22:0] pulse_data_size;   // burst count covering channel headers, waveform headers, waveforms, and checksums
+  (* mark_debug = "true" *) reg [22:0] pulse_data_size;   // burst count covering channel headers, waveform headers, waveforms, and checksums
   reg [43:0] pulse_timestamp;   // 44-bit pulse trigger timestamp
   reg [23:0] pulse_trig_num;    // pulse trigger number
   reg [ 1:0] pulse_trig_length; // length of pulse trigger (short or long)
@@ -189,6 +191,7 @@ module command_manager (
   reg [22:0] chan_burst_count_type3 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 3
   reg [22:0] chan_burst_count_type4 [4:0]; // two-dimentional memory for the configured burst counts, trigger type 4
   reg [11:0] chan_wfm_count_type1   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 1
+  reg [21:0] chan_gap_count_type1   [4:0];
   reg [11:0] chan_wfm_count_type2   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 2
   reg [11:0] chan_wfm_count_type3   [4:0]; // two-dimentional memory for the configured waveform counts, trigger type 3
   reg [31:0] ipbus_chan_cmd;               // buffer for issued channel command
@@ -244,10 +247,31 @@ module command_manager (
   reg [11:0] next_chan_wfm_count_type1   [4:0];
   reg [11:0] next_chan_wfm_count_type2   [4:0];
   reg [11:0] next_chan_wfm_count_type3   [4:0];
+  reg [21:0] next_chan_gap_count_type1   [4:0];
 
+  (*mark_debug = "true" *) wire [23:0] total_fp_triggers_sync;
+  sync_2stage #( .WIDTH(24) ) fp_trig_sync (
+    .clk(clk),
+    .in(total_fp_triggers),
+    .out(total_fp_triggers_sync)
+  );
 
   // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
-  wire [19:0] event_size_type1, event_size_type2, event_size_type3, event_size_type4;
+  wire [19:0] event_size_type1, event_size_type2, event_size_type3;
+  wire [19:0] event_size_type4;
+//  wire [19:0] event_size_type4_out;
+//  reg [19:0] event_size_type4_reg1;
+//  (* mark_debug = "true" *) reg [19:0] event_size_type4_reg2;
+//  always @(posedge clk) begin
+//    event_size_type4_reg1 <= event_size_type4;
+//    event_size_type4_reg2 <= event_size_type4_reg1;
+//  end
+//  vio_1 inst_vio_1 (
+//    .clk(clk),                // input wire clk
+//    .probe_in0(event_size_type4_reg2),    // input wire [19 : 0] probe_in0
+//    .probe_out0(event_size_type4_out)  // output wire [19 : 0] probe_out0
+//  );//
+
 
   // muon fill trigger type
   assign event_size_type1 = ((chan_burst_count_type1[0]*2+2)*chan_wfm_count_type1[0]+5)*chan_en[0]+ 
@@ -308,6 +332,8 @@ module command_manager (
                               (trig_type_latch[4:0] == 5'b00011) ? (chan_burst_count_type3[4]+1)*chan_wfm_count_type3[4]+2 :
                                                                    23'd0;
 
+  assign muon_gap_count = chan_gap_count_type1[0];
+
   // this board's serial number
   wire [11:0] board_id;
   assign board_id = (i2c_mac_adr[15:8]-1)*256+i2c_mac_adr[7:0];
@@ -362,8 +388,7 @@ module command_manager (
                            (curr_trig_type[4:0] == 5'b00011) ? chan_wfm_count_type3[4] :
                                                                12'd0;
 
-  
-
+  assign double_fp_triggers = chan_wfm_count_type1[0] > 1;
 
   // signals to/from Pulse Readout FIFO
   wire readout_fifo_full;
@@ -479,6 +504,11 @@ module command_manager (
     next_chan_wfm_count_type3[2]   = chan_wfm_count_type3[2];
     next_chan_wfm_count_type3[3]   = chan_wfm_count_type3[3];
     next_chan_wfm_count_type3[4]   = chan_wfm_count_type3[4];
+    next_chan_gap_count_type1[0]   = chan_gap_count_type1[0];
+    next_chan_gap_count_type1[1]   = chan_gap_count_type1[1];
+    next_chan_gap_count_type1[2]   = chan_gap_count_type1[2];
+    next_chan_gap_count_type1[3]   = chan_gap_count_type1[3];
+    next_chan_gap_count_type1[4]   = chan_gap_count_type1[4];
     next_daq_valid          = 0; // default
     chan_tx_fifo_data[31:0] = 0; // default
     ipbus_res_data[31:0]    = 0; // default
@@ -573,6 +603,9 @@ module command_manager (
              end
              else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0012)) begin
                next_chan_wfm_count_type3[chan_tx_fifo_dest]   = ipbus_cmd_data[11:0]; // waveform count value, pedestal fill
+             end
+             else if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0013)) begin
+               next_chan_gap_count_type1[chan_tx_fifo_dest]   = ipbus_cmd_data[21:0]; // waveform gap value, muon fill
              end
           end
           nextstate[CHECK_LAST] = 1'b1;
@@ -1453,6 +1486,11 @@ module command_manager (
       chan_wfm_count_type3[2]   <= 12'd1;     // channel default is 1
       chan_wfm_count_type3[3]   <= 12'd1;     // channel default is 1
       chan_wfm_count_type3[4]   <= 12'd1;     // channel default is 1
+      chan_gap_count_type1[0]   <= 12'd1;     // channel default is 1
+      chan_gap_count_type1[1]   <= 12'd1;     // channel default is 1
+      chan_gap_count_type1[2]   <= 12'd1;     // channel default is 1
+      chan_gap_count_type1[3]   <= 12'd1;     // channel default is 1
+      chan_gap_count_type1[4]   <= 12'd1;     // channel default is 1
       ipbus_chan_cmd[31:0]      <= 0;
       ipbus_chan_reg[31:0]      <= 0;
       pulse_data_size[22:0]     <= 23'd0;
@@ -1536,6 +1574,11 @@ module command_manager (
       chan_wfm_count_type3[2]     <= next_chan_wfm_count_type3[2];
       chan_wfm_count_type3[3]     <= next_chan_wfm_count_type3[3];
       chan_wfm_count_type3[4]     <= next_chan_wfm_count_type3[4];
+      chan_gap_count_type1[0]     <= next_chan_gap_count_type1[0];
+      chan_gap_count_type1[1]     <= next_chan_gap_count_type1[1];
+      chan_gap_count_type1[2]     <= next_chan_gap_count_type1[2];
+      chan_gap_count_type1[3]     <= next_chan_gap_count_type1[3];
+      chan_gap_count_type1[4]     <= next_chan_gap_count_type1[4];
       ipbus_chan_cmd[31:0]        <= next_ipbus_chan_cmd[31:0];
       ipbus_chan_reg[31:0]        <= next_ipbus_chan_reg[31:0];
       pulse_data_size[22:0]       <= next_pulse_data_size[22:0];

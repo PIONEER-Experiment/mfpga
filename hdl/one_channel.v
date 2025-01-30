@@ -60,7 +60,9 @@ module one_channel (
   wire aurora_user_clk;   // used to connect to the parallel side of the Aurora
   wire [31:0] local_axis_tx_tdata, local_axis_rx_tdata;
   wire [ 3:0] local_axis_tx_tkeep, local_axis_rx_tkeep;
-  wire local_axis_rx_tready;
+  wire local_axis_rx_tvalid, local_axis_tx_tvalid;
+  wire local_axis_rx_tready, local_axis_tx_tready;
+  wire local_axis_rx_tlast, local_axis_tx_tlast;
   wire drdy_out_unused;
   wire [15:0] drpdo_out_unused;
 

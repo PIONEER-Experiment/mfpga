@@ -22,8 +22,8 @@ module wfd_top (
     input  wire c4_rx, c4_rx_N,       // Serial link to Channel 4 RX
     output wire c4_tx, c4_tx_N,       // Serial link to Channel 4 TX
     output wire [7:0] debug,          // debug header
-    output wire [4:0] acq_trigs,      // triggers to channel FPGAs
-    input  wire [4:0] acq_dones,      // done signals from channel FPGAs
+    (* mark_debug = "true" *) output wire [4:0] acq_trigs,      // triggers to channel FPGAs
+    (* mark_debug = "true" *) input  wire [4:0] acq_dones,      // done signals from channel FPGAs
     output wire master_led0,          // front panel LEDs for master status, led0 is green
     output wire master_led1,          // front panel LEDs for master status, led1 is red
     output wire clksynth_led0,        // front panel LEDs for clk synth status, led0 is green
@@ -149,7 +149,7 @@ module wfd_top (
 
     // hard errors
     wire error_data_corrupt;
-    wire error_trig_num_from_tt;
+    (* mark_debug = "true" *) wire error_trig_num_from_tt;
     wire error_trig_type_from_tt;
     wire error_trig_num_from_cm;
     wire error_trig_type_from_cm;
@@ -167,7 +167,7 @@ module wfd_top (
     wire [4:0] chan_error_rc; // master received an error response code, one bit for each channel
 
     // ======== I/O lines to channel ========
-    wire [9:0] acq_enable;
+    (* mark_debug = "true" *) wire [9:0] acq_enable;
     wire [4:0] acq_readout_pause;
 
     assign c0_io[0] = acq_readout_pause[0];
@@ -237,7 +237,7 @@ module wfd_top (
     wire [ 3:0] caca_state;
     wire [ 3:0] cacc_state;
     wire [ 6:0] tp_state;
-    wire [34:0] cm_state;
+    (* mark_debug = "true" *) wire [34:0] cm_state;
 
     // ======== TTC Channel B information signals ========
     wire [5:0] ttc_chan_b_info;
@@ -248,7 +248,7 @@ module wfd_top (
     wire [4:0] ttc_fill_type;
     wire [4:0] fill_type;
     wire ttc_accept_pulse_triggers;
-    wire accept_pulse_triggers;
+    (* mark_debug = "true" *) wire accept_pulse_triggers;
 
     assign fill_type[4:0]        = (ipb_async_trig_type) ? 5'b00100 : ttc_fill_type[4:0];
     assign accept_pulse_triggers = ttc_accept_pulse_triggers | ipb_accept_pulse_triggers;
@@ -322,14 +322,14 @@ module wfd_top (
         .out(ipb_clk50_reset)
     );
 
-    wire reset40;
+    (* mark_debug = "true" *) wire reset40;
     sync_2stage reset40_sync (
         .clk(ttc_clk),
         .in(ipb_rst_stretch),
         .out(reset40)
     );
 
-    wire reset40_n;
+    (* mark_debug = "true" *) wire reset40_n;
     assign reset40_n = ~reset40;
 
 
@@ -339,6 +339,21 @@ module wfd_top (
         .clk(ttc_clk),
         .n_extra_cycles(8'h02),
         .signal_out(rst_trigger_num_stretch) // 75-ns wide
+    );
+
+    wire reset_fifos_ipb_stretch;
+    signal_stretch reset_fifos_stretch (
+       .clk(clk125),
+       .signal_in(reset_fifos_ipb),
+       .n_extra_cycles(8'h13),
+       .signal_out(reset_fifos_ipb_stretch)
+    );
+    
+    wire reset_fifos_ipb_ttc;
+    sync_2stage reset_fifos_sync (
+       .clk(ttc_clk),
+       .in(reset_fifos_ipb_stretch),
+       .out(reset_fifos_ipb_ttc)
     );
 
     // active-high reset signal to channels
@@ -732,6 +747,28 @@ SRLC32E #(
     // meant to prevent spurious triggers due to clock changes
     assign trigger_from_ttc = trigger_from_decoder & ttc_ready;
 
+    // put trigger_from_ttc into 125 MHz domain
+    (* mark_debug = "true" *) wire ttc_trigger_125;
+    sync_2stage ttc_trig_sync125 (
+      .clk(clk125),
+      .in(trigger_from_ttc),
+      .out(ttc_trigger_125)
+    );
+    // latch first occurrence of the ttc_trigger for debugging
+    (* mark_debug = "true" *) reg latch_ttc_trigger;
+    always @ (posedge clk125) begin
+      if ( rst_from_ipb ) begin
+        latch_ttc_trigger = 1'b0;
+      end
+      else if (ttc_trigger_125 ) begin
+        latch_ttc_trigger = 1'b1;
+      end
+      else begin
+        latch_ttc_trigger = latch_ttc_trigger;
+      end
+    end
+
+
     // put other trigger signals into 40 MHz TTC clock domain
     wire ext_trig_stretch;
     wire ext_trig_sync;
@@ -749,6 +786,16 @@ SRLC32E #(
         .in(ext_trig_stretch),
         .out(ext_trig_sync)
     );
+ 
+    wire [21:0] second_waveform_gap, muon_gap_count;
+    wire second_trigger;
+    delay_signal double_ext_trig (
+       .clk(ttc_clk),
+       .enable(double_fp_triggers),
+       .delay(second_waveform_gap),
+       .trig_pulse(ext_trig_sync),
+       .delayed_pulse(second_trigger)
+    );
 
     (* ASYNC_REG = "TRUE" *) reg ext_trig_pulse_sync1, ext_trig_pulse_sync2, ext_trig_pulse_sync3;
     reg ext_trig_pulse;
@@ -764,7 +811,9 @@ SRLC32E #(
     end
 
     wire ext_trig_to_trigger_top;
-    assign ext_trig_to_trigger_top = (ext_trig_pulse_en) ? ext_trig_pulse : ext_trig_sync;
+    wire double_trig;
+    assign double_trig = ext_trig_sync | second_trigger;
+    assign ext_trig_to_trigger_top = (ext_trig_pulse_en) ? ext_trig_pulse : double_trig;
 
 
     // select bit for the endianness of ADC data
@@ -932,9 +981,9 @@ SRLC32E #(
 
 
     // ======== communication with the AMC13 DAQ link ========
-    wire daq_header, daq_trailer;
-    wire daq_valid, daq_ready;
-    wire daq_almost_full;
+    (* mark_debug = "true" *) wire daq_header, daq_trailer;
+    (* mark_debug = "true" *) wire daq_valid, daq_ready;
+    (* mark_debug = "true" *) wire daq_almost_full;
     wire [63:0] daq_data;
     
     // ======== status register signals ========
@@ -1090,6 +1139,7 @@ SRLC32E #(
         .i2c_temp_polling_dis_out(i2c_temp_polling_dis),   // disable EEPROM temperature polling
         .i2c_temp_update_out(i2c_temp_update),             // read and update EEPROM temperature value
         .fp_trig_width_out(fp_trig_width_from_ipbus[3:0]), // width to separate short from long front panel triggers
+        .reset_fifos_ipb(reset_fifos_ipb),                 // reset the fifos related to trigger / readout
 
         // threshold registers
         .thres_data_corrupt(thres_data_corrupt),   // data corruption
@@ -1545,8 +1595,11 @@ SRLC32E #(
         .pulse_trigs_last_readout(pulse_trigs_last_readout),
         .raw_ext_trigger_count(raw_ext_trigger_count),
         .accepted_ext_trigger_count(accepted_ext_trigger_count),
-        //.ext_pulse_delta_t(ext_pulse_delta_t),
-        //.ext_trig_delta_t(ext_trig_delta_t),
+
+        // fifo read valid status
+        .m_trig_fifo_tvalid(m_trig_fifo_tvalid),
+        .m_pulse_fifo_tvalid(m_pulse_fifo_tvalid),
+        .m_acq_fifo_tvalid(m_acq_fifo_tvalid),
 
         // slow control
         .i2c_temp(i2c_temp),
@@ -1637,6 +1690,8 @@ SRLC32E #(
         .reset40(reset40),           // in  40 MHz clock domain
         .reset40_n(reset40_n),       // in  40 MHz clock domain
         .rst_from_ipb(rst_from_ipb), // in 125 MHz clock domain
+        .evt_cnt_rst(ttc_evt_reset), // in TTC (40 MHz) domain
+        .reset_fifos_ipb_ttc(reset_fifos_ipb_ttc), // in TTC domain
 
         .rst_trigger_num(rst_trigger_num),             // from TTC Channel B
         .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
@@ -1644,6 +1699,7 @@ SRLC32E #(
         // trigger interface
         .ttc_trigger(trigger_from_ttc),                    // TTC trigger signal
         .ext_trigger(ext_trig_to_trigger_top),             // front panel trigger signal
+        .second_trigger(second_trigger),
         .accept_pulse_triggers(accept_pulse_triggers),     // accept front panel triggers select
         .trig_type(fill_type[4:0]),                        // trigger type (muon fill, laser, pedestal, async)
         .trig_settings({28'd0, trig_settings[2:0], 1'b0}), // trigger settings
@@ -1668,9 +1724,7 @@ SRLC32E #(
         .pulse_trig_num(pulse_trig_num),         // asynchronous pulse trigger number
         .accepted_ext_trigger_count(accepted_ext_trigger_count),  // cumulative asynchronous pulse trigger number
         .pulse_trigs_last_readout(pulse_trigs_last_readout),      // # asynchronous pulse triggers read by last TTC readout
-
         .m_pulse_fifo_tready(pulse_fifo_tready), // input
-        .m_pulse_fifo_tvalid(pulse_fifo_tvalid), // output
         .m_pulse_fifo_tdata(pulse_fifo_tdata),   // output [127:0]
 
         .ttc_event_num(ttc_event_num),           // channel's trigger number
@@ -1712,7 +1766,10 @@ SRLC32E #(
         .trig_fifo_full(trig_fifo_full),   // TTC trigger FIFO is almost full
         .pulse_fifo_full(pulse_fifo_full), // pulse trigger FIFO is almost full
         .acq_fifo_full(acq_fifo_full),     // acquisition event FIFO is almost full
-        //.ext_pulse_delta_t(ext_pulse_delta_t), // time between front panel pulses seen in pulse_trigger_receiver
+        // fifo status
+        .m_trig_fifo_tvalid(m_trig_fifo_tvalid), // there is valid information waiting in the trigger info fifo
+        .m_pulse_fifo_tvalid(pulse_fifo_tvalid), // output
+        .m_acq_fifo_tvalid(m_acq_fifo_tvalid),
         
         // number of bursts stored in the DDR3
         .stored_bursts_chan0(stored_bursts_chan0),
@@ -1734,6 +1791,9 @@ SRLC32E #(
     // pull down DAQ link 'ready' whenever its 'almost_full' is asserted for the previous two clock cycles
     wire daq_ready_for_data;
     assign daq_ready_for_data = daq_ready & ~daq_almost_full;
+
+    // the 3 bit shift ( divide by 8) gets the waveform gap in roughly the correct place
+    assign second_waveform_gap[21:0] = {3'b000, muon_gap_count[21:3]};
 
     // command manager module
     command_manager command_manager (
@@ -1788,6 +1848,8 @@ SRLC32E #(
         .readout_ready(readout_ready),           // ready to readout data, i.e., when in idle state
         .readout_done(readout_done),             // finished readout flag
         .async_readout_done(async_readout_done), // finished asynchronous readout flag
+        .double_fp_triggers(double_fp_triggers), // capture a 2nd waveform for each front panel trigger
+        .muon_gap_count(muon_gap_count),         // used for the 2nd waveform gap
 
         // read out size for each channel
         .readout_size_chan0(readout_size_chan0), // readout size for Channel 0

@@ -92,6 +92,11 @@ module status_reg_block (
   input wire [23:0] pulse_trigs_last_readout,
   input wire [31:0] raw_ext_trigger_count,
   input wire [31:0] accepted_ext_trigger_count,
+
+  // fifo read valid status
+  input wire m_trig_fifo_tvalid,
+  input wire m_pulse_fifo_tvalid,
+  input wire m_acq_fifo_tvalid,
   //input wire [31:0] ext_pulse_delta_t,
   //input wire [31:0] ext_trig_delta_t,
 
@@ -237,17 +242,11 @@ assign status_reg26 = {xadc_vccint[15:0], xadc_temp[15:0]};
 // Register 27: XADC VCCAUX and VCCBRAM
 assign status_reg27 = {xadc_vccbram[15:0], xadc_vccaux[15:0]};
 
-// Register 28: XADC alarms
-assign status_reg28 = {27'd0, xadc_alarm_vccbram, xadc_alarm_vccaux, xadc_alarm_vccint, xadc_alarm_temp, xadc_over_temp};
+// Register 28: XADC alarms and fifo status
+assign status_reg28 = {24'd0, m_acq_fifo_tvalid, m_pulse_fifo_tvalid, m_trig_fifo_tvalid, xadc_alarm_vccbram, xadc_alarm_vccaux, xadc_alarm_vccint, xadc_alarm_temp, xadc_over_temp};
 
 // Register 29: raw front panel trigger count
 assign status_reg29 = raw_ext_trigger_count[31:0];
-
-//// Register 30: time between front panel triggers a la pulse receiver
-//assign status_reg30 = ext_pulse_delta_t[31:0];
-//
-//// Register 31: time between front panel triggers a la raw front panel trigger counter
-//assign status_reg31 = ext_trig_delta_t[31:0];
 
 // Register 30: number of front panel triggers processed by last readout
 assign status_reg30 = {8'd0, pulse_trigs_last_readout[23:0]};
