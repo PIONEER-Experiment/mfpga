@@ -10,7 +10,7 @@ module ttc_trigger_receiver (
   input wire reset_trig_timestamp,
 
   // trigger interface
-  (* mark_debug = "true" *) input wire trigger,                    // TTC trigger signal
+  input wire trigger,                    // TTC trigger signal
   input wire [ 4:0] trig_type,           // trigger type
   input wire [31:0] trig_settings,       // trigger settings
   input wire [22:0] thres_ddr3_overflow, // DDR3 overflow threshold
@@ -56,9 +56,9 @@ module ttc_trigger_receiver (
 
   // status connections
   input wire async_mode,            // asynchronous mode select
-  (* mark_debug = "true" *) input wire accept_pulse_triggers, // accept front panel triggers select
+  input wire accept_pulse_triggers, // accept front panel triggers select
   input wire [ 3:0] xadc_alarms,    // XADC alarm signals
-  (* mark_debug = "true" *) output reg [ 3:0] state,          // state of finite state machine
+  output reg [ 3:0] state,          // state of finite state machine
   output reg [23:0] trig_num,       // global trigger number
   output reg [43:0] trig_timestamp, // global trigger timestamp
 

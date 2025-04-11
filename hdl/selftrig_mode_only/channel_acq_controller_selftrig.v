@@ -63,6 +63,8 @@ module channel_acq_controller_selftrig (
   reg        next_ttc_acq_activated;
   reg accept_self_triggers_reg;
 
+  wire [4:0] acq_dones_compare;
+  assign acq_dones_compare = acq_dones_latched & chan_en;
 
   // combinational always block
   always @* begin
@@ -156,7 +158,7 @@ module channel_acq_controller_selftrig (
         end
 
         // check if all channels report done
-        if ( acq_dones_latched[4:0] == chan_en[4:0] ) begin
+        if ( acq_dones_compare[4:0] == chan_en[4:0] ) begin
           nextstate[STORE_ACQ_INFO] = 1'b1;
         end
         else begin
@@ -201,12 +203,12 @@ module channel_acq_controller_selftrig (
         // readout still in progress
         else begin
           nextstate[READOUT] = 1'b1;
-          if ( accept_self_triggers ) begin
+          //if ( accept_self_triggers ) begin
             next_acq_enable[4:0] = chan_en[4:0];
-          end
-          else begin
-            next_acq_enable[4:0] = 5'b00000;
-          end
+          //end
+          //else begin
+          //  next_acq_enable[4:0] = 5'b00000;
+          //end
         end
       end
     endcase

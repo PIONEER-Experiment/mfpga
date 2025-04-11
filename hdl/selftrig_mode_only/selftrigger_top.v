@@ -9,10 +9,11 @@ module selftrigger_top (
     input wire reset40,      // in  40 MHz clock domain
     input wire reset40_n,    // in  40 MHz clock domain
     input wire rst_from_ipb, // in 125 MHz clock domain
+    input wire reset_fifos,  // in TTC domain
 
     input wire rst_trigger_num,       // from TTC Channel B
     input wire rst_trigger_timestamp,
-
+    
     // trigger interface
     input wire ttc_trigger,                // TTC trigger signal
     input wire accept_self_triggers,       // enabled channels should start accepting triggers
@@ -75,6 +76,7 @@ module selftrigger_top (
     output wire [43:0] trig_timestamp, // timestamp for latest trigger received
     output wire trig_fifo_full,        // TTC trigger FIFO is almost full
     output wire acq_fifo_full,         // acquisition event FIFO is almost full
+    output wire trig_fifo_empty,       // trigger fifo has no valid information left
 
     // number of bursts stored in the DDR3 for the buffer being written to
     output wire [22:0] stored_bursts_chan0,
@@ -114,6 +116,7 @@ module selftrigger_top (
     wire m_trig_fifo_tready;
     wire m_trig_fifo_tvalid;
     wire [127:0] m_trig_fifo_tdata;
+    assign trig_fifo_empty = ~m_trig_fifo_tvalid;
 
 
     // signals to/from channel Pulse self-triggered FIFOs
@@ -296,7 +299,8 @@ module selftrigger_top (
           // clock and reset
           .clk(ttc_clk),   // 40 MHz TTC clock
           .reset(reset40),
-  
+          .reset_fifos(reset_fifos),
+
           // TTC Channel B resets
           .reset_trig_num(rst_trigger_num),
   

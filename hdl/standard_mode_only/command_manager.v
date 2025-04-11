@@ -17,13 +17,13 @@ module command_manager (
   input wire chan_tx_fifo_ready,
   output reg chan_tx_fifo_valid,
   output reg chan_tx_fifo_last,
-  (* mark_debug = "true" *) output reg [ 3:0] chan_tx_fifo_dest,
+  output reg [ 3:0] chan_tx_fifo_dest,
   output reg [31:0] chan_tx_fifo_data,
 
   // interface to RX channel FIFO (through AXI4-Stream RX Switch)
-  (* mark_debug = "true" *) input wire chan_rx_fifo_valid,
-  (* mark_debug = "true" *) input wire chan_rx_fifo_last,
-  (* mark_debug = "true" *) input wire [31:0] chan_rx_fifo_data,
+  input wire chan_rx_fifo_valid,
+  input wire chan_rx_fifo_last,
+  input wire [31:0] chan_rx_fifo_data,
   //input wire [31:0] chan_rx_fifo_data,
   output reg chan_rx_fifo_ready,
 
@@ -54,7 +54,7 @@ module command_manager (
   input wire initiate_readout,       // request for the channels to be read out
   input wire [23:0] event_num,       // channel's trigger number
   input wire [23:0] trig_num,        // global trigger number, starts at 1
-  (* mark_debug = "true" *) input wire [ 4:0] trig_type,       // trigger type
+  input wire [ 4:0] trig_type,       // trigger type
   input wire [43:0] trig_timestamp,  // trigger timestamp, defined by when trigger is received by trigger receiver module
   input wire [ 3:0] ttc_xadc_alarms, // XADC alarms
   input wire [ 4:0] curr_trig_type,  // currently set trigger type
@@ -100,7 +100,7 @@ module command_manager (
   input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
   input wire async_mode,                // asynchronous mode flag
   input wire cbuf_mode,                 // circular buffer mode flag
-  (* mark_debug = "true" *) output reg [34:0] state,              // state of finite state machine
+  output reg [34:0] state,              // state of finite state machine
 
   // error connections
   output reg [31:0] cs_mismatch_count, // number of checksum mismatches
@@ -177,7 +177,7 @@ module command_manager (
   reg [127:0] channel_checksum; // checksum from received channel data
 
   // regs for asynchronous mode
-  (* mark_debug = "true" *) reg [22:0] pulse_data_size;   // burst count covering channel headers, waveform headers, waveforms, and checksums
+  reg [22:0] pulse_data_size;   // burst count covering channel headers, waveform headers, waveforms, and checksums
   reg [43:0] pulse_timestamp;   // 44-bit pulse trigger timestamp
   reg [23:0] pulse_trig_num;    // pulse trigger number
   reg [ 1:0] pulse_trig_length; // length of pulse trigger (short or long)
@@ -249,7 +249,7 @@ module command_manager (
   reg [11:0] next_chan_wfm_count_type3   [4:0];
   reg [21:0] next_chan_gap_count_type1   [4:0];
 
-  (*mark_debug = "true" *) wire [23:0] total_fp_triggers_sync;
+  wire [23:0] total_fp_triggers_sync;
   sync_2stage #( .WIDTH(24) ) fp_trig_sync (
     .clk(clk),
     .in(total_fp_triggers),
@@ -926,6 +926,7 @@ module command_manager (
       state[SEND_AMC13_HEADER1] : begin
         if (daq_ready) begin
           next_daq_valid = 1'b1;
+          // note: trig_type[2] = 1 for async mode, and 0 for any of the synchronous trigger types
           next_daq_data[63:0] = {chan_en[4:0], endianness_sel, ttc_xadc_alarms[3:0], (empty_event | empty_payload), trig_type[4:0], trig_timestamp[31:0], 3'd1, trig_type[2], board_id[11:0]};
           nextstate[SEND_AMC13_HEADER2] = 1'b1;
         end
@@ -975,7 +976,7 @@ module command_manager (
 
           // synchronous mode
           if (~trig_type[2]) begin
-             if (~cbuf_mode ) begin // pattern mode
+             if (~e_mode ) begin // pattern mode
                 next_daq_data[63:0] = {2'b01, 4'h0, chan_tag[11:0], wfm_gap_length[21:0], wfm_count[11:0], ddr3_start_addr[25:14]};
              end
              else begin

@@ -22,8 +22,8 @@ module wfd_top (
     input  wire c4_rx, c4_rx_N,       // Serial link to Channel 4 RX
     output wire c4_tx, c4_tx_N,       // Serial link to Channel 4 TX
     output wire [7:0] debug,          // debug header
-    (* mark_debug = "true" *) output wire [4:0] acq_trigs,      // triggers to channel FPGAs
-    (* mark_debug = "true" *) input  wire [4:0] acq_dones,      // done signals from channel FPGAs
+    output wire [4:0] acq_trigs,      // triggers to channel FPGAs
+    input  wire [4:0] acq_dones,      // done signals from channel FPGAs
     output wire master_led0,          // front panel LEDs for master status, led0 is green
     output wire master_led1,          // front panel LEDs for master status, led1 is red
     output wire clksynth_led0,        // front panel LEDs for clk synth status, led0 is green
@@ -149,7 +149,7 @@ module wfd_top (
 
     // hard errors
     wire error_data_corrupt;
-    (* mark_debug = "true" *) wire error_trig_num_from_tt;
+    wire error_trig_num_from_tt;
     wire error_trig_type_from_tt;
     wire error_trig_num_from_cm;
     wire error_trig_type_from_cm;
@@ -167,7 +167,7 @@ module wfd_top (
     wire [4:0] chan_error_rc; // master received an error response code, one bit for each channel
 
     // ======== I/O lines to channel ========
-    (* mark_debug = "true" *) wire [9:0] acq_enable;
+    wire [9:0] acq_enable;
     wire [4:0] acq_readout_pause;
 
     assign c0_io[0] = acq_readout_pause[0];
@@ -237,7 +237,7 @@ module wfd_top (
     wire [ 3:0] caca_state;
     wire [ 3:0] cacc_state;
     wire [ 6:0] tp_state;
-    (* mark_debug = "true" *) wire [34:0] cm_state;
+     wire [34:0] cm_state;
 
     // ======== TTC Channel B information signals ========
     wire [5:0] ttc_chan_b_info;
@@ -248,7 +248,7 @@ module wfd_top (
     wire [4:0] ttc_fill_type;
     wire [4:0] fill_type;
     wire ttc_accept_pulse_triggers;
-    (* mark_debug = "true" *) wire accept_pulse_triggers;
+    wire accept_pulse_triggers;
 
     assign fill_type[4:0]        = (ipb_async_trig_type) ? 5'b00100 : ttc_fill_type[4:0];
     assign accept_pulse_triggers = ttc_accept_pulse_triggers | ipb_accept_pulse_triggers;
@@ -322,14 +322,14 @@ module wfd_top (
         .out(ipb_clk50_reset)
     );
 
-    (* mark_debug = "true" *) wire reset40;
+    wire reset40;
     sync_2stage reset40_sync (
         .clk(ttc_clk),
         .in(ipb_rst_stretch),
         .out(reset40)
     );
 
-    (* mark_debug = "true" *) wire reset40_n;
+    wire reset40_n;
     assign reset40_n = ~reset40;
 
 
@@ -748,14 +748,14 @@ SRLC32E #(
     assign trigger_from_ttc = trigger_from_decoder & ttc_ready;
 
     // put trigger_from_ttc into 125 MHz domain
-    (* mark_debug = "true" *) wire ttc_trigger_125;
+    wire ttc_trigger_125;
     sync_2stage ttc_trig_sync125 (
       .clk(clk125),
       .in(trigger_from_ttc),
       .out(ttc_trigger_125)
     );
     // latch first occurrence of the ttc_trigger for debugging
-    (* mark_debug = "true" *) reg latch_ttc_trigger;
+    reg latch_ttc_trigger;
     always @ (posedge clk125) begin
       if ( rst_from_ipb ) begin
         latch_ttc_trigger = 1'b0;
@@ -981,9 +981,9 @@ SRLC32E #(
 
 
     // ======== communication with the AMC13 DAQ link ========
-    (* mark_debug = "true" *) wire daq_header, daq_trailer;
-    (* mark_debug = "true" *) wire daq_valid, daq_ready;
-    (* mark_debug = "true" *) wire daq_almost_full;
+    wire daq_header, daq_trailer;
+    wire daq_valid, daq_ready;
+    wire daq_almost_full;
     wire [63:0] daq_data;
     
     // ======== status register signals ========

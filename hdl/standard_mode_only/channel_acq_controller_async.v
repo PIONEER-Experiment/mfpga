@@ -9,13 +9,13 @@ module channel_acq_controller_async (
 
   // trigger configuration
   input wire [4:0] chan_en,         // which channels should receive the trigger
-  (* mark_debug = "true" *) input wire accept_pulse_triggers, // accept front panel triggers select
+  input wire accept_pulse_triggers, // accept front panel triggers select
 
   // command manager interface
-  (* mark_debug = "true" *) input wire readout_done, // a readout has completed
+  input wire readout_done, // a readout has completed
 
   // interface from TTC trigger receiver
-  (* mark_debug = "true" *) input wire ttc_trigger,          // trigger signal
+  input wire ttc_trigger,          // trigger signal
   input wire [ 4:0] ttc_trig_type, // recognized trigger type (muon fill, laser, pedestal, async readout)
   input wire [23:0] ttc_trig_num,  // trigger number
   output wire ttc_acq_ready,       // channels are ready for a readout
@@ -26,18 +26,18 @@ module channel_acq_controller_async (
   input wire second_trigger, // for double triggers, this flags that it is the second trigger
 
   // interface to Channel FPGAs
-  (* mark_debug = "true" *) input wire [4:0] acq_dones,
-  (* mark_debug = "true" *) output reg [9:0] acq_enable,
-  (* mark_debug = "true" *) output reg [4:0] acq_trig,
+  input wire [4:0] acq_dones,
+  output reg [9:0] acq_enable,
+  output reg [4:0] acq_trig,
 
   // interface to Acquisition Event FIFO
-  (* mark_debug = "true" *) input wire fifo_ready,
-  (* mark_debug = "true" *) output reg fifo_valid,
-  (* mark_debug = "true" *) output reg [31:0] fifo_data,
+  input wire fifo_ready,
+  output reg fifo_valid,
+  output reg [31:0] fifo_data,
 
   // status connections
-  (* mark_debug = "true" *) input wire async_mode, // asynchronous mode select
-  (* mark_debug = "true" *) output reg [3:0] state // state of finite state machine
+  input wire async_mode, // asynchronous mode select
+  output reg [3:0] state // state of finite state machine
 );
 
   // state bits
@@ -46,7 +46,7 @@ module channel_acq_controller_async (
   parameter STORE_ACQ_INFO = 2;
   parameter READOUT        = 3;
   
-  (* mark_debug = "true" *) wire accept_pulse_triggers_40;
+  wire accept_pulse_triggers_40;
   sync_2stage apt_sync (
     .clk(clk),
     .in(accept_pulse_triggers),
@@ -54,8 +54,8 @@ module channel_acq_controller_async (
   );
 
   reg [ 4:0] acq_trig_type;     // latched trigger type
-  (* mark_debug = "true" *) reg [23:0] acq_trig_num;      // latched trigger number
-  (* mark_debug = "true" *) reg [ 4:0] acq_dones_latched; // latched channel dones reported
+  reg [23:0] acq_trig_num;      // latched trigger number
+  reg [ 4:0] acq_dones_latched; // latched channel dones reported
 
   reg [ 3:0] nextstate;
   reg [ 4:0] next_acq_trig_type;

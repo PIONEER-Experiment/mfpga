@@ -86,6 +86,7 @@ module status_reg_block_selftrig (
   input wire trig_fifo_full,
   input wire pulse_fifo_full,
   input wire acq_fifo_full,
+  input wire trig_fifo_empty,
   input wire [31:0] trig_delay,
   input wire [ 2:0] trig_settings,
   input wire [23:0] trig_num,
@@ -188,7 +189,7 @@ assign status_reg07 = {cm_state[34:32], ctr_state_chan0[1:0], ctr_state_chan1[1:
 assign status_reg08 = {8'd0, ipb_accept_self_triggers, ttc_accept_self_triggers, accept_self_triggers, acq_dones[4:0], endianness_sel, acq_readout_pause[4:0], fill_type[4:0], chan_en[4:0]};
 
 // Register 09: TTC trigger information
-assign status_reg09 = {26'd0, pulse_fifo_full, trig_settings[2:0], acq_fifo_full, trig_fifo_full};
+assign status_reg09 = {25'd0, trig_fifo_empty, pulse_fifo_full, trig_settings[2:0], acq_fifo_full, trig_fifo_full};
 
 // Register 10: TTC trigger delay
 assign status_reg10 = trig_delay[31:0];

@@ -9,7 +9,7 @@ module trigger_top (
     input wire reset40,      // in  40 MHz clock domain
     input wire reset40_n,    // in  40 MHz clock domain
     input wire rst_from_ipb, // in 125 MHz clock domain
-    (* mark_debug = "true" *) input wire evt_cnt_rst,  // in TTC (40 MHz) domain
+    input wire evt_cnt_rst,  // in TTC (40 MHz) domain
     input wire reset_fifos_ipb_ttc, // in TTC domain
 
     input wire rst_trigger_num,       // from TTC Channel B
@@ -104,7 +104,7 @@ module trigger_top (
     output wire [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
     output wire ddr3_almost_full,           // DDR3 overflow warning
     output wire error_trig_rate,            // trigger rate error
-    (* mark_debug = "true" *) output wire error_trig_num,             // trigger number error
+    output wire error_trig_num,             // trigger number error
     output wire error_trig_type             // trigger type error
 );
 
@@ -125,7 +125,7 @@ module trigger_top (
     wire [23:0] acq_trig_num;
 
     // signals between Pulse Trigger Receiver and Channel Acquisition Controllers
-    (* mark_debug = "true" *) wire pulse_trigger;
+    wire pulse_trigger;
 
     // signals to/from TTC Trigger FIFO
     wire s_trig_fifo_tready;
@@ -154,11 +154,11 @@ module trigger_top (
     wire [22:0] stored_bursts_chan4_ptr;
 
     // signals to/from Acquisition Event FIFO
-    (* mark_debug = "true" *) wire s_acq_fifo_tready;
-    (* mark_debug = "true" *) wire s_acq_fifo_tvalid;
-    (* mark_debug = "true" *) wire [31:0] s_acq_fifo_tdata;
+    wire s_acq_fifo_tready;
+    wire s_acq_fifo_tvalid;
+    wire [31:0] s_acq_fifo_tdata;
 
-    (* mark_debug = "true" *) wire s_acq_fifo_tvalid_sync;
+    wire s_acq_fifo_tvalid_sync;
     wire [31:0] s_acq_fifo_tdata_sync;
 
     wire s_acq_fifo_tvalid_async;
@@ -286,7 +286,7 @@ module trigger_top (
         .n_extra_cycles(8'h02),
         .signal_out(second_trigger_stretch) // 75-ns wide
     );
-    (* mark_debug = "true" *) wire pulse_trigger_125;
+    wire pulse_trigger_125;
     sync_2stage sync_pulse_125 (
         .clk(clk125),
         .in(pulse_trigger),
@@ -606,7 +606,7 @@ module trigger_top (
     // safe
 
     assign fifo_reset_short = reset40 | reset_fifos_ipb_ttc;
-    (* mark_debug = "true" *) wire fifo_reset, fifo_reset_n;
+    wire fifo_reset, fifo_reset_n;
     signal_stretch fifo_reset_stretch(
       .signal_in(fifo_reset_short),
       .clk(ttc_clk),

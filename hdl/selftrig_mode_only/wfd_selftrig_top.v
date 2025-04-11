@@ -387,6 +387,22 @@ module wfd_selftrig_top (
         .signal_out(rst_trigger_num_stretch) // 75-ns wide
     );
 
+    wire reset_fifos_ipb_stretch;
+    signal_stretch reset_fifos_stretch (
+       .clk(clk125),
+       .signal_in(reset_fifos_ipb),
+       .n_extra_cycles(8'h13),
+       .signal_out(reset_fifos_ipb_stretch)
+    );
+    
+    wire reset_fifos_ipb_ttc;
+    sync_2stage reset_fifos_sync (
+       .clk(ttc_clk),
+       .in(reset_fifos_ipb_stretch),
+       .out(reset_fifos_ipb_ttc)
+    );
+
+
     // active-high reset signal to channels
     assign c0_io[3] = (ipb_rst_stretch | rst_trigger_num_stretch);
     assign c1_io[3] = (ipb_rst_stretch | rst_trigger_num_stretch);
@@ -1046,6 +1062,7 @@ module wfd_selftrig_top (
     wire trig_fifo_full;
     wire pulse_fifo_full;
     wire acq_fifo_full;
+    wire trig_fifo_empty;
 
     
     // ======== module instantiations ========
@@ -1171,6 +1188,7 @@ module wfd_selftrig_top (
         .i2c_temp_polling_dis_out(i2c_temp_polling_dis),   // disable EEPROM temperature polling
         .i2c_temp_update_out(i2c_temp_update),             // read and update EEPROM temperature value
         .fp_trig_width_out(fp_trig_width_from_ipbus[3:0]), // width to separate short from long front panel triggers
+        .reset_fifos_ipb(reset_fifos_ipb),                 // reset the fifos related to trigger / readout
 
         // threshold registers
         .thres_data_corrupt(thres_data_corrupt),   // data corruption
@@ -1732,6 +1750,7 @@ module wfd_selftrig_top (
         .trig_fifo_full(trig_fifo_full),
         .pulse_fifo_full(1'b0),
         .acq_fifo_full(acq_fifo_full),
+        .trig_fifo_empty(trig_fifo_empty),
         .trig_delay(trig_delay),
         .trig_settings(trig_settings),
         .trig_num(trig_num_clk125),
@@ -1811,6 +1830,7 @@ module wfd_selftrig_top (
         .reset40(reset40),           // in  40 MHz clock domain
         .reset40_n(reset40_n),       // in  40 MHz clock domain
         .rst_from_ipb(rst_from_ipb), // in 125 MHz clock domain
+        .reset_fifos(reset_fifos_ipb_ttc),
 
         .rst_trigger_num(rst_trigger_num),             // from TTC Channel B
         .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
@@ -1878,6 +1898,7 @@ module wfd_selftrig_top (
         .trig_timestamp(trig_timestamp),   // timestamp for latest trigger received
         .trig_fifo_full(trig_fifo_full),   // TTC trigger FIFO is almost full
         .acq_fifo_full(acq_fifo_full),     // acquisition event FIFO is almost full
+        .trig_fifo_empty(trig_fifo_empty), // no more triggers are currently waiting in the trigger fifo
         
         // number of bursts stored in the DDR3
         .stored_bursts_chan0(stored_bursts_chan0),
