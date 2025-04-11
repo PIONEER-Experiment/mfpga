@@ -6,7 +6,7 @@ module channel_trigger_receiver (
   // clock and reset
   input wire clk,   // 40 MHz TTC clock
   input wire reset,
-  (* mark_debug = "true" *) input wire reset_fifos,
+  input wire reset_fifos,
 
   // TTC Channel B resets
   input wire reset_trig_num,
@@ -18,8 +18,8 @@ module channel_trigger_receiver (
   input wire ttc_trigger,                // backplane trigger signal
 //  input wire ttc_acq_ready,              // channels are ready to acquire/readout data
   output reg [23:0] trig_num,            // global trigger number for this channel
-  (* mark_debug = "true" *) output reg [19:0] selftriggers_lo,     // number of triggers currently in the lo 1/2 of DDR3 buffer
-  (* mark_debug = "true" *) output reg [19:0] selftriggers_hi,     // number of triggers currently in the hi 1/2 of DDR3 buffer
+  output reg [19:0] selftriggers_lo,     // number of triggers currently in the lo 1/2 of DDR3 buffer
+  output reg [19:0] selftriggers_hi,     // number of triggers currently in the hi 1/2 of DDR3 buffer
   input wire ddr3_buffer,                // the current buffer for collecting triggers in the channels
 
   // command manager interface
@@ -29,8 +29,8 @@ module channel_trigger_receiver (
   input wire [22:0] burst_count_selftrig,
 
   // number of bursts stored in the DDR3
-  (* mark_debug = "true" *) output reg [22:0] stored_bursts_lo,
-  (* mark_debug = "true" *) output reg [22:0] stored_bursts_hi,
+  output reg [22:0] stored_bursts_lo,
+  output reg [22:0] stored_bursts_hi,
 
   // status connections
   output reg [1:0] state,               // state of finite state machine

@@ -203,12 +203,7 @@ module channel_acq_controller_selftrig (
         // readout still in progress
         else begin
           nextstate[READOUT] = 1'b1;
-          //if ( accept_self_triggers ) begin
-            next_acq_enable[4:0] = chan_en[4:0];
-          //end
-          //else begin
-          //  next_acq_enable[4:0] = 5'b00000;
-          //end
+          next_acq_enable[4:0] = chan_en[4:0];
         end
       end
     endcase

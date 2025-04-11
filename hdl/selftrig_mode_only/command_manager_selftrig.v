@@ -23,7 +23,7 @@ module command_manager_selftrig (
   // interface to RX channel FIFO (through AXI4-Stream RX Switch)
   input wire chan_rx_fifo_valid,
   input wire chan_rx_fifo_last,
-  (* mark_debug = "true" *) input wire [31:0] chan_rx_fifo_data,
+  input wire [31:0] chan_rx_fifo_data,
   output reg chan_rx_fifo_ready,
 
   // interface to IPbus AXI output
@@ -53,7 +53,7 @@ module command_manager_selftrig (
   input wire initiate_readout,       // request for the channels to be read out
   input wire [23:0] event_num,       // counts the number of ttc triggers passed to the channels
   input wire [23:0] trig_num,        // counts the total number of global triggers, including ignored / empty
-  (* mark_debug = "true" *) input wire [ 4:0] trig_type,       // trigger type
+  input wire [ 4:0] trig_type,       // trigger type
   input wire [43:0] trig_timestamp,  // trigger timestamp, defined by when trigger is received by trigger receiver module
   input wire [ 3:0] ttc_xadc_alarms, // XADC alarms
   output wire readout_ready,         // ready to readout data, i.e., when in idle state
@@ -79,7 +79,7 @@ module command_manager_selftrig (
   input wire [ 4:0] chan_en,            // enabled channels, one bit for each channel
   input wire endianness_sel,            // select bit for the endianness of ADC data
   input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
-  (* mark_debug = "true" *) output reg [34:0] state,              // state of finite state machine
+  output reg [34:0] state,              // state of finite state machine
 
   // error connections
   output reg [31:0] cs_mismatch_count, // number of checksum mismatches
@@ -166,10 +166,6 @@ module command_manager_selftrig (
   reg [31:0] ipbus_chan_reg;               // buffer for issued channel register
   reg [ 4:0] trig_type_latch;              // latched trigger type from TTC Trigger FIFO
   reg [1:0] cs_error_seen;
-
-  // debugging
-  (* mark_debug = "true" *) wire [23:0] trig_num_from_channel;
-  (* mark_debug = "true" *) wire [ 1:0] trig_type_from_channel;
 
   // for internal regs
   reg next_sent_amc13_header;
@@ -324,12 +320,6 @@ module command_manager_selftrig (
   wire rst_n;
   assign rst_n = ~rst;
   
-  // for debugging
-  assign trig_num_from_channel[23:0] = chan_rx_fifo_data[23:0];
-  assign trig_type_from_channel[1:0] = chan_rx_fifo_data[27:26];
-//  reg [31:0] next_channel_header_last,  channel_header_last;
-//  reg [31:0] next_channel_header_latch, channel_header_latch;
-
   // comb always block
   always @* begin
     // internal regs

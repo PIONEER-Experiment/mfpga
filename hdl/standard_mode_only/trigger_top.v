@@ -617,8 +617,6 @@ module trigger_top (
 
     // TTC Trigger FIFO : 2048 depth, 2047 almost full threshold, 16-byte data width
     // holds the trigger timestamp, trigger number, acquired event number, and trigger type
-    //(* mark_debug = "true" *) wire trigger_info_fifo_reset;
-    //assign trigger_info_fifo_reset = reset40_n & !evt_cnt_rst;
     trigger_info_fifo ttc_trigger_fifo (
         // writing side
         .s_aclk(ttc_clk),                   // input

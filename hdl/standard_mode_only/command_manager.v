@@ -259,18 +259,6 @@ module command_manager (
   // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
   wire [19:0] event_size_type1, event_size_type2, event_size_type3;
   wire [19:0] event_size_type4;
-//  wire [19:0] event_size_type4_out;
-//  reg [19:0] event_size_type4_reg1;
-//  (* mark_debug = "true" *) reg [19:0] event_size_type4_reg2;
-//  always @(posedge clk) begin
-//    event_size_type4_reg1 <= event_size_type4;
-//    event_size_type4_reg2 <= event_size_type4_reg1;
-//  end
-//  vio_1 inst_vio_1 (
-//    .clk(clk),                // input wire clk
-//    .probe_in0(event_size_type4_reg2),    // input wire [19 : 0] probe_in0
-//    .probe_out0(event_size_type4_out)  // output wire [19 : 0] probe_out0
-//  );//
 
 
   // muon fill trigger type
