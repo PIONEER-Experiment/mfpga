@@ -3,7 +3,7 @@
   "ip_inst": {
     "xci_name": "aurora_8b10b_0",
     "component_reference": "xilinx.com:ip:aurora_8b10b:11.1",
-    "ip_revision": "19",
+    "ip_revision": "20",
     "gen_directory": ".",
     "parameters": {
       "component_parameters": {
@@ -233,12 +233,12 @@
       },
       "runtime_parameters": {
         "IPCONTEXT": [ { "value": "IP_Flow" } ],
-        "IPREVISION": [ { "value": "19" } ],
+        "IPREVISION": [ { "value": "20" } ],
         "MANAGED": [ { "value": "TRUE" } ],
         "OUTPUTDIR": [ { "value": "." } ],
         "SELECTEDSIMMODEL": [ { "value": "" } ],
         "SHAREDDIR": [ { "value": "." } ],
-        "SWVERSION": [ { "value": "2023.2" } ],
+        "SWVERSION": [ { "value": "2023.2.2" } ],
         "SYNTHESISFLOW": [ { "value": "OUT_OF_CONTEXT" } ]
       }
     },

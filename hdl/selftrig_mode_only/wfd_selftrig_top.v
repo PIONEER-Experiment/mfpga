@@ -142,7 +142,8 @@ module wfd_selftrig_top (
         .hold(clk50_reset)                      // reset signal from reset
     );
 
-    assign clk50_reset = ipb_clk50_reset | master_init_rst1_clk50;
+    assign clk50_reset  = ipb_clk50_reset | master_init_rst1_clk50;
+    assign clk125_reset = rst_from_ipb    | master_init_rst2_clk125;
 
     // ======== error signals ========
     // thresholds
@@ -174,7 +175,7 @@ module wfd_selftrig_top (
     wire [4:0] chan_error_rc; // master received an error response code, one bit for each channel
 
     // ======== I/O lines to channel ========
-    wire [4:0] acq_enable;
+    wire [4:0] acq_enable, acq_enable_encoded;
     wire [4:0] acq_readout_pause, acq_buffer;
 
     assign c0_io[0] = acq_readout_pause[0];
@@ -183,17 +184,30 @@ module wfd_selftrig_top (
     assign c3_io[0] = acq_readout_pause[3];
     assign c4_io[0] = acq_readout_pause[4];
 
-    assign c0_io[1] = acq_enable[0];
-    assign c1_io[1] = acq_enable[1];
-    assign c2_io[1] = acq_enable[2];
-    assign c3_io[1] = acq_enable[3];
-    assign c4_io[1] = acq_enable[4];
+    assign c0_io[1] = acq_enable_encoded[0];
+    assign c1_io[1] = acq_enable_encoded[1];
+    assign c2_io[1] = acq_enable_encoded[2];
+    assign c3_io[1] = acq_enable_encoded[3];
+    assign c4_io[1] = acq_enable_encoded[4];
 
     assign c0_io[2] = acq_buffer[0];
     assign c1_io[2] = acq_buffer[1];
     assign c2_io[2] = acq_buffer[2];
     assign c3_io[2] = acq_buffer[3];
     assign c4_io[2] = acq_buffer[4];
+
+    // ++++++++ for self triggering, encode "enable triggering" and "enable acquisition" separately on the c?_io[1] lines +++++++++
+    wire acq_enable_reduce;
+    assign acq_enable_reduce = |acq_enable;
+    acq_encode acq_encode(
+      // inputs
+      .clk(clk125),
+      .reset(clk125_reset),
+      .chan_en(chan_en),
+      .accept_self_triggers(accept_self_triggers),
+      .channels_active(acq_enable_reduce),
+      .acq_enable_encoded(acq_enable_encoded)
+    );
 
     // ======== pulse trigger FIFO ========
     wire pulse_fifo_tready;
