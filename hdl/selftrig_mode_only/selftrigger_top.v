@@ -85,6 +85,9 @@ module selftrigger_top (
     output wire [22:0] stored_bursts_chan3,
     output wire [22:0] stored_bursts_chan4,
 
+    // data readout pending in the channels
+    output wire [4:0] event_readout_pending,
+
     // error connections
     output wire ddr3_almost_full,           // DDR3 overflow warning
     output wire error_trig_rate,            // trigger rate error
@@ -324,6 +327,9 @@ module selftrigger_top (
           // number of bursts stored in the DDR3
           .stored_bursts_lo(stored_bursts_lo[iChan][22:0]),
           .stored_bursts_hi(stored_bursts_hi[iChan][22:0]),
+
+          // event readout pending for this event (aka, nonzero stored bursts)
+          .event_readout_pending(event_readout_pending[iChan]),
   
           // status connections
           .state(ctr_state[iChan]),                             // state of finite state machine

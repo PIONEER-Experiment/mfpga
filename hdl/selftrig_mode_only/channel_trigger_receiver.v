@@ -32,6 +32,9 @@ module channel_trigger_receiver (
   output reg [22:0] stored_bursts_lo,
   output reg [22:0] stored_bursts_hi,
 
+  // there are triggers that have not been read out
+  output wire event_readout_pending,
+
   // status connections
   output reg [1:0] state,               // state of finite state machine
 
@@ -48,6 +51,9 @@ module channel_trigger_receiver (
   wire [22:0] stored_bursts;
   assign stored_bursts[22:0] = ddr3_buffer ? stored_bursts_hi[22:0] : stored_bursts_lo[22:0];
   assign ddr3_almost_full    = chan_en     ? (stored_bursts[22:0] > thres_ddr3_overflow[22:0]) : 1'b0;
+
+  // flag if there are events remaining to be read out.  Simply use or-reduction for minimal logic
+  assign event_readout_pending = |stored_bursts_hi[22:0] | |stored_bursts_lo[22:0];
 
 //st -- lkg: this computation should get moved to selftrigger_top, and should disable triggering
 //st -- lkg: I believe the reasoning below neglected to consider that there are in principle 12

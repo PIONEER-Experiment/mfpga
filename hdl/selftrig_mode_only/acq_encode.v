@@ -14,6 +14,7 @@ module acq_encode(
   // enabling / status signals
   input accept_self_triggers,
   input wire channels_active,
+  input wire event_readout_pending,
 
   // the encoded signal to tell the channels to toggle which enable
   (* mark_debug = "true" *) output wire [4:0] acq_enable_encoded
@@ -76,6 +77,12 @@ module acq_encode(
     .clk(clk),
     .in(channels_active),
     .out(channels_active_125)
+  );
+  (* mark_debug = "true" *) wire event_readout_pending_125;
+  sync_2stage sync_evreadoutpend (
+    .clk(clk),
+    .in(event_readout_pending),
+    .out(event_readout_pending_125)
   );
 
   // combinational always block
@@ -162,7 +169,7 @@ module acq_encode(
       // which means that no channels should be active any longer.  We use the
       // gap so that no self-triggers can sneak in after the final fill readout
       state[TRIG_ACQ_GAP] : begin
-        if (channels_active_125) begin
+        if (channels_active_125 || event_readout_pending_125) begin
           nextstate[TRIG_ACQ_GAP] = 1'b1;
         end
         else begin

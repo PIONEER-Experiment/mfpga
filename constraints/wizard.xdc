@@ -1,5 +1,3 @@
-
-
 create_debug_core u_ila_0 ila
 set_property ALL_PROBE_SAME_MU true [get_debug_cores u_ila_0]
 set_property ALL_PROBE_SAME_MU_CNT 1 [get_debug_cores u_ila_0]
@@ -12,8 +10,8 @@ set_property C_TRIGOUT_EN false [get_debug_cores u_ila_0]
 set_property port_width 1 [get_debug_ports u_ila_0/clk]
 connect_debug_port u_ila_0/clk [get_nets [list clk125]]
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe0]
-set_property port_width 12 [get_debug_ports u_ila_0/probe0]
-connect_debug_port u_ila_0/probe0 [get_nets [list {acq_encode/state[0]} {acq_encode/state[1]} {acq_encode/state[2]} {acq_encode/state[3]} {acq_encode/state[4]} {acq_encode/state[5]} {acq_encode/state[6]} {acq_encode/state[7]} {acq_encode/state[8]} {acq_encode/state[9]} {acq_encode/state[10]} {acq_encode/state[11]}]]
+set_property port_width 5 [get_debug_ports u_ila_0/probe0]
+connect_debug_port u_ila_0/probe0 [get_nets [list {acq_encode/acq_enable_encoded[0]} {acq_encode/acq_enable_encoded[1]} {acq_encode/acq_enable_encoded[2]} {acq_encode/acq_enable_encoded[3]} {acq_encode/acq_enable_encoded[4]}]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe1]
 set_property port_width 5 [get_debug_ports u_ila_0/probe1]
@@ -24,8 +22,8 @@ set_property port_width 28 [get_debug_ports u_ila_0/probe2]
 connect_debug_port u_ila_0/probe2 [get_nets [list {acq_encode/length_counter[0]} {acq_encode/length_counter[1]} {acq_encode/length_counter[2]} {acq_encode/length_counter[3]} {acq_encode/length_counter[4]} {acq_encode/length_counter[5]} {acq_encode/length_counter[6]} {acq_encode/length_counter[7]} {acq_encode/length_counter[8]} {acq_encode/length_counter[9]} {acq_encode/length_counter[10]} {acq_encode/length_counter[11]} {acq_encode/length_counter[12]} {acq_encode/length_counter[13]} {acq_encode/length_counter[14]} {acq_encode/length_counter[15]} {acq_encode/length_counter[16]} {acq_encode/length_counter[17]} {acq_encode/length_counter[18]} {acq_encode/length_counter[19]} {acq_encode/length_counter[20]} {acq_encode/length_counter[21]} {acq_encode/length_counter[22]} {acq_encode/length_counter[23]} {acq_encode/length_counter[24]} {acq_encode/length_counter[25]} {acq_encode/length_counter[26]} {acq_encode/length_counter[27]}]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe3]
-set_property port_width 5 [get_debug_ports u_ila_0/probe3]
-connect_debug_port u_ila_0/probe3 [get_nets [list {acq_encode/acq_enable_encoded[0]} {acq_encode/acq_enable_encoded[1]} {acq_encode/acq_enable_encoded[2]} {acq_encode/acq_enable_encoded[3]} {acq_encode/acq_enable_encoded[4]}]]
+set_property port_width 12 [get_debug_ports u_ila_0/probe3]
+connect_debug_port u_ila_0/probe3 [get_nets [list {acq_encode/state[0]} {acq_encode/state[1]} {acq_encode/state[2]} {acq_encode/state[3]} {acq_encode/state[4]} {acq_encode/state[5]} {acq_encode/state[6]} {acq_encode/state[7]} {acq_encode/state[8]} {acq_encode/state[9]} {acq_encode/state[10]} {acq_encode/state[11]}]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe4]
 set_property port_width 1 [get_debug_ports u_ila_0/probe4]
@@ -37,7 +35,11 @@ connect_debug_port u_ila_0/probe5 [get_nets [list acq_encode/channels_active_125
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe6]
 set_property port_width 1 [get_debug_ports u_ila_0/probe6]
-connect_debug_port u_ila_0/probe6 [get_nets [list acq_encode/length_counter_zero]]
+connect_debug_port u_ila_0/probe6 [get_nets [list acq_encode/event_readout_pending_125]]
+create_debug_port u_ila_0 probe
+set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe7]
+set_property port_width 1 [get_debug_ports u_ila_0/probe7]
+connect_debug_port u_ila_0/probe7 [get_nets [list acq_encode/length_counter_zero]]
 set_property C_CLK_INPUT_FREQ_HZ 300000000 [get_debug_cores dbg_hub]
 set_property C_ENABLE_CLK_DIVIDER false [get_debug_cores dbg_hub]
 set_property C_USER_SCAN_CHAIN 1 [get_debug_cores dbg_hub]

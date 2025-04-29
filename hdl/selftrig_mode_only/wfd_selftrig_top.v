@@ -197,8 +197,9 @@ module wfd_selftrig_top (
     assign c4_io[2] = acq_buffer[4];
 
     // ++++++++ for self triggering, encode "enable triggering" and "enable acquisition" separately on the c?_io[1] lines +++++++++
-    wire acq_enable_reduce;
+    wire acq_enable_reduce, event_readout_pending_reduce;
     assign acq_enable_reduce = |acq_enable;
+    assign event_readout_pending_reduce = |event_readout_pending;
     acq_encode acq_encode(
       // inputs
       .clk(clk125),
@@ -206,7 +207,8 @@ module wfd_selftrig_top (
       .chan_en(chan_en),
       .accept_self_triggers(accept_self_triggers),
       .channels_active(acq_enable_reduce),
-      .acq_enable_encoded(acq_enable_encoded)
+      .acq_enable_encoded(acq_enable_encoded),
+      .event_readout_pending(event_readout_pending_reduce)
     );
 
     // ======== pulse trigger FIFO ========
@@ -1041,7 +1043,7 @@ module wfd_selftrig_top (
     wire [22:0] stored_bursts_chan0;
     wire [22:0] stored_bursts_chan1, stored_bursts_chan2, stored_bursts_chan3, stored_bursts_chan4;
     wire [22:0] readout_size_chan0, readout_size_chan1, readout_size_chan2, readout_size_chan3, readout_size_chan4;
-
+    wire [ 4:0] event_readout_pending;
 
     // ======== communication with the AMC13 DAQ link ========
     wire daq_header, daq_trailer;
