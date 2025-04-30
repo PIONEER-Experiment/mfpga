@@ -69,7 +69,7 @@ module command_manager_selftrig (
   input wire [19:0] selftriggers_chan2_hi, // # of triggers seen per channel in channel upper buffer
   input wire [19:0] selftriggers_chan3_hi, // # of triggers seen per channel in channel upper buffer
   input wire [19:0] selftriggers_chan4_hi, // # of triggers seen per channel in channel upper buffer
-  input wire        ddr3_buffer,
+  input wire        ddr3_read_buffer,
 
   // burst count for channel self trigs -- common to all channels
   output reg [22:0] burst_count_selftrig,  // the burst count -- this is "type 4" in the rest of the firmware world
@@ -228,7 +228,7 @@ module command_manager_selftrig (
 //    .probe5(event_size_hi),                 // input wire [19 : 0] probe_in11
 //    .probe6(event_size),                    // input wire [19 : 0] probe_in12
 //    .probe7(initiate_readout),              // input wire [ 0 : 0] probe_in13
-//    .probe8(ddr3_buffer),                   // input wire [ 0 : 0] probe_in14
+//    .probe8(ddr3_read_buffer),                   // input wire [ 0 : 0] probe_in14
 //    .probe9(trig_num_from_channel),         // input wire [23 : 0] probe_in15
 //    .probe10(event_num),                     // input wire [23 : 0] probe_in16
 //    .probe11(state),                         // input wire [34 : 0] probe_in17
@@ -293,9 +293,8 @@ module command_manager_selftrig (
         event_triggers <= 19'd0;
      end
      else begin
-        // we want the event size of the buffer being read, while ddr3_buffer indicates the buffer
-        // being written
-        event_triggers <= ddr3_buffer ? event_size_lo_pipe : event_size_hi_pipe;
+        // we want the event size of the buffer being read, latched into ddr3_read_buffer
+        event_triggers <= ddr3_read_buffer ? event_size_hi_pipe : event_size_lo_pipe;
      end
   end
   // the total number of 64 bit words for the TTC readout event, including headers and trailers

@@ -28,6 +28,7 @@ module selftrigger_top (
     input  wire [4:0] chan_trigs,          // a self-trigger condition has been seen on a channel
     output wire [4:0] chan_buffer_write,   // the buffer the channels should be using for writing
     output wire       ddr3_buffer,         // all channels write to the same buffer.  Use this one for simple logic purposes.
+    output wire       ddr3_read_buffer,
 
     // command manager interface
     input  wire readout_ready,          // command manager is idle
@@ -387,6 +388,7 @@ module selftrigger_top (
         .acq_enable(chan_enable),
         .acq_buffer_write(chan_buffer_write),
         .ddr3_buffer(ddr3_buffer),
+        .ddr3_read_buffer(ddr3_read_buffer),
 
         // interface to Acquisition Event FIFO
         .fifo_ready(s_acq_fifo_tready),

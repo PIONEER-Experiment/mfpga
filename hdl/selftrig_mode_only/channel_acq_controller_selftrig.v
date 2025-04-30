@@ -29,7 +29,8 @@ module channel_acq_controller_selftrig (
   input wire [4:0] acq_dones,
   output reg [4:0] acq_enable,
   output reg [4:0] acq_buffer_write,
-  output reg ddr3_buffer,
+  (* mark_debug = "true" *) output reg ddr3_buffer,
+  (* mark_debug = "true" *) output reg ddr3_read_buffer,
 
   // interface to Acquisition Event FIFO
   input wire fifo_ready,
@@ -258,6 +259,8 @@ module channel_acq_controller_selftrig (
       fifo_data[31:0] <= 32'd0;
     end
     else begin
+      // default
+      
       case (1'b1) // synopsys parallel_case full_case
         nextstate[IDLE] : begin
           fifo_valid      <=  1'b0;
@@ -270,6 +273,7 @@ module channel_acq_controller_selftrig (
         nextstate[FLIP_DDR3_BUFFERS] : begin
           fifo_valid      <=  1'b0;
           fifo_data[31:0] <= 32'd0;
+          ddr3_read_buffer <= ddr3_buffer;
         end
         nextstate[WAIT] : begin
           fifo_valid      <=  1'b0;

@@ -1604,11 +1604,11 @@ module wfd_selftrig_top (
     wire [23:0] selftriggers_chan2_hi, selftriggers_chan2_hi_clk125;
     wire [23:0] selftriggers_chan3_hi, selftriggers_chan3_hi_clk125;
     wire [23:0] selftriggers_chan4_hi, selftriggers_chan4_hi_clk125;
-    wire        ddr3_buffer_clk125;
+    wire        ddr3_read_buffer_125;
     sync_2stage ddr3_buffer_sync (
         .clk(clk125),
-        .in(ddr3_buffer),
-        .out(ddr3_buffer_clk125)
+        .in(ddr3_read_buffer),
+        .out(ddr3_read_buffer_125)
     );
     sync_2stage #(
         .WIDTH(20)
@@ -1864,6 +1864,7 @@ module wfd_selftrig_top (
         .chan_enable(acq_enable),
         .chan_buffer_write(acq_buffer),
         .ddr3_buffer(ddr3_buffer),                        // the top (1) or bottom(0) half of the DDR3 currently used for accumulating triggers
+        .ddr3_read_buffer(ddr3_read_buffer),
         .chan_trigs(acq_trigs),
 
         // command manager interface
@@ -1999,7 +2000,7 @@ module wfd_selftrig_top (
         .selftriggers_chan2_hi(selftriggers_chan2_hi_clk125),   // number of self triggers in channel 2, top buffer
         .selftriggers_chan3_hi(selftriggers_chan3_hi_clk125),   // number of self triggers in channel 3, top buffer
         .selftriggers_chan4_hi(selftriggers_chan4_hi_clk125),   // number of self triggers in channel 4, top buffer
-        .ddr3_buffer(ddr3_buffer_clk125),
+        .ddr3_read_buffer(ddr3_read_buffer_125),
 
         .burst_count_selftrig(burst_count_selftrig), // the total number
 
