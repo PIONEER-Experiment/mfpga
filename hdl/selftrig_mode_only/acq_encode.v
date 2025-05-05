@@ -17,7 +17,9 @@ module acq_encode(
   input wire event_readout_pending,
 
   // the encoded signal to tell the channels to toggle which enable
-  (* mark_debug = "true" *) output wire [4:0] acq_enable_encoded
+  (* mark_debug = "true" *) output wire [4:0] acq_enable_encoded,
+  (* mark_debug = "true" *) output reg  self_triggering_enabled,
+  (* mark_debug = "true" *) output reg  channel_acq_enabled
 );
 
   // a counter for
@@ -217,53 +219,64 @@ module acq_encode(
     init_gap_count  <= 1'b0;
     encoded_acq_command[4:0] <= 5'b00000;
 
-    case (1'b1) // synopsys parallel_case full_case
-      nextstate[IDLE] : begin
-      end
+    if (reset) begin
+      self_triggering_enabled <= 1'b0;
+      channel_acq_enabled     <= 1'b0;
+    end
+    else begin
 
-      nextstate[INIT_ENABLE_ACQ] : begin
-        init_acq_count     <=  1'b1;
-      end
-
-      nextstate[ENABLE_ACQ] : begin
-        encoded_acq_command[4:0] <= chan_en[4:0];
-      end
-
-      nextstate[ACQ_TRIG_GAP] : begin
-        init_gap_count     <=  1'b1;
-      end
-
-      nextstate[INIT_ENABLE_TRIG] : begin
-        init_trig_count    <=  1'b1;
-      end
-
-      nextstate[ENABLE_TRIG] : begin
-        encoded_acq_command[4:0] <= chan_en[4:0];
-      end
-
-      nextstate[WAIT] : begin
-      end
-
-      nextstate[INIT_DISABLE_TRIG] : begin
-        init_trig_count     <=  1'b1;
-      end
-
-      nextstate[DISABLE_TRIG] : begin
-        encoded_acq_command[4:0] <= chan_en[4:0];
-      end
-
-      nextstate[TRIG_ACQ_GAP] : begin
-      end
-
-      nextstate[INIT_DISABLE_ACQ] : begin
-        init_acq_count     <=  1'b1;
-      end
-
-      nextstate[DISABLE_ACQ] : begin
-        encoded_acq_command[4:0] <= chan_en[4:0];
-      end
-
-    endcase
+      case (1'b1) // synopsys parallel_case full_case
+        nextstate[IDLE] : begin
+        end
+  
+        nextstate[INIT_ENABLE_ACQ] : begin
+          init_acq_count     <=  1'b1;
+        end
+  
+        nextstate[ENABLE_ACQ] : begin
+          encoded_acq_command[4:0] <= chan_en[4:0];
+          channel_acq_enabled     = 1'b1;
+        end
+  
+        nextstate[ACQ_TRIG_GAP] : begin
+          init_gap_count     <=  1'b1;
+        end
+  
+        nextstate[INIT_ENABLE_TRIG] : begin
+          init_trig_count    <=  1'b1;
+          self_triggering_enabled     <= 1'b1;
+        end
+  
+        nextstate[ENABLE_TRIG] : begin
+          encoded_acq_command[4:0] <= chan_en[4:0];
+        end
+  
+        nextstate[WAIT] : begin
+        end
+  
+        nextstate[INIT_DISABLE_TRIG] : begin
+          init_trig_count     <=  1'b1;
+          self_triggering_enabled <= 1'b0;
+        end
+  
+        nextstate[DISABLE_TRIG] : begin
+          encoded_acq_command[4:0] <= chan_en[4:0];
+        end
+  
+        nextstate[TRIG_ACQ_GAP] : begin
+        end
+  
+        nextstate[INIT_DISABLE_ACQ] : begin
+          init_acq_count     <=  1'b1;
+          channel_acq_enabled     <= 1'b0;
+        end
+  
+        nextstate[DISABLE_ACQ] : begin
+          encoded_acq_command[4:0] <= chan_en[4:0];
+        end
+  
+      endcase
+    end
   end
 
 endmodule

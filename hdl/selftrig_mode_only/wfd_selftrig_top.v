@@ -200,6 +200,8 @@ module wfd_selftrig_top (
     wire acq_enable_reduce, event_readout_pending_reduce;
     assign acq_enable_reduce = |acq_enable;
     assign event_readout_pending_reduce = |event_readout_pending;
+    wire self_triggering_enabled;
+    wire channel_acq_enabled;
     acq_encode acq_encode(
       // inputs
       .clk(clk125),
@@ -208,7 +210,9 @@ module wfd_selftrig_top (
       .accept_self_triggers(accept_self_triggers),
       .channels_active(acq_enable_reduce),
       .acq_enable_encoded(acq_enable_encoded),
-      .event_readout_pending(event_readout_pending_reduce)
+      .event_readout_pending(event_readout_pending_reduce),
+      .self_triggering_enabled(self_triggering_enabled),
+      .channel_acq_enabled(channel_acq_enabled)
     );
 
     // ======== pulse trigger FIFO ========
@@ -1611,35 +1615,35 @@ module wfd_selftrig_top (
         .out(ddr3_read_buffer_125)
     );
     sync_2stage #(
-        .WIDTH(20)
+        .WIDTH(24)
     ) chan_trig_num_l0_sync (
         .clk(clk125),
         .in(selftriggers_chan0_lo),
         .out(selftriggers_chan0_lo_clk125)
     );
     sync_2stage #(
-        .WIDTH(20)
+        .WIDTH(24)
     ) chan_trig_num_l1_sync (
         .clk(clk125),
         .in( selftriggers_chan1_lo),
         .out(selftriggers_chan1_lo_clk125)
     );
     sync_2stage #(
-        .WIDTH(20)
+        .WIDTH(24)
     ) chan_trig_num_l2_sync (
         .clk(clk125),
         .in( selftriggers_chan2_lo),
         .out(selftriggers_chan2_lo_clk125)
     );
     sync_2stage #(
-        .WIDTH(20)
+        .WIDTH(24)
     ) chan_trig_num_l3_sync (
         .clk(clk125),
         .in( selftriggers_chan3_lo),
         .out(selftriggers_chan3_lo_clk125)
     );
     sync_2stage #(
-        .WIDTH(20)
+        .WIDTH(24)
     ) chan_trig_num_l4_sync (
         .clk(clk125),
         .in( selftriggers_chan4_lo),
@@ -1858,6 +1862,8 @@ module wfd_selftrig_top (
         .trig_settings({28'd0, trig_settings[2:0], 1'b0}), // trigger settings
         .chan_en(chan_en),                                 // enabled channels
         .thres_ddr3_overflow(thres_ddr3_overflow),         // DDR3 overflow threshold
+        .self_triggering_enabled(self_triggering_enabled),
+        .channel_acq_enabled(channel_acq_enabled),
 
         // channel interface
         .chan_dones(acq_dones),

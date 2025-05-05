@@ -26,6 +26,8 @@ module ttc_trigger_receiver_selftrig (
   output reg acq_trigger,          // trigger signal to trigger the async readout
   output reg [ 4:0] acq_trig_type, // recognized trigger type (async readout)
   output reg [23:0] acq_trig_num,  // trigger number, starts at 1
+  input wire self_triggering_enabled,
+  input wire channel_acq_enabled,
 
   // interface to TTC Trigger FIFO
   input wire fifo_ready,
@@ -47,7 +49,7 @@ module ttc_trigger_receiver_selftrig (
   parameter IDLE            = 0;
   parameter SEND_TRIGGER    = 1;
   parameter STORE_TRIG_INFO = 2;
-//  parameter TRIG_HI         = 3;
+//  parameter TRIG_HI       = 3;
   parameter ERROR           = 3;
 
 
@@ -99,7 +101,8 @@ module ttc_trigger_receiver_selftrig (
           // this is to ensure that it has been updated before writing to the FIFO
           // only respond to "async" readout requests in this mode
 //          if ((trig_type[4:0] != 5'b00100) | ~acq_activated) begin
-          if ((trig_type[4:0] != 5'b00100) | ~acq_activated | ~accept_self_triggers) begin
+//          if ((trig_type[4:0] != 5'b00100) | ~acq_activated | ~accept_self_triggers) begin
+          if ((trig_type[4:0] != 5'b00100) |  ~channel_acq_enabled) begin
              next_empty_event = 1'b1; // indicate to send an empty event
            end
 //           else if (~selftriggers_seen) begin

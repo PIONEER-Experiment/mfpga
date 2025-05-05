@@ -21,6 +21,8 @@ module selftrigger_top (
     input wire [31:0] trig_settings,       // trigger settings
     input wire [ 4:0] chan_en,             // enabled channels
     input wire [31:0] thres_ddr3_overflow, // DDR3 overflow threshold
+    input wire self_triggering_enabled,
+    input wire channel_acq_enabled,
 
     // channel interface:  these use the direct i/o lines to pins on the channel FPGAs
     input  wire [4:0] chan_dones,          // the last event before switching buffers (or ending) has been moved to DDR3 memory
@@ -277,6 +279,8 @@ module selftrigger_top (
         .acq_trigger(acq_trigger),     // trigger signal
         .acq_trig_type(acq_trig_type), // recongized trigger type (muon fill, laser, pedestal, async readout)
         .acq_trig_num(acq_trig_num),   // trigger number, starts at 1
+        .self_triggering_enabled(self_triggering_enabled),
+        .channel_acq_enabled(channel_acq_enabled),
 
         // interface to TTC Trigger FIFO
         .fifo_ready(s_trig_fifo_tready),
