@@ -12,6 +12,7 @@ module channel_acq_controller_selftrig (
   // trigger configuration
   input wire [4:0] chan_en,         // which channels should receive the trigger
   input wire accept_self_triggers,  // accept self triggers in enabled channels
+  input wire clear_trigger_counts,  // // clear trigger counts and reset ddr3 buffer
 
   // command manager interface
   input wire readout_done,            // a readout has completed
@@ -29,8 +30,8 @@ module channel_acq_controller_selftrig (
   input wire [4:0] acq_dones,
   output reg [4:0] acq_enable,
   output reg [4:0] acq_buffer_write,
-  (* mark_debug = "true" *) output reg ddr3_buffer,
-  (* mark_debug = "true" *) output reg ddr3_read_buffer,
+  output reg ddr3_buffer,
+  output reg ddr3_read_buffer,
 
   // interface to Acquisition Event FIFO
   input wire fifo_ready,
@@ -38,23 +39,24 @@ module channel_acq_controller_selftrig (
   output reg [31:0] fifo_data,
 
   // status connections
-  output reg [5:0] state // state of finite state machine
+  output reg [6:0] state // state of finite state machine
 );
 
   // state bits
-  parameter IDLE              = 0;  // 01
-  parameter ACQUIRE           = 1;  // 02
-  parameter FLIP_DDR3_BUFFERS = 2;  // 04
-  parameter WAIT              = 3;  // 08
-  parameter STORE_ACQ_INFO    = 4;  // 10
-  parameter READOUT           = 5;  // 20
+  parameter IDLE              = 0;    // 01
+  parameter ACQUIRE           = 1;    // 02
+  parameter FLIP_DDR3_BUFFERS = 2;    // 04
+  parameter WAIT              = 3;    // 08
+  parameter STORE_ACQ_INFO    = 4;    // 10
+  parameter READOUT           = 5;    // 20
+  parameter FLIP_BUFFERS_NO_READ = 6; // 40
   
 
   reg [ 4:0] acq_trig_type;     // latched trigger type
   reg [23:0] acq_trig_num;      // latched trigger number
   reg [ 4:0] acq_dones_latched; // latched channel dones reported
 
-  reg [ 5:0] nextstate;
+  reg [ 6:0] nextstate;
   reg [ 4:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
   reg [ 4:0] next_acq_dones_latched;
@@ -124,7 +126,13 @@ module channel_acq_controller_selftrig (
 //          next_acq_enable[4:0] = 5'b00000;
 //          next_ttc_acq_activated = 1'b1;
 //
-//          //nextstate[FLIP_DDR3_BUFFERS] = 1'b0;
+//          nextstate[WAIT] = 1'b1;
+//        end
+//        // if we've hit end of run, do a buffer flip here as well to keep channel
+//        // bookkeeping and master bookkeeping in sync at end of run.  Make sure
+//        // that we only do this once!
+//        else if ( !accept_self_triggers and !ast_bflip_done ) begin
+//          nextstate[FLIP_BUFFERS_NO_READ] = 1'b1;
 //        end
         else begin
           nextstate[ACQUIRE] = 1'b1;
@@ -207,7 +215,22 @@ module channel_acq_controller_selftrig (
           next_acq_enable[4:0] = chan_en[4:0];
         end
       end
-    endcase
+
+      state[FLIP_BUFFERS_NO_READ] : begin
+      // flip buffer to use
+         if ( ddr3_buffer ) begin
+             next_acq_buffer_write[4:0] = 5'b00000;
+         end
+         else begin
+             next_acq_buffer_write[4:0] = 5'b11111;
+         end
+         next_ddr3_buffer            = ~ddr3_buffer;
+         // look for last readout event, but no more self triggers
+         next_acq_enable[4:0] = 5'b00000;
+         nextstate[ACQUIRE] = 1'b1;
+      end
+
+      endcase
   end
   
 
@@ -242,7 +265,7 @@ module channel_acq_controller_selftrig (
   
   // keep ddr3_buffer initialized properly
   always @(posedge clk) begin
-    if (reset | ttc_evt_reset ) begin
+    if (reset | ttc_evt_reset | clear_trigger_counts ) begin
       ddr3_buffer <= 1'b0;
       acq_buffer_write[4:0] <= 5'd0;
     end

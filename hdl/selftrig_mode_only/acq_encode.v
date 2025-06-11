@@ -17,28 +17,30 @@ module acq_encode(
   input wire event_readout_pending,
 
   // the encoded signal to tell the channels to toggle which enable
-  (* mark_debug = "true" *) output wire [4:0] acq_enable_encoded,
-  (* mark_debug = "true" *) output reg  self_triggering_enabled,
-  (* mark_debug = "true" *) output reg  channel_acq_enabled
+  output wire [4:0] acq_enable_encoded,
+  output reg  self_triggering_enabled,
+  output reg  channel_acq_enabled
 );
 
   // a counter for
-  (* mark_debug = "true" *) reg [27:0] length_counter;
+  reg [27:0] length_counter;
   reg init_acq_count, init_trig_count, init_gap_count;
-  (* mark_debug = "true" *) wire length_counter_zero;
+  wire length_counter_zero;
   always @(posedge clk) begin
     if ( reset )
       // zero out the counter
       length_counter[27:0] <= 28'd0;
     else if ( init_acq_count )
-      // we need a 64 ns pulse to encode enabling acquisition
-      length_counter[27:0] <= 28'd8;
+      // we need at least a 96 ns pulse to encode enabling acquisition
+      // make it even longer for safety: 160 ns
+      length_counter[27:0] <= 28'd20;
     else if ( init_trig_count )
       // we need a 32 ns pulse to encode enabling self-triggering
       length_counter[27:0] <= 28'd4;
-    else if ( init_trig_count )
-      // we'll wait a 200 ms between encode pulses
-      length_counter[27:0] <= 28'h17D7840;
+    else if ( init_gap_count )
+      // we will wait a 1 us (not 200 ms) between encode pulses
+      //length_counter[27:0] <= 28'h17D7840; // 200 ms in 8 ns clock ticks
+      length_counter[27:0] <= 28'h7D;        //   1 us in 8 ns clock ticks
     else if ( length_counter_zero )
       // if at zero, keep at zero
       length_counter[27:0] <= 28'd0;
@@ -61,26 +63,26 @@ module acq_encode(
   parameter DISABLE_ACQ       = 10;  // 400
   parameter INIT_DISABLE_ACQ  = 11;  // 800
   
-  (* mark_debug = "true" *) reg [ 4:0] encoded_acq_command;   // for output to the channels
+  reg [ 4:0] encoded_acq_command;   // for output to the channels
   assign acq_enable_encoded[4:0] = encoded_acq_command;
 
-  (* mark_debug = "true" *) reg [ 11:0]     state;
+  reg [ 11:0]     state;
   reg [ 11:0] nextstate;
 
   // sync to the local clock
-  (* mark_debug = "true" *) wire accept_self_triggers_125;
+  wire accept_self_triggers_125;
   sync_2stage sync_ast(
     .clk(clk),
     .in(accept_self_triggers),
     .out(accept_self_triggers_125)
   );
-  (* mark_debug = "true" *) wire channels_active_125;
+  wire channels_active_125;
   sync_2stage sync_channels_active (
     .clk(clk),
     .in(channels_active),
     .out(channels_active_125)
   );
-  (* mark_debug = "true" *) wire event_readout_pending_125;
+  wire event_readout_pending_125;
   sync_2stage sync_evreadoutpend (
     .clk(clk),
     .in(event_readout_pending),

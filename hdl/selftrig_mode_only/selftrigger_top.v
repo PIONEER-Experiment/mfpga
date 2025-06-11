@@ -23,6 +23,7 @@ module selftrigger_top (
     input wire [31:0] thres_ddr3_overflow, // DDR3 overflow threshold
     input wire self_triggering_enabled,
     input wire channel_acq_enabled,
+    input wire clear_trigger_counts,       // after end of run, make sure both hi and lo trigger/burst counters cleared
 
     // channel interface:  these use the direct i/o lines to pins on the channel FPGAs
     input  wire [4:0] chan_dones,          // the last event before switching buffers (or ending) has been moved to DDR3 memory
@@ -54,16 +55,16 @@ module selftrigger_top (
     input [22:0] burst_count_selftrig,
 
     // the number of triggers each channel has accumulated in its buffer for the buffer being written to
-    output wire [19:0] selftriggers_chan0_lo,
-    output wire [19:0] selftriggers_chan1_lo,
-    output wire [19:0] selftriggers_chan2_lo,
-    output wire [19:0] selftriggers_chan3_lo,
-    output wire [19:0] selftriggers_chan4_lo,
-    output wire [19:0] selftriggers_chan0_hi,
-    output wire [19:0] selftriggers_chan1_hi,
-    output wire [19:0] selftriggers_chan2_hi,
-    output wire [19:0] selftriggers_chan3_hi,
-    output wire [19:0] selftriggers_chan4_hi,
+    output wire [23:0] selftriggers_chan0_lo,
+    output wire [23:0] selftriggers_chan1_lo,
+    output wire [23:0] selftriggers_chan2_lo,
+    output wire [23:0] selftriggers_chan3_lo,
+    output wire [23:0] selftriggers_chan4_lo,
+    output wire [23:0] selftriggers_chan0_hi,
+    output wire [23:0] selftriggers_chan1_hi,
+    output wire [23:0] selftriggers_chan2_hi,
+    output wire [23:0] selftriggers_chan3_hi,
+    output wire [23:0] selftriggers_chan4_hi,
 
     // status connections
     input  wire [ 3:0] xadc_alarms,    // XADC alarm signals
@@ -73,7 +74,7 @@ module selftrigger_top (
     output wire [ 1:0] ctr_state_chan2,// channel trigger receiver state
     output wire [ 1:0] ctr_state_chan3,// channel trigger receiver state
     output wire [ 1:0] ctr_state_chan4,// channel trigger receiver state
-    output wire [ 5:0] cac_state,      // channel acquisition controller state
+    output wire [ 6:0] cac_state,      // channel acquisition controller state
     output wire [ 6:0] tp_state,       // trigger processor state
     output wire [23:0] trig_num,       // global trigger number
     output wire [43:0] trig_timestamp, // timestamp for latest trigger received
@@ -141,37 +142,37 @@ module selftrigger_top (
     // error or warning signals
     wire [4:0] ddr3_almost_full_chan;
 
-    wire [19:0] selftriggers_lo[4:0];
-    wire [19:0] selftriggers_hi[4:0];
-    assign selftriggers_chan0_lo[19:0] = selftriggers_lo[0][19:0];
-    assign selftriggers_chan1_lo[19:0] = selftriggers_lo[1][19:0];
-    assign selftriggers_chan2_lo[19:0] = selftriggers_lo[2][19:0];
-    assign selftriggers_chan3_lo[19:0] = selftriggers_lo[3][19:0];
-    assign selftriggers_chan4_lo[19:0] = selftriggers_lo[4][19:0];
-    assign selftriggers_chan0_hi[19:0] = selftriggers_hi[0][19:0];
-    assign selftriggers_chan1_hi[19:0] = selftriggers_hi[1][19:0];
-    assign selftriggers_chan2_hi[19:0] = selftriggers_hi[2][19:0];
-    assign selftriggers_chan3_hi[19:0] = selftriggers_hi[3][19:0];
-    assign selftriggers_chan4_hi[19:0] = selftriggers_hi[4][19:0];
+    wire [23:0] selftriggers_lo[4:0];
+    wire [23:0] selftriggers_hi[4:0];
+    assign selftriggers_chan0_lo[23:0] = selftriggers_lo[0][23:0];
+    assign selftriggers_chan1_lo[23:0] = selftriggers_lo[1][23:0];
+    assign selftriggers_chan2_lo[23:0] = selftriggers_lo[2][23:0];
+    assign selftriggers_chan3_lo[23:0] = selftriggers_lo[3][23:0];
+    assign selftriggers_chan4_lo[23:0] = selftriggers_lo[4][23:0];
+    assign selftriggers_chan0_hi[23:0] = selftriggers_hi[0][23:0];
+    assign selftriggers_chan1_hi[23:0] = selftriggers_hi[1][23:0];
+    assign selftriggers_chan2_hi[23:0] = selftriggers_hi[2][23:0];
+    assign selftriggers_chan3_hi[23:0] = selftriggers_hi[3][23:0];
+    assign selftriggers_chan4_hi[23:0] = selftriggers_hi[4][23:0];
 
-    wire [45:0] stored_bursts_lo[4:0];
-    wire [45:0] stored_bursts_hi[4:0];
+    wire [22:0] stored_bursts_lo[4:0];
+    wire [22:0] stored_bursts_hi[4:0];
     assign stored_bursts_chan0[22:0] = chan_buffer_write[0] ? stored_bursts_hi[0][22:0] : stored_bursts_lo[0][22:0];
     assign stored_bursts_chan1[22:0] = chan_buffer_write[1] ? stored_bursts_hi[1][22:0] : stored_bursts_lo[1][22:0];
     assign stored_bursts_chan2[22:0] = chan_buffer_write[2] ? stored_bursts_hi[2][22:0] : stored_bursts_lo[2][22:0];
     assign stored_bursts_chan3[22:0] = chan_buffer_write[3] ? stored_bursts_hi[3][22:0] : stored_bursts_lo[3][22:0];
     assign stored_bursts_chan4[22:0] = chan_buffer_write[4] ? stored_bursts_hi[4][22:0] : stored_bursts_lo[4][22:0];
 
-    assign selftriggers_seen_hi = (selftriggers_chan0_hi[19:0] > 0) |
-                                  (selftriggers_chan1_hi[19:0] > 0) |
-                                  (selftriggers_chan2_hi[19:0] > 0) |
-                                  (selftriggers_chan3_hi[19:0] > 0) |
-                                  (selftriggers_chan4_hi[19:0] > 0);
-    assign selftriggers_seen_lo = (selftriggers_chan0_lo[19:0] > 0) |
-                                  (selftriggers_chan1_lo[19:0] > 0) |
-                                  (selftriggers_chan2_lo[19:0] > 0) |
-                                  (selftriggers_chan3_lo[19:0] > 0) |
-                                  (selftriggers_chan4_lo[19:0] > 0);
+    assign selftriggers_seen_hi = (selftriggers_chan0_hi[23:0] > 0) |
+                                  (selftriggers_chan1_hi[23:0] > 0) |
+                                  (selftriggers_chan2_hi[23:0] > 0) |
+                                  (selftriggers_chan3_hi[23:0] > 0) |
+                                  (selftriggers_chan4_hi[23:0] > 0);
+    assign selftriggers_seen_lo = (selftriggers_chan0_lo[23:0] > 0) |
+                                  (selftriggers_chan1_lo[23:0] > 0) |
+                                  (selftriggers_chan2_lo[23:0] > 0) |
+                                  (selftriggers_chan3_lo[23:0] > 0) |
+                                  (selftriggers_chan4_lo[23:0] > 0);
 
     assign selftriggers_seen = ddr3_buffer ? selftriggers_seen_hi : selftriggers_seen_lo;
 
@@ -308,6 +309,7 @@ module selftrigger_top (
           .clk(ttc_clk),   // 40 MHz TTC clock
           .reset(reset40),
           .reset_fifos(reset_fifos),
+          .clear_trigger_counts(clear_trigger_counts),
 
           // TTC Channel B resets
           .reset_trig_num(rst_trigger_num),
@@ -375,6 +377,7 @@ module selftrigger_top (
         // trigger configuration
         .chan_en(chan_en_clk40),                       // which channels should receive the trigger
         .accept_self_triggers(accept_self_triggers),   // accept self panel triggers in enabled channels
+        .clear_trigger_counts(clear_trigger_counts),   // clear trigger counts and reset ddr3 buffer
 
         // command manager interface
         .readout_done(readout_done_clk40), // a readout has completed

@@ -1,7 +1,7 @@
 // Top-level module for Muon g-2 WFD5 Master FPGA
 //
 // As a useful reference, here's the syntax to mark signals for debug:
-// (* mark_debug = "true" *) 
+// 
 
 module wfd_selftrig_top (
     input  wire clkin,                // 50 MHz clock
@@ -176,7 +176,8 @@ module wfd_selftrig_top (
 
     // ======== I/O lines to channel ========
     wire [4:0] acq_enable, acq_enable_encoded;
-    wire [4:0] acq_readout_pause, acq_buffer;
+    wire [4:0] acq_readout_pause;
+    wire [4:0] acq_buffer;
 
     assign c0_io[0] = acq_readout_pause[0];
     assign c1_io[0] = acq_readout_pause[1];
@@ -202,17 +203,23 @@ module wfd_selftrig_top (
     assign event_readout_pending_reduce = |event_readout_pending;
     wire self_triggering_enabled;
     wire channel_acq_enabled;
-    acq_encode acq_encode(
+    wire clear_trigger_counts;
+    // acq_encode acq_encode(
+    acq_encode2 acq_encode2(
       // inputs
       .clk(clk125),
       .reset(clk125_reset),
+
       .chan_en(chan_en),
+
       .accept_self_triggers(accept_self_triggers),
       .channels_active(acq_enable_reduce),
-      .acq_enable_encoded(acq_enable_encoded),
       .event_readout_pending(event_readout_pending_reduce),
+
+      .acq_enable_encoded(acq_enable_encoded),
       .self_triggering_enabled(self_triggering_enabled),
-      .channel_acq_enabled(channel_acq_enabled)
+      .channel_acq_enabled(channel_acq_enabled),
+      .clear_trigger_counts(clear_trigger_counts)
     );
 
     // ======== pulse trigger FIFO ========
@@ -1476,9 +1483,9 @@ module wfd_selftrig_top (
     );
 
     // synchronize cac_state
-    wire [5:0] cac_state_clk125;
+    wire [6:0] cac_state_clk125;
     sync_2stage #(
-        .WIDTH(6)
+        .WIDTH(7)
     ) cac_state_sync (
         .clk(clk125),
         .in(cac_state),
@@ -1595,7 +1602,7 @@ module wfd_selftrig_top (
         .out(stored_bursts_chan4_clk125)
     );
 
-    wire [19:0] chan_trig_num_0, chan_trig_num_1, chan_trig_num_2, chan_trig_num_3, chan_trig_num_4;
+    wire [23:0] chan_trig_num_0, chan_trig_num_1, chan_trig_num_2, chan_trig_num_3, chan_trig_num_4;
 
     // synchronize number of triggers in accumulated in each channel
     wire [23:0] selftriggers_chan0_lo, selftriggers_chan0_lo_clk125;
@@ -1650,35 +1657,35 @@ module wfd_selftrig_top (
         .out(selftriggers_chan4_lo_clk125)
     );
     sync_2stage #(
-        .WIDTH(20)
+        .WIDTH(24)
     ) chan_trig_num_h0_sync (
         .clk(clk125),
         .in( selftriggers_chan0_hi),
         .out(selftriggers_chan0_hi_clk125)
     );
     sync_2stage #(
-        .WIDTH(20)
+        .WIDTH(24)
     ) chan_trig_num_h1_sync (
         .clk(clk125),
         .in( selftriggers_chan1_hi),
         .out(selftriggers_chan1_hi_clk125)
     );
     sync_2stage #(
-        .WIDTH(20)
+        .WIDTH(24)
     ) chan_trig_num_h2_sync (
         .clk(clk125),
         .in( selftriggers_chan2_hi),
         .out(selftriggers_chan2_hi_clk125)
     );
     sync_2stage #(
-        .WIDTH(20)
+        .WIDTH(24)
     ) chan_trig_num_h3_sync (
         .clk(clk125),
         .in( selftriggers_chan3_hi),
         .out(selftriggers_chan3_hi_clk125)
     );
     sync_2stage #(
-        .WIDTH(20)
+        .WIDTH(24)
     ) chan_trig_num_h4_sync (
         .clk(clk125),
         .in( selftriggers_chan4_hi),
@@ -1864,6 +1871,7 @@ module wfd_selftrig_top (
         .thres_ddr3_overflow(thres_ddr3_overflow),         // DDR3 overflow threshold
         .self_triggering_enabled(self_triggering_enabled),
         .channel_acq_enabled(channel_acq_enabled),
+        .clear_trigger_counts(clear_trigger_counts_ttc),   // after end of run, make sure both hi and lo trigger/burst counters cleared
 
         // channel interface
         .chan_dones(acq_dones),
@@ -1935,6 +1943,14 @@ module wfd_selftrig_top (
         .error_trig_rate(error_trig_rate),           // trigger rate error
         .error_trig_num(error_trig_num_from_tt),     // trigger number error
         .error_trig_type(error_trig_type_from_tt)    // trigger type error
+    );
+
+    // synchronize the clear_trigger_counts into the 40 MHz domain
+    wire clear_trigger_counts_ttc;
+    sync_2stage clear_trigger_counts_sync (
+      .clk(ttc_clk),
+      .in(clear_trigger_counts),
+      .out(clear_trigger_counts_ttc)
     );
 
     

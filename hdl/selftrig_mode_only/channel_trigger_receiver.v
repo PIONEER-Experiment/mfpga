@@ -7,6 +7,7 @@ module channel_trigger_receiver (
   input wire clk,   // 40 MHz TTC clock
   input wire reset,
   input wire reset_fifos,
+  input wire clear_trigger_counts,
 
   // TTC Channel B resets
   input wire reset_trig_num,
@@ -140,7 +141,7 @@ module channel_trigger_receiver (
     end
     
     // reset the current write buffer count
-    if ( reset || reset_fifos ) begin
+    if ( reset || reset_fifos || clear_trigger_counts ) begin
        selftriggers_lo = 20'd0;
        selftriggers_hi = 20'd0;
     end
@@ -158,7 +159,7 @@ module channel_trigger_receiver (
     end
 
     // reset stored bursts
-    if ( reset || reset_fifos ) begin
+    if ( reset || reset_fifos || clear_trigger_counts ) begin
        stored_bursts_lo[22:0] <= 23'd0;
        stored_bursts_hi[22:0] <= 23'd0;
     end
