@@ -83,7 +83,7 @@ module selftrigger_top (
     output wire trig_fifo_empty,       // trigger fifo has no valid information left
 
     // number of bursts stored in the DDR3 for the buffer being written to
-    output wire [22:0] stored_bursts_chan0,
+    (* mark_debug = "true" *) output wire [22:0] stored_bursts_chan0,
     output wire [22:0] stored_bursts_chan1,
     output wire [22:0] stored_bursts_chan2,
     output wire [22:0] stored_bursts_chan3,

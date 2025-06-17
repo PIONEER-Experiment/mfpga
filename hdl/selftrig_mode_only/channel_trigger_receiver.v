@@ -7,7 +7,7 @@ module channel_trigger_receiver (
   input wire clk,   // 40 MHz TTC clock
   input wire reset,
   input wire reset_fifos,
-  input wire clear_trigger_counts,
+  (* mark_debug = "true" *) input wire clear_trigger_counts,
 
   // TTC Channel B resets
   input wire reset_trig_num,
@@ -30,8 +30,8 @@ module channel_trigger_receiver (
   input wire [22:0] burst_count_selftrig,
 
   // number of bursts stored in the DDR3
-  output reg [22:0] stored_bursts_lo,
-  output reg [22:0] stored_bursts_hi,
+  (* mark_debug = "true" *) output reg [22:0] stored_bursts_lo,
+  (* mark_debug = "true" *) output reg [22:0] stored_bursts_hi,
 
   // there are triggers that have not been read out
   output wire event_readout_pending,
@@ -54,7 +54,9 @@ module channel_trigger_receiver (
   assign ddr3_almost_full    = chan_en     ? (stored_bursts[22:0] > thres_ddr3_overflow[22:0]) : 1'b0;
 
   // flag if there are events remaining to be read out.  Simply use or-reduction for minimal logic
-  assign event_readout_pending = |stored_bursts_hi[22:0] | |stored_bursts_lo[22:0];
+  // this doesn't really work.
+  // assign event_readout_pending = |stored_bursts_hi[22:0] | |stored_bursts_lo[22:0];
+  assign event_readout_pending = 1'b0;
 
 //st -- lkg: this computation should get moved to selftrigger_top, and should disable triggering
 //st -- lkg: I believe the reasoning below neglected to consider that there are in principle 12

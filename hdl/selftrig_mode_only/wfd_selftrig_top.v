@@ -289,11 +289,11 @@ module wfd_selftrig_top (
     wire rst_trigger_timestamp;
     wire [4:0] ttc_fill_type;
     wire [4:0] fill_type;
-    wire ttc_accept_self_triggers;
-    wire accept_self_triggers;
+    (* mark_debug = "true" *) wire ttc_accept_self_triggers;
+    (* mark_debug = "true" *) wire accept_self_triggers;
 
      // Bring ipb_accept intp ttc clock domain. Assumption that signals are on / off for long periods
-     wire ipb_accept_self_triggers_ttc;
+     (* mark_debug = "true" *) wire ipb_accept_self_triggers_ttc;
      reg [1:0] sync_reg;
      reg [1:0] sync_reg_slow;
 

@@ -18,15 +18,15 @@ module acq_encode2(
   input wire [4:0] chan_en,
 
   // enabling / status signals
-  input accept_self_triggers,
+  (* mark_debug = "true" *) input accept_self_triggers,
   input wire channels_active,
-  input wire event_readout_pending,
+  (* mark_debug = "true" *) input wire event_readout_pending,
 
   // the encoded signal to tell the channels to toggle which enable
   output wire [4:0] acq_enable_encoded,
   output reg  self_triggering_enabled,
   output reg  channel_acq_enabled,
-  output reg  clear_trigger_counts
+  (* mark_debug = "true" *) output reg  clear_trigger_counts
 );
 
   // a counter for
@@ -42,8 +42,8 @@ module acq_encode2(
       //length_counter[28:0] <= 28'h17D7840; // 200 ms in 8 ns clock ticks
       length_counter[28:0] <= 29'h7D;        //   1 us in 8 ns clock ticks
     else if ( init_clear_hold )
-      // we will hold the clear counters pulse for 256 ns 
-      length_counter[28:0] <= 29'd32;        //   1 us in 8 ns clock ticks
+      // we will hold the clear counters pulse for 1 us 
+      length_counter[28:0] <= 29'd128;        //   1 us in 8 ns clock ticks
     else if ( init_eor_count )
       // we will wait 2.5 s to zero counters (CCC does final read after 2 s)
       length_counter[28:0] <= 29'd312500000;        //   2.5 s in 8 ns clock ticks
@@ -71,10 +71,10 @@ module acq_encode2(
   reg [ 4:0] encoded_acq_command;   // for output to the channels
   assign acq_enable_encoded[4:0] = encoded_acq_command;
 
-  reg [ 10:0]     state;
+  (* mark_debug = "true" *) reg [ 10:0]     state;
   reg [ 10:0] nextstate;
   // sync to the local clock
-  wire accept_self_triggers_125;
+  (* mark_debug = "true" *) wire accept_self_triggers_125;
   sync_2stage sync_ast(
     .clk(clk),
     .in(accept_self_triggers),

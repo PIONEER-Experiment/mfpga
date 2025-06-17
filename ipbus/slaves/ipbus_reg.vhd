@@ -61,6 +61,8 @@ begin
 				reg(0)(19) <= '1';           -- disable EEPROM temperature polling
             reg(0)(25) <= cbuf_mode_in;  -- never reset circular buffer mode
             reg(0)(27) <= strg_mode_in;  -- never reset self trigger buffer mode
+            reg(0)(29) <= '0';           -- initialize fifo reset to 0 (no reset)
+            reg(0)(30) <= '0';           -- initialize zero counters to 0 (no clear)
 				reg(1)     <= x"0000000a";   -- 10 threshold for data corruption
 				reg(2)     <= x"0000000a";   -- 10 threshold for unknown TTC broadcast commands
 				reg(3)     <= x"00733334";   -- 7,549,747 (90% full) threshold for DDR3 overflow warning

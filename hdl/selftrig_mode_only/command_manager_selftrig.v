@@ -79,7 +79,7 @@ module command_manager_selftrig (
   input wire [ 4:0] chan_en,            // enabled channels, one bit for each channel
   input wire endianness_sel,            // select bit for the endianness of ADC data
   input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
-  output reg [34:0] state,              // state of finite state machine
+  (* mark_debug = "true" *) output reg [34:0] state,              // state of finite state machine
 
   // error connections
   output reg [31:0] cs_mismatch_count, // number of checksum mismatches
