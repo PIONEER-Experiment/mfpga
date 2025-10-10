@@ -12,7 +12,8 @@ set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks chan
 #set_false_path -from [get_clocks clk_125] -to [get_clocks clk_6p25M_slow_i2c_clock]
 
 # Statements to deal with intra-clock timing problems
-set_false_path -from [get_cells {command_manager_selftrig/burst_count_selftrig_reg[*]}] -to [get_cells {command_manager_selftrig/daq_data_reg[*]}]
-#set_false_path -to [get_cells {command_manager_selftrig/selftriggers_dbg/inst/ila_core_inst/shifted_data_in_reg[*][*]}]
-set_false_path -from [get_cells {command_manager_selftrig/burst_count_selftrig_reg[*]}]
+set_false_path -from [get_cells {command_manager_selftrigc/burst_count_selftrig_reg[*]}] -to [get_cells {command_manager_selftrigc/daq_data_reg[*]}]
+#set_false_path -to  [get_cells {command_manager_selftrigc/selftriggers_dbg/inst/ila_core_inst/shifted_data_in_reg[*][*]}]
+set_false_path -from [get_cells {command_manager_selftrigc/burst_count_selftrig_reg[*]}]
+
 

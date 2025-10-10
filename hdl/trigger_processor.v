@@ -6,30 +6,30 @@ module trigger_processor (
   input wire reset,
 
   // interface to TTC Trigger FIFO
-  input wire trig_fifo_valid,
+(* mark_debug = "true" *) input wire trig_fifo_valid,
   input wire [127:0] trig_fifo_data,
   output reg trig_fifo_ready,
 
   // interface to Acquisition Event FIFO
-  input wire acq_fifo_valid,
+(* mark_debug = "true" *) input wire acq_fifo_valid,
   input wire [31:0] acq_fifo_data,
   output reg acq_fifo_ready,
 
   // interface to command manager
   input wire readout_ready,    // command manager is idle
   input wire readout_done,     // initiated readout has finished
-  output reg send_empty_event, // request an empty event
+(* mark_debug = "true" *) output reg send_empty_event, // request an empty event
   output reg skip_payload,     // request to skip the channel payloads
-  output reg initiate_readout, // request for the channels to be read out
+(* mark_debug = "true" *) output reg initiate_readout, // request for the channels to be read out
 
-  output reg [23:0] ttc_event_num,      // channel's trigger number
-  output reg [23:0] ttc_trig_num,       // global trigger number
+(* mark_debug = "true" *) output reg [23:0] ttc_event_num,      // channel's trigger number
+(* mark_debug = "true" *) output reg [23:0] ttc_trig_num,       // global trigger number
   output reg [ 4:0] ttc_trig_type,      // trigger type
   output reg [43:0] ttc_trig_timestamp, // trigger timestamp
   output reg [ 3:0] ttc_xadc_alarms,    // XADC alarms
 
   // status connections
-  output reg [6:0] state,     // state of finite state machine
+(* mark_debug = "true" *) output reg [6:0] state,     // state of finite state machine
   output wire error_trig_num, // trigger number mismatch between FIFOs
   output wire error_trig_type // trigger type mismatch between FIFOs
 );
@@ -45,7 +45,7 @@ module trigger_processor (
   
 
   // latched data from TTC Trigger FIFO
-  reg ttc_empty_event;
+(* mark_debug = "true" *) reg ttc_empty_event;
   reg ttc_empty_payload;
 
   // latched data from Acquisition Event FIFO

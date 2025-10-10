@@ -21,7 +21,6 @@ module selftrigger_top (
     input wire [31:0] trig_settings,       // trigger settings
     input wire [ 4:0] chan_en,             // enabled channels
     input wire [31:0] thres_ddr3_overflow, // DDR3 overflow threshold
-    input wire self_triggering_enabled,
     input wire channel_acq_enabled,
     input wire clear_trigger_counts,       // after end of run, make sure both hi and lo trigger/burst counters cleared
 
@@ -280,7 +279,6 @@ module selftrigger_top (
         .acq_trigger(acq_trigger),     // trigger signal
         .acq_trig_type(acq_trig_type), // recongized trigger type (muon fill, laser, pedestal, async readout)
         .acq_trig_num(acq_trig_num),   // trigger number, starts at 1
-        .self_triggering_enabled(self_triggering_enabled),
         .channel_acq_enabled(channel_acq_enabled),
 
         // interface to TTC Trigger FIFO
@@ -424,11 +422,11 @@ module selftrigger_top (
         .acq_fifo_ready(m_acq_fifo_tready),
 
         // interface to command manager
-        .readout_ready(readout_ready),       // command manager is idle
-        .readout_done(readout_done),         // initiated readout has finished
-        .send_empty_event(send_empty_event), // request an empty event
-        .skip_payload(skip_payload),         // request to skip channel payloads
-        .initiate_readout(initiate_readout), // request for the channels to be read out
+        .readout_ready(readout_ready),            // command manager is idle
+        .readout_done(readout_done),              // initiated readout has finished
+        .send_empty_event(send_empty_event),      // request an empty event
+        .skip_payload(skip_payload),              // request to skip channel payloads
+        .initiate_readout(initiate_readout),      // request for the channels to be read out
 
         .ttc_event_num(ttc_event_num),           // channel's trigger number
         .ttc_trig_num(ttc_trig_num),             // global trigger number

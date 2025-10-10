@@ -2,7 +2,7 @@
 
 // Register block to hold status of the Rider
 
-module status_reg_block_selftrig (
+module status_reg_block_selftrigc (
   // user interface clock and reset
   input wire clk,
   input wire reset,

@@ -26,7 +26,6 @@ module ttc_trigger_receiver_selftrig (
   output reg acq_trigger,          // trigger signal to trigger the async readout
   output reg [ 4:0] acq_trig_type, // recognized trigger type (async readout)
   output reg [23:0] acq_trig_num,  // trigger number, starts at 1
-  input wire self_triggering_enabled,
   input wire channel_acq_enabled,
 
   // interface to TTC Trigger FIFO

@@ -1,16 +1,16 @@
 # Export the bitstream file and create the .mcs file
-if {[file exists ./wfd_selftrig_top.bit]} {
-  file copy -force ./wfd_selftrig_top.bit [file dirname [info script]]/../bitstreams/wfd_master_selftrig_$version.bit
+if {[file exists ./wfd_selftrigc_top.bit]} {
+  file copy -force ./wfd_selftrigc_top.bit [file dirname [info script]]/../bitstreams/wfd_master_selftrigc_$version.bit
   puts "INFO: Bitstream copied: wfd_master.bit"
   write_cfgmem -force -format MCS -size 32 -interface SPIx1 \
-      -loadbit "up 0x00670000 ./wfd_selftrig_top.bit" [file dirname [info script]]/../bitstreams/wfd_master_selftrig_$version
+      -loadbit "up 0x00670000 ./wfd_selftrigc_top.bit" [file dirname [info script]]/../bitstreams/wfd_master_selftrigc_$version
 } else {
-  puts "ERROR: Bitstream not found: wfd_selftrig_top.bit"
+  puts "ERROR: Bitstream not found: wfd_selftrigc_top.bit"
 }
 
 # Export the debug file
 if {[file exists ./debug_nets.ltx]} {
-  file copy -force ./debug_nets.ltx [file dirname [info script]]/../bitstreams/wfd_master_selftrig_$version.ltx
+  file copy -force ./debug_nets.ltx [file dirname [info script]]/../bitstreams/wfd_master_selftrigc_$version.ltx
   puts "INFO: Debug copied: wfd_master.ltx"
 } else {
   puts "ERROR: Debug not found: debug_nets.ltx"

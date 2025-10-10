@@ -1868,8 +1868,7 @@ module wfd_selftrig_top (
         .trig_type(fill_type[4:0]),                        // trigger type (muon fill, laser, pedestal, async)
         .trig_settings({28'd0, trig_settings[2:0], 1'b0}), // trigger settings
         .chan_en(chan_en),                                 // enabled channels
-        .thres_ddr3_overflow(thres_ddr3_overflow),         // DDR3 overflow threshold
-        .self_triggering_enabled(self_triggering_enabled),
+        .thres_ddr3_overflow(thres_ddr3_overflow),         // DDR3 overflow threshold0
         .channel_acq_enabled(channel_acq_enabled),
         .clear_trigger_counts(clear_trigger_counts_ttc),   // after end of run, make sure both hi and lo trigger/burst counters cleared
 

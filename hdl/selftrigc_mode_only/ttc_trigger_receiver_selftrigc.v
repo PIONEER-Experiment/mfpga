@@ -1,7 +1,7 @@
 // Finite state machine to handle incoming TTC triggers
 //st lkg --  we will need to add some logic somewhere so that the "acq_ready" means that
 //st lkg     the previous readout command has completed
-module ttc_trigger_receiver_selftrig (
+module ttc_trigger_receiver_selftrigc (
   // clock and reset
   input wire clk,   // 40 MHz TTC clock
   input wire reset,
@@ -11,8 +11,8 @@ module ttc_trigger_receiver_selftrig (
   input wire reset_trig_timestamp,
 
   // trigger interface
-  input wire ttc_trigger,                // TTC trigger signal
-  input wire [ 4:0] trig_type,           // trigger type
+(* mark_debug = "true" *) input wire ttc_trigger,                // TTC trigger signal
+(* mark_debug = "true" *) input wire [ 4:0] trig_type,           // trigger type
   input wire [31:0] trig_settings,       // trigger settings
   input wire [ 4:0] chan_en,             // enabled channels
 
@@ -20,22 +20,23 @@ module ttc_trigger_receiver_selftrig (
   input wire readout_done, // a readout has completed
 
   // channel acquisition controller interface
-  input wire acq_ready,            // channels are ready to acquire data (or-reduce from 5 channels?)
+(* mark_debug = "true" *) input wire acq_ready,            // channels are ready to acquire data (or-reduce from 5 channels?)
   input wire acq_activated,        // channels are acquiring date (again, or-reduce)
   input wire accept_self_triggers, // self triggers will be collected when acq_activated allows
   output reg acq_trigger,          // trigger signal to trigger the async readout
-  output reg [ 4:0] acq_trig_type, // recognized trigger type (async readout)
+(* mark_debug = "true" *) output reg [ 4:0] acq_trig_type, // recognized trigger type (async readout)
   output reg [23:0] acq_trig_num,  // trigger number, starts at 1
+(* mark_debug = "true" *) input wire channel_acq_enabled,
 
   // interface to TTC Trigger FIFO
-  input wire fifo_ready,
-  output reg fifo_valid,
+(* mark_debug = "true" *) input wire fifo_ready,
+(* mark_debug = "true" *) output reg fifo_valid,
   output reg [127:0] fifo_data,
 
   // status connections
   input wire selftriggers_seen,  // at least one channel has a trigger
   input wire [ 3:0] xadc_alarms,    // XADC alarm signals
-  output reg [ 3:0] state,          // state of finite state machine
+  (* mark_debug = "true" *) output reg [ 3:0] state,          // state of finite state machine
   output reg [23:0] trig_num,       // global trigger number
   output reg [43:0] trig_timestamp, // global trigger timestamp
 
@@ -50,9 +51,15 @@ module ttc_trigger_receiver_selftrig (
 //  parameter TRIG_HI         = 3;
   parameter ERROR           = 3;
 
+(* mark_debug = "true" *) wire acq_ready_40;
+sync_2stage ar_sync (
+  .clk(clk),
+  .in(acq_ready),
+  .out(acq_ready_40)
+);
 
-  reg        empty_event;        // flag for an empty event response
-  reg        empty_payload;      // flag for an async readout with no processed triggers
+(* mark_debug = "true" *) reg        empty_event;        // flag for an empty event response
+(* mark_debug = "true" *) reg        empty_payload;      // flag for an async readout with no processed triggers
   reg [43:0] trig_timestamp_cnt; // clock cycle count
   reg [23:0] acq_event_cnt;      // # of triggers passed to channel, starts at 1
   reg [ 3:0] acq_xadc_alarms;    // XADC alarm signals
@@ -99,12 +106,9 @@ module ttc_trigger_receiver_selftrig (
           // this is to ensure that it has been updated before writing to the FIFO
           // only respond to "async" readout requests in this mode
 //          if ((trig_type[4:0] != 5'b00100) | ~acq_activated) begin
-          if ((trig_type[4:0] != 5'b00100) | ~acq_activated | ~accept_self_triggers) begin
+          if ((trig_type[4:0] != 5'b00100) | ~channel_acq_enabled ) begin
              next_empty_event = 1'b1; // indicate to send an empty event
            end
-//           else if (~selftriggers_seen) begin
-//             next_empty_payload = 1'b1; // indicate to skip channel payloads
-//          end
 
           nextstate[SEND_TRIGGER] = 1'b1;
         end

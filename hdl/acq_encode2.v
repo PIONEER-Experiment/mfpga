@@ -15,7 +15,7 @@ module acq_encode2(
   input wire reset,
 
   // channel configuration
-  input wire [4:0] chan_en,
+(* mark_debug = "true" *) input wire [4:0] chan_en,
 
   // enabling / status signals
   (* mark_debug = "true" *) input accept_self_triggers,
@@ -23,7 +23,7 @@ module acq_encode2(
   (* mark_debug = "true" *) input wire event_readout_pending,
 
   // the encoded signal to tell the channels to toggle which enable
-  output wire [4:0] acq_enable_encoded,
+(* mark_debug = "true" *) output wire [4:0] acq_enable_encoded,
   output reg  self_triggering_enabled,
   output reg  channel_acq_enabled,
   (* mark_debug = "true" *) output reg  clear_trigger_counts
@@ -31,7 +31,7 @@ module acq_encode2(
 
   // a counter for
   reg [28:0] length_counter;
-  reg init_gap_count, init_eor_count, init_clear_hold;
+  reg init_gap_count, init_eor_count, init_clear_hold, init_short_hold_count;
   wire length_counter_zero;
   always @(posedge clk) begin
     if ( reset )
@@ -46,7 +46,12 @@ module acq_encode2(
       length_counter[28:0] <= 29'd128;        //   1 us in 8 ns clock ticks
     else if ( init_eor_count )
       // we will wait 2.5 s to zero counters (CCC does final read after 2 s)
-      length_counter[28:0] <= 29'd312500000;        //   2.5 s in 8 ns clock ticks
+      // increase this to 5 s to if this cures the occasional end of run trigger mismatch
+//      length_counter[28:0] <= 29'd312500000;        //   2.5 s in 8 ns clock ticks
+      length_counter[28:0] <= 29'd62500000;        //   2.5 s in 8 ns clock ticks
+    else if ( init_short_hold_count )
+      // we will hold the ending short pulse for 40 ns 
+      length_counter[28:0] <= 29'd5;        //   40 ns in 8 ns clock ticks
     else if ( length_counter_zero )
       // if at zero, keep at zero
       length_counter[28:0] <= 29'd0;
@@ -56,23 +61,26 @@ module acq_encode2(
   assign length_counter_zero = (length_counter[28:0] == 29'd0) ? 1'b1 : 1'b0;
 
   // state bits
-  parameter IDLE              =  0;  // 001
-  parameter ENABLE_ACQ        =  1;  // 002
-  parameter ACQ_TRIG_GAP      =  2;  // 004
-  parameter ENABLE_TRIG       =  3;  // 008
-  parameter WAIT              =  4;  // 010
-  parameter DISABLE_TRIG      =  5;  // 020
-  parameter TRIG_ACQ_GAP      =  6;  // 040
-  parameter DISABLE_ACQ       =  7;  // 080
-  parameter CLEAR_TRIGS_GAP   =  8;  // 100
-  parameter CLEAR_TRIGS       =  9;  // 200
-  parameter CLEAR_TRIGS_HOLD  = 10;  // 400
+  parameter IDLE              =  0;  // 0001
+  parameter ENABLE_ACQ        =  1;  // 0002
+  parameter ACQ_TRIG_GAP      =  2;  // 0004
+  parameter ENABLE_TRIG       =  3;  // 0008
+  parameter WAIT              =  4;  // 0010
+  parameter DISABLE_TRIG      =  5;  // 0020
+  parameter TRIG_ACQ_GAP      =  6;  // 0040
+  parameter DISABLE_ACQ       =  7;  // 0080
+  parameter PREPARE_TO_END    =  8;  // 0100
+  parameter INIT_TRIGS_GAP    =  9;  // 0200
+  parameter CLEAR_TRIGS_GAP   = 10;  // 0400
+  parameter CLEAR_TRIGS       = 11;  // 0800
+  parameter CLEAR_TRIGS_HOLD  = 12;  // 1000
   
   reg [ 4:0] encoded_acq_command;   // for output to the channels
   assign acq_enable_encoded[4:0] = encoded_acq_command;
 
-  (* mark_debug = "true" *) reg [ 10:0]     state;
-  reg [ 10:0] nextstate;
+  (* mark_debug = "true" *) reg [ 12:0]     state;
+  reg [ 12:0] nextstate;
+
   // sync to the local clock
   (* mark_debug = "true" *) wire accept_self_triggers_125;
   sync_2stage sync_ast(
@@ -95,7 +103,7 @@ module acq_encode2(
 
   // combinational always block
   always @* begin
-    nextstate = 11'd0;
+    nextstate = 13'd0;
 
     case (1'b1) // synopsys parallel_case full_case
       // idle state
@@ -164,10 +172,23 @@ module acq_encode2(
 
       // stay here 1 clock cycle.  Disable acquisition and start count for 2.5 s gap to clear
       state[DISABLE_ACQ] : begin
-        nextstate[CLEAR_TRIGS_GAP] = 1'b1;
+        nextstate[PREPARE_TO_END] = 1'b1;
       end
 
-      // disable acquisition, then return to IDLE
+      // hold the signal to disable for a few cycles
+      state[PREPARE_TO_END] : begin
+        if ( length_counter_zero ) 
+          nextstate[INIT_TRIGS_GAP] = 1'b1;
+        else
+          nextstate[PREPARE_TO_END] = 1'b1;
+      end
+
+      // stay here 1 cycle to initialize the counter
+      state[INIT_TRIGS_GAP] : begin
+          nextstate[CLEAR_TRIGS_GAP] = 1'b1;
+      end
+
+      // wait a bit, clear the trigger counters, then return to IDLE
       state[CLEAR_TRIGS_GAP] : begin
         // stay here until the counter counts down
         if (length_counter_zero ) begin
@@ -203,7 +224,7 @@ module acq_encode2(
   always @(posedge clk) begin
     // reset state machine
     if (reset) begin
-      state <= 11'd1 << IDLE;
+      state <= 13'd1 << IDLE;
     end
     else begin
       state <= nextstate;
@@ -216,6 +237,7 @@ module acq_encode2(
     init_clear_hold          <= 1'b0;
     init_gap_count           <= 1'b0;
     init_eor_count           <= 1'b0;
+    init_short_hold_count    <= 1'b0;
     encoded_acq_command[4:0] <= 5'b00000;
     clear_trigger_counts     <= 1'b0;
     self_triggering_enabled  <= 1'b0;
@@ -238,7 +260,6 @@ module acq_encode2(
         end
   
         nextstate[ACQ_TRIG_GAP] : begin
-          encoded_acq_command[4:0] <= chan_en[4:0];
           channel_acq_enabled      <= 1'b1;
         end
   
@@ -254,21 +275,31 @@ module acq_encode2(
           self_triggering_enabled  <= 1'b1;
         end
   
+        // zero out the enable triggering signal for the channels
+        // wait a good long time for a final readout trigger to come before
+        // disabling the data acq
         nextstate[DISABLE_TRIG] : begin
-          encoded_acq_command[4:0] <= chan_en[4:0];
           channel_acq_enabled      <= 1'b1;
-          init_gap_count           <= 1'b1;
+          init_eor_count           <= 1'b1;
         end
   
         nextstate[TRIG_ACQ_GAP] : begin
           channel_acq_enabled      <= 1'b1;
-          encoded_acq_command[4:0] <= chan_en[4:0];
         end
   
         nextstate[DISABLE_ACQ] : begin
+          // the channel will wait for a brief reappearance
+          encoded_acq_command[4:0] <= chan_en[4:0];
+          init_short_hold_count    <= 1'b1; 
+       end
+
+        nextstate[PREPARE_TO_END] : begin
+        end
+
+        nextstate[INIT_TRIGS_GAP] : begin
           init_eor_count      <= 1'b1;
         end
-  
+ 
         nextstate[CLEAR_TRIGS_GAP] : begin
         end
   

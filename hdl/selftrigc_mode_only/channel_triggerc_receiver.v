@@ -6,6 +6,8 @@ module channel_triggerc_receiver (
   // clock and reset
   input wire clk,   // 40 MHz TTC clock
   input wire reset,
+//  input wire reset_fifos,
+  input wire clear_trigger_counts,
 
   // TTC Channel B resets
   input wire reset_trig_num,
@@ -21,7 +23,7 @@ module channel_triggerc_receiver (
   output reg [19:0] selftriggers_latch,  // number of triggers currently in the active DDR3 buffer
 
   // command manager interface
-  input wire new_fill,
+  input wire new_fill_pause_triggers,
 
   // set burst count for each channel
   input wire [22:0] burst_count_selftrig,
@@ -58,8 +60,15 @@ module channel_triggerc_receiver (
 
   reg [ 1:0] nextstate;
   reg [23:0] next_trig_num;
-  reg [19:0] next_selftriggers_lo;
-  reg [19:0] next_selftriggers_hi;
+  reg [19:0] next_selftriggers;
+
+  // convert the new_fill signal to a pulse
+  wire new_fill_pulse;
+  level_to_pulse new_fill_pulsifier (
+    .clk(clk),
+    .signal_in(new_fill_pause_triggers),
+    .signal_out(new_fill_pulse)
+  );
 
   // combinational always block
   always @* begin
@@ -120,16 +129,18 @@ module channel_triggerc_receiver (
     end
     
     // reset the current write buffer count
-    if ( reset ) begin
+//    if ( reset || reset_fifos || clear_trigger_counts ) begin
+    if ( reset || clear_trigger_counts ) begin
        selftriggers = 20'd0;
     end
-    else if ( new_fill ) begin
+    else if ( new_fill_pulse ) begin
        selftriggers_latch = selftriggers;
        selftriggers       = 20'd0;
     end
 
     // reset stored bursts
-    if ( reset | new_fill ) begin
+//    if ( reset || new_fill_pulse || reset_fifos || clear_trigger_counts ) begin
+    if ( reset || new_fill_pulse || clear_trigger_counts ) begin
        stored_bursts[22:0] <= 23'd0;
     end
     else if (trigger & chan_en) begin

@@ -10,15 +10,16 @@ module channel_acq_controller_selftrigc (
   input wire reset,
 
   // trigger configuration
-  input wire [4:0] chan_en,         // which channels should receive the trigger
-  input wire accept_self_triggers,  // accept self triggers in enabled channels
+(* mark_debug = "true" *) input wire [4:0] chan_en,         // which channels should receive the trigger
+(* mark_debug = "true" *) input wire accept_self_triggers,  // accept self triggers in enabled channels
 
   // command manager interface
-  input wire readout_done,            // a readout has completed
-  output wire new_fill,               // a convenient signal to flag there is a new fill
+  input wire readout_done,              // a readout has completed
+  output reg  new_fill_pause_triggers,   // flag there is a new fill and inhibit selftriggers
+(* mark_debug = "true" *) output wire selftrigger_fifo_wr_en, 
 
   // interface from TTC trigger receiver
-  input wire ttc_trigger,          // trigger signal
+(* mark_debug = "true" *) input wire ttc_trigger,          // trigger signal
   input wire [ 4:0] ttc_trig_type, // recognized trigger type (muon fill, laser, pedestal, async readout)
   input wire [23:0] ttc_trig_num,  // trigger number
   input wire ttc_evt_reset,        // reset ddr3_buffer when event count resets
@@ -26,42 +27,66 @@ module channel_acq_controller_selftrigc (
   output reg  ttc_acq_activated,
 
   // interface to Channel FPGAs
-  input wire [4:0] acq_dones,
+(* mark_debug = "true" *) input wire [4:0] acq_dones,
   output reg [4:0] acq_enable,
-  output reg [4:0] acq_buffer_write,
 
   // interface to Acquisition Event FIFO
   input wire fifo_ready,
-  output reg fifo_valid,
+(* mark_debug = "true" *) output reg fifo_valid,
   output reg [31:0] fifo_data,
 
   // status connections
-  output reg [5:0] state // state of finite state machine
+  (* mark_debug = "true" *) output reg [5:0] state // state of finite state machine
 );
 
   // state bits
   parameter IDLE              = 0;  // 01
   parameter ACQUIRE           = 1;  // 02
   parameter NEW_DDR3_BUFFER   = 2;  // 04
-  parameter WAIT              = 3;  // 08
-  parameter STORE_ACQ_INFO    = 4;  // 10
-  parameter READOUT           = 5;  // 20
+  parameter TRANSITION        = 3;  // 08
+  parameter WAIT              = 4;  // 10
+  parameter STORE_ACQ_INFO    = 5;  // 20
   
 
   reg [ 4:0] acq_trig_type;     // latched trigger type
   reg [23:0] acq_trig_num;      // latched trigger number
-  reg [ 4:0] acq_dones_latched; // latched channel dones reported
+(* mark_debug = "true" *) reg [ 4:0] acq_dones_latched; // latched channel dones reported
 
   reg [ 5:0] nextstate;
   reg [ 4:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
   reg [ 4:0] next_acq_dones_latched;
   reg [ 4:0] next_acq_enable;
-  reg [ 4:0] next_acq_buffer_write;
   reg        next_ddr3_buffer;
   reg        next_ttc_acq_activated;
   reg accept_self_triggers_reg;
 
+(* mark_debug = "true" *) wire new_fill_counter_zero;
+  reg [4:0] new_fill_counter;
+  (* mark_debug = "true" *) reg init_new_fill_counter;
+  always @(posedge clk) begin
+    if ( reset )
+      new_fill_counter[4:0] <= 5'd0;
+    else if ( init_new_fill_counter )
+      new_fill_counter[4:0] <= 5'd4;
+    else if ( new_fill_counter_zero )
+      // when it hits zero, hold it at zero
+      new_fill_counter[4:0] <= 5'd0;
+    else
+      new_fill_counter[4:0] = new_fill_counter[4:0] - 1;
+  end
+  assign new_fill_counter_zero = (new_fill_counter[4:0] == 5'd0) ? 1'b1 : 1'b0;
+
+  // delay the fill counter init to use as the fifo write enable
+  // that should allow enough to have first latched the numbers of self triggers
+  reg [2:0] shift_reg;
+  always @(posedge clk) begin
+    if ( reset )
+      shift_reg[2:0] <= 3'd0;
+    else 
+      shift_reg <= {shift_reg[1:0], init_new_fill_counter};
+  end
+  assign selftrigger_fifo_wr_en = shift_reg[2];
 
   // combinational always block
   always @* begin
@@ -71,7 +96,6 @@ module channel_acq_controller_selftrigc (
     next_acq_trig_num     [23:0] = acq_trig_num     [23:0];
     next_acq_dones_latched[ 4:0] = acq_dones_latched[ 4:0];
     next_ttc_acq_activated       = ttc_acq_activated;
-    next_acq_buffer_write [4:0]  = acq_buffer_write [4:0];
     next_acq_enable       [4:0]  = acq_enable       [4:0];
 
     case (1'b1) // synopsys parallel_case full_case
@@ -95,7 +119,7 @@ module channel_acq_controller_selftrigc (
       state[ACQUIRE] : begin
         // readout trigger received -- the ttc_trigger_receiver_selftrig has already filtered out other types of triggers aside from readout
         // we will stop acquisition of channel self-triggers while we wait for any final events in the channels to get written to the DDR3
-        // If we are still acquiring data, flip the buffer and proceed.  If not, we can process the trigger without flipping
+        // If we are still acquiring data, go to the next buffer and proceed.  If not, we can process the trigger without flipping
         // the buffer
         if (ttc_trigger ) begin
           next_acq_dones_latched[4:0] = 5'b00000;
@@ -117,18 +141,27 @@ module channel_acq_controller_selftrigc (
           nextstate[ACQUIRE] = 1'b1;
         end
       end
-      // swap the buffers used for reading and writing.  This will also
+
+      // start a new buffer for writing.  This will also
       // cause any channel still writing to complete writing, and to
-      // leet channels know that they should acknowledge being done writing
+      // let channels know that they should acknowledge being done writing
       state[NEW_DDR3_BUFFER] : begin
       // flag that there is a new buffer to use
-         nextstate[WAIT] = 1'b1;
+         nextstate[TRANSITION] = 1'b1;
+      end
+
+      state[TRANSITION] : begin
+      // flag that there is a new buffer to use
+         if ( new_fill_counter_zero )
+            nextstate[WAIT] = 1'b1;
+         else
+            nextstate[TRANSITION] = 1'b1;
       end
 
       // wait for channels to report back done
       state[WAIT] : begin
         // update latched channel dones
-        next_acq_dones_latched[4:0] = acq_dones_latched[4:0] | acq_dones[4:0];
+        next_acq_dones_latched[4:0] = acq_dones_latched[4:0] | (acq_dones[4:0] & chan_en[4:0]);
 
         // keep the enabled channels acquiring data
         if ( accept_self_triggers ) begin
@@ -149,7 +182,7 @@ module channel_acq_controller_selftrigc (
 
       // store the event information in the FIFO, for the trigger processor
       state[STORE_ACQ_INFO] : begin
-        // renable self triggering if we are still taking data
+        // re-enable self triggering if we are still taking data
         if ( accept_self_triggers ) begin
           next_acq_enable[4:0] = chan_en[4:0];
         end
@@ -160,18 +193,6 @@ module channel_acq_controller_selftrigc (
         end
         // FIFO accepted the data word
         if (fifo_ready) begin
-          nextstate[READOUT] = 1'b1;
-        end
-        // FIFO is not ready for data word
-        else begin
-          nextstate[STORE_ACQ_INFO] = 1'b1;
-        end
-      end
-      // wait for readout to be complete, as reported by command manager
-      state[READOUT] : begin
-        // readout is finished
-        if (readout_done) begin
-            // continue taking data if requested
             if ( accept_self_triggers ) begin
               next_acq_enable[4:0] = chan_en[4:0];
               nextstate[ACQUIRE] = 1'b1;
@@ -181,17 +202,36 @@ module channel_acq_controller_selftrigc (
               nextstate[IDLE] = 1'b1;
             end
         end
-        // readout still in progress
+        // FIFO is not ready for data word
         else begin
-          nextstate[READOUT] = 1'b1;
-          if ( accept_self_triggers ) begin
-            next_acq_enable[4:0] = chan_en[4:0];
-          end
-          else begin
-            next_acq_enable[4:0] = 5'b00000;
-          end
+          nextstate[STORE_ACQ_INFO] = 1'b1;
         end
       end
+      //// wait for readout to be complete, as reported by command manager
+      //state[READOUT] : begin
+      //  // readout is finished
+      //  if (readout_done) begin
+      //      // continue taking data if requested
+      //      if ( accept_self_triggers ) begin
+      //        next_acq_enable[4:0] = chan_en[4:0];
+      //        nextstate[ACQUIRE] = 1'b1;
+      //      end
+      //      else begin
+      //        next_acq_enable[4:0] = 5'b00000;
+      //        nextstate[IDLE] = 1'b1;
+      //      end
+      //  end
+      //  // readout still in progress
+      //  else begin
+      //    nextstate[READOUT] = 1'b1;
+      //    if ( accept_self_triggers ) begin
+      //      next_acq_enable[4:0] = chan_en[4:0];
+      //    end
+      //    else begin
+      //      next_acq_enable[4:0] = 5'b00000;
+      //    end
+      //  end
+      //end
     endcase
   end
   
@@ -230,8 +270,15 @@ module channel_acq_controller_selftrigc (
     if (reset) begin
       fifo_valid      <=  1'b0;
       fifo_data[31:0] <= 32'd0;
+      init_new_fill_counter <= 1'b0;
+      new_fill_pause_triggers <= 1'b0;
     end
     else begin
+
+      //defaults
+      init_new_fill_counter <= 1'b0;
+      new_fill_pause_triggers <= 1'b0;
+
       case (1'b1) // synopsys parallel_case full_case
         nextstate[IDLE] : begin
           fifo_valid      <=  1'b0;
@@ -244,6 +291,13 @@ module channel_acq_controller_selftrigc (
         nextstate[NEW_DDR3_BUFFER] : begin
           fifo_valid      <=  1'b0;
           fifo_data[31:0] <= 32'd0;
+          init_new_fill_counter <= 1'b1;
+          new_fill_pause_triggers <= 1'b1;
+        end
+        nextstate[TRANSITION] : begin
+          fifo_valid      <=  1'b0;
+          fifo_data[31:0] <= 32'd0;
+          new_fill_pause_triggers <= 1'b1;
         end
         nextstate[WAIT] : begin
           fifo_valid      <=  1'b0;
@@ -253,15 +307,10 @@ module channel_acq_controller_selftrigc (
           fifo_valid      <= 1'b1;
           fifo_data[31:0] <= {3'd0, acq_trig_type[4:0], acq_trig_num[23:0]};
         end
-        nextstate[READOUT] : begin
-          fifo_valid      <=  1'b0;
-          fifo_data[31:0] <= 32'd0;
-        end
       endcase
     end
   end
 
   // outputs based on states
   assign ttc_acq_ready = (state[IDLE] == 1'b1) || (state[ACQUIRE] == 1'b1);
-  assign new_fill      = (state[NEW_DDR3_BUFFER] == 1'b1);
 endmodule

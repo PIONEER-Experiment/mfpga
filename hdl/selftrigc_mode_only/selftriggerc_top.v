@@ -11,6 +11,7 @@ module selftriggerc_top (
     input wire reset40,      // in  40 MHz clock domain
     input wire reset40_n,    // in  40 MHz clock domain
     input wire rst_from_ipb, // in 125 MHz clock domain
+//    input wire reset_fifos,  // in  40 MHz clock domain
 
     input wire rst_trigger_num,       // from TTC Channel B
     input wire rst_trigger_timestamp,
@@ -22,6 +23,8 @@ module selftriggerc_top (
     input wire [31:0] trig_settings,       // trigger settings
     input wire [ 4:0] chan_en,             // enabled channels
     input wire [31:0] thres_ddr3_overflow, // DDR3 overflow threshold
+    input wire channel_acq_enabled,
+    input wire clear_trigger_counts,       // after end of run, make sure both hi and lo trigger/burst counters cleared
 
     // channel interface:  these use the direct i/o lines to pins on the channel FPGAs
     input  wire [4:0] chan_dones,          // the last event before starting readout has been moved to DDR3 memory
@@ -31,7 +34,8 @@ module selftriggerc_top (
     // command manager interface
     input  wire readout_ready,          // command manager is idle
     input  wire readout_done,           // initiated readout has finished
-    input wire new_fill,                // TTC Async readout received, switch to new buffer
+    output wire new_fill_pause_triggers, // TTC Async readout received, switch to new buffer
+    output wire selftrigger_fifo_wr_en, // push the latched number of self-triggers onto the fifo's
     output wire send_empty_event,       // request an empty event
     output wire skip_payload,           // request to skip channel payloads
     output wire initiate_readout,       // request for the channels to be read out
@@ -49,12 +53,18 @@ module selftriggerc_top (
 
     input [22:0] burst_count_selftrig,
 
-    // the number of triggers each channel has accumulated since the last readout trigger
+    // the number of triggers each channel has accumulated since the last readout trigger, live
     output wire [19:0] selftriggers_chan0,
     output wire [19:0] selftriggers_chan1,
     output wire [19:0] selftriggers_chan2,
     output wire [19:0] selftriggers_chan3,
     output wire [19:0] selftriggers_chan4,
+    // the number of triggers each channel has accumulated after the previous readout trigger, latched
+    output wire [19:0] selftriggers_chan0_latched,
+    output wire [19:0] selftriggers_chan1_latched,
+    output wire [19:0] selftriggers_chan2_latched,
+    output wire [19:0] selftriggers_chan3_latched,
+    output wire [19:0] selftriggers_chan4_latched,
 
     // status connections
     input  wire [ 3:0] xadc_alarms,    // XADC alarm signals
@@ -131,11 +141,11 @@ module selftriggerc_top (
     assign selftriggers_chan4[19:0] = selftriggers[4][19:0];
 
     wire [19:0] selftriggers_latch[4:0];
-    //assign selftriggers_latch_chan0[19:0] = selftriggers_latch[0][19:0];
-    //assign selftriggers_latch_chan1[19:0] = selftriggers_latch[1][19:0];
-    //assign selftriggers_latch_chan2[19:0] = selftriggers_latch[2][19:0];
-    //assign selftriggers_latch_chan3[19:0] = selftriggers_latch[3][19:0];
-    //assign selftriggers_latch_chan4[19:0] = selftriggers_latch[4][19:0];
+    assign selftriggers_chan0_latched[19:0] = selftriggers_latch[0][19:0];
+    assign selftriggers_chan1_latched[19:0] = selftriggers_latch[1][19:0];
+    assign selftriggers_chan2_latched[19:0] = selftriggers_latch[2][19:0];
+    assign selftriggers_chan3_latched[19:0] = selftriggers_latch[3][19:0];
+    assign selftriggers_chan4_latched[19:0] = selftriggers_latch[4][19:0];
 
     wire [45:0] stored_bursts[4:0];
     assign stored_bursts_chan0[22:0] = stored_bursts[0][22:0];
@@ -179,7 +189,7 @@ module selftriggerc_top (
     assign chan_trigs_clk40 = ct_sync2 & ~ct_sync3;
 
     // synchronize chan_dones
-    wire [4:0] chan_dones_clk40;
+(* mark_debug = "true" *) wire [4:0] chan_dones_clk40;
     sync_2stage #(
         .WIDTH(5)
     ) chan_dones_sync (
@@ -254,6 +264,7 @@ module selftriggerc_top (
         .acq_trigger(acq_trigger),     // trigger signal
         .acq_trig_type(acq_trig_type), // recongized trigger type (muon fill, laser, pedestal, async readout)
         .acq_trig_num(acq_trig_num),   // trigger number, starts at 1
+        .channel_acq_enabled(channel_acq_enabled),
 
         // interface to TTC Trigger FIFO
         .fifo_ready(s_trig_fifo_tready),
@@ -280,7 +291,9 @@ module selftriggerc_top (
           // clock and reset
           .clk(ttc_clk),   // 40 MHz TTC clock
           .reset(reset40),
-  
+//          .reset_fifos(reset_fifos),
+          .clear_trigger_counts(clear_trigger_counts),
+
           // TTC Channel B resets
           .reset_trig_num(rst_trigger_num),
   
@@ -295,7 +308,7 @@ module selftriggerc_top (
           .selftriggers_latch(selftriggers_latch[iChan]),  // pulses accumulated in previous DDR3 buffer
 
           // command manager interface
-          .new_fill(new_fill),                             // TTC Async readout came, switching to new fill
+          .new_fill_pause_triggers(new_fill_pause_triggers),                             // TTC Async readout came, switching to new fill
 
           // set burst count for each channel
           .burst_count_selftrig(burst_count_selftrig), // burst count captured for each self-trigger
@@ -320,7 +333,7 @@ module selftriggerc_top (
 //      .probe1(selftriggers_hi[0][9:0]), // input wire [9:0]  probe1
 //      .probe2(chan_trig_num[0][9:0]),   // input wire [9:0]  probe2
 //      .probe3(chan_trigs_clk40[0]),     // input wire [0:0]  probe3
-//      .probe4(new_fill),                // input wire [0:0]  probe4
+//      .probe4(new_fill_pause_triggers),                // input wire [0:0]  probe4
 //      .probe5(chan_buffer_write[0] ),   // input wire [0:0]  probe5
 //      .probe6(selftriggers_seen_hi ),   // input wire [0:0]  probe6
 //      .probe7(selftriggers_seen_lo ),   // input wire [0:0]  probe7
@@ -345,6 +358,8 @@ module selftriggerc_top (
 
         // command manager interface
         .readout_done(readout_done_clk40), // a readout has completed
+        .new_fill_pause_triggers(new_fill_pause_triggers),
+        .selftrigger_fifo_wr_en(selftrigger_fifo_wr_en),
 
         // interface from TTC trigger receiver
         .ttc_trigger(acq_trigger),         // trigger signal
@@ -390,7 +405,7 @@ module selftriggerc_top (
         .skip_payload(skip_payload),         // request to skip channel payloads
         .initiate_readout(initiate_readout), // request for the channels to be read out
 
-        .ttc_event_num(ttc_event_num),           // channel's trigger number
+        .ttc_event_num(ttc_event_num),           // respond-to trigger number
         .ttc_trig_num(ttc_trig_num),             // global trigger number
         .ttc_trig_type(ttc_trig_type),           // trigger type
         .ttc_trig_timestamp(ttc_trig_timestamp), // trigger timestamp

@@ -32,11 +32,11 @@ set_false_path -from [get_cells ipb/slaves/slave4/flash_rd_nBytes_reg*] -to [get
 set_false_path -from [get_cells ipb/slaves/slave4/flash_cmd_strobe_reg*] -to [get_cells spi_flash_intf/flash_cmd_sync/sync1_reg*]
 
 # Statements to deal with intra-clock timing problems
-set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][5]}] -to [get_cells {command_manager_selftrig/daq_data_reg[*]}]
-set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][6]}] -to [get_cells {command_manager_selftrig/daq_data_reg[*]}]
-set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][7]}] -to [get_cells {command_manager_selftrig/daq_data_reg[*]}]
-set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][8]}] -to [get_cells {command_manager_selftrig/daq_data_reg[*]}]
-set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][9]}] -to [get_cells {command_manager_selftrig/daq_data_reg[*]}]
+set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][5]}] -to [get_cells {command_manager_selftrigc/daq_data_reg[*]}]
+set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][6]}] -to [get_cells {command_manager_selftrigc/daq_data_reg[*]}]
+set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][7]}] -to [get_cells {command_manager_selftrigc/daq_data_reg[*]}]
+set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][8]}] -to [get_cells {command_manager_selftrigc/daq_data_reg[*]}]
+set_false_path -from [get_cells {ipb/slaves/slave1/reg_reg[0][9]}] -to [get_cells {command_manager_selftrigc/daq_data_reg[*]}]
 
 ## Statements to deal with critical methodology warnings
 #set_false_path -from [get_cells channels/chan0/aurora/inst/gt_wrapper_i/rxfsm_rxresetdone_r3_reg*] -to [get_cells  channels/chan0/io_block/live_status_reg_reg*]
@@ -54,6 +54,7 @@ set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks DAQ_
 
 #lkg replaced this with the DAQ_txoutclk
 #lkg  -group [get_clocks -include_generated_clocks DAQ_usrclk]
+
 
 
 

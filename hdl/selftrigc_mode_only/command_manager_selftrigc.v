@@ -17,13 +17,13 @@ module command_manager_selftrigc (
   input wire chan_tx_fifo_ready,
   output reg chan_tx_fifo_valid,
   output reg chan_tx_fifo_last,
-  output reg [ 3:0] chan_tx_fifo_dest,
+(* mark_debug = "true" *) output reg [ 3:0] chan_tx_fifo_dest,
   output reg [31:0] chan_tx_fifo_data,
 
   // interface to RX channel FIFO (through AXI4-Stream RX Switch)
-  input wire chan_rx_fifo_valid,
+(* mark_debug = "true" *) input wire chan_rx_fifo_valid,
   input wire chan_rx_fifo_last,
-  input wire [31:0] chan_rx_fifo_data,
+(* mark_debug = "true" *) input wire [31:0] chan_rx_fifo_data,
   output reg chan_rx_fifo_ready,
 
   // interface to IPbus AXI output
@@ -50,8 +50,8 @@ module command_manager_selftrigc (
   // interface to trigger processor
   input wire send_empty_event,       // request an empty event
   input wire skip_payload,           // request to skip channel payloads
-  input wire initiate_readout,       // request for the channels to be read out
-  input wire [23:0] event_num,       // counts the number of ttc triggers passed to the channels
+(* mark_debug = "true" *) input wire initiate_readout,       // request for the channels to be read out
+(* mark_debug = "true" *) input wire [23:0] event_num,       // counts the number of ttc triggers passed to the channels
   input wire [23:0] trig_num,        // counts the total number of global triggers, including ignored / empty
   input wire [ 4:0] trig_type,       // trigger type
   input wire [43:0] trig_timestamp,  // trigger timestamp, defined by when trigger is received by trigger receiver module
@@ -59,26 +59,23 @@ module command_manager_selftrigc (
   output wire readout_ready,         // ready to readout data, i.e., when in idle state
   output reg  readout_done,          // finished readout flag
   input wire        accept_self_triggers,
-  input wire [19:0] selftriggers_chan0,         // # of triggers seen per channel in channel current buffer
-  input wire [19:0] selftriggers_chan1,         // # of triggers seen per channel in channel current buffer
-  input wire [19:0] selftriggers_chan2,         // # of triggers seen per channel in channel current buffer
-  input wire [19:0] selftriggers_chan3,         // # of triggers seen per channel in channel current buffer
-  input wire [19:0] selftriggers_chan4,         // # of triggers seen per channel in channel current buffer
-  input wire [19:0] selftriggers_chan0_latched, // # of triggers seen per channel in channel previous buffer
-  input wire [19:0] selftriggers_chan1_latched, // # of triggers seen per channel in channel previous buffer
-  input wire [19:0] selftriggers_chan2_latched, // # of triggers seen per channel in channel previous buffer
-  input wire [19:0] selftriggers_chan3_latched, // # of triggers seen per channel in channel previous buffer
-  input wire [19:0] selftriggers_chan4_latched, // # of triggers seen per channel in channel previous buffer
+  (* mark_debug = "true" *) input wire [19:0] selftriggers_chan0_latched, // # of triggers seen per channel in channel buffer to be next read
+  (* mark_debug = "true" *) input wire [19:0] selftriggers_chan1_latched, // # of triggers seen per channel in channel buffer to be next read
+  (* mark_debug = "true" *) input wire [19:0] selftriggers_chan2_latched, // # of triggers seen per channel in channel buffer to be next read
+  (* mark_debug = "true" *) input wire [19:0] selftriggers_chan3_latched, // # of triggers seen per channel in channel buffer to be next read
+  (* mark_debug = "true" *) input wire [19:0] selftriggers_chan4_latched, // # of triggers seen per channel in channel buffer to be next read
+  input wire selftrigger_fifo_empty, // when low, there are buffers to be read out
+  output reg selftrigger_fifo_rd_en, // tell the selftrigger fifo's that a buffer readout has completed 
 
   // burst count for channel self trigs -- common to all channels
-  output reg [22:0] burst_count_selftrig,  // the burst count -- this is "type 4" in the rest of the firmware world
+(* mark_debug = "true" *) output reg [22:0] burst_count_selftrig,  // the burst count -- this is "type 4" in the rest of the firmware world
 
   // status connections
   input wire [47:0] i2c_mac_adr,        // this board's MAC address
   input wire [ 4:0] chan_en,            // enabled channels, one bit for each channel
   input wire endianness_sel,            // select bit for the endianness of ADC data
   input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
-  output reg [34:0] state,              // state of finite state machine
+  (* mark_debug = "true" *) output reg [34:0] state,              // state of finite state machine
 
   // error connections
   output reg [31:0] cs_mismatch_count, // number of checksum mismatches
@@ -86,11 +83,16 @@ module command_manager_selftrigc (
   output reg error_trig_num,           // trigger number mismatch between channel and master
   output reg error_trig_type,          // trigger type mismatch between channel and master
   output reg [ 4:0] chan_error_sn,     // command serial number mismatch between channel and master
-  output reg [ 4:0] chan_error_rc      // master received an error response code, one bit for each channel
+  output reg [ 4:0] chan_error_rc,     // master received an error response code, one bit for each channel
 
   // for debugging
 //  input wire rst_trigger_num
+  output wire cs_mismatch_found         // temporary
 );
+
+(* mark_debug = "true" *) wire [23:0] event_num_channel;
+  assign event_num_channel[23:0] = chan_rx_fifo_data[23:0];
+  assign cs_mismatch_found = cs_mismatch_count > 0 ? 1'b1 : 1'b0;
 
   // idle state bit
   parameter IDLE                  =  0; // 0x 0_0000_0001
@@ -103,31 +105,33 @@ module command_manager_selftrigc (
   parameter READ_IPBUS_RES        =  6; // 0x 0_0000_0040
   parameter SEND_IPBUS_RES        =  7; // 0x 0_0000_0080
   // event builder state bits
-  parameter CHECK_CHAN_EN         =  8; // 0x 0_0000_0100
-  parameter SEND_CHAN_CSN         =  9; // 0x 0_0000_0200
-  parameter SEND_CHAN_CC          = 10; // 0x 0_0000_0400
-  parameter READ_CHAN_RSN         = 11; // 0x 0_0000_0800
-  parameter READ_CHAN_RC          = 12; // 0x 0_0000_1000
-  parameter READ_CHAN_INFO1       = 13; // 0x 0_0000_2000
-  parameter READ_CHAN_INFO2       = 14; // 0x 0_0000_4000
-  parameter READ_CHAN_INFO3       = 15; // 0x 0_0000_8000
-  parameter READ_CHAN_INFO4       = 16; // 0x 0_0001_0000
-  parameter READY_AMC13_HEADER1   = 17; // 0x 0_0002_0000
-  parameter SEND_AMC13_HEADER1    = 18; // 0x 0_0004_0000
-  parameter SEND_AMC13_HEADER2    = 19; // 0x 0_0008_0000
-  parameter SEND_WFD5_HEADER      = 20; // 0x 0_0010_0000
-  parameter SEND_CHAN_HEADER1     = 21; // 0x 0_0020_0000
-  parameter SEND_CHAN_HEADER2     = 22; // 0x 0_0040_0000
-  parameter READ_CHAN_DATA1       = 23; // 0x 0_0080_0000
-  parameter READ_CHAN_DATA2       = 24; // 0x 0_0100_0000
-  parameter READ_CHAN_DATA_RESYNC = 25; // 0x 0_0200_0000
-  parameter SEND_CHAN_TRAILER1    = 26; // 0x 0_0400_0000
-  parameter READY_AMC13_TRAILER   = 27; // 0x 0_0800_0000
-  parameter SEND_AMC13_TRAILER    = 28; // 0x 0_1000_0000
+  parameter CHECK_SELFTRIG_FIFO   =  8; // 0x 0_0000_0100
+  parameter CHECK_CHAN_EN         =  9; // 0x 0_0000_0200
+  parameter SEND_CHAN_CSN         = 10; // 0x 0_0000_0400
+  parameter SEND_CHAN_CC          = 11; // 0x 0_0000_0800
+  parameter READ_CHAN_RSN         = 12; // 0x 0_0000_1000
+  parameter READ_CHAN_RC          = 13; // 0x 0_0000_2000
+  parameter READ_CHAN_INFO1       = 14; // 0x 0_0000_4000
+  parameter READ_CHAN_INFO2       = 15; // 0x 0_0000_8000
+  parameter READ_CHAN_INFO3       = 16; // 0x 0_0001_0000
+  parameter READ_CHAN_INFO4       = 17; // 0x 0_0002_0000
+  parameter READY_AMC13_HEADER1   = 18; // 0x 0_0004_0000
+  parameter SEND_AMC13_HEADER1    = 19; // 0x 0_0008_0000
+  parameter SEND_AMC13_HEADER2    = 20; // 0x 0_0010_0000
+  parameter SEND_WFD5_HEADER      = 21; // 0x 0_0020_0000
+  parameter SEND_CHAN_HEADER1     = 22; // 0x 0_0040_0000
+  parameter SEND_CHAN_HEADER2     = 23; // 0x 0_0080_0000
+  parameter READ_CHAN_DATA1       = 24; // 0x 0_0100_0000
+  parameter READ_CHAN_DATA2       = 25; // 0x 0_0200_0000
+  parameter READ_CHAN_DATA_RESYNC = 26; // 0x 0_0400_0000
+  parameter SEND_CHAN_TRAILER1    = 27; // 0x 0_0800_0000
+  parameter READY_AMC13_TRAILER   = 28; // 0x 0_1000_0000
+  parameter SEND_AMC13_TRAILER    = 29; // 0x 0_2000_0000
   // error state bits
-  parameter ERROR_DATA_CORRUPTION = 29; // 0x 0_2000_0000
-  parameter ERROR_TRIG_NUM        = 30; // 0x 0_4000_0000  000 0100 0000 0000 0000 0000 0000 0000 0000
-  parameter ERROR_TRIG_TYPE       = 31; // 0x 0_8000_0000
+  parameter ERROR_DATA_CORRUPTION = 30; // 0x 0_4000_0000
+  parameter ERROR_TRIG_NUM        = 31; // 0x 0_8000_0000
+  parameter ERROR_TRIG_TYPE       = 32; // 0x 1_0000_0000
+                                      
 
 
   // channel header regs sorted the way they will be used: first chan_trig_num, then burst_count, ...
@@ -137,14 +141,14 @@ module command_manager_selftrigc (
   reg [11:0] chan_tag;          // channel tag
   reg [ 3:0] chan_xadc_alarms;  // channel alarms from XADC
   reg [31:0] csn;               // channel serial number
-  reg [31:0] data_count;        // # of 32-bit data words received from Aurora, per waveform
+(* mark_debug = "true" *) reg [31:0] data_count;        // # of 32-bit data words received from Aurora, per waveform
   reg [ 3:0] data_count_shrt;   // lowest 4 bits of above
   reg [22:0] data_wfm_count;    // # of waveforms received from Aurora
   reg [31:0] ipbus_buf;         // buffer for IPbus data
   reg [31:0] readout_timestamp; // channel data readout timestamp
   reg [ 2:0] num_chan_en;       // number of enabled channels
   reg sent_amc13_header;        // flag to indicate that the AMC13 header has been sent
-  reg [13:0] stored_burst_count;// waveform burst count obtained from header
+(* mark_debug = "true" *) reg [22:0] stored_burst_count;// waveform burst count obtained from header
 
   // regs for channel checksum verification
   reg update_mcs_lsb;           // flag to update the 64 LSBs of the 128-bit master checksum (mcs)
@@ -159,8 +163,8 @@ module command_manager_selftrigc (
   reg [15:0] pretrigger_count;  // pre-trigger count
 
   // other internal regs
-  reg empty_event;                         // flag to indicate if this should be an empty event
-  reg empty_payload;                       // flag to indicate whether to skip the channel payloads
+(* mark_debug = "true" *) reg empty_event;                         // flag to indicate if this should be an empty event
+(* mark_debug = "true" *) reg empty_payload;                       // flag to indicate whether to skip the channel payloads
   reg [31:0] ipbus_chan_cmd;               // buffer for issued channel command
   reg [31:0] ipbus_chan_reg;               // buffer for issued channel register
   reg [ 4:0] trig_type_latch;              // latched trigger type from TTC Trigger FIFO
@@ -170,6 +174,8 @@ module command_manager_selftrigc (
   //wire [23:0] trig_num_from_channel;
 
   // for internal regs
+(* mark_debug = "true" *) reg updown;
+(* mark_debug = "true" *) reg next_updown;
   reg next_sent_amc13_header;
   reg next_update_mcs_lsb;
   reg next_empty_event;
@@ -186,9 +192,9 @@ module command_manager_selftrigc (
   reg [ 23:0] next_chan_trig_num;
   reg [ 31:0] next_readout_timestamp;
   reg [  2:0] next_num_chan_en;
-  reg [127:0] next_master_checksum;
-  reg [127:0] next_channel_checksum;
-  reg [ 31:0] next_cs_mismatch_count;
+(* mark_debug = "true" *) reg [127:0] next_master_checksum;
+(* mark_debug = "true" *) reg [127:0] next_channel_checksum;
+(* mark_debug = "true" *) reg [ 31:0] next_cs_mismatch_count;
   reg [ 31:0] next_ipbus_chan_cmd;
   reg [ 31:0] next_ipbus_chan_reg;
   reg [ 22:0] next_pulse_data_size;
@@ -198,7 +204,7 @@ module command_manager_selftrigc (
   reg [127:0] next_s_readout_fifo_tdata;
   reg [ 15:0] next_pretrigger_count;
   reg [  4:0] next_trig_type_latch;
-  reg [ 13:0] next_stored_burst_count;
+  reg [ 22:0] next_stored_burst_count;
   
   // for external regs
   reg next_chan_tx_fifo_last;
@@ -210,7 +216,19 @@ module command_manager_selftrigc (
   reg [ 3:0] next_chan_tx_fifo_dest;
   reg [22:0] next_burst_count_selftrig;
 
-  wire [19:0] event_size_lo, event_size_hi, event_size;
+  wire [19:0] event_size, event_trigs;
+(* mark_debug = "true" *) reg [127:0] burst_data;
+  reg [127:0] next_burst_data;
+
+(* mark_debug = "true" *) reg [22:0] setup_time;
+  reg zero_setup_time, inc_setup_time;
+  always @(posedge clk) begin
+    if ( rst || zero_setup_time )
+      setup_time <= 23'd0;
+    else if ( inc_setup_time )
+      setup_time <= setup_time + 1;
+  end
+  
 
 //  reg [21:0] delta_trigger, next_delta_trigger, trigger_ticks, next_trigger_ticks;
 //  ila_master selftriggers_dbg (
@@ -248,17 +266,12 @@ module command_manager_selftrigc (
 
 // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
   // asychronous or self-trigger readout trigger type
-  assign event_size_lo = selftriggers_chan0_lo[19:0]+
-                         selftriggers_chan1_lo[19:0]+
-                         selftriggers_chan2_lo[19:0]+
-                         selftriggers_chan3_lo[19:0]+
-                         selftriggers_chan4_lo[19:0];
-  assign event_size_hi = selftriggers_chan0_hi[19:0]+
-                         selftriggers_chan1_hi[19:0]+
-                         selftriggers_chan2_hi[19:0]+
-                         selftriggers_chan3_hi[19:0]+
-                         selftriggers_chan4_hi[19:0];
-
+  assign event_trigs = selftriggers_chan0_latched[19:0]+
+                       selftriggers_chan1_latched[19:0]+
+                       selftriggers_chan2_latched[19:0]+
+                       selftriggers_chan3_latched[19:0]+
+                       selftriggers_chan4_latched[19:0];
+ 
   // the number of 64 bit words used by the activated channel headers
   wire [4:0] channel_header_words;
   assign channel_header_words = 5*(chan_en[0]+chan_en[1]+chan_en[2]+chan_en[3]+chan_en[4]);
@@ -267,41 +280,35 @@ module command_manager_selftrigc (
   wire [22:0] per_trigger_word_count;
   assign per_trigger_word_count = (burst_count_selftrig*2+2);
 
-  // pipeline the two event sizes to help with timing.  The event_size not used until later in the readout,
+  // pipeline the event sizes to help with timing.  The event_size not used until later in the readout,
   // so there is time for this delay to happen
-  wire [19:0] event_size_lo_pipe;
-  wire [19:0] event_size_hi_pipe;
-
+  (* mark_debug = "true" *) wire [19:0] event_trigs_pipe;
+  
   pipeline_2stage #(
     .WIDTH(20)
-  ) evs_lo_pip_permanent (
+  ) evs_pip_permanent (
     .clk(clk),
-    .in( event_size_lo),
-    .out(event_size_lo_pipe)
-  );
-  pipeline_2stage #(
-    .WIDTH(20)
-  ) evs_hi_pip_permanent (
-    .clk(clk),
-    .in( event_size_hi),
-    .out(event_size_hi_pipe)
+    .in( event_trigs),
+    .out(event_trigs_pipe)
   );
 
   // the number of triggers, summed over channels, to be read out.  Inactive channels will contribute zero
   reg [19:0] event_triggers;
   always @(posedge clk) begin
      if ( rst ) begin
-        event_triggers <= 19'd0;
+        event_triggers <= 20'd0;
      end
      else begin
-        // we want the event size of the buffer being read, while ddr3_buffer indicates the buffer
-        // being written
-        event_triggers <= ddr3_buffer ? event_size_lo_pipe : event_size_hi_pipe;
+        // we want the event size of the buffer being read,
+        event_triggers <= event_trigs_pipe;
      end
   end
   // the total number of 64 bit words for the TTC readout event, including headers and trailers
   assign event_size = per_trigger_word_count * event_triggers + channel_header_words + 4;
 
+  // this actually gets used to compare the number of 32 bit words, hence the "*4"
+(* mark_debug = "true" *) wire [22:0] master_burst_count;
+  assign master_burst_count = burst_count_selftrig[22:0]*4+3;
 
   // this board's serial number
   wire [11:0] board_id;
@@ -321,6 +328,7 @@ module command_manager_selftrigc (
   wire rst_n;
   assign rst_n = ~rst;
   
+
   // for debugging
 //  assign trig_num_from_channel[23:0] = chan_rx_fifo_data[23:0];
 //  reg [31:0] next_channel_header_last,  channel_header_last;
@@ -341,8 +349,10 @@ module command_manager_selftrigc (
     next_readout_timestamp[31:0]     = readout_timestamp[31:0] + 1; // increment readout timestamp on each clock cycle
     next_num_chan_en[2:0]            = num_chan_en[2:0];
     next_sent_amc13_header           = sent_amc13_header;
+    next_updown                      = updown;
     next_update_mcs_lsb              = update_mcs_lsb;
     next_master_checksum[127:0]      = master_checksum[127:0];
+    next_burst_data[127:0]           = burst_data[127:0];
     next_channel_checksum[127:0]     = channel_checksum[127:0];
     next_empty_event                 = empty_event;
     next_empty_payload               = empty_payload;
@@ -356,7 +366,7 @@ module command_manager_selftrigc (
     next_s_readout_fifo_tdata[127:0] = s_readout_fifo_tdata[127:0];
     next_pretrigger_count[15:0]      = pretrigger_count[15:0];
     next_trig_type_latch[4:0]        = trig_type_latch[4:0];
-    next_stored_burst_count[13:0]    = stored_burst_count[13:0];
+    next_stored_burst_count[22:0]    = stored_burst_count[22:0];
 //    next_delta_trigger[21:0]         = delta_trigger[21:0];
 //    next_trigger_ticks[21:0]         = trigger_ticks[21:0] + 1;
 //    next_channel_header_last[31:0]   = channel_header_last[31:0] ;
@@ -399,7 +409,8 @@ module command_manager_selftrigc (
           end
           else begin
             next_trig_type_latch[4:0] = trig_type[4:0];
-            nextstate[CHECK_CHAN_EN] = 1'b1;
+//            nextstate[CHECK_CHAN_EN] = 1'b1;
+            nextstate[CHECK_SELFTRIG_FIFO] = 1'b1;
           end
         end
         else begin
@@ -503,6 +514,17 @@ module command_manager_selftrigc (
       // event builder state logic
       // =========================
 
+      // wait to make sure we have latched the numbers of selftriggers
+      // into the fifo's
+      state[CHECK_SELFTRIG_FIFO] : begin
+        if ( selftrigger_fifo_empty )
+          // stay here until the fifo isn't empty
+          nextstate[CHECK_SELFTRIG_FIFO] = 1'b1;
+        else
+          // proceed to channel readout
+          nextstate[CHECK_CHAN_EN] = 1'b1;
+      end
+      
       // check whether this channel number is enabled
       state[CHECK_CHAN_EN] : begin
         if (cs_mismatch_count > thres_data_corrupt) begin
@@ -610,20 +632,23 @@ module command_manager_selftrigc (
 
             next_chan_trig_num[23:0] = chan_rx_fifo_data[23:0];
             next_master_checksum[127:0] = {master_checksum[127:32], chan_rx_fifo_data[31:0]};
+            next_burst_data[127:0]      = {96'd0, chan_rx_fifo_data[31:0]};
             nextstate[READ_CHAN_INFO2] = 1'b1;
+            next_stored_burst_count[4:0] = chan_rx_fifo_data[31:27];
           end
         end
         else begin
           nextstate[READ_CHAN_INFO1] = 1'b1;
         end
       end
-      // get burst count from channel's header word #2 (in channel firmware, this is the 2nd of 4 32 bit words from the full header)
+      // get highst 18 bits of burst count from channel's header word #2 (in channel firmware, this is the 2nd of 4 32 bit words from the full header)
       state[READ_CHAN_INFO2] : begin
         if (chan_rx_fifo_valid) begin
           next_pulse_data_size[22:0]    = {chan_rx_fifo_data[17:0], pulse_data_size[4:0]};
-          next_stored_burst_count[13:0] = chan_rx_fifo_data[31:18];
+          next_stored_burst_count[22:0] = {chan_rx_fifo_data[17:0],stored_burst_count[4:0]};
 
           next_master_checksum[127:0] = {master_checksum[127:64], chan_rx_fifo_data[31:0], master_checksum[31:0]};
+          next_burst_data[127:0]      = {64'd0, chan_rx_fifo_data[31:0], burst_data[31:0]};
           nextstate[READ_CHAN_INFO3] = 1'b1;
         end
         else begin
@@ -637,6 +662,7 @@ module command_manager_selftrigc (
           next_wfm_count[19:0]        = chan_rx_fifo_data[31:12];
 
           next_master_checksum[127:0] = {master_checksum[127:96], chan_rx_fifo_data[31:0], master_checksum[63:0]};
+          next_burst_data[127:0]      = {32'd0, chan_rx_fifo_data[31:0], burst_data[63:0]};
           nextstate[READ_CHAN_INFO4] = 1'b1;
         end
         else begin
@@ -658,6 +684,7 @@ module command_manager_selftrigc (
 
             next_chan_tag[11:0] = chan_rx_fifo_data[25:14];
             next_master_checksum[127:0] = {chan_rx_fifo_data[31:0], master_checksum[95:0]};
+            next_burst_data[127:0]      = {chan_rx_fifo_data[31:0], burst_data[95:0]};
             nextstate[READY_AMC13_HEADER1] = 1'b1;
           end
         end
@@ -806,26 +833,34 @@ module command_manager_selftrigc (
               // keep pre- and post-trigger waveform length in units of bursts // st copying the pre-trigger length seems messed up here
               // prepare the lower half of the 1st 64 byte waveform header
             next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+            next_burst_data[127:0]      = {96'd0, chan_rx_fifo_data[31:0]};
           end
           // this is the waveform header [95:64]
           else if ((data_count[31:0] == 2) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
               // prepare the lower half of the 2nd 64 bit waveform header
             next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+            next_burst_data[127:0]      = {32'd0, chan_rx_fifo_data[31:0], burst_data[63:0]};
           end
           // this is the channel checksum [31:0]
           else if ((data_count[31:0] == 0) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
             // keep channel checksum format as it is
             next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+            next_burst_data[127:0]      = {96'd0, chan_rx_fifo_data[31:0]};
           end
           // this is the channel checksum [95:64]
           else if ((data_count[31:0] == 2) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
             // keep channel checksum format as it is
             next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+            next_burst_data[127:0]      = {32'd0, chan_rx_fifo_data[31:0], burst_data[63:0]};
           end
           // this is an ADC data word
           else begin
             // big-endian data format, can be switched in next state
             next_daq_data[63:0] = {32'h00000000, chan_rx_fifo_data[31:0]};
+            if ( updown )
+              next_burst_data[127:0] = {32'd0, chan_rx_fifo_data[31:0], burst_data[63:0]};
+            else
+              next_burst_data[127:0] = {96'd0, chan_rx_fifo_data[31:0]};
           end
 
           // this is the channel checksum [31:0]
@@ -862,26 +897,38 @@ module command_manager_selftrigc (
           if ((data_count[31:0] == 1) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
             // keep waveform header format as it is -- prepare the upper half of the 1st 64 bit waveform header
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+            next_burst_data[127:0] = {32'd0, burst_data[95:64], chan_rx_fifo_data[31:0], burst_data[31:0]};
           end
           // this is the waveform header [127:96]
           else if ((data_count[31:0] == 3) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+            next_burst_data[127:0]      = {chan_rx_fifo_data[31:0], burst_data[95:0]};
           end
           // this is the channel checksum [63:32]
           else if ((data_count[31:0] == 1) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
             // keep channel checksum format as it is
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+            next_burst_data[127:0] = {64'd0, chan_rx_fifo_data[31:0], burst_data[31:0]};
           end
           // this is the channel checksum [127:96]
           else if ((data_count[31:0] == 3) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
             // keep channel checksum format as it is
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+            next_burst_data[127:0]      = {chan_rx_fifo_data[31:0], burst_data[95:0]};
           end
           // this is an ADC data word
           else begin
             // send ADC data in desired endianness:
             //      big-endian when 'endianness_sel' is 0 (default)
             //   little-endian when 'endianness_sel' is 1
+            if ( updown ) begin
+              next_burst_data[127:0] = {chan_rx_fifo_data[31:0], burst_data[95:0]}; 
+              next_updown = 0;
+            end
+            else begin
+              next_burst_data[127:0] = {64'd0, chan_rx_fifo_data[31:0], burst_data[31:0]};
+              next_updown = 1;
+            end
             next_daq_data[63:0] = (~endianness_sel) ? {chan_rx_fifo_data[31:0], daq_data[31:0]} : {daq_data[7:0], daq_data[15:8], daq_data[23:16], daq_data[31:24], chan_rx_fifo_data[7:0], chan_rx_fifo_data[15:8], chan_rx_fifo_data[23:16], chan_rx_fifo_data[31:24]};
           end
 
@@ -929,20 +976,24 @@ module command_manager_selftrigc (
           if ((data_count[31:0] == 1) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
             // keep waveform header format as it is
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+            next_burst_data[127:0] = {32'd0, burst_data[95:64], chan_rx_fifo_data[31:0], burst_data[31:0]};
           end
           // this is the waveform header [127:96]
           else if ((data_count[31:0] == 3) & (data_wfm_count[22:0] != wfm_count[22:0])) begin
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+            next_burst_data[127:0]      = {chan_rx_fifo_data[31:0], burst_data[95:0]};
           end
           // this is the channel checksum [63:32]
           else if ((data_count[31:0] == 1) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
             // keep channel checksum format as it is
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+            next_burst_data[127:0] = {64'd0, chan_rx_fifo_data[31:0], burst_data[31:0]};
           end
           // this is the channel checksum [127:96]
           else if ((data_count[31:0] == 3) & (data_wfm_count[22:0] == wfm_count[22:0])) begin
             // keep channel checksum format as it is
             next_daq_data[63:0] = {chan_rx_fifo_data[31:0], daq_data[31:0]};
+            next_burst_data[127:0]      = {chan_rx_fifo_data[31:0], burst_data[95:0]};
           end
           // this is an ADC data word
           else begin
@@ -950,8 +1001,17 @@ module command_manager_selftrigc (
             //      big-endian when 'endianness_sel' is 0 (default)
             //   little-endian when 'endianness_sel' is 1
             next_daq_data[63:0] = (~endianness_sel) ? {chan_rx_fifo_data[31:0], daq_data[31:0]} : {daq_data[7:0], daq_data[15:8], daq_data[23:16], daq_data[31:24], chan_rx_fifo_data[7:0], chan_rx_fifo_data[15:8], chan_rx_fifo_data[23:16], chan_rx_fifo_data[31:24]};
+            if ( updown ) begin
+              next_burst_data[127:0] = {chan_rx_fifo_data[31:0], burst_data[95:0]}; 
+              next_updown = 0;
+            end
+            else begin
+              next_burst_data[127:0] = {64'd0, chan_rx_fifo_data[31:0], burst_data[31:0]};
+              next_updown = 1;
+            end
           end
 
+          // a burst is 8 samples, or 128 bits.  We read data 32 bits at a time.  Hence the "*4".  There is also a waveform header.
           next_data_count[31:0]     = (data_count[31:0] < burst_count_selftrig[22:0]*4+3) ? data_count[31:0]+1   : 32'b0;
           next_data_wfm_count[22:0] = (data_count[31:0] < burst_count_selftrig[22:0]*4+3) ? data_wfm_count[22:0] : data_wfm_count[22:0]+1;
           next_update_mcs_lsb = ~update_mcs_lsb;
@@ -1048,6 +1108,7 @@ module command_manager_selftrigc (
           next_num_chan_en[2:0]    = 0; // reset the number of enabled channels for each new trigger
           next_empty_event         = 0;
           next_empty_payload       = 0;
+          next_updown              = 0;
 
           nextstate[IDLE] = 1'b1;
         end
@@ -1108,6 +1169,7 @@ module command_manager_selftrigc (
       update_mcs_lsb            <= 0;
       master_checksum[127:0]    <= 0;
       channel_checksum[127:0]   <= 0;
+      burst_data[127:0]         <= 0;
       empty_event               <= 0;
       empty_payload             <= 0;
       cs_mismatch_count[31:0]   <= 0; // clear soft error count upon reset
@@ -1119,7 +1181,8 @@ module command_manager_selftrigc (
       trig_type_latch[4:0]      <=  5'd0;
       cs_error_seen[1:0]        <= 2'd0;
       wfm_cnt_shrt              <= 11'd0;
-      stored_burst_count[13:0]  <= 0;
+      stored_burst_count[22:0]  <= 0;
+      updown                    <= 0;
 //      delta_trigger[21:0]       <= 22'd0;
 //      trigger_ticks[21:0]       <= 22'd0;
       
@@ -1130,7 +1193,7 @@ module command_manager_selftrigc (
     else begin
       state <= nextstate;
 
-      stored_burst_count[13:0]    <= next_stored_burst_count[13:0];
+      stored_burst_count[22:0]    <= next_stored_burst_count[22:0];
       chan_tag[11:0]              <= next_chan_tag[11:0];
       chan_xadc_alarms[3:0]       <= next_chan_xadc_alarms[3:0];
       wfm_count[22:0]             <= next_wfm_count[22:0];
@@ -1152,15 +1215,14 @@ module command_manager_selftrigc (
       update_mcs_lsb              <= next_update_mcs_lsb;
       master_checksum[127:0]      <= next_master_checksum[127:0];
       channel_checksum[127:0]     <= next_channel_checksum[127:0];
+      burst_data[127:0]           <= next_burst_data[127:0];
       empty_event                 <= next_empty_event;
       empty_payload               <= next_empty_payload;
       cs_mismatch_count[31:0]     <= next_cs_mismatch_count[31:0];
       cs_error_seen[1:0]          <= next_cs_mismatch_count[1:0];
       wfm_cnt_shrt[10:0]          <= next_wfm_count[10:0];
       data_count_shrt[3:0]        <= next_data_count[3:0];
-//      channel_header_last[31:0]   <= next_channel_header_last[31:0] ;
-//      channel_header_latch[31:0]  <= next_channel_header_latch[31:0];
-
+      updown                      <= next_updown;
       
 //      delta_trigger[21:0]       <= next_delta_trigger[21:0];
 //      trigger_ticks[21:0]       <= next_trigger_ticks[21:0];
@@ -1182,29 +1244,35 @@ module command_manager_selftrigc (
   always @(posedge clk) begin
     if (rst) begin
       // reset values
-      chan_rx_fifo_ready    <= 0;
-      chan_tx_fifo_valid    <= 0;
-      daq_header            <= 0;
-      daq_trailer           <= 0;
-      ipbus_cmd_ready       <= 0;
-      ipbus_res_valid       <= 0;
-      readout_done          <= 0;
-      error_data_corrupt    <= 0;
-      error_trig_num        <= 0;
-      error_trig_type       <= 0;
+      chan_rx_fifo_ready     <= 0;
+      chan_tx_fifo_valid     <= 0;
+      daq_header             <= 0;
+      daq_trailer            <= 0;
+      ipbus_cmd_ready        <= 0;
+      ipbus_res_valid        <= 0;
+      readout_done           <= 0;
+      error_data_corrupt     <= 0;
+      error_trig_num         <= 0;
+      error_trig_type        <= 0;
+      inc_setup_time         <= 0;
+      zero_setup_time        <= 0;
+      selftrigger_fifo_rd_en <= 0;
     end
     else begin
       // default values
-      chan_rx_fifo_ready    <= 0;
-      chan_tx_fifo_valid    <= 0;
-      daq_header            <= 0;
-      daq_trailer           <= 0;
-      ipbus_cmd_ready       <= 0;
-      ipbus_res_valid       <= 0;
-      readout_done          <= 0;
-      error_data_corrupt    <= 0;
-      error_trig_num        <= 0;
-      error_trig_type       <= 0;
+      chan_rx_fifo_ready     <= 0;
+      chan_tx_fifo_valid     <= 0;
+      daq_header             <= 0;
+      daq_trailer            <= 0;
+      ipbus_cmd_ready        <= 0;
+      ipbus_res_valid        <= 0;
+      readout_done           <= 0;
+      error_data_corrupt     <= 0;
+      error_trig_num         <= 0;
+      error_trig_type        <= 0;
+      inc_setup_time         <= 0;
+      zero_setup_time        <= 0;
+      selftrigger_fifo_rd_en <= 0;
 
       case (1'b1) // synopsys parallel_case full_case
         nextstate[IDLE] : begin
@@ -1242,18 +1310,22 @@ module command_manager_selftrigc (
         // ==============================
 
         nextstate[CHECK_CHAN_EN]         : begin
-          ;
+          zero_setup_time <= 1;
         end
         nextstate[SEND_CHAN_CSN]         : begin
+          inc_setup_time <= 1;
           chan_tx_fifo_valid <= 1;
         end
         nextstate[SEND_CHAN_CC]          : begin
+          inc_setup_time <= 1;
           chan_tx_fifo_valid <= 1;
         end
         nextstate[READ_CHAN_RSN]         : begin
+          inc_setup_time <= 1;
           chan_rx_fifo_ready <= 1;
         end
         nextstate[READ_CHAN_RC]          : begin
+          inc_setup_time <= 1;;
           chan_rx_fifo_ready <= 1;
         end
         nextstate[READ_CHAN_INFO1]       : begin
@@ -1302,8 +1374,9 @@ module command_manager_selftrigc (
           ;
         end
         nextstate[SEND_AMC13_TRAILER]    : begin
-          daq_trailer  <= 1;
-          readout_done <= 1;
+          daq_trailer            <= 1;
+          readout_done           <= 1;
+          selftrigger_fifo_rd_en <= 1;  // clear the # of trigger buffer
         end
 
         // ======================
