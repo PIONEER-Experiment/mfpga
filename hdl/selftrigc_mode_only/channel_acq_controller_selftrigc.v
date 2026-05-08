@@ -10,33 +10,31 @@ module channel_acq_controller_selftrigc (
   input wire reset,
 
   // trigger configuration
-(* mark_debug = "true" *) input wire [4:0] chan_en,         // which channels should receive the trigger
-(* mark_debug = "true" *) input wire accept_self_triggers,  // accept self triggers in enabled channels
+  input wire [4:0] chan_en,         // which channels should receive the trigger
+  input wire accept_self_triggers,  // accept self triggers in enabled channels
 
   // command manager interface
-  input wire readout_done,              // a readout has completed
   output reg  new_fill_pause_triggers,   // flag there is a new fill and inhibit selftriggers
-(* mark_debug = "true" *) output wire selftrigger_fifo_wr_en, 
+  output wire selftrigger_fifo_wr_en, 
 
   // interface from TTC trigger receiver
-(* mark_debug = "true" *) input wire ttc_trigger,          // trigger signal
+  input wire ttc_trigger,          // trigger signal
   input wire [ 4:0] ttc_trig_type, // recognized trigger type (muon fill, laser, pedestal, async readout)
   input wire [23:0] ttc_trig_num,  // trigger number
-  input wire ttc_evt_reset,        // reset ddr3_buffer when event count resets
   output wire ttc_acq_ready,       // channels are ready for a readout
   output reg  ttc_acq_activated,
 
   // interface to Channel FPGAs
-(* mark_debug = "true" *) input wire [4:0] acq_dones,
+  input wire [4:0] acq_dones,
   output reg [4:0] acq_enable,
 
   // interface to Acquisition Event FIFO
   input wire fifo_ready,
-(* mark_debug = "true" *) output reg fifo_valid,
+  output reg fifo_valid,
   output reg [31:0] fifo_data,
 
   // status connections
-  (* mark_debug = "true" *) output reg [5:0] state // state of finite state machine
+  output reg [5:0] state // state of finite state machine
 );
 
   // state bits
@@ -50,7 +48,7 @@ module channel_acq_controller_selftrigc (
 
   reg [ 4:0] acq_trig_type;     // latched trigger type
   reg [23:0] acq_trig_num;      // latched trigger number
-(* mark_debug = "true" *) reg [ 4:0] acq_dones_latched; // latched channel dones reported
+  reg [ 4:0] acq_dones_latched; // latched channel dones reported
 
   reg [ 5:0] nextstate;
   reg [ 4:0] next_acq_trig_type;
@@ -59,11 +57,10 @@ module channel_acq_controller_selftrigc (
   reg [ 4:0] next_acq_enable;
   reg        next_ddr3_buffer;
   reg        next_ttc_acq_activated;
-  reg accept_self_triggers_reg;
 
-(* mark_debug = "true" *) wire new_fill_counter_zero;
+  wire new_fill_counter_zero;
   reg [4:0] new_fill_counter;
-  (* mark_debug = "true" *) reg init_new_fill_counter;
+  reg init_new_fill_counter;
   always @(posedge clk) begin
     if ( reset )
       new_fill_counter[4:0] <= 5'd0;
@@ -102,7 +99,7 @@ module channel_acq_controller_selftrigc (
       // idle state
       state[IDLE] : begin
         // tell the channels to begin acquiring data if we are accepting triggers
-        if ( accept_self_triggers_reg  ) begin
+        if ( accept_self_triggers  ) begin
           // enable lines should be fixed and not set by the trigger type
           next_acq_enable[4:0] = chan_en[4:0];
           next_ttc_acq_activated = 1'b1;
@@ -207,31 +204,6 @@ module channel_acq_controller_selftrigc (
           nextstate[STORE_ACQ_INFO] = 1'b1;
         end
       end
-      //// wait for readout to be complete, as reported by command manager
-      //state[READOUT] : begin
-      //  // readout is finished
-      //  if (readout_done) begin
-      //      // continue taking data if requested
-      //      if ( accept_self_triggers ) begin
-      //        next_acq_enable[4:0] = chan_en[4:0];
-      //        nextstate[ACQUIRE] = 1'b1;
-      //      end
-      //      else begin
-      //        next_acq_enable[4:0] = 5'b00000;
-      //        nextstate[IDLE] = 1'b1;
-      //      end
-      //  end
-      //  // readout still in progress
-      //  else begin
-      //    nextstate[READOUT] = 1'b1;
-      //    if ( accept_self_triggers ) begin
-      //      next_acq_enable[4:0] = chan_en[4:0];
-      //    end
-      //    else begin
-      //      next_acq_enable[4:0] = 5'b00000;
-      //    end
-      //  end
-      //end
     endcase
   end
   
@@ -249,7 +221,6 @@ module channel_acq_controller_selftrigc (
 
       acq_enable[4:0]       <= 5'd0;
 
-      accept_self_triggers_reg <= 1'b0;
     end
     else begin
       state <= nextstate;
@@ -261,7 +232,6 @@ module channel_acq_controller_selftrigc (
 
       acq_enable[4:0]        <= next_acq_enable[4:0];
 
-      accept_self_triggers_reg <= accept_self_triggers;
     end
   end
   

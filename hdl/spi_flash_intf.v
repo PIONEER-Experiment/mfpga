@@ -366,6 +366,11 @@ begin
     assign rbuf_data_out[i]  = rbuf_data_out_r[31-i];
 end 
 
+// Unused-output stubs (synthesis optimizes them away)
+wire [15:0] wbuf_dob_unused;
+wire  [1:0] wbuf_dopa_unused;
+wire  [1:0] wbuf_dopb_unused;
+
 RAMB18E1 #(
     .SIM_DEVICE("7SERIES"),
     .RAM_MODE("SDP"),
@@ -377,10 +382,16 @@ RAMB18E1 #(
 
     .ENARDEN(wbuf_rd_en),           // 1-bit input: Read enable (port A)
     .ENBWREN(wbuf_wr_en),           // 1-bit input: Write enable (port B)
+    .WEA(4'b0000),                  // 4-bit input: port A is read-only in SDP mode
     .WEBWE(4'b1111),                // 4-bit input: byte-wide write enable
+
+    .REGCEAREGCE(1'b0),             // 1-bit input: unused
+    .REGCEB(1'b0),                  // 1-bit input: unused
 
     .RSTREGARSTREG(1'b0),           // 1-bit input: A port register set/reset
     .RSTRAMARSTRAM(1'b0),           // 1-bit input: A port set/reset
+    .RSTREGB(1'b0),                 // 1-bit input: unused
+    .RSTRAMB(1'b0),                 // 1-bit input: unused
 
     // addresses: 32-bit port has depth = 512, 9-bit address (bits [13:5] are used)
     //             1-bit port has depth = 16384 and uses the full 14-bit address
@@ -391,10 +402,20 @@ RAMB18E1 #(
     // data in
     .DIBDI(wbuf_data_in_r[31:16]),  // 16-bit input: DI[31:16]
     .DIADI(wbuf_data_in_r[15:0]),   // 16-bit input: DI[15:0]
+    .DIPADIP(2'b00),                // 2-bit input: parity unused
+    .DIPBDIP(2'b00),                // 2-bit input: parity unused
 
     // data out
-    .DOADO(wbuf_data_out[15:0])     // 16-bit output: we only use DO[0]
+    .DOADO(wbuf_data_out[15:0]),    // 16-bit output: we only use DO[0]
+    .DOBDO(wbuf_dob_unused),        // 16-bit output: unused
+    .DOPADOP(wbuf_dopa_unused),     // 2-bit output: parity unused
+    .DOPBDOP(wbuf_dopb_unused)      // 2-bit output: parity unused
 );
+
+
+// Unused-output stubs (synthesis optimizes them away)
+wire  [1:0] rbuf_dopa_unused;
+wire  [1:0] rbuf_dopb_unused;
 
 RAMB18E1 #(
     .SIM_DEVICE("7SERIES"),
@@ -407,10 +428,16 @@ RAMB18E1 #(
 
     .ENARDEN(rbuf_rd_en),           // 1-bit input: Read enable (port A)
     .ENBWREN(rbuf_wr_en),           // 1-bit input: Write enable (port B)
+    .WEA(4'b0000),                  // 4-bit input: port A is read-only in SDP mode
     .WEBWE(4'b1111),                // 4-bit input: byte-wide write enable
+
+    .REGCEAREGCE(1'b0),             // 1-bit input: unused
+    .REGCEB(1'b0),                  // 1-bit input: unused
 
     .RSTREGARSTREG(1'b0),           // 1-bit input: A port register set/reset
     .RSTRAMARSTRAM(1'b0),           // 1-bit input: A port set/reset
+    .RSTREGB(1'b0),                 // 1-bit input: unused
+    .RSTRAMB(1'b0),                 // 1-bit input: unused
 
     // addresses: 32-bit port has depth = 512, 9-bit address (bits [13:5] are used)
     //             1-bit port has depth = 16384 and uses the full 14-bit address
@@ -419,11 +446,16 @@ RAMB18E1 #(
     .ADDRBWRADDR(rbuf_wr_addr[13:0]),                   // 14-bit input: Write address
 
     // data in
+    .DIADI(16'b0),                  // 16-bit input: unused; port A is read-only
     .DIBDI({15'b0, rbuf_data_in}),  // 16-bit input: we only use DI[0]
+    .DIPADIP(2'b00),                // 2-bit input: parity unused
+    .DIPBDIP(2'b00),                // 2-bit input: parity unused
 
     // data out
     .DOBDO(rbuf_data_out_r[31:16]), // 16-bit output: DO[31:16]
-    .DOADO(rbuf_data_out_r[15:0])   // 16-bit output: DO[15:0]
+    .DOADO(rbuf_data_out_r[15:0]),  // 16-bit output: DO[15:0]
+    .DOPADOP(rbuf_dopa_unused),     // 2-bit output: parity unused
+    .DOPBDOP(rbuf_dopb_unused)      // 2-bit output: parity unused
 );
 
 endmodule

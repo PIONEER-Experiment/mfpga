@@ -2,7 +2,7 @@
 // for the Master FPGA status
 
 module led_master_status (
-  input  wire clk,
+  //input  wire clk, // unused
   output wire red_led,
   output wire green_led,
   // status input signals

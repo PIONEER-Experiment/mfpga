@@ -22,7 +22,7 @@ entity ipbus_flash is
 	generic (addr_width : positive);
 	port (
 		clk   : in std_logic;
-		reset : in std_logic;
+		--reset : in std_logic;
 		ipbus_in  : in  ipb_wbus;
 		ipbus_out : out ipb_rbus;
 		-- flash ports
@@ -45,6 +45,7 @@ architecture rtl of ipbus_flash is
 	signal ack_delay   : std_logic_vector(1 downto 0);
 	signal strobe      : std_logic;
 	signal prev_strobe : std_logic;
+
 
 begin
 
@@ -96,6 +97,6 @@ begin
 	end process;
 
 	ipbus_out.ipb_ack <= ack;
-	ipbus_out.ipb_err <= '0';
+  ipbus_out.ipb_err <= '0';
 
 end rtl;

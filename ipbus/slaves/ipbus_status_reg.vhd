@@ -11,7 +11,7 @@ entity ipbus_status_reg is
 generic(addr_width : natural := 0);
 port(
    clk       : in std_logic; -- ipbus clock
-   reset     : in std_logic; -- ipbus reset
+   --reset     : in std_logic; -- ipbus reset (unused)
    ipbus_in  : in ipb_wbus;  -- fabric bus in
    ipbus_out : out ipb_rbus; -- fabric bus out
    -- status registers
@@ -48,13 +48,16 @@ port(
    reg30 : in STD_LOGIC_VECTOR(31 downto 0);
    reg31 : in STD_LOGIC_VECTOR(31 downto 0);
    reg32 : in STD_LOGIC_VECTOR(31 downto 0);
-   reg33 : in STD_LOGIC_VECTOR(31 downto 0)
+   reg33 : in STD_LOGIC_VECTOR(31 downto 0);
+   reg34 : in STD_LOGIC_VECTOR(31 downto 0)
 );
 end ipbus_status_reg;
 
 architecture rtl of ipbus_status_reg is
 
-	type reg_array is array(33 downto 0) of std_logic_vector(31 downto 0);
+  constant n_regs : positive := 35;
+
+	type reg_array is array(n_regs - 1 downto 0) of std_logic_vector(31 downto 0);
 
 	signal reg : reg_array;
 	signal sel : integer;
@@ -63,7 +66,7 @@ architecture rtl of ipbus_status_reg is
 
 begin
 
-	sel <= to_integer(unsigned(ipbus_in.ipb_addr(addr_width - 1 downto 0)));
+  sel <= to_integer(unsigned(ipbus_in.ipb_addr(addr_width - 1 downto 0)));
 
 	process(clk)
 	begin
@@ -118,5 +121,6 @@ begin
    reg(31) <= reg31;
    reg(32) <= reg32;
    reg(33) <= reg33;
+   reg(34) <= reg34;
 
 end rtl;

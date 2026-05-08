@@ -11,32 +11,30 @@ module ttc_trigger_receiver_selftrigc (
   input wire reset_trig_timestamp,
 
   // trigger interface
-(* mark_debug = "true" *) input wire ttc_trigger,                // TTC trigger signal
-(* mark_debug = "true" *) input wire [ 4:0] trig_type,           // trigger type
-  input wire [31:0] trig_settings,       // trigger settings
-  input wire [ 4:0] chan_en,             // enabled channels
+  input wire ttc_trigger,                // TTC trigger signal
+  input wire [ 4:0] trig_type,           // trigger type
+  //input wire [31:0] trig_settings,       // trigger settings
+  //input wire [ 4:0] chan_en,             // enabled channels
 
-  // command manager interface
-  input wire readout_done, // a readout has completed
 
   // channel acquisition controller interface
-(* mark_debug = "true" *) input wire acq_ready,            // channels are ready to acquire data (or-reduce from 5 channels?)
-  input wire acq_activated,        // channels are acquiring date (again, or-reduce)
-  input wire accept_self_triggers, // self triggers will be collected when acq_activated allows
+  input wire acq_ready,            // channels are ready to acquire data (or-reduce from 5 channels?)
+  //input wire acq_activated,        // channels are acquiring date (again, or-reduce)
+  //input wire accept_self_triggers, // self triggers will be collected when acq_activated allows
   output reg acq_trigger,          // trigger signal to trigger the async readout
-(* mark_debug = "true" *) output reg [ 4:0] acq_trig_type, // recognized trigger type (async readout)
+  output reg [ 4:0] acq_trig_type, // recognized trigger type (async readout)
   output reg [23:0] acq_trig_num,  // trigger number, starts at 1
-(* mark_debug = "true" *) input wire channel_acq_enabled,
+  input wire channel_acq_enabled,
 
   // interface to TTC Trigger FIFO
-(* mark_debug = "true" *) input wire fifo_ready,
-(* mark_debug = "true" *) output reg fifo_valid,
+  input wire fifo_ready,
+  output reg fifo_valid,
   output reg [127:0] fifo_data,
 
   // status connections
-  input wire selftriggers_seen,  // at least one channel has a trigger
+  //input wire selftriggers_seen,  // at least one channel has a trigger
   input wire [ 3:0] xadc_alarms,    // XADC alarm signals
-  (* mark_debug = "true" *) output reg [ 3:0] state,          // state of finite state machine
+  output reg [ 3:0] state,          // state of finite state machine
   output reg [23:0] trig_num,       // global trigger number
   output reg [43:0] trig_timestamp, // global trigger timestamp
 
@@ -51,15 +49,15 @@ module ttc_trigger_receiver_selftrigc (
 //  parameter TRIG_HI         = 3;
   parameter ERROR           = 3;
 
-(* mark_debug = "true" *) wire acq_ready_40;
+wire acq_ready_40;
 sync_2stage ar_sync (
   .clk(clk),
   .in(acq_ready),
   .out(acq_ready_40)
 );
 
-(* mark_debug = "true" *) reg        empty_event;        // flag for an empty event response
-(* mark_debug = "true" *) reg        empty_payload;      // flag for an async readout with no processed triggers
+  reg        empty_event;        // flag for an empty event response
+  reg        empty_payload;      // flag for an async readout with no processed triggers
   reg [43:0] trig_timestamp_cnt; // clock cycle count
   reg [23:0] acq_event_cnt;      // # of triggers passed to channel, starts at 1
   reg [ 3:0] acq_xadc_alarms;    // XADC alarm signals
@@ -105,7 +103,6 @@ sync_2stage ar_sync (
           // determine empty_event flag ahead of time;
           // this is to ensure that it has been updated before writing to the FIFO
           // only respond to "async" readout requests in this mode
-//          if ((trig_type[4:0] != 5'b00100) | ~acq_activated) begin
           if ((trig_type[4:0] != 5'b00100) | ~channel_acq_enabled ) begin
              next_empty_event = 1'b1; // indicate to send an empty event
            end

@@ -14,7 +14,7 @@ entity ipbus_user is
 	generic (addr_width : positive);
 	port (
 		clk   : in STD_LOGIC;
-		reset : in STD_LOGIC;
+		--reset : in STD_LOGIC;
 		ipbus_in  : in  ipb_wbus;
 		ipbus_out : out ipb_rbus;
 		-- 'user_ipb' interface

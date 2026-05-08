@@ -418,7 +418,7 @@ module selftrigger_top (
 
         // interface to Acquisition Event FIFO
         .acq_fifo_valid(m_acq_fifo_tvalid),
-        .acq_fifo_data(m_acq_fifo_tdata),
+        .acq_fifo_data(m_acq_fifo_tdata[28:0]),
         .acq_fifo_ready(m_acq_fifo_tready),
 
         // interface to command manager

@@ -16,13 +16,13 @@ module channel_triggerc_receiver (
   input wire trigger,                    // self trigger signal from channel in 40 MHz domain
   input wire [22:0] thres_ddr3_overflow, // DDR3 overflow threshold
   input wire chan_en,                    // is this channel enabled
-  input wire ttc_trigger,                // backplane trigger signal
+  //input wire ttc_trigger,                // backplane trigger signal
 //  input wire ttc_acq_ready,              // channels are ready to acquire/readout data
-  output reg [23:0] trig_num,            // global trigger number for this channel
+  output reg [23:0] trig_num,            // accumulated trigger number for this channel
   output reg [19:0] selftriggers,        // number of triggers currently in the active DDR3 buffer
   output reg [19:0] selftriggers_latch,  // number of triggers currently in the active DDR3 buffer
 
-  // command manager interface
+// command manager interface
   input wire new_fill_pause_triggers,
 
   // set burst count for each channel

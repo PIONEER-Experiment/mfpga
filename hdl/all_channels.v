@@ -138,6 +138,11 @@ module all_channels (
   output [2:0] debug
 );
 
+//  // Tell synthesis we deliberately ignore middle address bits.
+//  // |reduction makes this count as a "use" of ipb_addr[19:5];
+//  // the resulting wire optimizes away because nothing reads it.
+  (* keep = "true" *) wire _unused_ipb_addr_mid;
+  assign _unused_ipb_addr_mid = |ipb_addr[19:5];
   
   // busses of data being read back by IPbus
   wire [31:0] chan0_io_rd_data;
@@ -180,7 +185,7 @@ module all_channels (
     .io_reset(ipb_reset),
     .io_sel(chan0_io_reg_sel),                     // this module has been selected for an I/O operation
     .io_sync(io_sync),                             // start the I/O operation
-    .io_addr(ipb_addr[19:0]),                      // slave address, memory or register, top 12 bits have been consumed
+    .io_addr(ipb_addr[3:0]),                       // slave address, memory or register, top 12 bits have been consumed
     .io_rd_en(io_rd_en),                           // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),                           // this is a write operation, enable target for one clock
     .io_wr_data(ipb_wdata[31:0]),                  // data to write for write operations
@@ -196,7 +201,7 @@ module all_channels (
     .s_axis_tx_tkeep(c0_s_axi_tx_tkeep),           // input wire [3 : 0] s_axis_tkeep
     .s_axis_tx_tlast(c0_s_axi_tx_tlast),           // input wire s_axis_tlast
     // the master side of the receive FIFO
-    .m_axis_aresetn(axis_clk_resetN),              // input wire m_axis_aresetn
+    //.m_axis_aresetn(axis_clk_resetN),              // input wire m_axis_aresetn
     .m_axis_aclk(axis_clk),                        // input wire m_axis_aclk
     .m_axis_rx_tvalid(c0_m_axi_rx_tvalid),         // output wire m_axis_tvalid
     .m_axis_rx_tdata(c0_m_axi_rx_tdata),           // output wire [31 : 0] m_axis_tdata
@@ -236,7 +241,7 @@ module all_channels (
     .io_reset(ipb_reset),
     .io_sel(chan1_io_reg_sel),                     // this module has been selected for an I/O operation
     .io_sync(io_sync),                             // start the I/O operation
-    .io_addr(ipb_addr[19:0]),                      // slave address, memory or register, top 12 bits have been consumed
+    .io_addr(ipb_addr[3:0]),                       // slave address, memory or register, top 12 bits have been consumed
     .io_rd_en(io_rd_en),                           // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),                           // this is a write operation, enable target for one clock
     .io_wr_data(ipb_wdata[31:0]),                  // data to write for write operations
@@ -252,7 +257,7 @@ module all_channels (
     .s_axis_tx_tkeep(c1_s_axi_tx_tkeep),           // input wire [1 : 0] s_axis_tkeep
     .s_axis_tx_tlast(c1_s_axi_tx_tlast),           // input wire s_axis_tlast
     // the master side of the receive FIFO
-    .m_axis_aresetn(axis_clk_resetN),              // input wire m_axis_aresetn
+    //.m_axis_aresetn(axis_clk_resetN),              // input wire m_axis_aresetn
     .m_axis_aclk(axis_clk),                        // input wire m_axis_aclk
     .m_axis_rx_tvalid(c1_m_axi_rx_tvalid),         // output wire m_axis_tvalid
     .m_axis_rx_tdata(c1_m_axi_rx_tdata),           // output wire [15 : 0] m_axis_tdata
@@ -291,7 +296,7 @@ module all_channels (
     .io_reset(ipb_reset),
     .io_sel(chan2_io_reg_sel),                     // this module has been selected for an I/O operation
     .io_sync(io_sync),                             // start the I/O operation
-    .io_addr(ipb_addr[19:0]),                      // slave address, memory or register, top 12 bits have been consumed
+    .io_addr(ipb_addr[3:0]),                       // slave address, memory or register, top 12 bits have been consumed
     .io_rd_en(io_rd_en),                           // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),                           // this is a write operation, enable target for one clock
     .io_wr_data(ipb_wdata[31:0]),                  // data to write for write operations
@@ -307,7 +312,7 @@ module all_channels (
     .s_axis_tx_tkeep(c2_s_axi_tx_tkeep),           // input wire [3 : 0] s_axis_tkeep
     .s_axis_tx_tlast(c2_s_axi_tx_tlast),           // input wire s_axis_tlast
     // the master side of the receive FIFO
-    .m_axis_aresetn(axis_clk_resetN),              // input wire m_axis_aresetn
+    //.m_axis_aresetn(axis_clk_resetN),              // input wire m_axis_aresetn
     .m_axis_aclk(axis_clk),                        // input wire m_axis_aclk
     .m_axis_rx_tvalid(c2_m_axi_rx_tvalid),         // output wire m_axis_tvalid
     .m_axis_rx_tdata(c2_m_axi_rx_tdata),           // output wire [31 : 0] m_axis_tdata
@@ -346,7 +351,7 @@ module all_channels (
     .io_reset(ipb_reset),
     .io_sel(chan3_io_reg_sel),                     // this module has been selected for an I/O operation
     .io_sync(io_sync),                             // start the I/O operation
-    .io_addr(ipb_addr[19:0]),                      // slave address, memory or register, top 12 bits have been consumed
+    .io_addr(ipb_addr[3:0]),                       // slave address, memory or register, top 12 bits have been consumed
     .io_rd_en(io_rd_en),                           // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),                           // this is a write operation, enable target for one clock
     .io_wr_data(ipb_wdata[31:0]),                  // data to write for write operations
@@ -362,7 +367,7 @@ module all_channels (
     .s_axis_tx_tkeep(c3_s_axi_tx_tkeep),           // input wire [3 : 0] s_axis_tkeep
     .s_axis_tx_tlast(c3_s_axi_tx_tlast),           // input wire s_axis_tlast
     // the master side of the receive FIFO
-    .m_axis_aresetn(axis_clk_resetN),              // input wire m_axis_aresetn
+    //.m_axis_aresetn(axis_clk_resetN),              // input wire m_axis_aresetn
     .m_axis_aclk(axis_clk),                        // input wire m_axis_aclk
     .m_axis_rx_tvalid(c3_m_axi_rx_tvalid),         // output wire m_axis_tvalid
     .m_axis_rx_tdata(c3_m_axi_rx_tdata),           // output wire [31 : 0] m_axis_tdata
@@ -401,7 +406,7 @@ module all_channels (
     .io_reset(ipb_reset),
     .io_sel(chan4_io_reg_sel),                     // this module has been selected for an I/O operation
     .io_sync(io_sync),                             // start the I/O operation
-    .io_addr(ipb_addr[19:0]),                      // slave address, memory or register, top 12 bits have been consumed
+    .io_addr(ipb_addr[3:0]),                       // slave address, memory or register, top 12 bits have been consumed
     .io_rd_en(io_rd_en),                           // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),                           // this is a write operation, enable target for one clock
     .io_wr_data(ipb_wdata[31:0]),                  // data to write for write operations
@@ -417,7 +422,7 @@ module all_channels (
     .s_axis_tx_tkeep(c4_s_axi_tx_tkeep),           // input wire [3 : 0] s_axis_tkeep
     .s_axis_tx_tlast(c4_s_axi_tx_tlast),           // input wire s_axis_tlast
     // the master side of the receive FIFO
-    .m_axis_aresetn(axis_clk_resetN),              // input wire m_axis_aresetn
+    //.m_axis_aresetn(axis_clk_resetN),              // input wire m_axis_aresetn
     .m_axis_aclk(axis_clk),                        // input wire m_axis_aclk
     .m_axis_rx_tvalid(c4_m_axi_rx_tvalid),         // output wire m_axis_tvalid
     .m_axis_rx_tdata(c4_m_axi_rx_tdata),           // output wire [31 : 0] m_axis_tdata

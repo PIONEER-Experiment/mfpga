@@ -405,46 +405,46 @@ end
 // it's triggered by sctrl_MSB going from low to high
 // ==================================================
 
-parameter STROBE_MSB_IDLE = 3'b001;
-parameter STROBE_MSB_TRIG = 3'b010;
-parameter STROBE_MSB_DONE = 3'b100;
+//parameter STROBE_MSB_IDLE = 3'b001;
+//parameter STROBE_MSB_TRIG = 3'b010;
+//parameter STROBE_MSB_DONE = 3'b100;
 
-reg [2:0] strobe_MSB_state = 3'b000;
-reg strobe_MSB;
+//reg [2:0] strobe_MSB_state = 3'b000;
+//reg strobe_MSB;
 
-always @ (posedge slow_clk) begin
-    if (resetS) begin
-        strobe_MSB <= 1'b0;
-        strobe_MSB_state <= STROBE_MSB_IDLE;
-    end
-    else begin
-        case (strobe_MSB_state)
-            STROBE_MSB_IDLE : begin
-                strobe_MSB <= 1'b0;
-
-                if (scntrl_MSB)
-                    strobe_MSB_state <= STROBE_MSB_TRIG;
-                else
-                    strobe_MSB_state <= STROBE_MSB_IDLE;
-            end
-            
-            STROBE_MSB_TRIG : begin
-                strobe_MSB <= 1'b1;
-
-                strobe_MSB_state <= STROBE_MSB_DONE;
-            end
-            
-            STROBE_MSB_DONE : begin
-                strobe_MSB <= 1'b0;
-
-                if (scntrl_MSB)
-                    strobe_MSB_state <= STROBE_MSB_DONE;
-                else
-                    strobe_MSB_state <= STROBE_MSB_IDLE;
-            end
-        endcase
-    end
-end
+//always @ (posedge slow_clk) begin
+//    if (resetS) begin
+//        //strobe_MSB <= 1'b0;
+//        strobe_MSB_state <= STROBE_MSB_IDLE;
+//    end
+//    else begin
+//        case (strobe_MSB_state)
+//            STROBE_MSB_IDLE : begin
+//                //strobe_MSB <= 1'b0;
+//
+//                if (scntrl_MSB)
+//                    strobe_MSB_state <= STROBE_MSB_TRIG;
+//                else
+//                    strobe_MSB_state <= STROBE_MSB_IDLE;
+//            end
+//            
+//            STROBE_MSB_TRIG : begin
+//                //strobe_MSB <= 1'b1;
+//
+//                strobe_MSB_state <= STROBE_MSB_DONE;
+//            end
+//            
+//            STROBE_MSB_DONE : begin
+//                //strobe_MSB <= 1'b0;
+//
+//                if (scntrl_MSB)
+//                    strobe_MSB_state <= STROBE_MSB_DONE;
+//                else
+//                    strobe_MSB_state <= STROBE_MSB_IDLE;
+//            end
+//        endcase
+//    end
+//end
 
 
 // ===============================================================

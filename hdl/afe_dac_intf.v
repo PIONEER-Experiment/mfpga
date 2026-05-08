@@ -71,7 +71,7 @@ parameter STARTUP_RESET  = 3'b100;
 parameter STARTUP_STROBE = 3'b101;
 parameter STARTUP_DONE   = 3'b110;
 
-reg [2:0] startup_state = STARTUP_IDLE;
+(* fsm_safe_state = "default_state" *) reg [2:0] startup_state = STARTUP_IDLE;
 
 reg [22:0] startup_cnt = 23'd0; // counter to wait >3 ms after power up
 reg startup_rst_cntrl;          // flag to drive startup_reset wire to either low (1'b0) or high (1'b1) for cntrl

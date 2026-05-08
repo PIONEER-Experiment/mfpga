@@ -82,7 +82,6 @@ port (
     i2c_temp_polling_dis_out : out std_logic;                     -- disable EEPROM temperature polling
     i2c_temp_update_out      : out std_logic;                     -- read and update EEPROM temperature value
     fp_trig_width_out        : out std_logic_vector( 3 downto 0); -- width to separate short from long front panel triggers
-    reset_fifos_ipb          : out std_logic;                     -- reset the various trigger and readout fifo's' and burst counts
 
     -- threshold registers
     thres_data_corrupt  : out std_logic_vector(31 downto 0); -- data corruption
@@ -124,6 +123,7 @@ port (
     status_reg31 : in std_logic_vector(31 downto 0);
     status_reg32 : in std_logic_vector(31 downto 0);
     status_reg33 : in std_logic_vector(31 downto 0);
+    status_reg34 : in std_logic_vector(31 downto 0);
 
     -- flash interface ports
     flash_wr_nBytes  : out std_logic_vector( 8 downto 0);
@@ -275,7 +275,6 @@ begin
         i2c_temp_polling_dis_out => i2c_temp_polling_dis_out,
         i2c_temp_update_out      => i2c_temp_update_out,
         fp_trig_width_out        => fp_trig_width_out,
-        reset_fifos_ipb          => reset_fifos_ipb,
 
         -- threshold register ports
         thres_data_corrupt  => thres_data_corrupt,
@@ -327,6 +326,7 @@ begin
         status_reg31 => status_reg31,
         status_reg32 => status_reg32,
         status_reg33 => status_reg33,
+        status_reg34 => status_reg34,
 
         -- flash interface ports
         flash_wr_nBytes  => flash_wr_nBytes,

@@ -9,6 +9,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use work.ipbus.all;
+use ieee.std_logic_misc.all;
 
 entity ipbus_reg is
 generic (addr_width: natural := 0);
@@ -77,7 +78,7 @@ begin
 	end process;
 	
 	ipbus_out.ipb_ack <= ack;
-	ipbus_out.ipb_err <= '0';
+  ipbus_out.ipb_err <= '0';
 
 	-- assign registers to array
 	reg0 <= reg(0);

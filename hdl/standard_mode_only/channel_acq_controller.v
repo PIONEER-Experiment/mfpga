@@ -28,7 +28,7 @@ module channel_acq_controller (
   // status connections
   input wire async_mode, // asynchronous mode select
   input wire cbuf_mode,  // cifcular buffer mode select
-  output reg [3:0] state // state of finite state machine
+  (* mark_debug = "true" *) output reg [3:0] state // state of finite state machine
 );
 
   // state bits

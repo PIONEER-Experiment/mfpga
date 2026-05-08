@@ -1,4 +1,4 @@
-`include "constants.txt"
+//`include "constants.txt"
 
 // Finite state machine for handling commands to Channel FPGA(s).
 // 
@@ -58,7 +58,7 @@ module command_manager_selftrig (
   input wire [ 3:0] ttc_xadc_alarms, // XADC alarms
   output wire readout_ready,         // ready to readout data, i.e., when in idle state
   output reg  readout_done,          // finished readout flag
-  input wire        accept_self_triggers,
+  // input wire        accept_self_triggers, // use for debugging only
   input wire [19:0] selftriggers_chan0_lo, // # of triggers seen per channel in channel lower buffer
   input wire [19:0] selftriggers_chan1_lo, // # of triggers seen per channel in channel lower buffer
   input wire [19:0] selftriggers_chan2_lo, // # of triggers seen per channel in channel lower buffer
@@ -92,6 +92,7 @@ module command_manager_selftrig (
   // for debugging
 //  input wire rst_trigger_num
 );
+`include "constants.vh"
 
   // idle state bit
   parameter IDLE                  =  0; // 0x 0_0000_0001
@@ -716,7 +717,7 @@ module command_manager_selftrig (
         if (daq_ready) begin
           next_daq_valid = 1'b1;
           // this sends the WFD5 header word -- the bit next to the Major Revision flags this module in self triggering mode
-          next_daq_data[63:0] = {39'd0, 1'b1, `MAJOR_REV, `MINOR_REV, `PATCH_REV};
+          next_daq_data[63:0] = {39'd0, 1'b1, MAJOR_REV, MINOR_REV, PATCH_REV};
           nextstate[SEND_WFD5_HEADER] = 1'b1;
         end
         else if (~daq_almost_full) begin

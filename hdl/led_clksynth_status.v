@@ -2,7 +2,7 @@
 // for the clock synthesizer status
 
 module led_clksynth_status (
-  input  wire clk,
+  //input  wire clk,   // unused
   output wire red_led,
   output wire green_led,
   // status input signals

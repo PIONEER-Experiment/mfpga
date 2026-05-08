@@ -81,7 +81,6 @@ module ttc_trigger_receiver (
   parameter STORE_TRIG_INFO = 2;
   parameter ERROR           = 3;
 
-
   reg        empty_event;        // flag for an empty event response
   reg        empty_payload;      // flag for an async readout with no processed triggers
   reg [43:0] trig_timestamp_cnt; // clock cycle count

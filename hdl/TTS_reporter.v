@@ -3,9 +3,9 @@
 // Outputs the 'Ready' state unless an error has occured
 
 module tts_reporter (
-  // user interface clock and reset
-  input wire clk,
-  input wire reset,
+  // user interface clock and reset -- these are unused, comment out
+  //input wire clk,
+  //input wire reset,
 
   // error status
   input wire error_ttc_ready,

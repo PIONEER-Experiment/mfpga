@@ -1,11 +1,11 @@
-`include "constants.txt"
+//`include "constants.txt"
 
 // Register block to hold status of the Rider
 
 module status_reg_block (
-  // user interface clock and reset
-  input wire clk,
-  input wire reset,
+  // user interface clock and reset -- unused
+  //input wire clk,
+  //input wire reset,
 
   // FPGA status
   input wire prog_chan_done,
@@ -17,7 +17,7 @@ module status_reg_block (
   // soft error thresholds
   input wire [31:0] thres_data_corrupt,
   input wire [31:0] thres_unknown_ttc,
-  input wire [31:0] thres_ddr3_overflow,
+  input wire [22:0] thres_ddr3_overflow,
 
   // soft error counts
   input wire [31:0] unknown_cmd_count,
@@ -95,7 +95,7 @@ module status_reg_block (
 
   // fifo read valid status
   input wire m_trig_fifo_tvalid,
-  input wire m_pulse_fifo_tvalid,
+  input wire pulse_fifo_tvalid,
   input wire m_acq_fifo_tvalid,
   //input wire [31:0] ext_pulse_delta_t,
   //input wire [31:0] ext_trig_delta_t,
@@ -152,14 +152,16 @@ module status_reg_block (
   output wire [31:0] status_reg28,
   output wire [31:0] status_reg29,
   output wire [31:0] status_reg30,
-  output wire [31:0] status_reg31
-  //output wire [31:0] status_reg32,
-  //output wire [31:0] status_reg33
+  output wire [31:0] status_reg31,
+  output wire [31:0] status_reg32,
+  output wire [31:0] status_reg33,
+  output wire [31:0] status_reg34
 );
+`include "constants.vh"
 
 
 // Register 00: FPGA status, board type ("1") and firmware version
-assign status_reg00 = {is_golden, prog_chan_done, async_mode, cbuf_mode, is_self_trigger_mode, 1'd0, 2'd1, `MAJOR_REV, `MINOR_REV, `PATCH_REV};
+assign status_reg00 = {is_golden, prog_chan_done, async_mode, cbuf_mode, is_self_trigger_mode, 1'd0, 2'd1, MAJOR_REV, MINOR_REV, PATCH_REV};
 
 // Register 01: Error
 assign status_reg01 = {13'd0, ddr3_almost_full, chan_error_rc[4:0], chan_error_sn[4:0], error_trig_type_from_cm, error_trig_type_from_tt, error_trig_num_from_cm, error_trig_num_from_tt, error_data_corrupt, error_trig_rate, error_unknown_ttc, error_pll_unlock};
@@ -216,7 +218,7 @@ assign status_reg17 = thres_unknown_ttc[31:0];
 assign status_reg18 = unknown_cmd_count[31:0];
 
 // Register 19: DDR3 overflow threshold
-assign status_reg19 = thres_ddr3_overflow[31:0];
+assign status_reg19 = {9'd0, thres_ddr3_overflow[22:0]};
 
 // Register 20: DDR3 overflow count
 assign status_reg20 = ddr3_overflow_count[31:0];
@@ -243,7 +245,7 @@ assign status_reg26 = {xadc_vccint[15:0], xadc_temp[15:0]};
 assign status_reg27 = {xadc_vccbram[15:0], xadc_vccaux[15:0]};
 
 // Register 28: XADC alarms and fifo status
-assign status_reg28 = {24'd0, m_acq_fifo_tvalid, m_pulse_fifo_tvalid, m_trig_fifo_tvalid, xadc_alarm_vccbram, xadc_alarm_vccaux, xadc_alarm_vccint, xadc_alarm_temp, xadc_over_temp};
+assign status_reg28 = {24'd0, m_acq_fifo_tvalid, pulse_fifo_tvalid, m_trig_fifo_tvalid, xadc_alarm_vccbram, xadc_alarm_vccaux, xadc_alarm_vccint, xadc_alarm_temp, xadc_over_temp};
 
 // Register 29: raw front panel trigger count
 assign status_reg29 = raw_ext_trigger_count[31:0];
@@ -254,4 +256,8 @@ assign status_reg30 = {8'd0, pulse_trigs_last_readout[23:0]};
 // Register 31: cummulative front panel trigger count
 assign status_reg31 = accepted_ext_trigger_count[31:0];
 
+// Registers 32-34 -- unused here
+assign status_reg32 = 32'd0;
+assign status_reg33 = 32'd0;
+assign status_reg34 = 32'd0;
 endmodule

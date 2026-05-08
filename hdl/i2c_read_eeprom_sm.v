@@ -21,6 +21,26 @@ module i2c_read_eeprom_sm (
     output reg image_copy_done     // the entire EEPROM has been read
 );
 
+// A down-counter to hold off reading the EEPROM for 2 additional seconds
+reg [27:0] holdoff_ctr;
+reg init_holdoff;
+wire holdoff_zero;
+assign holdoff_zero = (holdoff_ctr[27:0] == 0) ? 1'b1 : 1'b0;
+always @(posedge clk) begin
+  if (reset) begin
+    holdoff_ctr[27:0] <= 28'b0;
+  end
+  else if (init_holdoff) begin
+    holdoff_ctr[27:0] <= 28'hEE6B280;
+  end
+  else if (holdoff_zero) begin
+    holdoff_ctr[27:0] <= 28'b0;
+  end
+  else begin
+    holdoff_ctr[27:0] <= holdoff_ctr[27:0] - 1;
+  end
+end
+
 // Create an address counter used for writing the EEPROM contents to the image memory
 reg init_image_wr_adr, inc_image_wr_adr; // 'wr' address controls
 always @(posedge clk) begin
@@ -80,28 +100,29 @@ assign update_strobe = i2c_temp_update_sync2 & ~i2c_temp_update_sync3;
 // Simplified one-hot encoding (each constant is an index into an array of bits)
 parameter [3:0]
     IDLE       = 4'd0,
-    INIT       = 4'd1,
-    REQ_BYTE   = 4'd2,
-    WAIT_BYTE  = 4'd3,
-    STORE_BYTE = 4'd4,
-    PAUSE1     = 4'd5,
-    CHECK_CNT  = 4'd6,
-    INC_ADR    = 4'd7,
-    PAUSE2     = 4'd8,
-    DONE_INIT  = 4'd9,
-    PAUSE3     = 4'd10,
-    REQ_TEMP   = 4'd11,
-    WAIT_TEMP  = 4'd12;
+    SETTLE     = 4'd1,
+    INIT       = 4'd2,
+    REQ_BYTE   = 4'd3,
+    WAIT_BYTE  = 4'd4,
+    STORE_BYTE = 4'd5,
+    PAUSE1     = 4'd6,
+    CHECK_CNT  = 4'd7,
+    INC_ADR    = 4'd8,
+    PAUSE2     = 4'd9,
+    DONE_INIT  = 4'd10,
+    PAUSE3     = 4'd11,
+    REQ_TEMP   = 4'd12,
+    WAIT_TEMP  = 4'd13;
     
 // Declare current state and next state variables
-reg [12:0] /* synopsys enum STATE_TYPE */ CS;
-reg [12:0] /* synopsys enum STATE_TYPE */ NS;
+reg [13:0] /* synopsys enum STATE_TYPE */ CS;
+reg [13:0] /* synopsys enum STATE_TYPE */ NS;
 // synopsys state_vector CS
  
 // sequential always block for state transitions (use non-blocking [<=] assignments)
 always @(posedge clk) begin
     if (reset) begin
-        CS <= 13'b0;      // set all state bits to 0
+        CS <= 14'b0;      // set all state bits to 0
         CS[IDLE] <= 1'b1; // set IDLE state bit to 1
     end
     else
@@ -109,13 +130,21 @@ always @(posedge clk) begin
 end
 
 // combinational always block to determine next state (use blocking [=] assignments)
-always @(CS or i2c_error or i2c_byte_rdy or image_wr_adr[7:0] or pause_cntr[15:0] or i2c_temp_rdy or temp_cntr[26:0] or i2c_temp_polling_dis or update_strobe) begin
+always @(CS or i2c_error or i2c_byte_rdy or image_wr_adr[7:0] or pause_cntr[15:0] or i2c_temp_rdy or temp_cntr[26:0] or i2c_temp_polling_dis or update_strobe or holdoff_ctr[27:0] or holdoff_zero ) begin
     NS = 13'b0; // default all bits to zero; will override one bit
 
     case (1'b1) // synopsys full_case parallel_case
         // Leave the IDLE state as soon as 'reset' is negated
         CS[IDLE]: begin
+          NS[SETTLE] = 1'b1;
+        end
+
+        // hold off an additional 2 seconds to allow everything to settle before starting EEPROM transfer
+        CS[SETTLE]: begin
+          if ( holdoff_zero )
             NS[INIT] = 1'b1;
+          else
+            NS[SETTLE] = 1'b1;
         end
 
         // Need a single state after IDLE to isolate NS[GET_00] outputs
@@ -221,9 +250,11 @@ always @(posedge clk) begin
     dec_pause_cntr    <= 1'b0;
     init_temp_cntr    <= 1'b0;
     dec_temp_cntr     <= 1'b0;
+    init_holdoff      <= 1'b0;
 
     // next states
     if (NS[IDLE]) begin
+        init_holdoff <= 1'b1;
     end
 
     if (NS[INIT]) begin

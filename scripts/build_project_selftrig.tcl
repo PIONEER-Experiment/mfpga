@@ -36,12 +36,22 @@ add_files -norecurse -fileset $obj [glob $origin_dir/DAQ_Link_7S/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/hdl/*.txt]
 
 # Set 'sources_1' fileset file properties for remote files
-foreach file [glob $origin_dir/ip/*/*.xci] {
+                                                        
+# IPs that should synthesize globally instead of OOC
+set global_synth_ips { i2c_eeprom_image }
+
+foreach file [glob -nocomplain \
+              $origin_dir/ip/common/*.xci \
+              $origin_dir/ip/standard_mode_only/*.xci] {
     set file [file normalize $file]
-	set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-	if { ![get_property "is_locked" $file_obj] } {
-  		set_property "synth_checkpoint_mode" "Singular" $file_obj
-	}
+    set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+    if { [get_property "is_locked" $file_obj] } continue
+    set ip_name [file rootname [file tail $file]]
+    if { [lsearch -exact $global_synth_ips $ip_name] >= 0 } {
+        set_property "synth_checkpoint_mode" "None" $file_obj
+    } else {
+        set_property "synth_checkpoint_mode" "Singular" $file_obj
+    }
 }
 
 foreach file [glob $origin_dir/hdl/*.txt] {

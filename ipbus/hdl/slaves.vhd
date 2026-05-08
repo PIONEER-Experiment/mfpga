@@ -46,7 +46,6 @@ port (
     i2c_temp_polling_dis_out : out std_logic;
     i2c_temp_update_out      : out std_logic;
     fp_trig_width_out        : out std_logic_vector( 3 downto 0);
-    reset_fifos_ipb          : out std_logic;
     clear_trig_counters      : out std_logic;
 
     -- threshold registers
@@ -99,6 +98,7 @@ port (
     status_reg31 : in std_logic_vector(31 downto 0);
     status_reg32 : in std_logic_vector(31 downto 0);
     status_reg33 : in std_logic_vector(31 downto 0);
+    status_reg34 : in std_logic_vector(31 downto 0);
 
     -- flash interface ports
     flash_wr_nBytes  : out std_logic_vector( 8 downto 0);
@@ -138,10 +138,10 @@ begin
 
     -- Slave 0: Status register
     slave0: entity work.ipbus_status_reg
-    generic map (addr_width => 5)
+    generic map (addr_width => 6)
     port map (
         clk   => ipb_clk,
-        reset => ipb_rst,
+        --reset => ipb_rst, -- unused
         ipbus_in  => ipbw(0),
         ipbus_out => ipbr(0),
         -- status registers
@@ -178,7 +178,8 @@ begin
         reg30 => status_reg30,
         reg31 => status_reg31,
         reg32 => status_reg32,
-        reg33 => status_reg33
+        reg33 => status_reg33,
+        reg34 => status_reg34
     );
     
 
@@ -231,7 +232,6 @@ begin
     cbuf_acquire             <= ctrl_reg(26); -- don't touch
     selftrig_acquire         <= ctrl_reg(27); -- don't touch
     reprog_trigger_out(2)    <= ctrl_reg(28); -- don't touch
-    reset_fifos_ipb          <= ctrl_reg(29); -- don't touch
     clear_trig_counters      <= ctrl_reg(30); -- don't touch
 
     
@@ -240,7 +240,7 @@ begin
     generic map (addr_width => 0)
     port map (
         clk   => ipb_clk,
-        reset => ipb_rst,
+        -- reset => ipb_rst,
         ipbus_in  => ipbw(2),
         ipbus_out => ipbr(2),
         q => wo_reg
@@ -260,7 +260,7 @@ begin
       )
     port map (
         clk   => ipb_clk,
-        reset => ipb_rst,
+        --reset => ipb_rst,
         ipbus_in  => ipbw(3),
         ipbus_out => ipbr(3),
         -- axi-stream interface
@@ -276,7 +276,7 @@ begin
     generic map (addr_width => 9)
     port map (
         clk   => ipb_clk,
-        reset => ipb_rst,
+        --reset => ipb_rst,
         ipbus_in  => ipbw(4),
         ipbus_out => ipbr(4),
         -- flash interface
@@ -297,7 +297,7 @@ begin
     generic map (addr_width => 24)
     port map (
         clk   => ipb_clk,
-        reset => ipb_rst,
+        --reset => ipb_rst,
         ipbus_in  => ipbw(5),
         ipbus_out => ipbr(5),
         -- user interface

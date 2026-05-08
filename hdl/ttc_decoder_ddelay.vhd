@@ -86,7 +86,7 @@ signal TTC_lock : std_logic := '0';
 signal TTC_CLK_toggle : std_logic := '0';
 signal TTC_CLK_toggle_q : std_logic := '0';
 signal phase : std_logic_vector(2 downto 0) := (others => '0');
-signal PhaseCntr : std_logic_vector(2 downto 0) := (others => '0');
+--signal PhaseCntr : std_logic_vector(2 downto 0) := (others => '0');
 type array2x4 is array(0 to 1) of std_logic_vector(3 downto 0);
 signal location : array2x4 := (x"0",x"0");
 signal location_used : std_logic_vector(1 downto 0) := (others => '0');
@@ -384,11 +384,11 @@ begin
 		elsif(edgeCntr(15) = '0' and (valid_edge_p = '1' or valid_edge_n = '1'))then
 			edgeCntr <= edgeCntr + 1;
 		end if;
-		if(location_used = "01")then
-			PhaseCntr <= PhaseCntr + 1;
-		else
-			PhaseCntr <= "000";
-		end if;
+--		if(location_used = "01")then
+--			PhaseCntr <= PhaseCntr + 1;
+--		else
+--			PhaseCntr <= "000";
+--		end if;
 		new_location <= phase & valid_edge_n;
 		got_edge <= valid_edge_p or valid_edge_n;
 		if(edgeCntr(15) = '0' or move_location = '1')then

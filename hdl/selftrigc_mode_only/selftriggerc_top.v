@@ -11,7 +11,6 @@ module selftriggerc_top (
     input wire reset40,      // in  40 MHz clock domain
     input wire reset40_n,    // in  40 MHz clock domain
     input wire rst_from_ipb, // in 125 MHz clock domain
-//    input wire reset_fifos,  // in  40 MHz clock domain
 
     input wire rst_trigger_num,       // from TTC Channel B
     input wire rst_trigger_timestamp,
@@ -20,9 +19,9 @@ module selftriggerc_top (
     input wire ttc_trigger,                // TTC trigger signal
     input wire accept_self_triggers,       // enabled channels should start accepting triggers
     input wire [ 4:0] trig_type,           // trigger type (muon fill, laser, pedestal, async readout)
-    input wire [31:0] trig_settings,       // trigger settings
+    //input wire [31:0] trig_settings,       // trigger settings
     input wire [ 4:0] chan_en,             // enabled channels
-    input wire [31:0] thres_ddr3_overflow, // DDR3 overflow threshold
+    input wire [22:0] thres_ddr3_overflow, // DDR3 overflow threshold
     input wire channel_acq_enabled,
     input wire clear_trigger_counts,       // after end of run, make sure both hi and lo trigger/burst counters cleared
 
@@ -218,13 +217,6 @@ module selftriggerc_top (
         .out(readout_done_toggle)
     );
 
-    wire readout_done_clk40;
-    sync_2stage readout_done_sync (
-        .clk(ttc_clk),
-        .in(readout_done_toggle),
-        .out(readout_done_clk40)
-    );
-
 
     // -------------------
     // signal multiplexers
@@ -251,16 +243,13 @@ module selftriggerc_top (
         // trigger interface
         .ttc_trigger(ttc_trigger),                       // TTC trigger signal
         .trig_type(trig_type),                           // trigger type
-        .trig_settings(trig_settings),                   // trigger settings
-        .chan_en(chan_en_clk40),                         // enabled channels
-
-        // command manager interface
-        .readout_done(readout_done_clk40), // a readout has completed
+        //.trig_settings(trig_settings),                   // trigger settings
+        //.chan_en(chan_en_clk40),                         // enabled channels
 
         // channel acquisition controller interface
         .acq_ready(acq_ready),         // channels are ready to acquire/readout data
-        .acq_activated(acq_activated), 
-        .accept_self_triggers(accept_self_triggers), // enabled channels should start accepting triggers
+        //.acq_activated(acq_activated), 
+        //.accept_self_triggers(accept_self_triggers), // enabled channels should start accepting triggers
         .acq_trigger(acq_trigger),     // trigger signal
         .acq_trig_type(acq_trig_type), // recongized trigger type (muon fill, laser, pedestal, async readout)
         .acq_trig_num(acq_trig_num),   // trigger number, starts at 1
@@ -272,7 +261,7 @@ module selftriggerc_top (
         .fifo_data(s_trig_fifo_tdata),
 
         // status connections
-        .selftriggers_seen(selftriggers_seen),             // there are triggers in the current buffer
+        //.selftriggers_seen(selftriggers_seen),             // there are triggers in the current buffer
         .xadc_alarms(xadc_alarms[3:0]),                // XADC alarm signals
         .state(ttr_state),                             // state of finite state machine
         .trig_num(trig_num),                           // global trigger number
@@ -291,7 +280,6 @@ module selftriggerc_top (
           // clock and reset
           .clk(ttc_clk),   // 40 MHz TTC clock
           .reset(reset40),
-//          .reset_fifos(reset_fifos),
           .clear_trigger_counts(clear_trigger_counts),
 
           // TTC Channel B resets
@@ -301,9 +289,9 @@ module selftriggerc_top (
           .trigger(chan_trigs_clk40[iChan]),               // channel self trigger pulse
           .thres_ddr3_overflow(thres_ddr3_overflow[22:0]), // DDR3 overflow threshold
           .chan_en(chan_en_clk40[iChan]),                  // enabled channels
-          .ttc_trigger(ttc_trigger),                       // backplane trigger signal
+          //.ttc_trigger(ttc_trigger),                       // backplane trigger signal
 //          .ttc_acq_ready(acq_ready_channel[iChan]),                       // channels are ready to acquire/readout data
-          .trig_num(chan_trig_num[iChan]),                 // pulse trigger number
+          .trig_num(chan_trig_num[iChan]),                 // accuulated pulse trigger number
           .selftriggers(selftriggers[iChan]),              // pulses accumulated in current DDR3 buffer
           .selftriggers_latch(selftriggers_latch[iChan]),  // pulses accumulated in previous DDR3 buffer
 
@@ -357,7 +345,6 @@ module selftriggerc_top (
         .accept_self_triggers(accept_self_triggers),   // accept self panel triggers in enabled channels
 
         // command manager interface
-        .readout_done(readout_done_clk40), // a readout has completed
         .new_fill_pause_triggers(new_fill_pause_triggers),
         .selftrigger_fifo_wr_en(selftrigger_fifo_wr_en),
 
@@ -390,12 +377,12 @@ module selftriggerc_top (
 
         // interface to TTC Trigger FIFO
         .trig_fifo_valid(m_trig_fifo_tvalid),
-        .trig_fifo_data(m_trig_fifo_tdata),
+        .trig_fifo_data(m_trig_fifo_tdata[102:0]),
         .trig_fifo_ready(m_trig_fifo_tready),
 
         // interface to Acquisition Event FIFO
         .acq_fifo_valid(m_acq_fifo_tvalid),
-        .acq_fifo_data(m_acq_fifo_tdata),
+        .acq_fifo_data(m_acq_fifo_tdata[28:0]),
         .acq_fifo_ready(m_acq_fifo_tready),
 
         // interface to command manager

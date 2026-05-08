@@ -15,7 +15,7 @@ entity ipbus_axi_stream is
   );
   port (
     clk       : in  std_logic; -- ipbus clock
-    reset     : in  std_logic; -- ipbus reset
+    --reset     : in  std_logic; -- ipbus reset
     ipbus_in  : in  ipb_wbus;  -- fabric bus in
     ipbus_out : out ipb_rbus;  -- fabric bus out
     -- AXI ports

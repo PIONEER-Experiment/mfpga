@@ -1,11 +1,11 @@
-`include "constants.txt"
+//`include "constants.txt"
 
 // Register block to hold status of the Rider
 
 module status_reg_block_selftrigc (
   // user interface clock and reset
-  input wire clk,
-  input wire reset,
+  //input wire clk,
+  //input wire reset,
 
   // FPGA status
   input wire prog_chan_done,
@@ -18,7 +18,6 @@ module status_reg_block_selftrigc (
   // soft error thresholds
   input wire [31:0] thres_data_corrupt,
   input wire [31:0] thres_unknown_ttc,
-  input wire [31:0] thres_ddr3_overflow,
 
   // soft error counts
   input wire [31:0] unknown_cmd_count,
@@ -156,12 +155,14 @@ module status_reg_block_selftrigc (
   output wire [31:0] status_reg30,
   output wire [31:0] status_reg31,
   output wire [31:0] status_reg32,
-  output wire [31:0] status_reg33
+  output wire [31:0] status_reg33,
+  output wire [31:0] status_reg34
 );
+`include "constants.vh"
 
 
 // Register 00: FPGA status, board type ("1") and firmware version
-assign status_reg00 = {is_golden, prog_chan_done, async_mode, cbuf_mode, strg_mode, reprog_done, 2'd1, `MAJOR_REV, `MINOR_REV, `PATCH_REV};
+assign status_reg00 = {is_golden, prog_chan_done, async_mode, cbuf_mode, strg_mode, reprog_done, 2'd1, MAJOR_REV, MINOR_REV, PATCH_REV};
 
 // Register 01: Error
 assign status_reg01 = {13'd0, ddr3_almost_full, chan_error_rc[4:0], chan_error_sn[4:0], error_trig_type_from_cm, error_trig_type_from_tt, error_trig_num_from_cm, error_trig_num_from_tt, error_data_corrupt, error_trig_rate, error_unknown_ttc, error_pll_unlock};
@@ -254,4 +255,6 @@ assign status_reg31 = {8'd0, chan_trig_num_2[23:0]};
 assign status_reg32 = {8'd0, chan_trig_num_3[23:0]};
 assign status_reg33 = {8'd0, chan_trig_num_4[23:0]};
 
+// Register 34: eeprom read status at startup
+assign status_reg34 = 32'd0;
 endmodule

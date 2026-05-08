@@ -3,7 +3,7 @@
   "ip_inst": {
     "xci_name": "gig_ethernet_pcs_pma_0",
     "component_reference": "xilinx.com:ip:gig_ethernet_pcs_pma:16.2",
-    "ip_revision": "17",
+    "ip_revision": "24",
     "gen_directory": ".",
     "parameters": {
       "component_parameters": {
@@ -116,12 +116,12 @@
       },
       "runtime_parameters": {
         "IPCONTEXT": [ { "value": "IP_Flow" } ],
-        "IPREVISION": [ { "value": "17" } ],
+        "IPREVISION": [ { "value": "24" } ],
         "MANAGED": [ { "value": "TRUE" } ],
         "OUTPUTDIR": [ { "value": "." } ],
         "SELECTEDSIMMODEL": [ { "value": "" } ],
         "SHAREDDIR": [ { "value": "." } ],
-        "SWVERSION": [ { "value": "2023.2.2" } ],
+        "SWVERSION": [ { "value": "2025.1.1" } ],
         "SYNTHESISFLOW": [ { "value": "OUT_OF_CONTEXT" } ]
       }
     },
@@ -204,7 +204,7 @@
           "parameters": {
             "ASSOCIATED_RESET": [ { "value": "pma_reset_out_port", "value_src": "constant", "usage": "all" } ],
             "FREQ_TOLERANCE_HZ": [ { "value": "1000000", "value_src": "constant", "usage": "all" } ],
-            "FREQ_HZ": [ { "value": "100000000", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
+            "FREQ_HZ": [ { "value": "200000000", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "PHASE": [ { "value": "0.0", "resolve_type": "generated", "format": "float", "is_ips_inferred": true, "is_static_object": false } ],
             "CLK_DOMAIN": [ { "value": "", "resolve_type": "generated", "is_ips_inferred": true, "is_static_object": false } ],
             "ASSOCIATED_BUSIF": [ { "value": "", "resolve_type": "generated", "is_ips_inferred": true, "is_static_object": false } ],
@@ -235,7 +235,7 @@
             "TYPE": [ { "value": "ETH_MGT_CLK", "value_src": "constant", "usage": "all" } ],
             "BOARD.ASSOCIATED_PARAM": [ { "value": "DIFFCLK_BOARD_INTERFACE", "value_src": "constant", "usage": "all" } ],
             "CAN_DEBUG": [ { "value": "false", "resolve_type": "generated", "format": "bool", "is_ips_inferred": true, "is_static_object": false } ],
-            "FREQ_HZ": [ { "value": "100000000", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ]
+            "FREQ_HZ": [ { "value": "125000000", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ]
           },
           "port_maps": {
             "CLK_N": [ { "physical_name": "gtrefclk_n" } ],

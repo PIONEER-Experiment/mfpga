@@ -6,7 +6,7 @@
 module wfd_selftrig_top (
     input  wire clkin,                // 50 MHz clock
     input  wire gtx_clk0, gtx_clk0_N, // Bank 115 125 MHz GTX Transceiver refclk
-    input  wire gtx_clk1, gtx_clk1_N, // Bank 116 125 MHz GTX Transceiver refclk
+    //input  wire gtx_clk1, gtx_clk1_N, // Bank 116 125 MHz GTX Transceiver refclk
     output wire gige_tx,  gige_tx_N,  // Gigabit Ethernet TX
     input  wire gige_rx,  gige_rx_N,  // Gigabit Ethernet RX
     input  wire daq_rx,   daq_rx_N,   // AMC13 Link RX
@@ -63,7 +63,7 @@ module wfd_selftrig_top (
     output wire c_din,                // to all channels for FPGA configuration
     input  wire [4:0] initb,          // from each channel for FPGA configuration
     input  wire [4:0] prog_done,      // from each channel for FPGA configuration
-    input  wire test_point6,          // TP6 on schematic, unused
+    //input  wire test_point6,          // TP6 on schematic, unused
     input  wire spi_miso,             // serial data from SPI flash memory
     output wire spi_mosi,             // serial data (commands) to SPI flash memory
     output wire spi_ss,               // SPI flash memory chip select
@@ -456,6 +456,12 @@ module wfd_selftrig_top (
     wire bbus_scl_oen;
     wire bbus_sda_oen;
 
+  // startup read debug outputs (sticky; cleared only on reset)
+  wire first_attempt_ack,      // first attempt saw i2c_byte_rdy
+  wire first_attempt_err,      // first attempt saw i2c_error
+  wire [7:0] first_byte,       // value of the first successfully-read byte
+  wire [7:0] init_error_count  // saturating count of errors before copy done
+
 	i2c_top i2c_top (
 		// inputs
 		.clk(clk125),
@@ -473,7 +479,11 @@ module wfd_selftrig_top (
 		.scl_padoen_o(bbus_scl_oen),		         // enable signal for tri-state driver
 		.sda_pad_i(bbus_sda),                        // input from external pin
 		.sda_pad_o(bbus_sda_o),				         // output to tri-state driver
-		.sda_padoen_o(bbus_sda_oen)			         // enable signal for tri-state driver
+		.sda_padoen_o(bbus_sda_oen),                  // enable signal for tri-state driver
+        .first_attempt_ack(first_attempt_ack),       // first attempt saw i2c_byte_rdy
+        .first_attempt_err(first_attempt_err),       // first attempt saw i2c_error
+        .first_byte(first_byte),                     // value of the first successfully-read byte
+        .init_error_count(init_error_count)   			         // enable signal for tri-state driver
 	);
 
     assign bbus_scl = bbus_scl_oen ? 1'bz : bbus_scl_o;
@@ -1069,7 +1079,7 @@ module wfd_selftrig_top (
                 status_reg15, status_reg16, status_reg17, status_reg18, status_reg19,
                 status_reg20, status_reg21, status_reg22, status_reg23, status_reg24,
                 status_reg25, status_reg26, status_reg27, status_reg28, status_reg29,
-                status_reg30, status_reg31, status_reg32, status_reg33;
+                status_reg30, status_reg31, status_reg32, status_reg33, status_reg34;
 
     // ======== trigger information signals ========
     wire [ 2:0] trig_settings;
@@ -1257,6 +1267,7 @@ module wfd_selftrig_top (
         .status_reg31(status_reg31),
         .status_reg32(status_reg32),
         .status_reg33(status_reg33),
+        .status_reg34(status_reg34),
 
         // flash interface ports
         .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
@@ -1842,7 +1853,8 @@ module wfd_selftrig_top (
         .status_reg30(status_reg30),
         .status_reg31(status_reg31),
         .status_reg32(status_reg32),
-        .status_reg33(status_reg33)
+        .status_reg33(status_reg33),
+        .status_reg34(status_reg34)
     );
 
 

@@ -14,7 +14,7 @@ module one_channel (
   input io_reset,
   input io_sel,                         // this module has been selected for an I/O operation
   input io_sync,                        // start the I/O operation
-  input [19:0] io_addr,                 // slave address, memory or register; top 12 bits already consumed
+  input [3:0] io_addr,                  // slave address, memory or register; top 12 bits already consumed
   input io_rd_en,                       // this is a read operation
   input io_wr_en,                       // this is a write operation
   input [31:0] io_wr_data,              // data to write for write operations
@@ -33,7 +33,7 @@ module one_channel (
   input s_axis_tx_tlast,
   output s_axis_tx_tready,
   // RX Interface to master side of receive FIFO
-  input m_axis_aresetn,                // input
+  //input m_axis_aresetn,                // input
   input m_axis_aclk,                   // input
   output [0:31] m_axis_rx_tdata,       // note index order
   output [0: 3] m_axis_rx_tkeep,       // note index order
@@ -254,7 +254,7 @@ module one_channel (
     .io_clk(io_clk),					        // programming clock
     .io_reset(io_reset),              // active-high reset
     .io_sel(io_sel),					        // this module is selected for an I/O operation
-    .io_addr(io_addr[19:0]),          // memory address, top 12 bits alread consumed
+    .io_addr(io_addr[3:0]),           // memory address, top 12 bits alread consumed
     .io_sync(io_sync),                // start the I/O operation
     .io_rd_en(io_rd_en),				      // this is a read operation, enable readback logic
     .io_wr_en(io_wr_en),				      // this is a write operation, enable target for one clock

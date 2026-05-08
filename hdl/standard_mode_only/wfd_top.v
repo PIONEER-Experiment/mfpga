@@ -6,7 +6,7 @@
 module wfd_top (
     input  wire clkin,                // 50 MHz clock
     input  wire gtx_clk0, gtx_clk0_N, // Bank 115 125 MHz GTX Transceiver refclk
-    input  wire gtx_clk1, gtx_clk1_N, // Bank 116 125 MHz GTX Transceiver refclk
+    //input  wire gtx_clk1, gtx_clk1_N, // Bank 116 125 MHz GTX Transceiver refclk
     output wire gige_tx,  gige_tx_N,  // Gigabit Ethernet TX
     input  wire gige_rx,  gige_rx_N,  // Gigabit Ethernet RX
     input  wire daq_rx,   daq_rx_N,   // AMC13 Link RX
@@ -63,7 +63,7 @@ module wfd_top (
     output wire c_din,                // to all channels for FPGA configuration
     input  wire [4:0] initb,          // from each channel for FPGA configuration
     input  wire [4:0] prog_done,      // from each channel for FPGA configuration
-    input  wire test_point6,          // TP6 on schematic, unused
+    //input  wire test_point6,          // TP6 on schematic, unused
     input  wire spi_miso,             // serial data from SPI flash memory
     output wire spi_mosi,             // serial data (commands) to SPI flash memory
     output wire spi_ss,               // SPI flash memory chip select
@@ -204,7 +204,7 @@ module wfd_top (
 
     // ======== front panel LED for master ========
     led_master_status led_master_status (
-        .clk(clk50),
+        //.clk(clk50),
         .red_led(master_led1),
         .green_led(master_led0),
         // status input signals
@@ -213,7 +213,7 @@ module wfd_top (
 
     // ======== front panel LED for clk synth ========
     led_clksynth_status led_clksynth_status (
-        .clk(clk50),
+        //.clk(clk50),
         .red_led(clksynth_led1),
         .green_led(clksynth_led0),
         // status input signals
@@ -341,21 +341,6 @@ module wfd_top (
         .signal_out(rst_trigger_num_stretch) // 75-ns wide
     );
 
-    wire reset_fifos_ipb_stretch;
-    signal_stretch reset_fifos_stretch (
-       .clk(clk125),
-       .signal_in(reset_fifos_ipb),
-       .n_extra_cycles(8'h13),
-       .signal_out(reset_fifos_ipb_stretch)
-    );
-    
-    wire reset_fifos_ipb_ttc;
-    sync_2stage reset_fifos_sync (
-       .clk(ttc_clk),
-       .in(reset_fifos_ipb_stretch),
-       .out(reset_fifos_ipb_ttc)
-    );
-
     // active-high reset signal to channels
     assign c0_io[3] = (ipb_rst_stretch | rst_trigger_num_stretch);
     assign c1_io[3] = (ipb_rst_stretch | rst_trigger_num_stretch);
@@ -374,28 +359,28 @@ module wfd_top (
     wire bbus_scl_oen;
     wire bbus_sda_oen;
 
-	i2c_top i2c_top (
-		// inputs
-		.clk(clk125),
+    i2c_top i2c_top (
+    // inputs
+        .clk(clk125),
         .reset(ip_addr_rst),                         // IPbus reset for reloading addresses from EEPROM
         .i2c_temp_polling_dis(i2c_temp_polling_dis), // disable temperature polling
         .i2c_temp_update(i2c_temp_update),           // update temperature value
         // outputs
         .i2c_startup_done(i2c_startup_done),         // MAC and IP will be valid when this is asserted
-		.i2c_mac_adr(i2c_mac_adr[47:0]),	         // MAC address read from I2C EEPROM
-		.i2c_ip_adr(i2c_ip_adr[31:0]),	             // IP address read from I2C EEPROM
+        .i2c_mac_adr(i2c_mac_adr[47:0]),	         // MAC address read from I2C EEPROM
+        .i2c_ip_adr(i2c_ip_adr[31:0]),	             // IP address read from I2C EEPROM
         .i2c_temp(i2c_temp[11:0]),                   // temperature reading from I2C EEPROM
-		// I2C signals
-		.scl_pad_i(bbus_scl),				         // input from external pin
-		.scl_pad_o(bbus_scl_o),			             // output to tri-state driver
-		.scl_padoen_o(bbus_scl_oen),		         // enable signal for tri-state driver
-		.sda_pad_i(bbus_sda),                        // input from external pin
-		.sda_pad_o(bbus_sda_o),				         // output to tri-state driver
-		.sda_padoen_o(bbus_sda_oen)			         // enable signal for tri-state driver
+        // I2C signals
+        .scl_pad_i(bbus_scl),				         // input from external pin
+        .scl_pad_o(bbus_scl_o),			             // output to tri-state driver
+        .scl_padoen_o(bbus_scl_oen),		         // enable signal for tri-state driver
+        .sda_pad_i(bbus_sda),                        // input from external pin
+        .sda_pad_o(bbus_sda_o),				         // output to tri-state driver
+        .sda_padoen_o(bbus_sda_oen)                   // enable signal for tri-state driver
 	);
 
-    assign bbus_scl = bbus_scl_oen ? 1'bz : bbus_scl_o;
-    assign bbus_sda = bbus_sda_oen ? 1'bz : bbus_sda_o;
+    assign bbus_scl = bbus_scl_oen ? 1'bz : bbus_scl_oen;
+    assign bbus_sda = bbus_sda_oen ? 1'bz : bbus_sda_oen;
 
 
     // ======== communicate with FPGA XADC ========
@@ -437,7 +422,8 @@ module wfd_top (
 
 
     // ======== debug signals ========
-    assign debug[0] = test_point6;
+    //assign debug[0] = test_point6;
+    assign debug[0] = bbus_sda;
     assign debug[1] = bbus_sda;
     assign debug[2] = wfdps[1] & wfdps[0];
     assign debug[3] = mmc_io[3] & mmc_io[2] & mmc_io[1] & mmc_io[0];
@@ -453,6 +439,7 @@ module wfd_top (
     // STARTUPE2: STARTUP Block
     //            7  Series
     // Xilinx HDL Libraries Guide, version 13.3
+    (* DONT_TOUCH = "true" *)
     STARTUPE2 #(
         .PROG_USR("FALSE"), // Activate program event security feature. Requires encrypted bitstreams.
         .SIM_CCLK_FREQ(0.0) // Set the Configuration Clock Frequency(ns) for simulation.
@@ -580,6 +567,7 @@ module wfd_top (
         .clk(clk50),
         .reset(clk50_reset),
         .async_mode(async_mode_clk50),                 // asynchronous mode enable
+        .strg_mode(1'b0),
         .cbuf_mode(cbuf_mode_clk50),                   // circular buffer mode enable
         .prog_chan_start(prog_chan_start),             // start signal from IPbus
         .c_progb(c_progb),                             // configuration signal to all five channels
@@ -599,7 +587,8 @@ module wfd_top (
         .end_bitstream(end_bitstream),                 // done signal from spi_flash_intf
         .prog_chan_done(prog_chan_done),               // done programming the channels
         .async_channels(async_channels),               // flag for if the channels are sync or async
-        .cbuf_channels(cbuf_channels)                  // flag for circular buffer or patterns in sync mode
+        .cbuf_channels(cbuf_channels),                 // flag for circular buffer or patterns in sync mode
+        .strg_channels()                               // flag for if the channels are in self triggering mode.  Never happens here
     );
 
 
@@ -669,11 +658,13 @@ SRLC32E #(
     wire [2:0] reprog_trigger_mux; // combine IPbus and front panel switch
     assign reprog_trigger_mux = (fp_sw_master) ? reprog_trigger_delayed : 3'b001;
 
+    wire reprog_done;
     reprog reprog (
         .clk(clk50),
         .clkb(clk50b),
         .reset(clk50_reset),
-        .trigger(reprog_trigger_mux)
+        .trigger(reprog_trigger_mux),
+        .reprog_done(reprog_done)
     );
    
 
@@ -993,8 +984,7 @@ SRLC32E #(
                 status_reg15, status_reg16, status_reg17, status_reg18, status_reg19,
                 status_reg20, status_reg21, status_reg22, status_reg23, status_reg24,
                 status_reg25, status_reg26, status_reg27, status_reg28, status_reg29,
-                status_reg30, status_reg31;
-                // status_reg32, status_reg33;
+                status_reg30, status_reg31, status_reg32, status_reg33, status_reg34;
 
     // ======== trigger information signals ========
     wire [ 2:0] trig_settings;
@@ -1139,7 +1129,6 @@ SRLC32E #(
         .i2c_temp_polling_dis_out(i2c_temp_polling_dis),   // disable EEPROM temperature polling
         .i2c_temp_update_out(i2c_temp_update),             // read and update EEPROM temperature value
         .fp_trig_width_out(fp_trig_width_from_ipbus[3:0]), // width to separate short from long front panel triggers
-        .reset_fifos_ipb(reset_fifos_ipb),                 // reset the fifos related to trigger / readout
 
         // threshold registers
         .thres_data_corrupt(thres_data_corrupt),   // data corruption
@@ -1179,8 +1168,9 @@ SRLC32E #(
         .status_reg29(status_reg29),
         .status_reg30(status_reg30),
         .status_reg31(status_reg31),
-        //.status_reg32(status_reg32),
-        //.status_reg33(status_reg33),
+        .status_reg32(status_reg32),
+        .status_reg33(status_reg33),
+        .status_reg34(status_reg34),
 
         // flash interface ports
         .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
@@ -1507,9 +1497,9 @@ SRLC32E #(
 
     // status register assembly
     status_reg_block status_reg_block (
-        // user interface clock and reset
-        .clk(clk125),
-        .reset(rst_from_ipb),
+        // user interface clock and reset -- unused
+        //.clk(clk125),
+        //.reset(rst_from_ipb),
 
         // FPGA status
         .prog_chan_done(prog_chan_done),
@@ -1521,7 +1511,7 @@ SRLC32E #(
         // soft error thresholds
         .thres_data_corrupt(thres_data_corrupt),
         .thres_unknown_ttc(thres_unknown_ttc),
-        .thres_ddr3_overflow(thres_ddr3_overflow),
+        .thres_ddr3_overflow(thres_ddr3_overflow[22:0]),
 
         // soft error counts
         .unknown_cmd_count(unknown_cmd_count),
@@ -1598,7 +1588,7 @@ SRLC32E #(
 
         // fifo read valid status
         .m_trig_fifo_tvalid(m_trig_fifo_tvalid),
-        .m_pulse_fifo_tvalid(m_pulse_fifo_tvalid),
+        .pulse_fifo_tvalid(pulse_fifo_tvalid),
         .m_acq_fifo_tvalid(m_acq_fifo_tvalid),
 
         // slow control
@@ -1653,9 +1643,10 @@ SRLC32E #(
         .status_reg28(status_reg28),
         .status_reg29(status_reg29),
         .status_reg30(status_reg30),
-        .status_reg31(status_reg31)
-        //.status_reg32(status_reg32),
-        //.status_reg33(status_reg33)
+        .status_reg31(status_reg31),
+        .status_reg32(status_reg32),
+        .status_reg33(status_reg33),
+        .status_reg34(status_reg34)
     );
 
     // zero deadtime (aside from external trigger overlaps) external trigger counter
@@ -1690,8 +1681,6 @@ SRLC32E #(
         .reset40(reset40),           // in  40 MHz clock domain
         .reset40_n(reset40_n),       // in  40 MHz clock domain
         .rst_from_ipb(rst_from_ipb), // in 125 MHz clock domain
-        .evt_cnt_rst(ttc_evt_reset), // in TTC (40 MHz) domain
-        .reset_fifos_ipb_ttc(reset_fifos_ipb_ttc), // in TTC domain
 
         .rst_trigger_num(rst_trigger_num),             // from TTC Channel B
         .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
@@ -1705,7 +1694,7 @@ SRLC32E #(
         .trig_settings({28'd0, trig_settings[2:0], 1'b0}), // trigger settings
         .chan_en(chan_en),                                 // enabled channels
         .trig_delay(trig_delay),                           // trigger delay
-        .thres_ddr3_overflow(thres_ddr3_overflow),         // DDR3 overflow threshold
+        .thres_ddr3_overflow(thres_ddr3_overflow[22:0]),   // DDR3 overflow threshold
         .fp_trig_width(fp_trig_width[3:0]),                // width to separate short from long front panel triggers
 
         // channel interface
@@ -1878,7 +1867,7 @@ SRLC32E #(
         .pulse_fifo_tready(pulse_fifo_tready), // output
 
         // status connections
-        .i2c_mac_adr(i2c_mac_adr[47:0]),         // input  [47:0], MAC address from EEPROM
+        .i2c_mac_adr(i2c_mac_adr[15:0]),         // input  [15:0], lower 2 MAC address bytes from EEPROM
         .chan_en(chan_en),                       // input  [ 4:0], enabled channels from IPbus
         .endianness_sel(endianness_sel),         // input, from IPbus
         .thres_data_corrupt(thres_data_corrupt), // input  [31:0], from IPbus
@@ -1900,8 +1889,8 @@ SRLC32E #(
 
     // TTS state reported to DAQ link
     tts_reporter tts_reporter (
-        .clk(clk125),
-        .reset(rst_from_ipb),
+        //.clk(clk125),
+        //.reset(rst_from_ipb),
 
         // error status
         .error_ttc_ready(ttc_ready_clk125_n),

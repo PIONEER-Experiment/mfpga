@@ -6,7 +6,7 @@
 module wfd_selftrigc_top (
     input  wire clkin,                // 50 MHz clock
     input  wire gtx_clk0, gtx_clk0_N, // Bank 115 125 MHz GTX Transceiver refclk
-    input  wire gtx_clk1, gtx_clk1_N, // Bank 116 125 MHz GTX Transceiver refclk
+    //input  wire gtx_clk1, gtx_clk1_N, // Bank 116 125 MHz GTX Transceiver refclk
     output wire gige_tx,  gige_tx_N,  // Gigabit Ethernet TX
     input  wire gige_rx,  gige_rx_N,  // Gigabit Ethernet RX
     input  wire daq_rx,   daq_rx_N,   // AMC13 Link RX
@@ -23,7 +23,7 @@ module wfd_selftrigc_top (
     output wire c4_tx, c4_tx_N,       // Serial link to Channel 4 TX
     output wire [7:0] debug,          // debug header
     input  wire [4:0] acq_trigs,      // triggers from self-triggered channel FPGAs
-(* mark_debug = "true" *) input  wire [4:0] acq_dones,      // done signals from channel FPGAs
+    input  wire [4:0] acq_dones,      // done signals from channel FPGAs
     output wire master_led0,          // front panel LEDs for master status, led0 is green
     output wire master_led1,          // front panel LEDs for master status, led1 is red
     output wire clksynth_led0,        // front panel LEDs for clk synth status, led0 is green
@@ -63,7 +63,7 @@ module wfd_selftrigc_top (
     output wire c_din,                // to all channels for FPGA configuration
     input  wire [4:0] initb,          // from each channel for FPGA configuration
     input  wire [4:0] prog_done,      // from each channel for FPGA configuration
-    input  wire test_point6,          // TP6 on schematic, unused
+    //input  wire test_point6,          // TP6 on schematic, unused
     input  wire spi_miso,             // serial data from SPI flash memory
     output wire spi_mosi,             // serial data (commands) to SPI flash memory
     output wire spi_ss,               // SPI flash memory chip select
@@ -171,9 +171,10 @@ module wfd_selftrigc_top (
     wire [4:0] chan_error_sn; // master and channel serial number mismatch, one bit for each channel
     wire [4:0] chan_error_rc; // master received an error response code, one bit for each channel
 
+
     // ======== I/O lines to channel ========
-(* mark_debug = "true" *) wire [4:0] acq_enable;
-(* mark_debug = "true" *) wire [4:0] acq_enable_encoded;
+    wire [4:0] acq_enable;
+    wire [4:0] acq_enable_encoded;
     wire new_fill_pause_triggers;
     wire [4:0] acq_readout_pause;
 
@@ -200,10 +201,10 @@ module wfd_selftrigc_top (
 
 
     // ++++++++ for self triggering, encode "enable triggering" and "enable acquisition" separately on the c?_io[1] lines +++++++++
-(* mark_debug = "true" *) wire acq_enable_reduce;
+    wire acq_enable_reduce;
     assign acq_enable_reduce = |acq_enable;
     wire self_triggering_enabled;
-(* mark_debug = "true" *) wire channel_acq_enabled;
+    wire channel_acq_enabled;
     wire clear_trigger_counts;
     wire accept_self_triggers;
     acq_encode2 acq_encode2(
@@ -222,12 +223,28 @@ module wfd_selftrigc_top (
       .channel_acq_enabled(channel_acq_enabled),
       .clear_trigger_counts(clear_trigger_counts)
     );
-(* mark_debug = "true" *) wire channel_acq_enabled_ttc;
+    wire channel_acq_enabled_ttc;
     sync_2stage cae_ttc (
       .clk(ttc_clk),
       .in(channel_acq_enabled),
       .out(channel_acq_enabled_ttc)
     );
+    // synchronize the clear_trigger_counts into the 40 MHz domain
+    wire clear_trigger_counts_stretch;
+    signal_stretch ctc_stretch (
+        .signal_in(clear_trigger_counts),
+        .clk(clk125),
+        .n_extra_cycles(8'h13),      // more than enough cycles for synchronization into 50-MHz, 40-MHz domains
+        .signal_out(clear_trigger_counts_stretch) // 160-ns wide
+    );
+    wire clear_trigger_counts_ttc;
+    sync_2stage clear_trigger_counts_sync (
+      .clk(ttc_clk),
+      .in(clear_trigger_counts_stretch),
+      .out(clear_trigger_counts_ttc)
+    );
+
+
 
     // ======== pulse trigger FIFO ========
     wire pulse_fifo_tready;
@@ -251,7 +268,7 @@ module wfd_selftrigc_top (
 
     // ======== front panel LED for master ========
     led_master_status led_master_status (
-        .clk(clk50),
+        //.clk(clk50),
         .red_led(master_led1),
         .green_led(master_led0),
         // status input signals
@@ -260,7 +277,7 @@ module wfd_selftrigc_top (
 
     // ======== front panel LED for clk synth ========
     led_clksynth_status led_clksynth_status (
-        .clk(clk50),
+        //.clk(clk50),
         .red_led(clksynth_led1),
         .green_led(clksynth_led0),
         // status input signals
@@ -381,7 +398,7 @@ module wfd_selftrigc_top (
 
 
      // Bring ipb_accept intp ttc clock domain. Assumption that signals are on / off for long periods
-(* mark_debug = "true" *) wire ipb_accept_self_triggers_ttc;
+     wire ipb_accept_self_triggers_ttc;
      reg [1:0] sync_reg;
      reg [1:0] sync_reg_slow;
 
@@ -421,7 +438,7 @@ module wfd_selftrigc_top (
         .signal_in(rst_trigger_num),
         .clk(ttc_clk),
         .n_extra_cycles(8'h02),
-        .signal_out(rst_trigger_num_stretch) // 75-ns wide
+        .signal_out(rst_trigger_num_stretch) // 120 ns wide
     );
 
     // active-high reset signal to channels
@@ -440,35 +457,35 @@ module wfd_selftrigc_top (
 //     .out(rst_trigger_num_125)
 //  );
 
-	// connect a module that will read from the I2C temperature/memory chip.
-	// since the MAC and IP address are used with IPbus, run the block with 'clk125'
-	wire [47:0] i2c_mac_adr; // MAC address read from I2C EEPROM
-	wire [31:0] i2c_ip_adr;  // IP address read from I2C EEPROM
+    // connect a module that will read from the I2C temperature/memory chip.
+    // since the MAC and IP address are used with IPbus, run the block with 'clk125'
+    wire [47:0] i2c_mac_adr; // MAC address read from I2C EEPROM
+    wire [31:0] i2c_ip_adr;  // IP address read from I2C EEPROM
     wire [11:0] i2c_temp;    // temperature reading from I2C EEPROM
     wire i2c_startup_done;
 
     wire bbus_scl_oen;
     wire bbus_sda_oen;
 
-	i2c_top i2c_top (
-		// inputs
-		.clk(clk125),
-        .reset(ip_addr_rst),                         // IPbus reset for reloading addresses from EEPROM
-        .i2c_temp_polling_dis(i2c_temp_polling_dis), // disable temperature polling
-        .i2c_temp_update(i2c_temp_update),           // update temperature value
-        // outputs
-        .i2c_startup_done(i2c_startup_done),         // MAC and IP will be valid when this is asserted
-		.i2c_mac_adr(i2c_mac_adr[47:0]),	         // MAC address read from I2C EEPROM
-		.i2c_ip_adr(i2c_ip_adr[31:0]),	             // IP address read from I2C EEPROM
-        .i2c_temp(i2c_temp[11:0]),                   // temperature reading from I2C EEPROM
-		// I2C signals
-		.scl_pad_i(bbus_scl),				         // input from external pin
-		.scl_pad_o(bbus_scl_o),			             // output to tri-state driver
-		.scl_padoen_o(bbus_scl_oen),		         // enable signal for tri-state driver
-		.sda_pad_i(bbus_sda),                        // input from external pin
-		.sda_pad_o(bbus_sda_o),				         // output to tri-state driver
-		.sda_padoen_o(bbus_sda_oen)			         // enable signal for tri-state driver
-	);
+    i2c_top i2c_top (
+      // inputs
+      .clk(clk125),
+      .reset(ip_addr_rst),                         // IPbus reset for reloading addresses from EEPROM
+      .i2c_temp_polling_dis(i2c_temp_polling_dis), // disable temperature polling
+      .i2c_temp_update(i2c_temp_update),           // update temperature value
+      // outputs
+      .i2c_startup_done(i2c_startup_done),         // MAC and IP will be valid when this is asserted
+      .i2c_mac_adr(i2c_mac_adr[47:0]),	         // MAC address read from I2C EEPROM
+      .i2c_ip_adr(i2c_ip_adr[31:0]),	             // IP address read from I2C EEPROM
+      .i2c_temp(i2c_temp[11:0]),                   // temperature reading from I2C EEPROM
+      // I2C signals
+      .scl_pad_i(bbus_scl),				         // input from external pin
+      .scl_pad_o(bbus_scl_o),			             // output to tri-state driver
+      .scl_padoen_o(bbus_scl_oen),		         // enable signal for tri-state driver
+      .sda_pad_i(bbus_sda),                        // input from external pin
+      .sda_pad_o(bbus_sda_o),				         // output to tri-state driver
+      .sda_padoen_o(bbus_sda_oen)                   // enable signal for tri-state driver
+    );
 
     assign bbus_scl = bbus_scl_oen ? 1'bz : bbus_scl_o;
     assign bbus_sda = bbus_sda_oen ? 1'bz : bbus_sda_o;
@@ -515,19 +532,19 @@ module wfd_selftrigc_top (
     // ======== debug signals ========
 //    assign debug[0] = test_point6;
 //    assign debug[1] = bbus_sda;
-//    assign debug[2] = wfdps[1] & wfdps[0];
-//    assign debug[3] = mmc_io[3] & mmc_io[2] & mmc_io[1] & mmc_io[0];
+    assign debug[2] = wfdps[1] & wfdps[0];
+    assign debug[3] = mmc_io[3] & mmc_io[2] & mmc_io[1] & mmc_io[0];
 //    assign debug[4] = spi_ss & spi_clk & spi_mosi & spi_miso;
 //    assign debug[5] = initb[4] & initb[3] & initb[2] & initb[1] & initb[0];
-//    assign debug[6] = mmc_reset_m & mezzb[5] & mezzb[4] & mezzb[3];
+    assign debug[6] = mmc_reset_m & mezzb[5] & mezzb[4] & mezzb[3];
 //    assign debug[7] = prog_done[4] & prog_done[3] & prog_done[2] & prog_done[1] & prog_done[0];
       assign debug[0] = cs_mismatch_found;
       assign debug[1] = cs_mismatch_found;
-      assign debug[2] = cs_mismatch_found;
-      assign debug[3] = cs_mismatch_found;
+//      assign debug[2] = cs_mismatch_found;
+//      assign debug[3] = cs_mismatch_found;
       assign debug[4] = cs_mismatch_found;
       assign debug[5] = cs_mismatch_found;
-      assign debug[6] = cs_mismatch_found;
+//      assign debug[6] = cs_mismatch_found;
       assign debug[7] = cs_mismatch_found;
 
     
@@ -1067,7 +1084,7 @@ module wfd_selftrigc_top (
                 status_reg15, status_reg16, status_reg17, status_reg18, status_reg19,
                 status_reg20, status_reg21, status_reg22, status_reg23, status_reg24,
                 status_reg25, status_reg26, status_reg27, status_reg28, status_reg29,
-                status_reg30, status_reg31, status_reg32, status_reg33;
+                status_reg30, status_reg31, status_reg32, status_reg33, status_reg34;
 
     // ======== trigger information signals ========
     wire [ 2:0] trig_settings;
@@ -1253,6 +1270,7 @@ module wfd_selftrigc_top (
         .status_reg31(status_reg31),
         .status_reg32(status_reg32),
         .status_reg33(status_reg33),
+        .status_reg34(status_reg34),
 
         // flash interface ports
         .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
@@ -1539,7 +1557,7 @@ module wfd_selftrigc_top (
     );
 
     // synchronize acq_trigs
-(* mark_debug = "true" *) wire [4:0] acq_trigs_clk125;
+    wire [4:0] acq_trigs_clk125;
     sync_2stage #(
         .WIDTH(5)
     ) acq_trigs_sync (
@@ -1601,12 +1619,12 @@ module wfd_selftrigc_top (
     wire [23:0] chan_trig_num_0, chan_trig_num_1, chan_trig_num_2, chan_trig_num_3, chan_trig_num_4;
 
     // synchronize number of triggers in accumulated in each channel
-    (* mark_debug = "true" *) wire [19:0] selftriggers_chan0, selftriggers_chan0_clk125;
+    wire [19:0] selftriggers_chan0, selftriggers_chan0_clk125;
     wire [19:0] selftriggers_chan1, selftriggers_chan1_clk125;
     wire [19:0] selftriggers_chan2, selftriggers_chan2_clk125;
     wire [19:0] selftriggers_chan3, selftriggers_chan3_clk125;
     wire [19:0] selftriggers_chan4, selftriggers_chan4_clk125;
-    (* mark_debug = "true" *) wire [19:0] selftriggers_chan0_latched, selftriggers_chan0_latched_clk125;
+    wire [19:0] selftriggers_chan0_latched, selftriggers_chan0_latched_clk125;
     wire [19:0] selftriggers_chan1_latched, selftriggers_chan1_latched_clk125;
     wire [19:0] selftriggers_chan2_latched, selftriggers_chan2_latched_clk125;
     wire [19:0] selftriggers_chan3_latched, selftriggers_chan3_latched_clk125;
@@ -1649,13 +1667,18 @@ module wfd_selftrigc_top (
 
     // fifo's that store the number of triggers that each channel contains
     // to help keep the readout more asynchronous with the actual triggering
-    (* mark_debug = "true" *) wire selftrigger_fifos_empty;
-    (* mark_debug = "true" *) wire selftrigger_fifo_wr_en, selftrigger_fifo_rd_en;
+    wire selftrigger_fifos_empty;
+    wire selftrigger_fifo_wr_en, selftrigger_fifo_rd_en;
     assign selftrigger_fifos_empty = selftrigger_fifo_chan0_empty 
                                    & selftrigger_fifo_chan1_empty
                                    & selftrigger_fifo_chan2_empty
                                    & selftrigger_fifo_chan3_empty
                                    & selftrigger_fifo_chan4_empty;
+
+    // Unused-output stubs (synthesis optimizes them away)
+    wire [4:0] full;
+    wire [4:0] wr_rst_busy;
+    wire [4:0] rd_rst_busy;
 
     // channel 0
     channel_selftriggers_fifo selftrigger_fifo_chan0 (
@@ -1666,7 +1689,10 @@ module wfd_selftrigc_top (
       .wr_en(selftrigger_fifo_wr_en),           // input wire wr_en
       .rd_en(selftrigger_fifo_rd_en),           // input wire rd_en
       .dout(selftriggers_chan0_latched_clk125), // output wire [19 : 0] dout
-      .empty(selftrigger_fifo_chan0_empty)      // output wire empty
+      .empty(selftrigger_fifo_chan0_empty),     // output wire empty
+      .full(full[0]),
+      .wr_rst_busy(wr_rst_busy[0]),
+      .rd_rst_busy(rd_rst_busy[0])
     );
     // channel 1
     channel_selftriggers_fifo selftrigger_fifo_chan1 (
@@ -1677,7 +1703,10 @@ module wfd_selftrigc_top (
       .wr_en(selftrigger_fifo_wr_en),           // input wire wr_en
       .rd_en(selftrigger_fifo_rd_en),           // input wire rd_en
       .dout(selftriggers_chan1_latched_clk125), // output wire [19 : 0] dout
-      .empty(selftrigger_fifo_chan1_empty)      // output wire empty
+      .empty(selftrigger_fifo_chan1_empty),     // output wire empty
+      .full(full[1]),
+      .wr_rst_busy(wr_rst_busy[1]),
+      .rd_rst_busy(rd_rst_busy[1])
     );
     // channel 2
     channel_selftriggers_fifo selftrigger_fifo_chan2 (
@@ -1688,7 +1717,10 @@ module wfd_selftrigc_top (
       .wr_en(selftrigger_fifo_wr_en),           // input wire wr_en
       .rd_en(selftrigger_fifo_rd_en),           // input wire rd_en
       .dout(selftriggers_chan2_latched_clk125), // output wire [19 : 0] dout
-      .empty(selftrigger_fifo_chan2_empty)      // output wire empty
+      .empty(selftrigger_fifo_chan2_empty),     // output wire empty
+      .full(full[2]),
+      .wr_rst_busy(wr_rst_busy[2]),
+      .rd_rst_busy(rd_rst_busy[2])
     );
     // channel 3
     channel_selftriggers_fifo selftrigger_fifo_chan3 (
@@ -1699,7 +1731,10 @@ module wfd_selftrigc_top (
       .wr_en(selftrigger_fifo_wr_en),           // input wire wr_en
       .rd_en(selftrigger_fifo_rd_en),           // input wire rd_en
       .dout(selftriggers_chan3_latched_clk125), // output wire [19 : 0] dout
-      .empty(selftrigger_fifo_chan3_empty)      // output wire empty
+      .empty(selftrigger_fifo_chan3_empty),     // output wire empty
+      .full(full[3]),
+      .wr_rst_busy(wr_rst_busy[3]),
+      .rd_rst_busy(rd_rst_busy[3])
     );
     // channel 4
     channel_selftriggers_fifo selftrigger_fifo_chan4 (
@@ -1710,7 +1745,10 @@ module wfd_selftrigc_top (
       .wr_en(selftrigger_fifo_wr_en),           // input wire wr_en
       .rd_en(selftrigger_fifo_rd_en),           // input wire rd_en
       .dout(selftriggers_chan4_latched_clk125), // output wire [19 : 0] dout
-      .empty(selftrigger_fifo_chan4_empty)      // output wire empty
+      .empty(selftrigger_fifo_chan4_empty),     // output wire empty
+      .full(full[4]),
+      .wr_rst_busy(wr_rst_busy[4]),
+      .rd_rst_busy(rd_rst_busy[4])
     );
 
     
@@ -1718,8 +1756,8 @@ module wfd_selftrigc_top (
     // status register assembly
     status_reg_block_selftrigc status_reg_block (
         // user interface clock and reset
-        .clk(clk125),
-        .reset(rst_from_ipb),
+        //.clk(clk125),
+        //.reset(rst_from_ipb),
 
         // FPGA status
         .prog_chan_done(prog_chan_done),
@@ -1732,7 +1770,7 @@ module wfd_selftrigc_top (
         // soft error thresholds
         .thres_data_corrupt(thres_data_corrupt),
         .thres_unknown_ttc(thres_unknown_ttc),
-        .thres_ddr3_overflow(thres_ddr3_overflow),
+        //.thres_ddr3_overflow(thres_ddr3_overflow),
 
         // soft error counts
         .unknown_cmd_count(unknown_cmd_count),
@@ -1863,7 +1901,8 @@ module wfd_selftrigc_top (
         .status_reg30(status_reg30),
         .status_reg31(status_reg31),
         .status_reg32(status_reg32),
-        .status_reg33(status_reg33)
+        .status_reg33(status_reg33),
+        .status_reg34(status_reg34)
     );
 
 
@@ -1886,9 +1925,9 @@ module wfd_selftrigc_top (
         .ttc_trigger(trigger_from_ttc),                    // TTC trigger signal
         .accept_self_triggers(accept_self_triggers),       // accept self panel triggers in enabled channels
         .trig_type(fill_type[4:0]),                        // trigger type (muon fill, laser, pedestal, async)
-        .trig_settings({28'd0, trig_settings[2:0], 1'b0}), // trigger settings
+        //.trig_settings({28'd0, trig_settings[2:0], 1'b0}), // trigger settings
         .chan_en(chan_en),                                 // enabled channels
-        .thres_ddr3_overflow(thres_ddr3_overflow),         // DDR3 overflow threshold
+        .thres_ddr3_overflow(thres_ddr3_overflow[22:0]),   // DDR3 overflow threshold
         .channel_acq_enabled(channel_acq_enabled_ttc),
         .clear_trigger_counts(clear_trigger_counts_ttc),   // zero out trigger counts.  We might not need this in the circ buffer mode
 
@@ -2010,7 +2049,7 @@ module wfd_selftrigc_top (
         .send_empty_event(send_empty_event),     // request an empty event
         .skip_payload(skip_payload),             // request to skip channel payloads
         .initiate_readout(initiate_readout),     // request for the channels to be read out
-        .accept_self_triggers(accept_self_triggers),
+        //.accept_self_triggers(accept_self_triggers), // uncomment for debugging
         .event_num(ttc_event_num),               // channel's trigger number
         .trig_num(ttc_trig_num),                 // global trigger number, starts at 1
         .trig_type(ttc_trig_type),               // trigger type
@@ -2023,12 +2062,12 @@ module wfd_selftrigc_top (
         .selftriggers_chan2_latched(selftriggers_chan2_latched_clk125), // number of self triggers in channel 2, previous buffer
         .selftriggers_chan3_latched(selftriggers_chan3_latched_clk125), // number of self triggers in channel 3, previous buffer
         .selftriggers_chan4_latched(selftriggers_chan4_latched_clk125), // number of self triggers in channel 4, previous buffer
-        .selftrigger_fifo_empty(selftrigger_fifo_empty), // when low, a buffer is waiting for readout
+        .selftrigger_fifo_empty(selftrigger_fifos_empty), // when low, at least one buffer is waiting for readout
         .selftrigger_fifo_rd_en(selftrigger_fifo_rd_en), // tell fifo's that we've read out that trigger
         .burst_count_selftrig(burst_count_selftrig),     // the total number
 
         // status connections
-        .i2c_mac_adr(i2c_mac_adr[47:0]),         // input  [47:0], MAC address from EEPROM
+        .i2c_mac_adr(i2c_mac_adr[15:0]),         // input  [15:0], lower 2 MAC address bytes from EEPROM
         .chan_en(chan_en),                       // input  [ 4:0], enabled channels from IPbus
         .endianness_sel(endianness_sel),         // input, from IPbus
         .thres_data_corrupt(thres_data_corrupt), // input  [31:0], from IPbus
@@ -2052,8 +2091,8 @@ module wfd_selftrigc_top (
 
     // TTS state reported to DAQ link
     tts_reporter tts_reporter (
-        .clk(clk125),
-        .reset(rst_from_ipb),
+        //.clk(clk125),
+        //.reset(rst_from_ipb),
 
         // error status
         .error_ttc_ready(ttc_ready_clk125_n),

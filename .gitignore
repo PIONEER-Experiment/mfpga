@@ -7,8 +7,8 @@
 !*/
 project/
 project_selftrig/
-project_selftrig/
-ip/*/**/
+project_selftrigc/
+ip/*/*/*/                 # ignore Vivado-generated subdirs at depth 3+
 
 # Constraints
 !constraints/*.xdc
