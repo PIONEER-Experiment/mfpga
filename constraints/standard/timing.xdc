@@ -55,6 +55,34 @@ set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks DAQ_
 #lkg replaced this with the DAQ_txoutclk
 #lkg  -group [get_clocks -include_generated_clocks DAQ_usrclk]
 
+# -----------------------------------------------------------------------------
+# GigE PCS/PMA: MMCM lock synchronizer output → mmcm_lock_count_reg[*]/R
+# This path is fully inside clk200 but functionally async — the count register
+# just stretches reset deassertion by N cycles.  At 200 MHz the path can fail
+# setup when placement spreads source and dest far apart (net delay ~4.5 ns,
+# logic only ~0.3 ns).  Allow 2 cycles for setup; keep hold at 1.
+# -----------------------------------------------------------------------------
+set_multicycle_path 2 -setup \
+    -from [get_cells -hier -filter {NAME =~ *pcs_pma_block_i/*sync_mmcm_lock_reclocked/data_sync_reg*}] \
+    -to   [get_cells -hier -filter {NAME =~ *pcs_pma_block_i/*resetfsm_i/mmcm_lock_count_reg*}]
+set_multicycle_path 1 -hold \
+    -from [get_cells -hier -filter {NAME =~ *pcs_pma_block_i/*sync_mmcm_lock_reclocked/data_sync_reg*}] \
+    -to   [get_cells -hier -filter {NAME =~ *pcs_pma_block_i/*resetfsm_i/mmcm_lock_count_reg*}]
+
+                                                             
+# GigE PHY: paths from synchronizer outputs inside *resetfsm_i to anything
+# inside the same resetfsm are init/reset signals - tolerate 2 cycles
+set_multicycle_path 2 -setup \
+    -from [get_cells -hier -filter {(NAME =~ *pcs_pma_block_i/*gt0_txresetfsm_i/sync_*/data_sync_reg*) || \
+                                    (NAME =~ *pcs_pma_block_i/*gt0_rxresetfsm_i/sync_*/data_sync_reg*)}] \
+    -to   [get_cells -hier -filter {(NAME =~ *pcs_pma_block_i/*gt0_txresetfsm_i/*) || \
+                                    (NAME =~ *pcs_pma_block_i/*gt0_rxresetfsm_i/*)}]
+
+set_multicycle_path 1 -hold \
+    -from [get_cells -hier -filter {(NAME =~ *pcs_pma_block_i/*gt0_txresetfsm_i/sync_*/data_sync_reg*) || \
+                                    (NAME =~ *pcs_pma_block_i/*gt0_rxresetfsm_i/sync_*/data_sync_reg*)}] \
+    -to   [get_cells -hier -filter {(NAME =~ *pcs_pma_block_i/*gt0_txresetfsm_i/*) || \
+                                    (NAME =~ *pcs_pma_block_i/*gt0_rxresetfsm_i/*)}]
 
 
 
