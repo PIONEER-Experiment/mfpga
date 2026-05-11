@@ -4,21 +4,21 @@
 // Module to re-program FPGA from flash by issuing an IPROG command
 
 module reprog (
-	input clk,
-	input reset,
-	input [2:0] trigger // trigger[0] for golden image, trigger[1] for regular master image
+  input clk,
+  input clk_180,
+  input reset,
+  input [2:0] trigger // trigger[0] for golden image, trigger[1] for regular master image
 );
 
 // ===============
 // declare signals
 // ===============
 
-wire clk_180 = ~clk;
 wire [31:0] ICAP_input;
 
 reg ICAP_enable;
 reg [31:0] ICAP_value; // determined by state machine
-//reg bitstream_select;  // 0 for golden image, 1 for regular master image
+//reg bitstream_select;  // 0 for golden image, 1 for regular master image, 2 for selftrig master image
 parameter GOLDEN  = 2'd0;
 parameter MASTER  = 2'd1;
 parameter STMSTR  = 2'd2;
@@ -134,7 +134,7 @@ always @(posedge clk) begin
 //                else begin
 //                    state <= IDLE;
 //                end
-//            end
+            end
 
             SEND_WORD1 : begin
                 ICAP_value  <= `ICAP_DUMMY_WORD;
@@ -166,10 +166,10 @@ always @(posedge clk) begin
                         ICAP_value <= {8'h00, `GOLDEN_FLASH_ADDR};
                     end
                     trigger[MASTER] : begin
-                        ICAP_value <= {8'h00, `MASTER_FLASH_ADDR};
+                        ICAP_value <= {8'h00, `MASTER_FLASH_ADDR};   // external triggering
                     end
                     trigger[STMSTR] : begin
-                        ICAP_value <= {8'h00, `STMSTR_FLASH_ADDR};
+                        ICAP_value <= {8'h00, `STMSTR_FLASH_ADDR};   // self triggering
                     end
                 endcase
                 //if (bitstream_select == 0)

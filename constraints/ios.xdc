@@ -2,19 +2,6 @@
 # io standards
 # ############
 
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gige_rx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gige_rx_N]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gige_tx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gige_tx_N]
-
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports daq_rx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports daq_rx_N]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports daq_tx]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports daq_tx_N]
-
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gtx_clk0]
-set_property IOSTANDARD DIFF_HSTL_II_18 [get_ports gtx_clk0_N]
-
 set_property IOSTANDARD LVCMOS33 [get_ports bbus_scl]
 set_property IOSTANDARD LVCMOS33 [get_ports bbus_sda]
 
@@ -49,8 +36,8 @@ set_property IOSTANDARD LVCMOS33 [get_ports fp_sw_master]
 # extra properties
 # ################
 
-set_property PULLUP TRUE [get_ports bbus_scl]
-set_property PULLUP TRUE [get_ports bbus_sda]
+set_property PULLTYPE PULLUP [get_ports bbus_scl]
+set_property PULLTYPE PULLUP [get_ports bbus_sda]
 
 # ###############
 # pin assignments
@@ -78,8 +65,8 @@ set_property PACKAGE_PIN K23 [get_ports daq_clk_sel]
 set_property PACKAGE_PIN K26 [get_ports daq_clk_en]
 
 set_property PACKAGE_PIN AB4 [get_ports ttc_clkn]
-set_property PACKAGE_PIN V1  [get_ports ttc_rxn]
-set_property PACKAGE_PIN Y2  [get_ports ttc_txn]
+set_property PACKAGE_PIN V1 [get_ports ttc_rxn]
+set_property PACKAGE_PIN Y2 [get_ports ttc_txn]
 
 set_property PACKAGE_PIN C12 [get_ports clkin]
 
@@ -88,3 +75,5 @@ set_property PACKAGE_PIN B24 [get_ports spi_mosi]
 set_property PACKAGE_PIN C23 [get_ports spi_ss]
 
 set_property PACKAGE_PIN J21 [get_ports fp_sw_master]
+
+

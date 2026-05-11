@@ -31,7 +31,7 @@ port (
     ip_addr_rst_out          : out std_logic;
     chan_en_out              : out std_logic_vector( 4 downto 0);
     prog_chan_out            : out std_logic;
-    reprog_trigger_out       : out std_logic_vector( 1 downto 0);
+    reprog_trigger_out       : out std_logic_vector( 2 downto 0);
     trig_delay_out           : out std_logic_vector(31 downto 0);
     endianness_out           : out std_logic;
     trig_settings_out        : out std_logic_vector( 2 downto 0);
@@ -181,16 +181,16 @@ begin
 	);
 
 	-- control register
-	rst_out                  <= ctrl_reg( 0); -- don't touch
-	async_mode_out           <= ctrl_reg( 1); -- don't touch
-	prog_chan_out            <= ctrl_reg( 2); -- don't touch
-	reprog_trigger_out(0)    <= ctrl_reg( 3); -- don't touch
-	reprog_trigger_out(1)    <= ctrl_reg( 4); -- don't touch
-	chan_en_out(0)           <= ctrl_reg( 5);
-	chan_en_out(1)           <= ctrl_reg( 6);
-	chan_en_out(2)           <= ctrl_reg( 7);
-	chan_en_out(3)           <= ctrl_reg( 8);
-	chan_en_out(4)           <= ctrl_reg( 9);
+    rst_out                  <= ctrl_reg( 0); -- don't touch
+    async_mode_out           <= ctrl_reg( 1); -- don't touch
+    prog_chan_out            <= ctrl_reg( 2); -- don't touch
+    reprog_trigger_out(0)    <= ctrl_reg( 3); -- don't touch
+    reprog_trigger_out(1)    <= ctrl_reg( 4); -- don't touch
+    chan_en_out(0)           <= ctrl_reg( 5);
+    chan_en_out(1)           <= ctrl_reg( 6);
+    chan_en_out(2)           <= ctrl_reg( 7);
+    chan_en_out(3)           <= ctrl_reg( 8);
+    chan_en_out(4)           <= ctrl_reg( 9);
     endianness_out           <= ctrl_reg(10);
     trig_settings_out(0)     <= ctrl_reg(11);
     trig_settings_out(1)     <= ctrl_reg(12);
@@ -201,6 +201,7 @@ begin
     accept_pulse_trig_out    <= ctrl_reg(17);
     ttc_freq_rst_out         <= ctrl_reg(18); -- don't touch
     i2c_temp_polling_dis_out <= ctrl_reg(19); -- don't touch
+    reprog_trigger_out(2)    <= ctrl_reg(28); -- don't touch
 
 	
 	-- Slave 2: Write-only register

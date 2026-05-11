@@ -30,7 +30,7 @@ module wfd_top (
 );
 
     // ======== clock signals ========
-    wire clk50;
+    wire clk50, clk50_180, clk50_180_pll;
     wire clk_125, clk125;
     wire clk200;
     wire clkfb;
@@ -88,12 +88,14 @@ module wfd_top (
         .CLKFBOUT_MULT(20.0),
         .CLKIN1_PERIOD(20), // in ns, so 20 -> 50 MHz
         .CLKOUT0_DIVIDE(5),
-        .CLKOUT1_DIVIDE(8)
+        .CLKOUT1_DIVIDE(8),
+        .CLKOUT2_DIVIDE(20),    // NEW: same as CLKIN → 50 MHz
+        .CLKOUT2_PHASE(180.0)   // NEW: 180° shifted
     ) clk (
         .CLKIN1(clkin),
         .CLKOUT0(clk200),
         .CLKOUT1(clk_125),
-        .CLKOUT2(),
+        .CLKOUT2(clk50_180_pll),
         .CLKOUT3(),
         .CLKOUT4(),
         .CLKOUT5(),
@@ -107,6 +109,7 @@ module wfd_top (
     // Added BUFG object to deal with a warning message that caused implementation to fail
     // "Clock net clk125 is not driven by a Clock Buffer and has more than 2000 loads."
     BUFG BUFG_clk125 (.I(clk_125), .O(clk125));
+    BUFG BUFG_clk50_180 (.I(clk50_180_pll), .O(clk50_180));
 
 
     // ======== reset signals ========
@@ -139,24 +142,24 @@ module wfd_top (
     wire bbus_scl_oen;
     wire bbus_sda_oen;
 
-	i2c_top i2c_top (
-		// inputs
-		.clk(clk125),
-        .reset(ip_addr_rst),                         // IPbus reset for reloading addresses from EEPROM
+    i2c_top i2c_top (
+        // inputs
+        .clk(clk125),
+        .reset(ip_addr_rst),                        // IPbus reset for reloading addresses from EEPROM
         .i2c_temp_polling_dis(i2c_temp_polling_dis), // disable temperature polling
         // outputs
         .i2c_startup_done(i2c_startup_done),         // MAC and IP will be valid when this is asserted
-		.i2c_mac_adr(i2c_mac_adr[47:0]),	         // MAC address read from I2C EEPROM
-		.i2c_ip_adr(i2c_ip_adr[31:0]),	             // IP address read from I2C EEPROM
+        .i2c_mac_adr(i2c_mac_adr[47:0]),             // MAC address read from I2C EEPROM
+        .i2c_ip_adr(i2c_ip_adr[31:0]),               // IP address read from I2C EEPROM
         .i2c_temp(i2c_temp[11:0]),                   // temperature reading from I2C EEPROM
-		// I2C signals
-		.scl_pad_i(bbus_scl),				         // input from external pin
-		.scl_pad_o(bbus_scl_o),			             // output to tri-state driver
-		.scl_padoen_o(bbus_scl_oen),		         // enable signal for tri-state driver
-		.sda_pad_i(bbus_sda),                        // input from external pin
-		.sda_pad_o(bbus_sda_o),				         // output to tri-state driver
-		.sda_padoen_o(bbus_sda_oen)			         // enable signal for tri-state driver
-	);
+        // I2C signals
+        .scl_pad_i(bbus_scl),                        // input from external pin
+        .scl_pad_o(bbus_scl_o),                      // output to tri-state driver
+        .scl_padoen_o(bbus_scl_oen),                 // enable signal for tri-state driver
+        .sda_pad_i(bbus_sda),                        // input from external pin
+        .sda_pad_o(bbus_sda_o),                      // output to tri-state driver
+        .sda_padoen_o(bbus_sda_oen)                   // enable signal for tri-state driver
+    );
 
     assign bbus_scl = bbus_scl_oen ? 1'bz : bbus_scl_o;
     assign bbus_sda = bbus_sda_oen ? 1'bz : bbus_sda_o;
@@ -268,19 +271,18 @@ module wfd_top (
 
     // ======== module to reprogram FPGA from flash ========
 
-    wire [1:0] reprog_trigger_from_ipbus; // in 125 MHz clock domain
-    wire [1:0] reprog_trigger;            // in 50 MHz clock domain
+    wire [2:0] reprog_trigger_from_ipbus; // in 125 MHz clock domain
+                                                                    // 001 = GOLDEN
+                                                                    // 010 = MASTER (standard)
+                                                                    // 100 = Self Trigger Master
+    wire [2:0] reprog_trigger;            // in 50 MHz clock domain
                                           // don't have to worry about missing the faster signal
                                           // (stays high until you use ipbus to set it low again)
-    wire [1:0] reprog_trigger_delayed;    // after passing through 32-bit shift register
+    wire [2:0] reprog_trigger_delayed;    // after passing through 32-bit shift register
                                           // (to allow time for IPbus ack before reprogramming FPGA)
-    reg  [2:0] reprog_master_selection;   // convert the 2 bit encoding to three bits
-                                          // 01 -> 001 = GOLDEN
-                                          // 10 -> 010 = MASTER (standard)
-                                          // 01 -> 100 = Self Trigger Master
 
     sync_2stage #(
-        .WIDTH(2)
+        .WIDTH(3)
     ) reprog_trigger_sync (
         .clk(clk50),
         .in(reprog_trigger_from_ipbus),
@@ -315,24 +317,28 @@ module wfd_top (
         .D(reprog_trigger[1])          // SRL data input
     );
 
+    SRLC32E #(
+        .INIT(32'h00000000) // Initial value of shift register
+    ) SRLC32E_inst2 (
+        .Q(reprog_trigger_delayed[2]), // SRL data output
+        .Q31(),                        // SRL cascade output pin
+        .A(5'b11111),                  // 5-bit shift depth select input (5'b11111 = 32-bit shift)
+        .CE(1'b1),                     // Clock enable input
+        .CLK(clk50),                   // Clock input
+        .D(reprog_trigger[2])          // SRL data input
+    );
+
     // reprog_trigger_mux[0] for golden image
     // reprog_trigger_mux[1] for master image
-    wire [1:0] reprog_trigger_mux; // combine IPbus and front panel switch
-    assign reprog_trigger_mux = (fp_sw_master) ? reprog_trigger_delayed : 2'b01;
-
-    always @ ( reprog_trigger_mux ) begin
-       if ( reprog_trigger_mux = 2'b01 )
-           reprog_master_selection <= 3'b001;
-       else if ( reprog_trigger_mux = 2'b10 )
-           reprog_master_selection <= 3'b010;
-       else if ( reprog_trigger_mux = 2'b11 )
-           reprog_master_selection <= 3'b100;
-    end
+    // reprog_trigger_mux[2] for self triggering image
+    wire [2:0] reprog_trigger_mux; // combine IPbus and front panel switch
+    assign reprog_trigger_mux = (fp_sw_master) ? reprog_trigger_delayed : 3'b001;
 
     reprog reprog (
         .clk(clk50),
+        .clk_180(clk50_180),
         .reset(clk50_reset),
-        .trigger(reprog_master_selection)
+        .trigger(reprog_trigger_mux)
     );
 
 
@@ -491,6 +497,17 @@ module wfd_top (
         .clk(clk125),
         .in(ttc_ready),
         .out(ttc_ready_clk125)
+    );
+
+    wire [23:0] version;
+    wire [23:0] version_125;
+    assign version[23:0] = status_reg00[23:0];
+    sync_2stage #(
+        .WIDTH(24)
+    ) version_sync (
+        .clk(clk125),
+        .in(version),
+        .out(version_125)
     );
 
     // status register assembly

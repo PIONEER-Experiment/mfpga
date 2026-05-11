@@ -49,7 +49,7 @@ end ipbus_status_reg;
 
 architecture rtl of ipbus_status_reg is
 
-	type reg_array is array(28 downto 0) of std_logic_vector(31 downto 0);
+	type reg_array is array(34 downto 0) of std_logic_vector(31 downto 0);
 
 	signal reg : reg_array;
 	signal sel : integer;
