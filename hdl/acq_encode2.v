@@ -45,41 +45,43 @@ module acq_encode2(
       // we will hold the clear counters pulse for 1 us 
       length_counter[28:0] <= 29'd128;        //   1 us in 8 ns clock ticks
     else if ( init_eor_count )
-      // we will wait 2.5 s to zero counters (CCC does final read after 2 s)
-      // increase this to 5 s to if this cures the occasional end of run trigger mismatch
+      // end-of-run gap before disabling acquisition / zeroing counters
+      // (CCC does its final read after 2 s); 62.5M ticks = 0.5 s
 //      length_counter[28:0] <= 29'd312500000;        //   2.5 s in 8 ns clock ticks
-      length_counter[28:0] <= 29'd62500000;        //   2.5 s in 8 ns clock ticks
+      length_counter[28:0] <= 29'd62500000;        //   0.5 s in 8 ns clock ticks
     else if ( init_short_hold_count )
-      // we will hold the ending short pulse for 40 ns 
+      // we will hold the enable-acq / disable-acq pulses for 40 ns
       length_counter[28:0] <= 29'd5;        //   40 ns in 8 ns clock ticks
     else if ( length_counter_zero )
       // if at zero, keep at zero
       length_counter[28:0] <= 29'd0;
     else
-      length_counter[28:0] = length_counter[28:0] - 1;
+      length_counter[28:0] <= length_counter[28:0] - 1;
   end
   assign length_counter_zero = (length_counter[28:0] == 29'd0) ? 1'b1 : 1'b0;
 
   // state bits
   parameter IDLE              =  0;  // 0001
   parameter ENABLE_ACQ        =  1;  // 0002
-  parameter ACQ_TRIG_GAP      =  2;  // 0004
-  parameter ENABLE_TRIG       =  3;  // 0008
-  parameter WAIT              =  4;  // 0010
-  parameter DISABLE_TRIG      =  5;  // 0020
-  parameter TRIG_ACQ_GAP      =  6;  // 0040
-  parameter DISABLE_ACQ       =  7;  // 0080
-  parameter PREPARE_TO_END    =  8;  // 0100
-  parameter INIT_TRIGS_GAP    =  9;  // 0200
-  parameter CLEAR_TRIGS_GAP   = 10;  // 0400
-  parameter CLEAR_TRIGS       = 11;  // 0800
-  parameter CLEAR_TRIGS_HOLD  = 12;  // 1000
+  parameter ENABLE_ACQ_HOLD   =  2;  // 0004  hold the enable-acq pulse high for 40 ns
+  parameter INIT_GAP          =  3;  // 0008  one cycle to load the gap counter
+  parameter ACQ_TRIG_GAP      =  4;  // 0010
+  parameter ENABLE_TRIG       =  5;  // 0020
+  parameter WAIT              =  6;  // 0040
+  parameter DISABLE_TRIG      =  7;  // 0080
+  parameter TRIG_ACQ_GAP      =  8;  // 0100
+  parameter DISABLE_ACQ       =  9;  // 0200
+  parameter PREPARE_TO_END    = 10;  // 0400  hold the disable-acq pulse high for 40 ns
+  parameter INIT_TRIGS_GAP    = 11;  // 0800
+  parameter CLEAR_TRIGS_GAP   = 12;  // 1000
+  parameter CLEAR_TRIGS       = 13;  // 2000
+  parameter CLEAR_TRIGS_HOLD  = 14;  // 4000
   
   reg [ 4:0] encoded_acq_command;   // for output to the channels
   assign acq_enable_encoded[4:0] = encoded_acq_command;
 
-  (* mark_debug = "true" *) reg [ 12:0]     state;
-  reg [ 12:0] nextstate;
+  (* mark_debug = "true" *) reg [ 14:0]     state;
+  reg [ 14:0] nextstate;
 
   // sync to the local clock
   (* mark_debug = "true" *) wire accept_self_triggers_125;
@@ -103,7 +105,7 @@ module acq_encode2(
 
   // combinational always block
   always @* begin
-    nextstate = 13'd0;
+    nextstate = 15'd0;
 
     case (1'b1) // synopsys parallel_case full_case
       // idle state
@@ -117,8 +119,25 @@ module acq_encode2(
         end
       end
 
-     // stay here 1 clock cycle -- turn on the enable and initialize the gap counter
+     // stay here 1 clock cycle -- raise the line and start the 40 ns hold counter
       state[ENABLE_ACQ] : begin
+        nextstate[ENABLE_ACQ_HOLD] = 1'b1;
+      end
+
+      // keep the line high until the hold counter expires. The channel samples
+      // this line through a 2-flop synchroniser on an unrelated 125 MHz clock,
+      // so a single-clock pulse is not reliably captured.
+      state[ENABLE_ACQ_HOLD] : begin
+        if (length_counter_zero ) begin
+          nextstate[INIT_GAP] = 1'b1;
+        end
+        else begin
+          nextstate[ENABLE_ACQ_HOLD] = 1'b1;
+        end
+      end
+
+      // stay here 1 clock cycle, line low, to load the gap counter
+      state[INIT_GAP] : begin
         nextstate[ACQ_TRIG_GAP] = 1'b1;
       end
 
@@ -224,7 +243,7 @@ module acq_encode2(
   always @(posedge clk) begin
     // reset state machine
     if (reset) begin
-      state <= 13'd1 << IDLE;
+      state <= 15'd1 << IDLE;
     end
     else begin
       state <= nextstate;
@@ -255,6 +274,16 @@ module acq_encode2(
   
         nextstate[ENABLE_ACQ] : begin
           encoded_acq_command[4:0] <= chan_en[4:0];
+          channel_acq_enabled      <= 1'b1;
+          init_short_hold_count    <= 1'b1;
+        end
+
+        nextstate[ENABLE_ACQ_HOLD] : begin
+          encoded_acq_command[4:0] <= chan_en[4:0];   // hold the pulse high for 40 ns
+          channel_acq_enabled      <= 1'b1;
+        end
+
+        nextstate[INIT_GAP] : begin
           channel_acq_enabled      <= 1'b1;
           init_gap_count           <= 1'b1;
         end
@@ -294,6 +323,7 @@ module acq_encode2(
        end
 
         nextstate[PREPARE_TO_END] : begin
+          encoded_acq_command[4:0] <= chan_en[4:0];   // hold the disable-acq pulse high for 40 ns
         end
 
         nextstate[INIT_TRIGS_GAP] : begin
