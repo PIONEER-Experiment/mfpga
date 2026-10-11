@@ -87,7 +87,7 @@ module command_manager_selftrigc (
 
   // for debugging
 //  input wire rst_trigger_num
-  (* mark_debug = "true" *) output wire cs_mismatch_found         // temporary
+  output wire cs_mismatch_found         // temporary
 );
 
   wire [23:0] event_num_channel;
@@ -152,8 +152,8 @@ module command_manager_selftrigc (
 
   // regs for channel checksum verification
   reg update_mcs_lsb;           // flag to update the 64 LSBs of the 128-bit master checksum (mcs)
-(* mark_debug = "true" *) reg [127:0] master_checksum;  // checksum calculated in this module
-(* mark_debug = "true" *) reg [127:0] channel_checksum; // checksum from received channel data
+reg [127:0] master_checksum;  // checksum calculated in this module
+reg [127:0] channel_checksum; // checksum from received channel data
 
   // regs for asynchronous mode
   reg [22:0] pulse_data_size;   // burst count covering channel headers, waveform headers, waveforms, and checksums

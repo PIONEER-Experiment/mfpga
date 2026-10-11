@@ -7,7 +7,7 @@ module channel_trigger_receiver (
   input wire clk,   // 40 MHz TTC clock
   input wire reset,
   input wire reset_fifos,
-  (* mark_debug = "true" *) input wire clear_trigger_counts,
+  input wire clear_trigger_counts,
 
   // TTC Channel B resets
   input wire reset_trig_num,
@@ -30,8 +30,8 @@ module channel_trigger_receiver (
   input wire [22:0] burst_count_selftrig,
 
   // number of bursts stored in the DDR3
-  (* mark_debug = "true" *) output reg [22:0] stored_bursts_lo,
-  (* mark_debug = "true" *) output reg [22:0] stored_bursts_hi,
+  output reg [22:0] stored_bursts_lo,
+  output reg [22:0] stored_bursts_hi,
 
   // there are triggers that have not been read out
   output wire event_readout_pending,

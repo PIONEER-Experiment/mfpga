@@ -188,7 +188,7 @@ module selftriggerc_top (
     assign chan_trigs_clk40 = ct_sync2 & ~ct_sync3;
 
     // synchronize chan_dones
-(* mark_debug = "true" *) wire [4:0] chan_dones_clk40;
+wire [4:0] chan_dones_clk40;
     sync_2stage #(
         .WIDTH(5)
     ) chan_dones_sync (

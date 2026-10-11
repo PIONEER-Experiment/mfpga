@@ -15,18 +15,18 @@ module acq_encode2(
   input wire reset,
 
   // channel configuration
-(* mark_debug = "true" *) input wire [4:0] chan_en,
+input wire [4:0] chan_en,
 
   // enabling / status signals
-  (* mark_debug = "true" *) input accept_self_triggers,
+  input accept_self_triggers,
   input wire channels_active,
-  (* mark_debug = "true" *) input wire event_readout_pending,
+  input wire event_readout_pending,
 
   // the encoded signal to tell the channels to toggle which enable
-(* mark_debug = "true" *) output wire [4:0] acq_enable_encoded,
+output wire [4:0] acq_enable_encoded,
   output reg  self_triggering_enabled,
   output reg  channel_acq_enabled,
-  (* mark_debug = "true" *) output reg  clear_trigger_counts
+  output reg  clear_trigger_counts
 );
 
   // a counter for
@@ -80,11 +80,11 @@ module acq_encode2(
   reg [ 4:0] encoded_acq_command;   // for output to the channels
   assign acq_enable_encoded[4:0] = encoded_acq_command;
 
-  (* mark_debug = "true" *) reg [ 14:0]     state;
+  reg [ 14:0]     state;
   reg [ 14:0] nextstate;
 
   // sync to the local clock
-  (* mark_debug = "true" *) wire accept_self_triggers_125;
+  wire accept_self_triggers_125;
   sync_2stage sync_ast(
     .clk(clk),
     .in(accept_self_triggers),

@@ -1,7 +1,7 @@
 // Top-level module for Muon g-2 WFD5 Master FPGA
 //
 // As a useful reference, here's the syntax to mark signals for debug:
-// (* mark_debug = "true" *) 
+// 
 
 module wfd_top (
     input  wire clkin,                // 50 MHz clock

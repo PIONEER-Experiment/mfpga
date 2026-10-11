@@ -100,7 +100,7 @@ module command_manager (
   input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
   input wire async_mode,                // asynchronous mode flag
   input wire cbuf_mode,                 // circular buffer mode flag
-  (* mark_debug = "true" *) output reg [34:0] state,              // state of finite state machine
+  output reg [34:0] state,              // state of finite state machine
 
   // error connections
   output reg [31:0] cs_mismatch_count, // number of checksum mismatches
