@@ -1682,7 +1682,7 @@ module wfd_selftrigc_top (
 
     // channel 0
     channel_selftriggers_fifo selftrigger_fifo_chan0 (
-      .rst(ipb_rst_stretch),                    // input wire rst
+      .rst(reset40),                            // input wire rst, same ttc_clk-domain reset as the trig/acq event FIFOs
       .wr_clk(ttc_clk),                         // input wire wr_clk
       .rd_clk(clk125),                          // input wire rd_clk -- system 125 MHz clock
       .din(selftriggers_chan0_latched),         // input wire [19 : 0] din
@@ -1696,7 +1696,7 @@ module wfd_selftrigc_top (
     );
     // channel 1
     channel_selftriggers_fifo selftrigger_fifo_chan1 (
-      .rst(ipb_rst_stretch),                    // input wire rst
+      .rst(reset40),                            // input wire rst, same ttc_clk-domain reset as the trig/acq event FIFOs
       .wr_clk(ttc_clk),                         // input wire wr_clk
       .rd_clk(clk125),                          // input wire rd_clk -- system 125 MHz clock
       .din(selftriggers_chan1_latched),         // input wire [19 : 0] din
@@ -1710,7 +1710,7 @@ module wfd_selftrigc_top (
     );
     // channel 2
     channel_selftriggers_fifo selftrigger_fifo_chan2 (
-      .rst(ipb_rst_stretch),                    // input wire rst
+      .rst(reset40),                            // input wire rst, same ttc_clk-domain reset as the trig/acq event FIFOs
       .wr_clk(ttc_clk),                         // input wire wr_clk
       .rd_clk(clk125),                          // input wire rd_clk -- system 125 MHz clock
       .din(selftriggers_chan2_latched),         // input wire [19 : 0] din
@@ -1724,7 +1724,7 @@ module wfd_selftrigc_top (
     );
     // channel 3
     channel_selftriggers_fifo selftrigger_fifo_chan3 (
-      .rst(ipb_rst_stretch),                    // input wire rst
+      .rst(reset40),                            // input wire rst, same ttc_clk-domain reset as the trig/acq event FIFOs
       .wr_clk(ttc_clk),                         // input wire wr_clk
       .rd_clk(clk125),                          // input wire rd_clk -- system 125 MHz clock
       .din(selftriggers_chan3_latched),         // input wire [19 : 0] din
@@ -1738,7 +1738,7 @@ module wfd_selftrigc_top (
     );
     // channel 4
     channel_selftriggers_fifo selftrigger_fifo_chan4 (
-      .rst(ipb_rst_stretch),                    // input wire rst
+      .rst(reset40),                            // input wire rst, same ttc_clk-domain reset as the trig/acq event FIFOs
       .wr_clk(ttc_clk),                         // input wire wr_clk
       .rd_clk(clk125),                          // input wire rd_clk -- system 125 MHz clock
       .din(selftriggers_chan4_latched),         // input wire [19 : 0] din

@@ -307,6 +307,18 @@ reg [127:0] channel_checksum; // checksum from received channel data
   // the total number of 64 bit words for the TTC readout event, including headers and trailers
   assign event_size = per_trigger_word_count * event_triggers + channel_header_words + 4;
 
+  // Bounded wait for the self-trigger count record in CHECK_SELFTRIG_FIFO.
+  // 2^16 clk125 cycles = ~0.5 ms, several thousand times the normal wait.
+  reg  [16:0] selftrig_wait_cntr;
+  wire        selftrig_wait_timeout;
+  assign selftrig_wait_timeout = selftrig_wait_cntr[16];
+  always @(posedge clk) begin
+    if ( rst || !state[CHECK_SELFTRIG_FIFO] )
+      selftrig_wait_cntr[16:0] <= 17'd0;
+    else if ( !selftrig_wait_timeout )
+      selftrig_wait_cntr[16:0] <= selftrig_wait_cntr[16:0] + 1;
+  end
+
   // this actually gets used to compare the number of 32 bit words, hence the "*4"
   wire [22:0] master_burst_count;
   assign master_burst_count = burst_count_selftrig[22:0]*4+3;
@@ -516,14 +528,31 @@ reg [127:0] channel_checksum; // checksum from received channel data
       // =========================
 
       // wait to make sure we have latched the numbers of selftriggers
-      // into the fifo's
+      // into the fifo's.  channel_acq_controller writes them three TTC clocks
+      // after starting the fill, so normally this is a sub-microsecond wait.
+      // If the record never arrives (e.g. the write was dropped because the
+      // FIFO was still in its post-reset busy window, or the trigger was
+      // accepted while the acq controller was not recording) we must not wait
+      // for ever: the trigger processor is parked in READOUT until we report
+      // readout_done, and every IPbus channel access queues behind us.  After
+      // the timeout, send an empty event for this trigger number so the DAQ
+      // event numbering stays in step, and return to IDLE.
       state[CHECK_SELFTRIG_FIFO] : begin
-        if ( selftrigger_fifo_empty )
-          // stay here until the fifo isn't empty
-          nextstate[CHECK_SELFTRIG_FIFO] = 1'b1;
-        else
+        if ( !selftrigger_fifo_empty ) begin
           // proceed to channel readout
           nextstate[CHECK_CHAN_EN] = 1'b1;
+        end
+        else if ( selftrig_wait_timeout ) begin
+          // give up: empty event, same path as send_empty_event from IDLE
+          next_empty_event = 1'b1;
+          next_daq_valid = 1'b1;
+          next_daq_data[63:0] = {8'h00, trig_num[23:0], trig_timestamp[43:32], 20'd4};
+          nextstate[SEND_AMC13_HEADER1] = 1'b1;
+        end
+        else begin
+          // stay here until the fifo isn't empty
+          nextstate[CHECK_SELFTRIG_FIFO] = 1'b1;
+        end
       end
       
       // check whether this channel number is enabled
