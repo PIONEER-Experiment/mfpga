@@ -322,6 +322,33 @@ module trigger_top (
     // module instances
     // ----------------
 
+    // ---------------------------------------------------------------
+    // Circular-buffer "primed" hold-off (cbuf mode)
+    // When cbuf_acquire rises the channels restart their circular-buffer
+    // write pointers at zero over memory still holding the previous run (or
+    // nothing).  A trigger arriving before the pointer has advanced past
+    // async_pre_trig would have its pre-trigger window wrap into that stale
+    // region.  Rather than track the pre-trigger setting here, wait for one
+    // full buffer: 65536 sample pairs at 400 MHz = 163.84 us = 6554 ttc_clk.
+    // 8192 ttc_clk (204.8 us) covers that plus the enable/sync latency.
+    // Triggers that arrive earlier are answered with an empty event by
+    // ttc_trigger_receiver.  The counter restarts whenever cbuf_acquire drops.
+    // ---------------------------------------------------------------
+    reg [12:0] cbuf_prime_cntr;
+    reg        cbuf_primed;
+    always @(posedge ttc_clk) begin
+        if (reset40 | ~cbuf_acquire) begin
+            cbuf_prime_cntr[12:0] <= 13'd0;
+            cbuf_primed           <= 1'b0;
+        end
+        else if (&cbuf_prime_cntr[12:0]) begin
+            cbuf_primed           <= 1'b1;      // 8191 reached: hold
+        end
+        else begin
+            cbuf_prime_cntr[12:0] <= cbuf_prime_cntr[12:0] + 1;
+        end
+    end
+
     // TTC trigger receiver module
     ttc_trigger_receiver ttc_trigger_receiver (
         // clock and reset
@@ -376,6 +403,8 @@ module trigger_top (
 
         // status connections
         .async_mode(async_mode),                       // asynchronous mode select
+        .cbuf_mode(cbuf_mode),                         // circular buffer mode select
+        .cbuf_primed(cbuf_primed),                     // cbuf mode: buffers hold a full run's worth of data
         .accept_pulse_triggers(accept_pulse_triggers), // accept front panel triggers select
         .xadc_alarms(xadc_alarms[3:0]),                // XADC alarm signals
         .state(ttr_state),                             // state of finite state machine

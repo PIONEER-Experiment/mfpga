@@ -56,6 +56,8 @@ module ttc_trigger_receiver (
 
   // status connections
   input wire async_mode,            // asynchronous mode select
+  input wire cbuf_mode,             // circular buffer mode select
+  input wire cbuf_primed,           // cbuf mode: channels' circular buffers hold a full buffer of this run's data
   input wire accept_pulse_triggers, // accept front panel triggers select
   input wire [ 3:0] xadc_alarms,    // XADC alarm signals
   output reg [ 3:0] state,          // state of finite state machine
@@ -83,6 +85,7 @@ module ttc_trigger_receiver (
 
   reg        empty_event;        // flag for an empty event response
   reg        empty_payload;      // flag for an async readout with no processed triggers
+  reg        cbuf_blocked;       // flag: trigger arrived before the circular buffers were primed (cbuf mode)
   reg [43:0] trig_timestamp_cnt; // clock cycle count
   reg [23:0] acq_event_cnt;      // channel's trigger number, starts at 1
   reg [ 3:0] acq_xadc_alarms;    // XADC alarm signals
@@ -120,6 +123,7 @@ module ttc_trigger_receiver (
   reg [23:0] next_acq_trig_num;
   reg        next_empty_event;
   reg        next_empty_payload;
+  reg        next_cbuf_blocked;
   reg [23:0] next_trig_num;
   reg [43:0] next_trig_timestamp;
   reg [23:0] next_acq_event_cnt;
@@ -136,6 +140,7 @@ module ttc_trigger_receiver (
     next_acq_trig_num       [23:0] = acq_trig_num       [23:0];
     next_empty_event               = empty_event;
     next_empty_payload             = empty_payload;
+    next_cbuf_blocked              = cbuf_blocked;
     next_trig_num           [23:0] = trig_num           [23:0];
     next_trig_timestamp     [43:0] = trig_timestamp     [43:0];
     next_acq_event_cnt      [23:0] = acq_event_cnt      [23:0];
@@ -160,6 +165,16 @@ module ttc_trigger_receiver (
             // in synchronous mode
             if (~trig_settings[trig_type] | ddr3_full) begin
               next_empty_event = 1'b1; // indicate to send an empty event
+            end
+            // circular buffer mode: until the channels have written a full
+            // buffer since cbuf_acquire rose, a trigger's pre-trigger window
+            // would read memory not written this run.  Answer such triggers
+            // with an empty event instead of passing them to the channels.
+            // Latched here so the decision cannot change between IDLE and
+            // SEND_TRIGGER.
+            if (cbuf_mode & ~cbuf_primed) begin
+              next_empty_event  = 1'b1;
+              next_cbuf_blocked = 1'b1;
             end
           end
           else begin
@@ -192,7 +207,8 @@ module ttc_trigger_receiver (
         else if (~async_mode) begin
           // check for an allowed trigger
           // 1 = pass trigger, 0 = block trigger
-          if (~trig_settings[acq_trig_type]) begin
+          // (also blocked: cbuf mode before the circular buffers are primed)
+          if (~trig_settings[acq_trig_type] | cbuf_blocked) begin
             nextstate[STORE_TRIG_INFO] = 1'b1;
           end
           // this trigger would overwrite valid data in DDR3, in synchronous mode
@@ -228,6 +244,7 @@ module ttc_trigger_receiver (
         if (fifo_ready) begin
           next_empty_event   = 1'b0; // clear the empty event flag
           next_empty_payload = 1'b0; // clear the empty payload flag
+          next_cbuf_blocked  = 1'b0; // clear the cbuf-not-primed flag
           nextstate[IDLE] = 1'b1;
         end
         // FIFO is not ready for data word
@@ -251,6 +268,7 @@ module ttc_trigger_receiver (
 
       empty_event               <=  1'b0;
       empty_payload             <=  1'b0;
+      cbuf_blocked              <=  1'b0;
       acq_trig_type      [ 4:0] <=  5'd0;
       acq_xadc_alarms    [ 3:0] <=  4'd0;
       ddr3_overflow_count[31:0] <= 32'd0;
@@ -261,6 +279,7 @@ module ttc_trigger_receiver (
 
       empty_event               <= next_empty_event;
       empty_payload             <= next_empty_payload;
+      cbuf_blocked              <= next_cbuf_blocked;
       acq_trig_type      [ 4:0] <= next_acq_trig_type      [ 4:0];
       acq_xadc_alarms    [ 3:0] <= next_acq_xadc_alarms    [ 3:0];
       ddr3_overflow_count[31:0] <= next_ddr3_overflow_count[31:0];
