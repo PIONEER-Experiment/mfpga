@@ -174,7 +174,10 @@ output wire [4:0] acq_enable_encoded,
 
       // stay here until channel_acq_controller_selftrig notes readout_done,
       // which means that no channels should be active any longer.  We use the
-      // gap so that no self-triggers can sneak in after the final fill readout
+      // gap so that no self-triggers can sneak in after the final fill readout.
+      // The gap counter is reloaded for as long as a readout is in flight
+      // (see the output block), so it always runs its full length after the
+      // last readout finishes.
       state[TRIG_ACQ_GAP] : begin
         if (channels_active_125 || event_readout_pending_125) begin
           nextstate[TRIG_ACQ_GAP] = 1'b1;
@@ -314,6 +317,12 @@ output wire [4:0] acq_enable_encoded,
   
         nextstate[TRIG_ACQ_GAP] : begin
           channel_acq_enabled      <= 1'b1;
+          // keep reloading the end-of-run gap while a final fill readout is
+          // still in flight, so the gap is measured from the end of that
+          // readout rather than from DISABLE_TRIG.  Otherwise a readout
+          // lasting longer than the gap would be followed immediately by
+          // DISABLE_ACQ, with no hold-off for the channel to settle.
+          init_eor_count           <= channels_active_125 | event_readout_pending_125;
         end
   
         nextstate[DISABLE_ACQ] : begin
