@@ -394,6 +394,23 @@ module command_manager (
 
   wire rst_n;
   assign rst_n = ~rst;
+
+  // Bounded wait for the channel's response serial number in READ_CHAN_RSN.
+  // A channel that never answers the 'read fill' command (dead Aurora link,
+  // channel command dispatcher wedged) would otherwise park this state
+  // machine here for ever, and with it every IPbus channel access.
+  // 2^22 clk125 cycles = ~33 ms, well beyond the channel's own ~8 ms
+  // acq_done wait in cc_rd_fill_sm.  On timeout the channel is treated
+  // exactly like a serial-number mismatch: flag chan_error_sn, skip it.
+  reg  [22:0] rsn_wait_cntr;
+  wire        rsn_wait_timeout;
+  assign rsn_wait_timeout = rsn_wait_cntr[22];
+  always @(posedge clk) begin
+    if ( rst || !state[READ_CHAN_RSN] )
+      rsn_wait_cntr[22:0] <= 23'd0;
+    else if ( !rsn_wait_timeout )
+      rsn_wait_cntr[22:0] <= rsn_wait_cntr[22:0] + 1;
+  end
   
   // Pulse Readout FIFO : 2048 depth, 2047 almost full threshold, 16-byte data width
   // holds a running copy of the pulse trigger information for multi-channel readout
@@ -723,6 +740,14 @@ module command_manager (
             next_csn[31:0] = csn[31:0]+1;
             nextstate[CHECK_CHAN_EN] = 1'b1;
           end
+        end
+        else if (rsn_wait_timeout) begin
+          // no response from the channel: give up on it, same as a mismatch
+          next_chan_error_sn[chan_tx_fifo_dest] = 1'b1;
+
+          next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0]+1;
+          next_csn[31:0] = csn[31:0]+1;
+          nextstate[CHECK_CHAN_EN] = 1'b1;
         end
         else begin
           nextstate[READ_CHAN_RSN] = 1'b1;
