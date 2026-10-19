@@ -232,6 +232,7 @@ begin
     cbuf_acquire             <= ctrl_reg(26); -- don't touch
     selftrig_acquire         <= ctrl_reg(27); -- don't touch
     reprog_trigger_out(2)    <= ctrl_reg(28); -- don't touch
+    -- ctrl_reg(29) is unused: the address table's SYS.FIFO_RESET bit has never been connected to anything
     clear_trig_counters      <= ctrl_reg(30); -- don't touch
 
     
