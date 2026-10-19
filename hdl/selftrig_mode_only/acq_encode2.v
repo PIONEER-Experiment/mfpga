@@ -51,7 +51,7 @@ module acq_encode2(
       // if at zero, keep at zero
       length_counter[28:0] <= 29'd0;
     else
-      length_counter[28:0] = length_counter[28:0] - 1;
+      length_counter[28:0] <= length_counter[28:0] - 1;
   end
   assign length_counter_zero = (length_counter[28:0] == 29'd0) ? 1'b1 : 1'b0;
 

@@ -70,7 +70,7 @@ module channel_acq_controller_selftrigc (
       // when it hits zero, hold it at zero
       new_fill_counter[4:0] <= 5'd0;
     else
-      new_fill_counter[4:0] = new_fill_counter[4:0] - 1;
+      new_fill_counter[4:0] <= new_fill_counter[4:0] - 1;
   end
   assign new_fill_counter_zero = (new_fill_counter[4:0] == 5'd0) ? 1'b1 : 1'b0;
 
