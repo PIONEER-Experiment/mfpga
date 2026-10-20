@@ -767,18 +767,17 @@ module wfd_selftrig_top (
         .D(reprog_trigger[2])          // SRL data input
     );
 
-    // reprog_trigger_mux[0] for golden image
-    // reprog_trigger_mux[1] for master image
-    // reprog_trigger_mux[2] for self triggering image
-    wire [2:0] reprog_trigger_mux; // combine IPbus and front panel switch
-    assign reprog_trigger_mux = (fp_sw_master) ? reprog_trigger_delayed : 3'b001;
+    // image selection: the IPbus request (delayed above) and the raw front panel switch both go to
+    // 'reprog', which synchronises and debounces the switch, holds off after configuration and
+    // qualifies every request before issuing the IPROG
 
     wire reprog_done;
     reprog reprog (
         .clk(clk50),
         .clkb(clk50b),
         .reset(clk50_reset),
-        .trigger(reprog_trigger_mux),
+        .ipbus_trigger(reprog_trigger_delayed),
+        .fp_sw_master(fp_sw_master),
         .reprog_done(reprog_done)
     );
    

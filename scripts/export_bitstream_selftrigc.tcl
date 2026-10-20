@@ -3,7 +3,7 @@ if {[file exists ./wfd_selftrigc_top.bit]} {
   file copy -force ./wfd_selftrigc_top.bit [file dirname [info script]]/../bitstreams/wfd_master_selftrigc_$version.bit
   puts "INFO: Bitstream copied: wfd_master.bit"
   write_cfgmem -force -format MCS -size 32 -interface SPIx1 \
-      -loadbit "up 0x00670000 ./wfd_selftrigc_top.bit" [file dirname [info script]]/../bitstreams/wfd_master_selftrigc_$version
+      -loadbit "up 0x00B40000 ./wfd_selftrigc_top.bit" [file dirname [info script]]/../bitstreams/wfd_master_selftrigc_$version
 } else {
   puts "ERROR: Bitstream not found: wfd_selftrigc_top.bit"
 }
