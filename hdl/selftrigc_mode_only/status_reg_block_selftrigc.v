@@ -72,6 +72,12 @@ module status_reg_block_selftrigc (
 
   // acquisition
   input wire [4:0] acq_readout_pause,
+  // command path diagnostics (register 14)
+  input wire [3:0] cm_tx_dest,          // channel the command manager is currently addressing
+  input wire [4:0] cm_tx_ready,         // per-channel TX switch ready (Aurora TX FIFO accepting)
+  input wire [4:0] cm_rx_valid,         // per-channel RX switch valid (channel has data waiting)
+  input wire       cm_tx_valid,         // command manager is trying to send
+  input wire       cm_rx_ready,         // command manager is accepting channel data
   input wire [4:0] fill_type,
   input wire [4:0] chan_en,
   input wire endianness_sel,
@@ -204,7 +210,8 @@ assign status_reg12 = trig_timestamp[31:0];
 assign status_reg13 = {20'd0, trig_timestamp[43:32]};
 
 // Register 14: unused
-assign status_reg14 = 32'd0;
+// command path diagnostics: who the command manager is talking to and whether the switches will let it
+assign status_reg14 = {16'd0, cm_rx_ready, cm_tx_valid, cm_rx_valid[4:0], cm_tx_ready[4:0], cm_tx_dest[3:0]};
 
 // Register 15: Data corruption threshold
 assign status_reg15 = thres_data_corrupt[31:0];

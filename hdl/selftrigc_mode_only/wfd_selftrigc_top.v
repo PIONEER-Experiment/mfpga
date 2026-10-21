@@ -1824,6 +1824,11 @@ module wfd_selftrigc_top (
 
         // acquisition
         .acq_readout_pause(acq_readout_pause),
+        .cm_tx_dest(axi_stream_to_channel_from_cm_tdest),     // command path diagnostics, status register 14
+        .cm_tx_ready(c_axi_stream_to_channel_tready),
+        .cm_rx_valid(c_axi_stream_to_cm_tvalid),
+        .cm_tx_valid(axi_stream_to_channel_from_cm_tvalid),
+        .cm_rx_ready(axi_stream_to_cm_from_channel_tready),
         .fill_type(fill_type_clk125),
         .chan_en(chan_en),
         .endianness_sel(endianness_sel),
