@@ -324,17 +324,19 @@ module command_manager_selftrig (
   // A channel that never answers the 'read fill' command (dead Aurora link,
   // channel command dispatcher wedged) would otherwise park this state
   // machine here for ever, and with it every IPbus channel access.
-  // 2^22 clk125 cycles = ~33 ms, well beyond the channel's own ~8 ms
-  // acq_done wait in cc_rd_fill_sm.  On timeout the channel is treated
-  // exactly like a serial-number mismatch: flag chan_error_sn, skip it.
-  reg  [22:0] rsn_wait_cntr;
+  // 2^29 clk125 cycles = ~4.3 s: deliberately generous, since it only has
+  // to catch a channel that will never answer, and a readout that is merely
+  // slow (loaded DAQ server, large fill) must never trip it.  On timeout the
+  // channel is treated exactly like a serial-number mismatch: flag
+  // chan_error_sn, skip it.
+  reg  [29:0] rsn_wait_cntr;
   wire        rsn_wait_timeout;
-  assign rsn_wait_timeout = rsn_wait_cntr[22];
+  assign rsn_wait_timeout = rsn_wait_cntr[29];
   always @(posedge clk) begin
     if ( rst || !state[READ_CHAN_RSN] )
-      rsn_wait_cntr[22:0] <= 23'd0;
+      rsn_wait_cntr[29:0] <= 30'd0;
     else if ( !rsn_wait_timeout )
-      rsn_wait_cntr[22:0] <= rsn_wait_cntr[22:0] + 1;
+      rsn_wait_cntr[29:0] <= rsn_wait_cntr[29:0] + 1;
   end
   
   // comb always block

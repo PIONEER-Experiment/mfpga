@@ -308,15 +308,16 @@ reg [127:0] channel_checksum; // checksum from received channel data
   assign event_size = per_trigger_word_count * event_triggers + channel_header_words + 4;
 
   // Bounded wait for the self-trigger count record in CHECK_SELFTRIG_FIFO.
-  // 2^16 clk125 cycles = ~0.5 ms, several thousand times the normal wait.
-  reg  [16:0] selftrig_wait_cntr;
+  // 2^29 clk125 cycles = ~4.3 s; the record normally arrives within a few
+  // clocks, so this only ever fires on a record that was lost.
+  reg  [29:0] selftrig_wait_cntr;
   wire        selftrig_wait_timeout;
-  assign selftrig_wait_timeout = selftrig_wait_cntr[16];
+  assign selftrig_wait_timeout = selftrig_wait_cntr[29];
   always @(posedge clk) begin
     if ( rst || !state[CHECK_SELFTRIG_FIFO] )
-      selftrig_wait_cntr[16:0] <= 17'd0;
+      selftrig_wait_cntr[29:0] <= 30'd0;
     else if ( !selftrig_wait_timeout )
-      selftrig_wait_cntr[16:0] <= selftrig_wait_cntr[16:0] + 1;
+      selftrig_wait_cntr[29:0] <= selftrig_wait_cntr[29:0] + 1;
   end
 
   // this actually gets used to compare the number of 32 bit words, hence the "*4"
@@ -345,17 +346,19 @@ reg [127:0] channel_checksum; // checksum from received channel data
   // A channel that never answers the 'read fill' command (dead Aurora link,
   // channel command dispatcher wedged) would otherwise park this state
   // machine here for ever, and with it every IPbus channel access.
-  // 2^22 clk125 cycles = ~33 ms, well beyond the channel's own ~8 ms
-  // acq_done wait in cc_rd_fill_sm.  On timeout the channel is treated
-  // exactly like a serial-number mismatch: flag chan_error_sn, skip it.
-  reg  [22:0] rsn_wait_cntr;
+  // 2^29 clk125 cycles = ~4.3 s: deliberately generous, since it only has
+  // to catch a channel that will never answer, and a readout that is merely
+  // slow (loaded DAQ server, large fill) must never trip it.  On timeout the
+  // channel is treated exactly like a serial-number mismatch: flag
+  // chan_error_sn, skip it.
+  reg  [29:0] rsn_wait_cntr;
   wire        rsn_wait_timeout;
-  assign rsn_wait_timeout = rsn_wait_cntr[22];
+  assign rsn_wait_timeout = rsn_wait_cntr[29];
   always @(posedge clk) begin
     if ( rst || !state[READ_CHAN_RSN] )
-      rsn_wait_cntr[22:0] <= 23'd0;
+      rsn_wait_cntr[29:0] <= 30'd0;
     else if ( !rsn_wait_timeout )
-      rsn_wait_cntr[22:0] <= rsn_wait_cntr[22:0] + 1;
+      rsn_wait_cntr[29:0] <= rsn_wait_cntr[29:0] + 1;
   end
   
 
