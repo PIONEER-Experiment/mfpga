@@ -2180,7 +2180,16 @@ module wfd_selftrigc_top (
 
 
     // AXIS RX Switch
-    wire [4:0] s_req_suppress = 5'b0; // active-high skips next arbitration cycle
+    // Only the channel the command manager is currently addressing may be granted the RX switch.
+    // The switch is configured to re-arbitrate within a frame (ARB_ON_TLAST = 0), and its output
+    // carries no source id, so if a second channel's RX FIFO ever held data while a response was in
+    // flight (a late reply after an RSN timeout, a stray word after a link error) the two would be
+    // interleaved into the one stream the command manager reads.  Suppressing every other port
+    // keeps such words in their own FIFO instead.  'chan_tx_fifo_dest' is 0..4 for a channel
+    // readout or an IPbus channel access, 5 once the last channel has been read.
+    wire [4:0] s_req_suppress;   // active-high: port is excluded from arbitration
+    assign s_req_suppress = (axi_stream_to_channel_from_cm_tdest < 4'd5) ?
+                            ~(5'b00001 << axi_stream_to_channel_from_cm_tdest) : 5'b11111;
     axis_switch_rx rx_switch (
         .aclk(clk125),                   // input
         .aresetn(rst_from_ipb_n),        // input
