@@ -210,6 +210,7 @@ module wfd_selftrigc_top (
     wire channel_acq_enabled;
     wire clear_trigger_counts;
     reg  accept_self_triggers = 1'b0;   // registered in the TTC domain, see below
+    wire [14:0] acq_encode2_state;
     acq_encode2 acq_encode2(
       // inputs
       .clk(clk125),
@@ -224,8 +225,35 @@ module wfd_selftrigc_top (
       .acq_enable_encoded(acq_enable_encoded),
       .self_triggering_enabled(self_triggering_enabled),
       .channel_acq_enabled(channel_acq_enabled),
-      .clear_trigger_counts(clear_trigger_counts)
+      .clear_trigger_counts(clear_trigger_counts),
+      .state_out(acq_encode2_state)
     );
+
+    // Record what was driven on the five io[1] enable lines, for comparison with the channels'
+    // own account of what they saw (channel registers 0x30 / 0x31): rising and falling edge
+    // counts per line since the last reset (status registers 19 and 20).
+    reg  [4:0] acq_enable_encoded_d = 5'd0;
+    reg  [3:0] io1_rise_cnt [0:4];
+    reg  [2:0] io1_fall_cnt [0:4];
+    integer k;
+    always @(posedge clk125) begin
+        acq_enable_encoded_d <= acq_enable_encoded;
+        for (k = 0; k < 5; k = k + 1) begin
+            if (clk125_reset) begin
+                io1_rise_cnt[k] <= 4'd0;
+                io1_fall_cnt[k] <= 3'd0;
+            end
+            else begin
+                if ( acq_enable_encoded[k] && !acq_enable_encoded_d[k]) io1_rise_cnt[k] <= io1_rise_cnt[k] + 1;
+                if (!acq_enable_encoded[k] &&  acq_enable_encoded_d[k]) io1_fall_cnt[k] <= io1_fall_cnt[k] + 1;
+            end
+        end
+    end
+    wire [31:0] io1_status_a, io1_status_b;
+    assign io1_status_a = {acq_enable_encoded[4:0], 7'd0,
+                           io1_rise_cnt[4], io1_rise_cnt[3], io1_rise_cnt[2], io1_rise_cnt[1], io1_rise_cnt[0]};
+    assign io1_status_b = {2'd0, acq_encode2_state[14:0],
+                           io1_fall_cnt[4], io1_fall_cnt[3], io1_fall_cnt[2], io1_fall_cnt[1], io1_fall_cnt[0]};
     wire channel_acq_enabled_ttc;
     sync_2stage cae_ttc (
       .clk(ttc_clk),
@@ -1787,6 +1815,8 @@ module wfd_selftrigc_top (
         // soft error counts
         .unknown_cmd_count(unknown_cmd_count),
         .cs_mismatch_count(cs_mismatch_count),
+        .io1_status_a(io1_status_a),
+        .io1_status_b(io1_status_b),
 
         // hard errors
         .error_data_corrupt(error_data_corrupt),

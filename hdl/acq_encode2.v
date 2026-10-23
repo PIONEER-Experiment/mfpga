@@ -26,7 +26,8 @@ input wire [4:0] chan_en,
 output wire [4:0] acq_enable_encoded,
   output reg  self_triggering_enabled,
   output reg  channel_acq_enabled,
-  output reg  clear_trigger_counts
+  output reg  clear_trigger_counts,
+  output wire [14:0] state_out        // current state, one-hot, for the status registers
 );
 
   // a counter for
@@ -82,6 +83,7 @@ output wire [4:0] acq_enable_encoded,
 
   reg [ 14:0]     state;
   reg [ 14:0] nextstate;
+  assign state_out = state;
 
   // sync to the local clock
   wire accept_self_triggers_125;

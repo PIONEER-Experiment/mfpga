@@ -22,6 +22,8 @@ module status_reg_block_selftrigc (
   // soft error counts
   input wire [31:0] unknown_cmd_count,
   input wire [31:0] cs_mismatch_count,
+  input wire [31:0] io1_status_a,       // REG19: {io[1] levels [31:27], 7'd0, rising-edge counts chan4..0, 4 bits each}
+  input wire [31:0] io1_status_b,       // REG20: {2'd0, acq_encode2 state [29:15], falling-edge counts chan4..0, 3 bits each}
 
   // hard errors
   input wire error_data_corrupt,
@@ -226,10 +228,10 @@ assign status_reg17 = thres_unknown_ttc[31:0];
 assign status_reg18 = unknown_cmd_count[31:0];
 
 // Register 19: currently unused
-assign status_reg19 = 32'd0;
+assign status_reg19 = io1_status_a[31:0];
 
 // Register 20: currently unused
-assign status_reg20 = 32'd0;
+assign status_reg20 = io1_status_b[31:0];
 
 // Register 21: Channel 0 DDR3 burst count
 assign status_reg21 = {7'd0, stored_bursts_chan0[22:0]};
