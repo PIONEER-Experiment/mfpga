@@ -74,7 +74,8 @@ module wfd_selftrigc_top (
     wire clk_10, clk10;   // 10 MHz clock for AFE DAC interface
     wire clk_50, clk_50b, clk50, clk50b;
     wire clk_125, clk125;
-    wire clk200;
+    wire clk200;          // 200 MHz, globally buffered
+    wire clk_200;         // 200 MHz straight from the PLL (BUFG input only)
     wire clkfb;
     wire gtrefclk0;
     wire ttc_clk;         // 40 MHz output from TTC decoder module
@@ -374,7 +375,7 @@ module wfd_selftrigc_top (
         .CLKOUT4_PHASE(180)
     ) clk (
         .CLKIN1(clkin),
-        .CLKOUT0(clk200),
+        .CLKOUT0(clk_200),
         .CLKOUT1(clk_125),
         .CLKOUT2(clk_10),
         .CLKOUT3(clk_50),
@@ -393,6 +394,11 @@ module wfd_selftrigc_top (
     BUFG BUFG_clk10  (.I(clk_10 ), .O(clk10 ));
     BUFG BUFG_clk50  (.I(clk_50 ), .O(clk50 ));
     BUFG BUFG_clk50b (.I(clk_50b), .O(clk50b));
+    // clk200 feeds the Gigabit Ethernet IP's 'independent_clock_bufg' input, which (as the name says)
+    // must be a globally buffered clock.  Without this BUFG the PLL output was distributed to its ~300
+    // loads over general routing: 2 ns of clock insertion delay with poor skew, which made the IP's
+    // 200 MHz reset / synchroniser logic fail setup at the first routing pass on every build.
+    BUFG BUFG_clk200 (.I(clk_200), .O(clk200));
 
 
     // ======== reset signals ========
