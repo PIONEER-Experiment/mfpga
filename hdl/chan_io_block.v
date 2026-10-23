@@ -25,7 +25,10 @@ module chan_io_block (
   input pll_not_locked,      // 
   input tx_resetdone_out,    // 
   input rx_resetdone_out,    // 
-  input link_reset_out       // 
+  input link_reset_out,      // 
+  // diagnostics counters from one_channel (various clock domains, free running):
+  input [31:0] rx_word_counts, // {words taken out of the RX FIFO [31:16], words put into it by the Aurora [15:0]}
+  input [31:0] tx_err_counts   // {words put into the TX FIFO [31:16], frame_err count [15:8], soft_err count [7:0]}
 );
 
   ///////////////////////////////////////////
@@ -33,6 +36,17 @@ module chan_io_block (
   assign reg_wr_en  = io_sync & io_wr_en;
   assign live_status_sel  = io_sel & (io_addr[3:0] == 4'b0000);
   assign loopback_reg_sel = io_sel & (io_addr[3:0] == 4'b0001);
+  assign rx_counts_sel    = io_sel & (io_addr[3:0] == 4'b0010);
+  assign tx_counts_sel    = io_sel & (io_addr[3:0] == 4'b0011);
+
+  // the counters are sampled through two register stages; they come from other clock domains and
+  // are only meaningful when read while the link is quiet (after a stuck readout, say)
+  (* ASYNC_REG = "TRUE" *) reg [31:0] rx_counts_s1 = 32'd0, rx_counts_s2 = 32'd0;
+  (* ASYNC_REG = "TRUE" *) reg [31:0] tx_counts_s1 = 32'd0, tx_counts_s2 = 32'd0;
+  always @(posedge io_clk) begin
+    rx_counts_s1 <= rx_word_counts;  rx_counts_s2 <= rx_counts_s1;
+    tx_counts_s1 <= tx_err_counts;   tx_counts_s2 <= tx_counts_s1;
+  end
 
   // live_status register
   // instant state of many status bits; one may be meaningless because they
@@ -89,6 +103,8 @@ module chan_io_block (
   always @(posedge io_clk) begin
     if (live_status_sel)  io_rd_data_reg[31:0] <= live_status_reg[31:0];
     if (loopback_reg_sel) io_rd_data_reg[31:0] <= loopback_all[31:0];
+    if (rx_counts_sel)    io_rd_data_reg[31:0] <= rx_counts_s2[31:0];
+    if (tx_counts_sel)    io_rd_data_reg[31:0] <= tx_counts_s2[31:0];
   end
 
 endmodule

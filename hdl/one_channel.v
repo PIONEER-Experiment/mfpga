@@ -83,6 +83,22 @@ module one_channel (
 
   assign local_axis_resetn = ~sys_reset_out;
 
+  // Word and error counters for the link diagnostics (chan_io_block addresses 2 and 3).
+  // All free running and never reset, so the values are compared as differences; the
+  // channel FPGA keeps matching counters of the words it exchanged with its Aurora core.
+  reg [15:0] rx_in_cnt  = 16'd0;   // words delivered by the Aurora RX into the RX FIFO (aurora_user_clk)
+  reg [15:0] rx_out_cnt = 16'd0;   // words taken out of the RX FIFO by the RX switch (m_axis_aclk)
+  reg [15:0] tx_in_cnt  = 16'd0;   // words written into the TX FIFO by the TX switch (s_axis_aclk)
+  reg [ 7:0] frame_err_cnt = 8'd0, soft_err_cnt = 8'd0;   // Aurora error pulses (aurora_user_clk)
+  wire frame_err, soft_err;        // from the Aurora core (declared here because they are used before it is instantiated)
+  always @(posedge aurora_user_clk) begin
+    if (local_axis_rx_tvalid) rx_in_cnt <= rx_in_cnt + 1;
+    if (frame_err)            frame_err_cnt <= frame_err_cnt + 1;
+    if (soft_err)             soft_err_cnt  <= soft_err_cnt  + 1;
+  end
+  always @(posedge m_axis_aclk) if (m_axis_rx_tvalid && m_axis_rx_tready) rx_out_cnt <= rx_out_cnt + 1;
+  always @(posedge s_axis_aclk) if (s_axis_tx_tvalid && s_axis_tx_tready) tx_in_cnt  <= tx_in_cnt  + 1;
+
   // debugs
   assign debug[0] = local_axis_tx_tvalid;
   assign debug[1] = local_axis_tx_tready;
@@ -273,7 +289,10 @@ module one_channel (
     .pll_not_locked(pll_not_locked),  // input
     .tx_resetdone_out(tx_resetdone),  // input
     .rx_resetdone_out(rx_resetdone),  // input
-    .link_reset_out(link_reset)       // input
+    .link_reset_out(link_reset),      // input
+    // diagnostics counters
+    .rx_word_counts({rx_out_cnt, rx_in_cnt}),
+    .tx_err_counts({tx_in_cnt, frame_err_cnt, soft_err_cnt})
   );
 
 endmodule
