@@ -11,6 +11,9 @@ module selftriggerc_top (
     input wire reset40,      // in  40 MHz clock domain
     input wire reset40_n,    // in  40 MHz clock domain
     input wire rst_from_ipb, // in 125 MHz clock domain
+    input wire trig_hold_reset,    // in 125 MHz domain: hold the trigger processor until the trigger block is clean
+    input wire trig_hold_reset40,  // the same, in the 40 MHz domain: holds the trigger receiver and acquisition controller
+    output wire trig_fifo_rst_busy, // the trigger / acquisition event FIFOs are still resetting (mixed domains, level)
 
     input wire rst_trigger_num,       // from TTC Channel B
     input wire rst_trigger_timestamp,
@@ -234,7 +237,7 @@ wire [4:0] chan_dones_clk40;
     ttc_trigger_receiver_selftrigc ttc_trigger_receiver_selftrigc (
         // clock and reset
         .clk(ttc_clk),   // 40 MHz TTC clock
-        .reset(reset40),
+        .reset(reset40 | trig_hold_reset40),
 
         // TTC Channel B resets
         .reset_trig_num(rst_trigger_num),
@@ -338,7 +341,7 @@ wire [4:0] chan_dones_clk40;
     channel_acq_controller_selftrigc channel_acq_controller_selftrigc (
         // clock and reset
         .clk(ttc_clk),   // 40 MHz TTC clock
-        .reset(reset40),
+        .reset(reset40 | trig_hold_reset40),
 
         // trigger configuration
         .chan_en(chan_en_clk40),                       // which channels should receive the trigger
@@ -373,7 +376,7 @@ wire [4:0] chan_dones_clk40;
     trigger_processor trigger_processor (
         // clock and reset
         .clk(clk125),         // 125 MHz clock
-        .reset(rst_from_ipb),
+        .reset(rst_from_ipb | trig_hold_reset),
 
         // interface to TTC Trigger FIFO
         .trig_fifo_valid(m_trig_fifo_tvalid),
@@ -405,6 +408,7 @@ wire [4:0] chan_dones_clk40;
     );
 
 
+    wire trig_fifo_wr_rst_busy, trig_fifo_rd_rst_busy, acq_fifo_wr_rst_busy, acq_fifo_rd_rst_busy;
     // TTC Trigger FIFO : 2048 depth, 2047 almost full threshold, 16-byte data width
     // holds the trigger timestamp, trigger number, acquired event number, and trigger type
     trigger_info_fifo ttc_trigger_fifo (
@@ -424,9 +428,9 @@ wire [4:0] chan_dones_clk40;
         // FIFO almost full port
         .axis_prog_full(trig_fifo_full),    // output
 
-        // handshaking (currently unused)
-        .wr_rst_busy(),
-        .rd_rst_busy()
+        // handshaking
+        .wr_rst_busy(trig_fifo_wr_rst_busy),
+        .rd_rst_busy(trig_fifo_rd_rst_busy)
     );
 
 
@@ -450,10 +454,11 @@ wire [4:0] chan_dones_clk40;
         // FIFO almost full port
         .axis_prog_full(acq_fifo_full),    // output
 
-        // unused
-        .wr_rst_busy(),        // output wire wr_rst_busy
-        .rd_rst_busy()         // output wire rd_rst_busy
+        // handshaking
+        .wr_rst_busy(acq_fifo_wr_rst_busy),        // output wire wr_rst_busy
+        .rd_rst_busy(acq_fifo_rd_rst_busy)         // output wire rd_rst_busy
 
     );
+    assign trig_fifo_rst_busy = trig_fifo_wr_rst_busy | trig_fifo_rd_rst_busy | acq_fifo_wr_rst_busy | acq_fifo_rd_rst_busy;
 
 endmodule

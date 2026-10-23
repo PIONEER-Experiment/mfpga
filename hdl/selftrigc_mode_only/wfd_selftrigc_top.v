@@ -1800,6 +1800,43 @@ module wfd_selftrigc_top (
     
 
     // status register assembly
+    // ======== trigger-block reset sequencer ========
+    // The trigger processor is reset by rst_from_ipb on clk125 and is running again a few cycles
+    // later, while the trigger receiver, acquisition controller and the trigger / acquisition / count
+    // FIFOs are reset by reset40, the same reset stretched and resynchronised into the 40 MHz domain,
+    // some 100-200 ns later, and the FIFOs are then busy for a while longer.  A trigger arriving in
+    // that window, or a record left in a FIFO, was seen by a half-reset block: a stale acquisition
+    // record paired with a new trigger (ERROR_TRIG_NUM), or a trigger with its count record missing
+    // (the CHECK_SELFTRIG_FIFO time-out).  Both happened on frontend restarts, where the master is
+    // reset with the FC7 still able to send its end-of-run trigger.
+    // So: from any reset, hold the trigger receiver, acquisition controller and trigger processor in
+    // reset until reset40 has come and gone, every FIFO reports its reset finished, and a hold-off
+    // of 2^17 clk125 cycles (~1 ms) has elapsed.  Triggers arriving meanwhile are ignored (the
+    // receiver is in reset).  The command manager is not held, so IPbus register access works
+    // throughout; it only reads out on the trigger processor's request.
+    wire trig_fifo_rst_busy, trig_fifo_rst_busy_125, reset40_125;
+    wire count_fifo_rst_busy;
+    assign count_fifo_rst_busy = (|wr_rst_busy) | (|rd_rst_busy);   // the five self-trigger count FIFOs
+    sync_2stage trig_fifo_busy_sync (.clk(clk125), .in(trig_fifo_rst_busy | count_fifo_rst_busy), .out(trig_fifo_rst_busy_125));
+    sync_2stage reset40_sync_125   (.clk(clk125), .in(reset40),                                    .out(reset40_125));
+    reg [17:0] trig_hold_cntr = 18'd0;
+    reg        trig_hold_reset = 1'b1;
+    always @(posedge clk125) begin
+        if (rst_from_ipb || reset40_125 || trig_fifo_rst_busy_125) begin
+            trig_hold_cntr  <= 18'd0;
+            trig_hold_reset <= 1'b1;
+        end
+        else if (!trig_hold_cntr[17]) begin
+            trig_hold_cntr  <= trig_hold_cntr + 1;
+            trig_hold_reset <= 1'b1;
+        end
+        else begin
+            trig_hold_reset <= 1'b0;
+        end
+    end
+    wire trig_hold_reset40;
+    sync_2stage trig_hold_reset_sync40 (.clk(ttc_clk), .in(trig_hold_reset), .out(trig_hold_reset40));
+
     status_reg_block_selftrigc status_reg_block (
         // user interface clock and reset
         //.clk(clk125),
@@ -1878,6 +1915,7 @@ module wfd_selftrigc_top (
         .cm_rx_valid(c_axi_stream_to_cm_tvalid),
         .cm_tx_valid(axi_stream_to_channel_from_cm_tvalid),
         .cm_rx_ready(axi_stream_to_cm_from_channel_tready),
+        .trig_hold_reset(trig_hold_reset),
         .fill_type(fill_type_clk125),
         .chan_en(chan_en),
         .endianness_sel(endianness_sel),
@@ -1981,6 +2019,9 @@ module wfd_selftrigc_top (
         .reset40(reset40),           // in  40 MHz clock domain
         .reset40_n(reset40_n),       // in  40 MHz clock domain
         .rst_from_ipb(rst_from_ipb), // in 125 MHz clock domain
+        .trig_hold_reset(trig_hold_reset),       // hold-off after any reset, clk125
+        .trig_hold_reset40(trig_hold_reset40),   // the same in the 40 MHz domain
+        .trig_fifo_rst_busy(trig_fifo_rst_busy), // the trigger / acquisition FIFOs are still resetting
 
         .rst_trigger_num(rst_trigger_num),             // from TTC Channel B
         .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
