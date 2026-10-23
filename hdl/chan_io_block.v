@@ -37,19 +37,23 @@ module chan_io_block (
   // live_status register
   // instant state of many status bits; one may be meaningless because they
   // are only valid at particular times; gradually fix up that stuff
-  reg [31:0] live_status_reg;
+  // The status inputs come from the Aurora core's own clock domains; pass them through a
+  // two-stage synchroniser rather than sampling them with a single flop.
+  (* ASYNC_REG = "TRUE" *) reg [8:0] status_sync1 = 9'd0, status_sync2 = 9'd0;
   always @(posedge io_clk) begin
-    live_status_reg[0]    <= channel_up;       // 
-    live_status_reg[1]    <= lane_up;          // 
-    live_status_reg[2]    <= frame_err;        // 
-    live_status_reg[3]    <= hard_err;         // 
-    live_status_reg[4]    <= soft_err;         // 
-    live_status_reg[5]    <= pll_not_locked;   // 
-    live_status_reg[6]    <= tx_resetdone_out; // 
-    live_status_reg[7]    <= rx_resetdone_out; // 
-    live_status_reg[8]    <= link_reset_out;   // 
-    live_status_reg[31:9] <= 23'b0;            // 
+    status_sync1 <= {link_reset_out,    // [8]
+                     rx_resetdone_out,  // [7]
+                     tx_resetdone_out,  // [6]
+                     pll_not_locked,    // [5]
+                     soft_err,          // [4]
+                     hard_err,          // [3]
+                     frame_err,         // [2]
+                     lane_up,           // [1]
+                     channel_up};       // [0]
+    status_sync2 <= status_sync1;
   end
+  wire [31:0] live_status_reg;
+  assign live_status_reg = {23'b0, status_sync2};
 
   // loopback register
   // only the 3 LSBs have meaning and are connected to the Aurora

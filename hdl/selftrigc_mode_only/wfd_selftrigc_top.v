@@ -201,12 +201,15 @@ module wfd_selftrigc_top (
 
 
     // ++++++++ for self triggering, encode "enable triggering" and "enable acquisition" separately on the c?_io[1] lines +++++++++
-    wire acq_enable_reduce;
-    assign acq_enable_reduce = |acq_enable;
+    // OR of the five channel enables, registered in the TTC domain before it crosses into the
+    // clk125 synchroniser inside acq_encode2: a combinational OR feeding a synchroniser can glitch
+    // through it (report_cdc CDC-10)
+    reg acq_enable_reduce = 1'b0;
+    always @(posedge ttc_clk) acq_enable_reduce <= |acq_enable;
     wire self_triggering_enabled;
     wire channel_acq_enabled;
     wire clear_trigger_counts;
-    wire accept_self_triggers;
+    reg  accept_self_triggers = 1'b0;   // registered in the TTC domain, see below
     acq_encode2 acq_encode2(
       // inputs
       .clk(clk125),
@@ -312,7 +315,7 @@ module wfd_selftrigc_top (
     wire rst_trigger_num;
     wire rst_trigger_timestamp;
     wire [4:0] ttc_fill_type;
-    wire [4:0] fill_type;
+    reg  [4:0] fill_type = 5'd0;        // registered in the TTC domain, see below
     wire ttc_accept_self_triggers;
 
     // front panel clock   : sel0 = 1'b0, sel1 = 1'b1
@@ -400,7 +403,7 @@ module wfd_selftrigc_top (
      // Bring ipb_accept intp ttc clock domain. Assumption that signals are on / off for long periods
      wire ipb_accept_self_triggers_ttc;
      reg [1:0] sync_reg;
-     reg [1:0] sync_reg_slow;
+     (* ASYNC_REG = "TRUE" *) reg [1:0] sync_reg_slow;   // the actual clk125 -> ttc_clk synchroniser
 
      always @(posedge clk125 or posedge rst_from_ipb) begin
          if (rst_from_ipb) begin
@@ -414,7 +417,7 @@ module wfd_selftrigc_top (
         if (reset40) begin
             sync_reg_slow <= 2'b0;
         end else begin
-            sync_reg_slow <= sync_reg;
+            sync_reg_slow <= {sync_reg_slow[0], sync_reg[1]};   // two flops in series, not two parallel copies
         end
     end
     assign ipb_accept_self_triggers_ttc = sync_reg_slow[1];
@@ -428,8 +431,13 @@ module wfd_selftrigc_top (
        .out(ipb_async_trig_type_sync)
     );
 
-    assign fill_type[4:0]        = (ipb_async_trig_type_sync) ? 5'b00100 : ttc_fill_type[4:0];
-    assign accept_self_triggers = ttc_accept_self_triggers | ipb_accept_self_triggers_ttc;
+    // Both are registered here so that the logic combining them sits behind a flop in the TTC
+    // domain rather than directly in front of the clk125 synchronisers that sample them
+    // (fill_type_sync, acq_encode2.sync_ast); one TTC clock of latency is immaterial.
+    always @(posedge ttc_clk) begin
+        fill_type[4:0]       <= (ipb_async_trig_type_sync) ? 5'b00100 : ttc_fill_type[4:0];
+        accept_self_triggers <= ttc_accept_self_triggers | ipb_accept_self_triggers_ttc;
+    end
 
 
 
@@ -1505,6 +1513,11 @@ module wfd_selftrigc_top (
         .out(cac_state_clk125)
     );
 
+    // The multi-bit synchronisers below (fill_type, trig_num, trig_timestamp, and the cac / ctr
+    // state and stored_bursts vectors) carry status-register values only: each bit is synchronised
+    // on its own, so a value read while it is changing can be a mix of old and new bits.  Nothing
+    // that makes a decision uses them; the command manager's event number comes through the
+    // acquisition-event FIFO instead.
     // synchronize fill_type
     wire [4:0] fill_type_clk125;
     sync_2stage #(
@@ -1912,6 +1925,17 @@ module wfd_selftrigc_top (
 
     // trigger top module
     wire [22:0] burst_count_selftrig;
+    // the per-trigger burst count is a configuration value written over IPbus before a run and
+    // constant while triggers are being counted, so a per-bit two-stage synchroniser into the TTC
+    // domain is sufficient for the stored_bursts accumulators in channel_triggerc_receiver
+    wire [22:0] burst_count_selftrig_ttc;
+    sync_2stage #(
+        .WIDTH(23)
+    ) burst_count_selftrig_sync (
+        .clk(ttc_clk),
+        .in(burst_count_selftrig),
+        .out(burst_count_selftrig_ttc)
+    );
     selftriggerc_top selftriggerc_top (
         // clocks
         .ttc_clk(ttc_clk), //  40 MHz
@@ -1960,7 +1984,7 @@ module wfd_selftrigc_top (
         .ttc_trig_timestamp(ttc_trig_timestamp), // trigger timestamp
         .ttc_xadc_alarms(ttc_xadc_alarms),       // XADC alarms
 
-        .burst_count_selftrig(burst_count_selftrig), // # of bursts captured for each self trigger
+        .burst_count_selftrig(burst_count_selftrig_ttc), // # of bursts captured for each self trigger (TTC domain)
 
         // the number of self-triggers that each channel has accumulated since the last readout trigger
         .selftriggers_chan0(selftriggers_chan0),
