@@ -207,6 +207,7 @@ module wfd_selftrigc_top (
     // through it (report_cdc CDC-10)
     reg acq_enable_reduce = 1'b0;
     always @(posedge ttc_clk) acq_enable_reduce <= |acq_enable;
+    wire event_readout_pending, readout_trigger_stretch;   // from selftriggerc_top, for the end-of-run readout
     wire self_triggering_enabled;
     wire channel_acq_enabled;
     wire clear_trigger_counts;
@@ -221,7 +222,8 @@ module wfd_selftrigc_top (
 
       .accept_self_triggers(accept_self_triggers),
       .channels_active(acq_enable_reduce),
-      .event_readout_pending(1'b0),
+      .event_readout_pending(event_readout_pending),
+      .readout_trigger_seen(readout_trigger_stretch),
 
       .acq_enable_encoded(acq_enable_encoded),
       .self_triggering_enabled(self_triggering_enabled),
@@ -2022,6 +2024,8 @@ module wfd_selftrigc_top (
         .trig_hold_reset(trig_hold_reset),       // hold-off after any reset, clk125
         .trig_hold_reset40(trig_hold_reset40),   // the same in the 40 MHz domain
         .trig_fifo_rst_busy(trig_fifo_rst_busy), // the trigger / acquisition FIFOs are still resetting
+        .readout_trigger_stretch(readout_trigger_stretch), // a readout trigger has been accepted (ttc_clk, stretched)
+        .event_readout_pending(event_readout_pending),     // a trigger is queued or being read out
 
         .rst_trigger_num(rst_trigger_num),             // from TTC Channel B
         .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B

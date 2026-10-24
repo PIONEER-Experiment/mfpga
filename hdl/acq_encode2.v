@@ -20,7 +20,8 @@ input wire [4:0] chan_en,
   // enabling / status signals
   input accept_self_triggers,
   input wire channels_active,
-  input wire event_readout_pending,
+  input wire event_readout_pending,   // a trigger is queued or being read out (clk125)
+  input wire readout_trigger_seen,    // a readout trigger has been passed to the acquisition controller (ttc_clk, stretched)
 
   // the encoded signal to tell the channels to toggle which enable
 output wire [4:0] acq_enable_encoded,
@@ -32,7 +33,7 @@ output wire [4:0] acq_enable_encoded,
 
   // a counter for
   reg [28:0] length_counter;
-  reg init_gap_count, init_eor_count, init_clear_hold, init_short_hold_count;
+  reg init_gap_count, init_eor_count, init_clear_hold, init_short_hold_count, init_clear_gap_count;
   wire length_counter_zero;
   always @(posedge clk) begin
     if ( reset )
@@ -46,10 +47,14 @@ output wire [4:0] acq_enable_encoded,
       // we will hold the clear counters pulse for 1 us 
       length_counter[28:0] <= 29'd128;        //   1 us in 8 ns clock ticks
     else if ( init_eor_count )
-      // end-of-run gap before disabling acquisition / zeroing counters
-      // (CCC does its final read after 2 s); 62.5M ticks = 0.5 s
-//      length_counter[28:0] <= 29'd312500000;        //   2.5 s in 8 ns clock ticks
-      length_counter[28:0] <= 29'd62500000;        //   0.5 s in 8 ns clock ticks
+      // end-of-run: how long to keep acquisition enabled waiting for the FC7's final readout
+      // trigger if it never comes (it is normally sent EOR_ASYNC_WAIT after the run is disabled,
+      // ~2 s)
+      length_counter[28:0] <= 29'd500000000;        //   4 s in 8 ns clock ticks
+    else if ( init_clear_gap_count )
+      // gap between disabling acquisition and clearing the trigger counters, so that the DAQ's
+      // end-of-run reads see the final counts
+      length_counter[28:0] <= 29'd62500000;         // 0.5 s in 8 ns clock ticks
     else if ( init_short_hold_count )
       // we will hold the enable-acq / disable-acq pulses for 40 ns
       length_counter[28:0] <= 29'd5;        //   40 ns in 8 ns clock ticks
@@ -104,6 +109,22 @@ output wire [4:0] acq_enable_encoded,
     .in(event_readout_pending),
     .out(event_readout_pending_125)
   );
+  // the FC7's final readout trigger: remembered from the moment triggering is disabled
+  wire readout_trigger_seen_125;
+  sync_2stage sync_rdtrig (
+    .clk(clk),
+    .in(readout_trigger_seen),
+    .out(readout_trigger_seen_125)
+  );
+  reg readout_trigger_seen_d = 1'b0;
+  reg final_trigger_seen     = 1'b0;
+  always @(posedge clk) begin
+    readout_trigger_seen_d <= readout_trigger_seen_125;
+    if (reset || state[WAIT] || state[IDLE])
+      final_trigger_seen <= 1'b0;                      // only triggers after DISABLE_TRIG count
+    else if (readout_trigger_seen_125 && !readout_trigger_seen_d)
+      final_trigger_seen <= 1'b1;
+  end
 
   // combinational always block
   always @* begin
@@ -174,23 +195,21 @@ output wire [4:0] acq_enable_encoded,
         nextstate[TRIG_ACQ_GAP] = 1'b1;
       end
 
-      // stay here until channel_acq_controller_selftrig notes readout_done,
-      // which means that no channels should be active any longer.  We use the
-      // gap so that no self-triggers can sneak in after the final fill readout.
-      // The gap counter is reloaded for as long as a readout is in flight
-      // (see the output block), so it always runs its full length after the
-      // last readout finishes.
+      // Triggering is off; acquisition stays on so that the FC7's end-of-run readout trigger
+      // (sent EOR_ASYNC_WAIT after the run is disabled) reads out the last fill, with whatever
+      // waveforms arrived between the previous readout and the end of triggering.  Leave as soon
+      // as that trigger has been received and its readout has finished and the acquisition
+      // controller reports the channels inactive; if no trigger comes, the 4 s time-out leaves
+      // anyway, but never while a readout is still in flight.
       state[TRIG_ACQ_GAP] : begin
         if (channels_active_125 || event_readout_pending_125) begin
           nextstate[TRIG_ACQ_GAP] = 1'b1;
         end
+        else if ( final_trigger_seen || length_counter_zero ) begin
+          nextstate[DISABLE_ACQ] = 1'b1;
+        end
         else begin
-          if ( length_counter_zero ) begin
-            nextstate[DISABLE_ACQ] = 1'b1;
-          end
-          else begin
-            nextstate[TRIG_ACQ_GAP] = 1'b1;
-          end
+          nextstate[TRIG_ACQ_GAP] = 1'b1;
         end
       end
 
@@ -261,6 +280,7 @@ output wire [4:0] acq_enable_encoded,
     init_clear_hold          <= 1'b0;
     init_gap_count           <= 1'b0;
     init_eor_count           <= 1'b0;
+    init_clear_gap_count     <= 1'b0;
     init_short_hold_count    <= 1'b0;
     encoded_acq_command[4:0] <= 5'b00000;
     clear_trigger_counts     <= 1'b0;
@@ -319,12 +339,6 @@ output wire [4:0] acq_enable_encoded,
   
         nextstate[TRIG_ACQ_GAP] : begin
           channel_acq_enabled      <= 1'b1;
-          // keep reloading the end-of-run gap while a final fill readout is
-          // still in flight, so the gap is measured from the end of that
-          // readout rather than from DISABLE_TRIG.  Otherwise a readout
-          // lasting longer than the gap would be followed immediately by
-          // DISABLE_ACQ, with no hold-off for the channel to settle.
-          init_eor_count           <= channels_active_125 | event_readout_pending_125;
         end
   
         nextstate[DISABLE_ACQ] : begin
@@ -338,7 +352,7 @@ output wire [4:0] acq_enable_encoded,
         end
 
         nextstate[INIT_TRIGS_GAP] : begin
-          init_eor_count      <= 1'b1;
+          init_clear_gap_count <= 1'b1;
         end
  
         nextstate[CLEAR_TRIGS_GAP] : begin

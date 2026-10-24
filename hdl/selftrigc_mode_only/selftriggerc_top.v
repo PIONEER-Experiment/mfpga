@@ -14,6 +14,8 @@ module selftriggerc_top (
     input wire trig_hold_reset,    // in 125 MHz domain: hold the trigger processor until the trigger block is clean
     input wire trig_hold_reset40,  // the same, in the 40 MHz domain: holds the trigger receiver and acquisition controller
     output wire trig_fifo_rst_busy, // the trigger / acquisition event FIFOs are still resetting (mixed domains, level)
+    output wire readout_trigger_stretch, // a readout trigger has been passed to the acquisition controller (ttc_clk, 160 ns)
+    output wire event_readout_pending,   // a trigger is queued or being processed (clk125)
 
     input wire rst_trigger_num,       // from TTC Channel B
     input wire rst_trigger_timestamp,
@@ -105,6 +107,15 @@ module selftriggerc_top (
     wire acq_ready;
     wire acq_activated;
     wire acq_trigger;
+    // for acq_encode2's end-of-run handling: the readout trigger, stretched for the clk125 domain,
+    // and whether anything is still queued or in flight
+    signal_stretch readout_trigger_stretcher (
+        .signal_in(acq_trigger),
+        .clk(ttc_clk),
+        .n_extra_cycles(8'h07),            // 8 ttc_clk cycles = 200 ns, plenty for a clk125 synchroniser
+        .signal_out(readout_trigger_stretch)
+    );
+    assign event_readout_pending = m_trig_fifo_tvalid | ~tp_state[0] | ~readout_ready;   // trigger queued, processor busy, or readout under way
 //    wire [ 4:0] acq_ready_channel;
     wire [ 4:0] acq_trig_type;
     wire [23:0] acq_trig_num;
