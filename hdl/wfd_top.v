@@ -32,7 +32,8 @@ module wfd_top (
     // ======== clock signals ========
     wire clk50, clk50_180, clk50_180_pll;
     wire clk_125, clk125;
-    wire clk200;
+    wire clk200;          // 200 MHz, globally buffered
+    wire clk_200;         // 200 MHz straight from the PLL (BUFG input only)
     wire clkfb;
     wire gtrefclk0;
     wire spi_clk;
@@ -93,7 +94,7 @@ module wfd_top (
         .CLKOUT2_PHASE(180.0)   // NEW: 180° shifted
     ) clk (
         .CLKIN1(clkin),
-        .CLKOUT0(clk200),
+        .CLKOUT0(clk_200),
         .CLKOUT1(clk_125),
         .CLKOUT2(clk50_180_pll),
         .CLKOUT3(),
@@ -110,6 +111,11 @@ module wfd_top (
     // "Clock net clk125 is not driven by a Clock Buffer and has more than 2000 loads."
     BUFG BUFG_clk125 (.I(clk_125), .O(clk125));
     BUFG BUFG_clk50_180 (.I(clk50_180_pll), .O(clk50_180));
+    // clk200 feeds the Gigabit Ethernet IP's 'independent_clock_bufg' input, which (as the name says)
+    // must be a globally buffered clock.  Without this BUFG the PLL output was distributed to its ~300
+    // loads over general routing: 2 ns of clock insertion delay with poor skew, which made the IP's
+    // 200 MHz reset / synchroniser logic fail setup at the first routing pass on every build.
+    BUFG BUFG_clk200 (.I(clk_200), .O(clk200));
 
 
     // ======== reset signals ========
@@ -328,17 +334,19 @@ module wfd_top (
         .D(reprog_trigger[2])          // SRL data input
     );
 
-    // reprog_trigger_mux[0] for golden image
-    // reprog_trigger_mux[1] for master image
-    // reprog_trigger_mux[2] for self triggering image
-    wire [2:0] reprog_trigger_mux; // combine IPbus and front panel switch
-    assign reprog_trigger_mux = (fp_sw_master) ? reprog_trigger_delayed : 3'b001;
-
+    // The hardened reprog module (see its header) synchronises and debounces the front panel
+    // switch itself, qualifies every request for 1.3 ms, latches the boot address once, and
+    // honours nothing for the first 1.3 s after reset: with the old raw-switch mux a single
+    // 50 MHz cycle of 'golden' on the pin, or a request that vanished between being seen and the
+    // address word being formed, sent a freshly loaded master image straight back to golden.
+    //   ipbus_trigger[0] golden image, [1] master image, [2] self-triggering master image
     reprog reprog (
         .clk(clk50),
-        .clk_180(clk50_180),
+        .clkb(clk50_180),                       // ICAP clock, 180 degrees from clk50 (PLL output)
         .reset(clk50_reset),
-        .trigger(reprog_trigger_mux)
+        .ipbus_trigger(reprog_trigger_delayed),
+        .fp_sw_master(fp_sw_master),
+        .reprog_done()
     );
 
 
