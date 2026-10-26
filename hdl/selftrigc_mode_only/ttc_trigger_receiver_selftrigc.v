@@ -19,7 +19,7 @@ module ttc_trigger_receiver_selftrigc (
 
   // channel acquisition controller interface
   input wire acq_ready,            // channels are ready to acquire data (or-reduce from 5 channels?)
-  //input wire acq_activated,        // channels are acquiring date (again, or-reduce)
+  input wire acq_activated,        // the channel acquisition controller is in ACQUIRE and will act on a trigger
   //input wire accept_self_triggers, // self triggers will be collected when acq_activated allows
   output reg acq_trigger,          // trigger signal to trigger the async readout
   output reg [ 4:0] acq_trig_type, // recognized trigger type (async readout)
@@ -102,8 +102,12 @@ sync_2stage ar_sync (
 
           // determine empty_event flag ahead of time;
           // this is to ensure that it has been updated before writing to the FIFO
-          // only respond to "async" readout requests in this mode
-          if ((trig_type[4:0] != 5'b00100) | ~channel_acq_enabled ) begin
+          // only respond to "async" readout requests in this mode, and only when the channel
+          // acquisition controller is in a state to act on the trigger ('acq_activated'): after the
+          // end-of-run stop it returns to IDLE once it has flushed the first trigger that follows, and
+          // any further trigger (the FC7's final async readout trigger) must become an empty event,
+          // otherwise the trigger processor waits for an acquisition record that is never written
+          if ((trig_type[4:0] != 5'b00100) | ~channel_acq_enabled | ~acq_activated) begin
              next_empty_event = 1'b1; // indicate to send an empty event
            end
 

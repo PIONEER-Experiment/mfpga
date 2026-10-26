@@ -56,7 +56,6 @@ module channel_acq_controller_selftrigc (
   reg [ 4:0] next_acq_dones_latched;
   reg [ 4:0] next_acq_enable;
   reg        next_ddr3_buffer;
-  reg        next_ttc_acq_activated;
 
   wire new_fill_counter_zero;
   reg [4:0] new_fill_counter;
@@ -92,7 +91,6 @@ module channel_acq_controller_selftrigc (
     next_acq_trig_type    [ 4:0] = acq_trig_type    [ 4:0];
     next_acq_trig_num     [23:0] = acq_trig_num     [23:0];
     next_acq_dones_latched[ 4:0] = acq_dones_latched[ 4:0];
-    next_ttc_acq_activated       = ttc_acq_activated;
     next_acq_enable       [4:0]  = acq_enable       [4:0];
 
     case (1'b1) // synopsys parallel_case full_case
@@ -102,14 +100,12 @@ module channel_acq_controller_selftrigc (
         if ( accept_self_triggers  ) begin
           // enable lines should be fixed and not set by the trigger type
           next_acq_enable[4:0] = chan_en[4:0];
-          next_ttc_acq_activated = 1'b1;
 
           nextstate[ACQUIRE] = 1'b1;
         end
         else begin
           nextstate[IDLE]        = 1'b1;
           next_acq_enable[4:0]   = 5'b0;
-          next_ttc_acq_activated = 1'b0;
         end
       end
 
@@ -123,7 +119,6 @@ module channel_acq_controller_selftrigc (
 
           next_acq_trig_type[ 4:0] = ttc_trig_type[ 4:0]; // latch trigger type
           next_acq_trig_num [23:0] = ttc_trig_num [23:0]; // latch trigger number
-          //next_ttc_acq_activated   = 1'b0;                // clear flag
 
           // If we are still running, flag the new ddr3 buffer and have the channels proceed.
           // If not, just wait for the readout to complete
@@ -185,7 +180,6 @@ module channel_acq_controller_selftrigc (
         end
         else begin
           next_acq_enable[4:0] = 5'b00000;
-          next_ttc_acq_activated = 1'b0;  // let the ttc trigger receiver know that we are no longer taking events
 
         end
         // FIFO accepted the data word
@@ -228,7 +222,12 @@ module channel_acq_controller_selftrigc (
       acq_trig_type    [ 4:0] <= next_acq_trig_type    [ 4:0];
       acq_trig_num     [23:0] <= next_acq_trig_num     [23:0];
       acq_dones_latched[ 4:0] <= next_acq_dones_latched[ 4:0];
-      ttc_acq_activated       <= next_ttc_acq_activated;
+      // 'ttc_acq_activated' tells the TTC trigger receiver whether a trigger arriving now will be
+      // handled: this state machine only acts on 'ttc_trigger' in ACQUIRE.  A trigger that arrives in
+      // any other state (after the end-of-run stop has sent us to IDLE, or while a previous trigger
+      // is still being flushed) must be turned into an empty event by the receiver, otherwise the
+      // trigger processor waits for ever for an acquisition record that will never be written.
+      ttc_acq_activated       <= nextstate[ACQUIRE];
 
       acq_enable[4:0]        <= next_acq_enable[4:0];
 
