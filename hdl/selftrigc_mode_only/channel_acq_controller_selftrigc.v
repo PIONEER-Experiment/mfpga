@@ -73,16 +73,17 @@ module channel_acq_controller_selftrigc (
   end
   assign new_fill_counter_zero = (new_fill_counter[4:0] == 5'd0) ? 1'b1 : 1'b0;
 
-  // delay the fill counter init to use as the fifo write enable
-  // that should allow enough to have first latched the numbers of self triggers
-  reg [2:0] shift_reg;
+  // delay the fill counter init to use as the fifo write enable: the receivers latch their
+  // per-fill counts 6 clocks after new_fill_pause_triggers rises (channel_triggerc_receiver),
+  // so write them to the FIFO on the 8th
+  reg [6:0] shift_reg;
   always @(posedge clk) begin
     if ( reset )
-      shift_reg[2:0] <= 3'd0;
+      shift_reg[6:0] <= 7'd0;
     else 
-      shift_reg <= {shift_reg[1:0], init_new_fill_counter};
+      shift_reg <= {shift_reg[5:0], init_new_fill_counter};
   end
-  assign selftrigger_fifo_wr_en = shift_reg[2];
+  assign selftrigger_fifo_wr_en = shift_reg[6];
 
   // combinational always block
   always @* begin

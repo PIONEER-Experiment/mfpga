@@ -70,6 +70,17 @@ module channel_triggerc_receiver (
     .signal_out(new_fill_pulse)
   );
 
+  // The per-fill count is latched 3 clocks later than the pulse (6 clocks, 150 ns, after the
+  // acquisition controller raised new_fill_pause_triggers).  The channel (self_trigger /
+  // enable_sm_selftrigc, 6.6.8 and later) sends the pulse of a trigger it accepted before its
+  // own fill boundary at once, which reaches this counter within ~100 ns of our edge, and holds
+  // the pulse of a trigger accepted after the boundary back for at least 250 ns, so the latch
+  // here falls between the two and the master's count agrees with what the channel stored.
+  // The acquisition controller writes the latched count to the FIFO later still (shift_reg).
+  reg [2:0] new_fill_dly = 3'd0;
+  always @(posedge clk) new_fill_dly <= {new_fill_dly[1:0], new_fill_pulse};
+  wire new_fill_latch = new_fill_dly[2];
+
   // combinational always block
   always @* begin
     nextstate = 2'd0;
@@ -133,14 +144,14 @@ module channel_triggerc_receiver (
     if ( reset || clear_trigger_counts ) begin
        selftriggers = 20'd0;
     end
-    else if ( new_fill_pulse ) begin
+    else if ( new_fill_latch ) begin
        selftriggers_latch = selftriggers;
        selftriggers       = 20'd0;
     end
 
     // reset stored bursts
 //    if ( reset || new_fill_pulse || reset_fifos || clear_trigger_counts ) begin
-    if ( reset || new_fill_pulse || clear_trigger_counts ) begin
+    if ( reset || new_fill_latch || clear_trigger_counts ) begin
        stored_bursts[22:0] <= 23'd0;
     end
     else if (trigger & chan_en) begin
