@@ -265,6 +265,25 @@ module one_channel (
 
   ////////////////////////////////////
   // connect the programming interface
+  // Link-event counters: falling edges of channel_up and lane_up, rising edges of hard_err and
+  // link_reset, 8 bits each, free running.  A momentary link loss (drop and retrain) leaves no trace
+  // in the live status flags by the time they are read; these say whether one happened.  Counted on
+  // 'clk50', the always-running init clock, through synchronisers, so a drop that also stops
+  // 'aurora_user_clk' is still counted (all four signals stay in their new state for far longer than
+  // a few clk50 periods).
+  (* ASYNC_REG = "TRUE" *) reg [3:0] lnk_ev_s1 = 4'd0, lnk_ev_s2 = 4'd0;
+  reg [3:0] lnk_ev_s3 = 4'd0;
+  reg [7:0] chan_up_drop_cnt = 8'd0, lane_up_drop_cnt = 8'd0, hard_err_cnt = 8'd0, link_reset_cnt = 8'd0;
+  always @(posedge clk50) begin
+    lnk_ev_s1 <= {channel_up, lane_up, hard_err, link_reset};
+    lnk_ev_s2 <= lnk_ev_s1;
+    lnk_ev_s3 <= lnk_ev_s2;
+    if ( lnk_ev_s3[3] & ~lnk_ev_s2[3]) chan_up_drop_cnt <= chan_up_drop_cnt + 1;
+    if ( lnk_ev_s3[2] & ~lnk_ev_s2[2]) lane_up_drop_cnt <= lane_up_drop_cnt + 1;
+    if (~lnk_ev_s3[1] &  lnk_ev_s2[1]) hard_err_cnt     <= hard_err_cnt     + 1;
+    if (~lnk_ev_s3[0] &  lnk_ev_s2[0]) link_reset_cnt   <= link_reset_cnt   + 1;
+  end
+
   chan_io_block io_block (
     // programming interface
     .io_clk(io_clk),					        // programming clock
@@ -292,7 +311,8 @@ module one_channel (
     .link_reset_out(link_reset),      // input
     // diagnostics counters
     .rx_word_counts({rx_out_cnt, rx_in_cnt}),
-    .tx_err_counts({tx_in_cnt, frame_err_cnt, soft_err_cnt})
+    .tx_err_counts({tx_in_cnt, frame_err_cnt, soft_err_cnt}),
+    .link_event_counts({chan_up_drop_cnt, lane_up_drop_cnt, hard_err_cnt, link_reset_cnt})
   );
 
 endmodule
