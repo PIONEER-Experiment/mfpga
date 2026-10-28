@@ -161,6 +161,7 @@ module wfd_selftrigc_top (
     wire error_trig_type_from_cm;
     wire error_pll_unlock;
     wire error_trig_rate;
+    wire [7:0] triggers_downgraded;   // ttc_trigger_receiver: real triggers turned into empty events, TTC domain, status only
     wire error_unknown_ttc;
 
     // warnings
@@ -1918,6 +1919,7 @@ module wfd_selftrigc_top (
         .cm_tx_valid(axi_stream_to_channel_from_cm_tvalid),
         .cm_rx_ready(axi_stream_to_cm_from_channel_tready),
         .trig_hold_reset(trig_hold_reset),
+        .triggers_downgraded(triggers_downgraded),
         .fill_type(fill_type_clk125),
         .chan_en(chan_en),
         .endianness_sel(endianness_sel),
@@ -2104,6 +2106,7 @@ module wfd_selftrigc_top (
         // error connections
         .ddr3_almost_full(ddr3_almost_full),         // DDR3 overflow warning
         .error_trig_rate(error_trig_rate),           // trigger rate error
+        .triggers_downgraded(triggers_downgraded),   // triggers turned into empty events (status)
         .error_trig_num(error_trig_num_from_tt),     // trigger number error
         .error_trig_type(error_trig_type_from_tt)    // trigger type error
     );

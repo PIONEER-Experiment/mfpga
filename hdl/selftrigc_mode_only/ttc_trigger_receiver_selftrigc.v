@@ -39,7 +39,8 @@ module ttc_trigger_receiver_selftrigc (
   output reg [43:0] trig_timestamp, // global trigger timestamp
 
   // error connections
-  output wire error_trig_rate            // trigger received while acquiring data
+  output wire error_trig_rate,           // trigger received while acquiring data (ERROR state; unreachable since 6.6.9)
+  output wire [7:0] triggers_downgraded  // real triggers turned into empty events because the acquisition controller stayed busy
 );
 
   // state bits, with one-hot encoding
@@ -66,6 +67,15 @@ sync_2stage ar_sync (
   reg [ 4:0] next_acq_trig_type;
   reg [23:0] next_acq_trig_num;
   reg        next_empty_event;
+  // bounded wait for the acquisition controller in SEND_TRIGGER: 2^16 TTC clocks = 1.6 ms
+  reg  [16:0] ready_wait_cntr;
+  wire        ready_wait_timeout = ready_wait_cntr[16];
+  always @(posedge clk) begin
+    if (reset || !state[SEND_TRIGGER]) ready_wait_cntr <= 17'd0;
+    else if (!ready_wait_timeout)      ready_wait_cntr <= ready_wait_cntr + 1;
+  end
+  reg  [7:0] ready_wait_timeouts;        // how many real triggers were downgraded to empty events (status)
+  reg  [7:0] next_ready_wait_timeouts;
   reg        next_empty_payload;
   reg [23:0] next_trig_num;
   reg [43:0] next_trig_timestamp;
@@ -81,6 +91,7 @@ sync_2stage ar_sync (
     next_acq_trig_type      [ 4:0] = acq_trig_type      [ 4:0];
     next_acq_trig_num       [23:0] = acq_trig_num       [23:0];
     next_empty_event               = empty_event;
+    next_ready_wait_timeouts       = ready_wait_timeouts;
     next_empty_payload             = empty_payload;
     next_trig_num           [23:0] = trig_num           [23:0];
     next_trig_timestamp     [43:0] = trig_timestamp     [43:0];
@@ -119,24 +130,28 @@ sync_2stage ar_sync (
       end
       // pass trigger et al. to channel acquisition controller, if the trigger type is enabled
       state[SEND_TRIGGER] : begin
-        // channels are not ready for data collection
-        if (~acq_ready) begin
-          //st lkg -- THis can probably be changed to disable self-triggering until acq_ready is asserted
-          //st lkg    In that case, we would just wait here to send the trigger (maybe with a timeout)
-          nextstate[ERROR] = 1'b1; // throw error
+        // An empty event needs nothing from the acquisition controller: store it straight away.
+        if (empty_event) begin
+          nextstate[STORE_TRIG_INFO] = 1'b1;
+        end
+        // A real readout trigger is passed to the acquisition controller as soon as it can take
+        // one (IDLE or ACQUIRE).  While it is still flushing the previous trigger we wait here,
+        // bounded; if it has not come back within the bound the trigger is downgraded to an
+        // empty event, so that the trigger processor and the DAQ stay in step.  Until 6.6.9 a
+        // trigger arriving while the controller was busy sent this machine to ERROR, which
+        // stopped every later trigger for good.
+        else if (acq_ready) begin
+          next_acq_trigger         = 1'b1;                    // pass on the trigger
+          next_acq_event_cnt[23:0] = acq_event_cnt[23:0] + 1; // increment accepted event counter
+          nextstate[STORE_TRIG_INFO] = 1'b1;
+        end
+        else if (ready_wait_timeout) begin
+          next_empty_event = 1'b1;
+          next_ready_wait_timeouts = ready_wait_timeouts + 1;
+          nextstate[STORE_TRIG_INFO] = 1'b1;
         end
         else begin
-          // check for an empty event
-          if (empty_event) begin
-            nextstate[STORE_TRIG_INFO] = 1'b1;
-          end
-          // this is an asynchronous readout trigger
-          // pass along the trigger to channel acquisition controller (async)
-          else begin
-            next_acq_trigger         = 1'b1;                    // pass on the trigger
-            next_acq_event_cnt[23:0] = acq_event_cnt[23:0] + 1; // increment accepted event counter
-            nextstate[STORE_TRIG_INFO] = 1'b1;
-          end
+          nextstate[SEND_TRIGGER] = 1'b1;
         end
       end
       // store the trigger information in the FIFO, for the trigger processor
@@ -178,6 +193,7 @@ sync_2stage ar_sync (
       state <= 4'd1 << IDLE;
 
       empty_event               <=  1'b0;
+      ready_wait_timeouts       <=  8'd0;
       empty_payload             <=  1'b0;
       acq_trig_type      [ 4:0] <=  5'd0;
       acq_xadc_alarms    [ 3:0] <=  4'd0;
@@ -187,6 +203,7 @@ sync_2stage ar_sync (
       state <= nextstate;
 
       empty_event               <= next_empty_event;
+      ready_wait_timeouts       <= next_ready_wait_timeouts;
       empty_payload             <= next_empty_payload;
       acq_trig_type      [ 4:0] <= next_acq_trig_type      [ 4:0];
       acq_xadc_alarms    [ 3:0] <= next_acq_xadc_alarms    [ 3:0];
@@ -249,5 +266,6 @@ sync_2stage ar_sync (
 
   // outputs based on states
   assign error_trig_rate = (state[ERROR] == 1'b1);
+  assign triggers_downgraded = ready_wait_timeouts;
 
 endmodule

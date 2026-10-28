@@ -73,17 +73,30 @@ module channel_acq_controller_selftrigc (
   end
   assign new_fill_counter_zero = (new_fill_counter[4:0] == 5'd0) ? 1'b1 : 1'b0;
 
-  // delay the fill counter init to use as the fifo write enable: the receivers latch their
-  // per-fill counts 6 clocks after new_fill_pause_triggers rises (channel_triggerc_receiver),
-  // so write them to the FIFO on the 8th
-  reg [6:0] shift_reg;
+  // bound on WAIT, see there
+  reg  [20:0] wait_cntr;
+  wire        wait_timeout = wait_cntr[20];
   always @(posedge clk) begin
-    if ( reset )
-      shift_reg[6:0] <= 7'd0;
-    else 
-      shift_reg <= {shift_reg[5:0], init_new_fill_counter};
+    if ( reset || !state[WAIT] ) wait_cntr <= 21'd0;
+    else if ( !wait_timeout )    wait_cntr <= wait_cntr + 1;
   end
-  assign selftrigger_fifo_wr_en = shift_reg[6];
+
+  // The receivers latch their per-fill counts on the rising edge of their channel's done line
+  // (channel_triggerc_receiver), i.e. one clock after this machine sees the done.  Write the
+  // latched counts to the FIFOs two clocks after all enabled channels have reported done, which
+  // is the entry into STORE_ACQ_INFO delayed by one.
+  reg store_entry = 1'b0, store_entry_d = 1'b0;
+  always @(posedge clk) begin
+    if ( reset ) begin
+      store_entry   <= 1'b0;
+      store_entry_d <= 1'b0;
+    end
+    else begin
+      store_entry   <= state[WAIT] & nextstate[STORE_ACQ_INFO];
+      store_entry_d <= store_entry;
+    end
+  end
+  assign selftrigger_fifo_wr_en = store_entry_d;
 
   // combinational always block
   always @* begin
@@ -164,8 +177,12 @@ module channel_acq_controller_selftrigc (
           next_acq_enable[4:0] = 5'b00000;
         end
 
-        // check if all channels report done
-        if ( acq_dones_latched[4:0] == chan_en[4:0] ) begin
+        // check if all channels report done; bounded (2^20 TTC clocks = 26 ms): a channel that
+        // never closes its fill must not park this machine, since the TTC receiver can only hand
+        // over the next trigger from IDLE/ACQUIRE (it waits 1.6 ms and then downgrades the trigger
+        // to an empty event).  The command manager's own read-fill time-out then reports the
+        // channel that did not answer.
+        if ( acq_dones_latched[4:0] == chan_en[4:0] || wait_timeout ) begin
           nextstate[STORE_ACQ_INFO] = 1'b1;
         end
         else begin

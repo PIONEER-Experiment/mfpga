@@ -23,7 +23,8 @@ module channel_triggerc_receiver (
   output reg [19:0] selftriggers_latch,  // number of triggers currently in the active DDR3 buffer
 
 // command manager interface
-  input wire new_fill_pause_triggers,
+  input wire new_fill_pause_triggers,    // (no longer used for the count latch, kept for the port list)
+  input wire acq_done,                   // this channel's done line (synchronised): the count is latched on its rising edge
 
   // set burst count for each channel
   input wire [22:0] burst_count_selftrig,
@@ -62,24 +63,16 @@ module channel_triggerc_receiver (
   reg [23:0] next_trig_num;
   reg [19:0] next_selftriggers;
 
-  // convert the new_fill signal to a pulse
-  wire new_fill_pulse;
-  level_to_pulse new_fill_pulsifier (
-    .clk(clk),
-    .signal_in(new_fill_pause_triggers),
-    .signal_out(new_fill_pulse)
-  );
-
-  // The per-fill count is latched 3 clocks later than the pulse (6 clocks, 150 ns, after the
-  // acquisition controller raised new_fill_pause_triggers).  The channel (self_trigger /
-  // enable_sm_selftrigc, 6.6.8 and later) sends the pulse of a trigger it accepted before its
-  // own fill boundary at once, which reaches this counter within ~100 ns of our edge, and holds
-  // the pulse of a trigger accepted after the boundary back for at least 250 ns, so the latch
-  // here falls between the two and the master's count agrees with what the channel stored.
-  // The acquisition controller writes the latched count to the FIFO later still (shift_reg).
-  reg [2:0] new_fill_dly = 3'd0;
-  always @(posedge clk) new_fill_dly <= {new_fill_dly[1:0], new_fill_pulse};
-  wire new_fill_latch = new_fill_dly[2];
+  // The per-fill count is latched on the rising edge of this channel's done line.  The channel
+  // (enable_sm_selftrigc / self_trigger, 6.6.9 and later) raises done only once every trigger
+  // pulse it owes us for the closing fill has been sent and its gap has elapsed (so the pulse
+  // was counted here at least ~95 ns before this edge), and sends the first pulse of the next
+  // fill not less than 250 ns after done, so this latch falls between the two whatever the
+  // backlog of pulses was.  The acquisition controller writes the latched counts to the FIFOs
+  // once it has the dones of all enabled channels.
+  reg acq_done_d = 1'b0;
+  always @(posedge clk) acq_done_d <= acq_done;
+  wire new_fill_latch = acq_done & ~acq_done_d;
 
   // combinational always block
   always @* begin

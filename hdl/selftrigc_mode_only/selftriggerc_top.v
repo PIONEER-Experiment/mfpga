@@ -95,6 +95,7 @@ module selftriggerc_top (
     // error connections
     output wire ddr3_almost_full,           // DDR3 overflow warning
     output wire error_trig_rate,            // trigger rate error
+    output wire [7:0] triggers_downgraded,  // TTC triggers turned into empty events because the acquisition controller stayed busy
     output wire error_trig_num,             // trigger number error
     output wire error_trig_type             // trigger type error
 );
@@ -282,7 +283,8 @@ wire [4:0] chan_dones_clk40;
         .trig_timestamp(trig_timestamp),               // global trigger timestamp
         
         // error connections
-        .error_trig_rate(error_trig_rate)              // trigger rate error
+        .error_trig_rate(error_trig_rate),             // trigger rate error
+        .triggers_downgraded(triggers_downgraded)      // triggers turned into empty events (status)
     );
 
     // /////////////////////////////////////////////////////////////////////////
@@ -301,6 +303,7 @@ wire [4:0] chan_dones_clk40;
   
           // trigger interface
           .trigger(chan_trigs_clk40[iChan]),               // channel self trigger pulse
+          .acq_done(chan_dones_clk40[iChan]),              // channel done line: the per-fill count is latched on its rising edge
           .thres_ddr3_overflow(thres_ddr3_overflow[22:0]), // DDR3 overflow threshold
           .chan_en(chan_en_clk40[iChan]),                  // enabled channels
           //.ttc_trigger(ttc_trigger),                       // backplane trigger signal
