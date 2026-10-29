@@ -29,7 +29,8 @@ module chan_io_block (
   // diagnostics counters from one_channel (various clock domains, free running):
   input [31:0] rx_word_counts, // {words taken out of the RX FIFO [31:16], words put into it by the Aurora [15:0]}
   input [31:0] tx_err_counts,  // {words put into the TX FIFO [31:16], frame_err count [15:8], soft_err count [7:0]}
-  input [31:0] link_event_counts // {channel_up drops [31:24], lane_up drops [23:16], hard_err [15:8], link_reset [7:0]}, clk50 domain
+  input [31:0] link_event_counts, // {channel_up drops [31:24], lane_up drops [23:16], hard_err [15:8], link_reset [7:0]}, clk50 domain
+  input [31:0] pause_counts       // {clk50 periods spent paused [31:16], pause rising edges [15:8], 7'd0, paused now [0]}, clk50 domain
 );
 
   ///////////////////////////////////////////
@@ -40,16 +41,19 @@ module chan_io_block (
   assign rx_counts_sel    = io_sel & (io_addr[3:0] == 4'b0010);
   assign tx_counts_sel    = io_sel & (io_addr[3:0] == 4'b0011);
   assign link_events_sel  = io_sel & (io_addr[3:0] == 4'b0100);
+  assign pause_counts_sel = io_sel & (io_addr[3:0] == 4'b0101);
 
   // the counters are sampled through two register stages; they come from other clock domains and
   // are only meaningful when read while the link is quiet (after a stuck readout, say)
   (* ASYNC_REG = "TRUE" *) reg [31:0] rx_counts_s1 = 32'd0, rx_counts_s2 = 32'd0;
   (* ASYNC_REG = "TRUE" *) reg [31:0] tx_counts_s1 = 32'd0, tx_counts_s2 = 32'd0;
   (* ASYNC_REG = "TRUE" *) reg [31:0] link_ev_s1 = 32'd0, link_ev_s2 = 32'd0;
+  (* ASYNC_REG = "TRUE" *) reg [31:0] pause_s1 = 32'd0, pause_s2 = 32'd0;
   always @(posedge io_clk) begin
     rx_counts_s1 <= rx_word_counts;    rx_counts_s2 <= rx_counts_s1;
     tx_counts_s1 <= tx_err_counts;     tx_counts_s2 <= tx_counts_s1;
     link_ev_s1   <= link_event_counts; link_ev_s2   <= link_ev_s1;
+    pause_s1     <= pause_counts;      pause_s2     <= pause_s1;
   end
 
   // live_status register
@@ -110,6 +114,7 @@ module chan_io_block (
     if (rx_counts_sel)    io_rd_data_reg[31:0] <= rx_counts_s2[31:0];
     if (tx_counts_sel)    io_rd_data_reg[31:0] <= tx_counts_s2[31:0];
     if (link_events_sel)  io_rd_data_reg[31:0] <= link_ev_s2[31:0];
+    if (pause_counts_sel) io_rd_data_reg[31:0] <= pause_s2[31:0];
   end
 
 endmodule

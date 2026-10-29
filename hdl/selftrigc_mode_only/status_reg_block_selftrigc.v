@@ -81,7 +81,8 @@ module status_reg_block_selftrigc (
   input wire       cm_tx_valid,         // command manager is trying to send
   input wire       cm_rx_ready,         // command manager is accepting channel data
   input wire       trig_hold_reset,     // trigger block held in reset after a master reset (REG14 bit 16)
-  input wire [7:0] triggers_downgraded, // TTC triggers turned into empty events because the acquisition controller stayed busy (REG14 [24:17], TTC domain, status only)
+  input wire [7:0] triggers_downgraded, // readout triggers answered with an empty event because the acquisition controller was busy (REG14 [24:17], TTC domain, status only)
+  input wire [7:0] trig_num_error_count, // command manager: trigger-number mismatches with a channel header, skipped not fatal (REG34 [7:0])
   input wire [4:0] fill_type,
   input wire [4:0] chan_en,
   input wire endianness_sel,
@@ -267,5 +268,5 @@ assign status_reg32 = {8'd0, chan_trig_num_3[23:0]};
 assign status_reg33 = {8'd0, chan_trig_num_4[23:0]};
 
 // Register 34: eeprom read status at startup
-assign status_reg34 = 32'd0;
+assign status_reg34 = {24'd0, trig_num_error_count[7:0]};
 endmodule

@@ -82,6 +82,7 @@ module command_manager_selftrigc (
   output reg error_data_corrupt,       // data corruption error
   output reg error_trig_num,           // trigger number mismatch between channel and master
   output reg error_trig_type,          // trigger type mismatch between channel and master
+  output wire [7:0] trig_num_error_count, // trigger-number mismatches seen (no longer terminal), mod 256
   output reg [ 4:0] chan_error_sn,     // command serial number mismatch between channel and master
   output reg [ 4:0] chan_error_rc,     // master received an error response code, one bit for each channel
 
@@ -308,17 +309,18 @@ reg [127:0] channel_checksum; // checksum from received channel data
   // the total number of 64 bit words for the TTC readout event, including headers and trailers
   assign event_size = per_trigger_word_count * event_triggers + channel_header_words + 4;
 
-  // Bounded wait for the self-trigger count record in CHECK_SELFTRIG_FIFO.
-  // 2^29 clk125 cycles = ~4.3 s; the record normally arrives within a few
-  // clocks, so this only ever fires on a record that was lost.
-  reg  [29:0] selftrig_wait_cntr;
+  // Bounded wait for the self-trigger count record in CHECK_SELFTRIG_FIFO: 2^23 clk125 = 67 ms.
+  // The record is written by channel_acq_controller after every channel has reported done, and
+  // that wait is itself bounded at 2^20 clk40 = 26 ms, so a record that has not come after 67 ms
+  // was lost.  (6.6.9: was 4.3 s, a diagnostic setting from before the state snapshots existed.)
+  reg  [23:0] selftrig_wait_cntr;
   wire        selftrig_wait_timeout;
-  assign selftrig_wait_timeout = selftrig_wait_cntr[29];
+  assign selftrig_wait_timeout = selftrig_wait_cntr[23];
   always @(posedge clk) begin
     if ( rst || !state[CHECK_SELFTRIG_FIFO] )
-      selftrig_wait_cntr[29:0] <= 30'd0;
+      selftrig_wait_cntr[23:0] <= 24'd0;
     else if ( !selftrig_wait_timeout )
-      selftrig_wait_cntr[29:0] <= selftrig_wait_cntr[29:0] + 1;
+      selftrig_wait_cntr[23:0] <= selftrig_wait_cntr[23:0] + 1;
   end
 
   // this actually gets used to compare the number of 32 bit words, hence the "*4"
@@ -343,44 +345,58 @@ reg [127:0] channel_checksum; // checksum from received channel data
   wire rst_n;
   assign rst_n = ~rst;
 
-  // Bounded wait for the channel's response serial number in READ_CHAN_RSN.
-  // A channel that never answers the 'read fill' command (dead Aurora link,
-  // channel command dispatcher wedged) would otherwise park this state
-  // machine here for ever, and with it every IPbus channel access.
-  // 2^29 clk125 cycles = ~4.3 s: deliberately generous, since it only has
-  // to catch a channel that will never answer, and a readout that is merely
-  // slow (loaded DAQ server, large fill) must never trip it.  On timeout the
-  // channel is treated exactly like a serial-number mismatch: flag
-  // chan_error_sn, skip it.
-  // Time-out on the channel's reply to a read-fill command: 2^30 clk125 = 8.6 s, counted over
-  // READ_CHAN_RSN, READ_CHAN_RC and READ_CHAN_INFO1-4 together.  It is deliberately twice the
-  // channel's own 4.3 s bound on closing a fill (cc_rd_fill_sm, which then replies with an error
-  // code), so that the channel always answers before we give up: a reply that arrived after we
-  // had moved on would otherwise sit in that channel's RX FIFO and desynchronise it for good.
-  reg  [30:0] rsn_wait_cntr;
+  // Time-out on the channel's reply to a read-fill command: 2^23 clk125 = 67 ms, counted over
+  // READ_CHAN_RSN, READ_CHAN_RC and READ_CHAN_INFO1-4 together, restarted at every (re)try.  The
+  // channel's own wait for its fill header is 2^21 clk125 = 16.8 ms (cc_rd_fill_sm), after which
+  // it answers with an error code, and its fill-closing states are bounded at 2.6 ms
+  // (enable_sm_selftrigc), so a channel that is alive always answers well inside this.  The
+  // ordering (ours longer) is what keeps a late reply from being orphaned in the channel's RX
+  // FIFO.  (6.6.9: both were seconds, a diagnostic setting from before the state snapshots.)
+  reg  [23:0] rsn_wait_cntr;
   wire        rsn_wait_timeout;
   wire        waiting_for_reply = state[READ_CHAN_RSN] | state[READ_CHAN_RC] | state[READ_CHAN_INFO1] |
                                   state[READ_CHAN_INFO2] | state[READ_CHAN_INFO3] | state[READ_CHAN_INFO4];
-  assign rsn_wait_timeout = rsn_wait_cntr[30];
+  assign rsn_wait_timeout = rsn_wait_cntr[23];
   always @(posedge clk) begin
     if ( rst || !waiting_for_reply )
-      rsn_wait_cntr[30:0] <= 31'd0;
+      rsn_wait_cntr[23:0] <= 24'd0;
     else if ( !rsn_wait_timeout )
-      rsn_wait_cntr[30:0] <= rsn_wait_cntr[30:0] + 1;
+      rsn_wait_cntr[23:0] <= rsn_wait_cntr[23:0] + 1;
   end
-  // Time-out on the data stream: 2^30 clk125 with no word from the channel while in the data
-  // states.  A channel that stops mid-fill leaves the event incomplete whatever we do, so this
-  // goes to the hard ERROR_DATA_CORRUPTION state, which is visible in the status, instead of
-  // hanging silently in READ_CHAN_DATA*.
-  reg  [30:0] data_wait_cntr;
+  // Time-out on the data stream: 2^24 clk125 = 134 ms with no word from the channel while in the
+  // data states (AMC13 back-pressure is waited out in READ_CHAN_DATA_RESYNC, not here).  A channel
+  // that stops mid-fill leaves the event incomplete whatever we do, and its frame has no end we
+  // could flush to, so this goes to ERROR_DATA_CORRUPTION, which is visible in the status, instead
+  // of hanging silently in READ_CHAN_DATA*.  It is the one remaining terminal state of the readout.
+  reg  [24:0] data_wait_cntr;
   wire        data_wait_timeout;
   wire        waiting_for_data = state[READ_CHAN_DATA1] | state[READ_CHAN_DATA2];
-  assign data_wait_timeout = data_wait_cntr[30];
+  assign data_wait_timeout = data_wait_cntr[24];
   always @(posedge clk) begin
     if ( rst || !waiting_for_data || chan_rx_fifo_valid )
-      data_wait_cntr[30:0] <= 31'd0;
+      data_wait_cntr[24:0] <= 25'd0;
     else if ( !data_wait_timeout )
-      data_wait_cntr[30:0] <= data_wait_cntr[30:0] + 1;
+      data_wait_cntr[24:0] <= data_wait_cntr[24:0] + 1;
+  end
+  // Time-out on an IPbus channel transaction: 2^25 clk125 = 268 ms waiting for the channel's reply
+  // in READ_IPBUS_RSN / READ_IPBUS_RES, and the same waiting for the software to take a reply word
+  // in SEND_IPBUS_RES.  A channel register access answers in microseconds; the software side of a
+  // transaction is a few UDP round trips (some tools take the reply in two dispatches), so the
+  // bound is generous there rather than tight.  Without this, one
+  // channel that never answers (its command dispatcher parked, or a command it does not know,
+  // which it does not answer at all) parks this machine, and since readout_ready = IDLE, that
+  // stops the readout and every later IPbus access to every channel: the "register access stops
+  // working" symptom.  On a time-out the transaction is abandoned (the software sees one bus
+  // time-out, which the IPbus bridge survives) and we return to IDLE.
+  reg  [25:0] ipb_wait_cntr;
+  wire        ipb_wait_timeout;
+  wire        waiting_for_ipbus = state[READ_IPBUS_RSN] | state[READ_IPBUS_RES] | state[SEND_IPBUS_RES];
+  assign ipb_wait_timeout = ipb_wait_cntr[25];
+  always @(posedge clk) begin
+    if ( rst || !waiting_for_ipbus || (chan_rx_fifo_valid & chan_rx_fifo_ready) || (ipbus_res_valid & ipbus_res_ready) )
+      ipb_wait_cntr[25:0] <= 26'd0;
+    else if ( !ipb_wait_timeout )
+      ipb_wait_cntr[25:0] <= ipb_wait_cntr[25:0] + 1;
   end
   // whether the last word taken from the RX FIFO ended its frame (tlast), so that a channel we
   // give up on can be flushed to the end of the frame it had started
@@ -389,12 +405,33 @@ reg [127:0] channel_checksum; // checksum from received channel data
     if ( rst )                                         rx_last_consumed <= 1'b1;
     else if ( chan_rx_fifo_valid & chan_rx_fifo_ready ) rx_last_consumed <= chan_rx_fifo_last;
   end
+  // FLUSH_CHAN bound: 2^16 clocks = 0.5 ms *without a word*; restarted by every word taken, so a
+  // frame of any length is flushed as long as the channel keeps streaming it
   reg  [16:0] flush_cntr;
   wire        flush_timeout = flush_cntr[16];
   always @(posedge clk) begin
-    if ( rst || !state[FLUSH_CHAN] ) flush_cntr <= 17'd0;
-    else if ( !flush_timeout )       flush_cntr <= flush_cntr + 1;
+    if ( rst || !state[FLUSH_CHAN] || (chan_rx_fifo_valid & chan_rx_fifo_ready) ) flush_cntr <= 17'd0;
+    else if ( !flush_timeout )                                                   flush_cntr <= flush_cntr + 1;
   end
+  // What to do after FLUSH_CHAN, decided on the way in:
+  //   FLUSH_NEXT    give up on this channel for this event and go on to the next one
+  //   FLUSH_RETRY   read the reply again (a stale frame was in front of the real one)
+  //   FLUSH_REISSUE send the read-fill command again (the channel served us an older fill)
+  //   FLUSH_IPBUS   read the IPbus reply again (stale frame in front of it)
+  //   FLUSH_ABORT   abandon the IPbus transaction and return to IDLE
+  // A stale frame in a channel's RX FIFO (its reply to a command we had already given up on) used
+  // to cost that channel every later event: each readout popped the stale RSN, skipped the channel,
+  // and left the channel's genuine reply behind as the next stale frame.  Retrying after the flush
+  // lets the readout recover in the same event; the retry counts are small so that a channel whose
+  // serial numbers are simply wrong is still given up on quickly.
+  localparam [2:0] FLUSH_NEXT = 3'd0, FLUSH_RETRY = 3'd1, FLUSH_REISSUE = 3'd2, FLUSH_IPBUS = 3'd3, FLUSH_ABORT = 3'd4;
+  reg [2:0] flush_action, next_flush_action;
+  reg [1:0] reply_retries, next_reply_retries;      // stale frames flushed before this channel's reply (per command)
+  reg [1:0] reissue_retries, next_reissue_retries;  // read-fill commands re-issued to this channel (per event)
+  localparam [1:0] MAX_REPLY_RETRIES = 2'd3, MAX_REISSUE_RETRIES = 2'd3;
+  // Trigger-number errors are no longer terminal (6.6.9): the channel is skipped for the event
+  // (or asked again, see READ_CHAN_INFO1) and the count below says how often that happened.
+  reg [7:0] trig_num_errors;
   
 
   // for debugging
@@ -451,6 +488,9 @@ reg [127:0] channel_checksum; // checksum from received channel data
     next_daq_valid          = 0; // default
     chan_tx_fifo_data[31:0] = 0; // default
     ipbus_res_data[31:0]    = 0; // default
+    next_flush_action       = flush_action;
+    next_reply_retries      = reply_retries;
+    next_reissue_retries    = reissue_retries;
     
     case (1'b1) // synopsys parallel_case full_case
       // idle state
@@ -459,6 +499,7 @@ reg [127:0] channel_checksum; // checksum from received channel data
         if (ipbus_cmd_valid) begin
           next_chan_tx_fifo_last = 0;
           next_chan_tx_fifo_dest[3:0] = ipbus_cmd_dest[3:0];
+          next_reply_retries = 2'd0;
           nextstate[SEND_IPBUS_CSN] = 1'b1;
         end
         // watch for unread fill events
@@ -542,10 +583,30 @@ reg [127:0] channel_checksum; // checksum from received channel data
           nextstate[SEND_IPBUS_CMD] = 1'b1;
         end
       end
-      // read response serial number from channel
+      // read response serial number from channel; it must be the CSN we sent.  A stale frame
+      // (an earlier reply we gave up on) is flushed and the read tried again; no reply at all
+      // within the bound abandons the transaction.
       state[READ_IPBUS_RSN] : begin
         if (chan_rx_fifo_valid) begin
-          nextstate[READ_IPBUS_RES] = 1'b1;
+          if (chan_rx_fifo_data[31:0] == csn[31:0]) begin
+            nextstate[READ_IPBUS_RES] = 1'b1;
+          end
+          else begin
+            if (chan_tx_fifo_dest < 4'd5) next_chan_error_sn[chan_tx_fifo_dest] = 1'b1;
+            if (reply_retries != MAX_REPLY_RETRIES) begin
+              next_reply_retries = reply_retries + 1;
+              next_flush_action  = FLUSH_IPBUS;
+            end
+            else begin
+              next_flush_action  = FLUSH_ABORT;
+            end
+            nextstate[FLUSH_CHAN] = 1'b1;
+          end
+        end
+        else if (ipb_wait_timeout) begin
+          if (chan_tx_fifo_dest < 4'd5) next_chan_error_sn[chan_tx_fifo_dest] = 1'b1;
+          next_flush_action = FLUSH_ABORT;
+          nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
           nextstate[READ_IPBUS_RSN] = 1'b1;
@@ -557,6 +618,12 @@ reg [127:0] channel_checksum; // checksum from received channel data
           next_ipbus_buf[31:0] = chan_rx_fifo_data[31:0];
           next_ipbus_res_last = chan_rx_fifo_last;
           nextstate[SEND_IPBUS_RES] = 1'b1;
+        end
+        else if (ipb_wait_timeout) begin
+          // the reply stopped short of its tlast: nothing to flush, the frame is simply incomplete
+          if (chan_tx_fifo_dest < 4'd5) next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+          next_flush_action = FLUSH_ABORT;
+          nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
           nextstate[READ_IPBUS_RES] = 1'b1;
@@ -572,6 +639,11 @@ reg [127:0] channel_checksum; // checksum from received channel data
         end
         else if (ipbus_res_ready) begin
           nextstate[READ_IPBUS_RES] = 1'b1;
+        end
+        else if (ipb_wait_timeout) begin
+          // the software stopped taking the reply: drop the rest of the channel's frame
+          next_flush_action = FLUSH_ABORT;
+          nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
           nextstate[SEND_IPBUS_RES] = 1'b1;
@@ -615,12 +687,22 @@ reg [127:0] channel_checksum; // checksum from received channel data
         if (cs_mismatch_count > thres_data_corrupt) begin
           nextstate[ERROR_DATA_CORRUPTION] = 1'b1;
         end
+        else if ((chan_tx_fifo_dest[3:0] == 4'h5) && !sent_amc13_header) begin
+          // every enabled channel was skipped (or none is enabled): send a well-formed empty
+          // event rather than a trailer with no header
+          next_empty_event = 1'b1;
+          next_daq_valid = 1'b1;
+          next_daq_data[63:0] = {8'h00, trig_num[23:0], trig_timestamp[43:32], 20'd4};
+          nextstate[SEND_AMC13_HEADER1] = 1'b1;
+        end
         else if (chan_tx_fifo_dest[3:0] == 4'h5) begin
           nextstate[READY_AMC13_TRAILER] = 1'b1;
         end
         else if (chan_en[chan_tx_fifo_dest] == 1) begin
           //next_num_chan_en[2:0] = num_chan_en[2:0] + 1;
           next_chan_tx_fifo_last = 0;
+          next_reply_retries   = 2'd0;
+          next_reissue_retries = 2'd0;
           nextstate[SEND_CHAN_CSN] = 1'b1;
         end
         else begin
@@ -660,17 +742,25 @@ reg [127:0] channel_checksum; // checksum from received channel data
             nextstate[READ_CHAN_RC] = 1'b1;
           end
           else begin
-            // an error occured, update status register, and report error
-            // ABORT THIS CHANNEL'S READOUT: drain the rest of the frame first (a stale reply),
-            // FLUSH_CHAN then moves on to the next channel
+            // a stale frame (a reply to a command we had given up on): flag it, drain it to its
+            // tlast, and read again, since the real reply is behind it.  After a few of these the
+            // channel's serial numbers are simply wrong and it is skipped for this event.
             next_chan_error_sn[chan_tx_fifo_dest] = 1'b1;
+            if (reply_retries != MAX_REPLY_RETRIES) begin
+              next_reply_retries = reply_retries + 1;
+              next_flush_action  = FLUSH_RETRY;
+            end
+            else begin
+              next_flush_action  = FLUSH_NEXT;
+            end
             nextstate[FLUSH_CHAN] = 1'b1;
           end
         end
         else if (rsn_wait_timeout) begin
-          // no response from the channel: give up on it, same as a mismatch (nothing to flush now;
-          // if the reply comes later it is caught by the mismatch above at the next readout)
+          // no response from the channel: give up on it for this event (nothing to flush now; if
+          // the reply comes later it is the stale frame handled above at the next readout)
           next_chan_error_sn[chan_tx_fifo_dest] = 1'b1;
+          next_flush_action = FLUSH_NEXT;
           nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
@@ -690,11 +780,13 @@ reg [127:0] channel_checksum; // checksum from received channel data
             // an error occured, update status register, and report error
             // ABORT THIS CHANNEL'S READOUT (drain whatever else the channel sent, then move on)
             next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+            next_flush_action = FLUSH_NEXT;
             nextstate[FLUSH_CHAN] = 1'b1;
           end
         end
         else if (rsn_wait_timeout) begin
           next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+          next_flush_action = FLUSH_NEXT;
           nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
@@ -707,9 +799,28 @@ reg [127:0] channel_checksum; // checksum from received channel data
       // without a word) in case the frame never completes.
       state[FLUSH_CHAN] : begin
         if (rx_last_consumed || flush_timeout || (chan_rx_fifo_valid && chan_rx_fifo_last)) begin
-          next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0]+1;
-          next_csn[31:0] = csn[31:0]+1;
-          nextstate[CHECK_CHAN_EN] = 1'b1;
+          case (flush_action)
+            FLUSH_RETRY: begin
+              nextstate[READ_CHAN_RSN] = 1'b1;           // same command, read the next frame
+            end
+            FLUSH_REISSUE: begin
+              next_csn[31:0] = csn[31:0]+1;              // new command to the same channel
+              next_chan_tx_fifo_last = 0;
+              nextstate[SEND_CHAN_CSN] = 1'b1;
+            end
+            FLUSH_IPBUS: begin
+              nextstate[READ_IPBUS_RSN] = 1'b1;
+            end
+            FLUSH_ABORT: begin
+              next_csn[31:0] = csn[31:0]+1;
+              nextstate[IDLE] = 1'b1;
+            end
+            default: begin                               // FLUSH_NEXT
+              next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0]+1;
+              next_csn[31:0] = csn[31:0]+1;
+              nextstate[CHECK_CHAN_EN] = 1'b1;
+            end
+          endcase
         end
         else begin
           nextstate[FLUSH_CHAN] = 1'b1;
@@ -723,12 +834,26 @@ reg [127:0] channel_checksum; // checksum from received channel data
           
           // check that trigger number from channel header and trigger logic match
           if (event_num[23:0] != chan_rx_fifo_data[23:0]) begin
-            // trigger numbers aren't synchronized; throw an error
+            // Trigger numbers are not in step.  If the channel served an *older* fill (its header
+            // was left unread when an earlier readout gave up on it), drain this reply and ask
+            // again: the stale header has been popped, and the next one is a fill closer to ours.
+            // A newer fill cannot be recovered that way; either way the channel is given up on for
+            // this event after a few tries, and the error counted.  Not terminal any more (6.6.9).
+            if ((event_num[23:0] - chan_rx_fifo_data[23:0] < 24'h800000) && (reissue_retries != MAX_REISSUE_RETRIES)) begin
+              next_reissue_retries = reissue_retries + 1;
+              next_flush_action = FLUSH_REISSUE;
+            end
+            else begin
+              next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+              next_flush_action = FLUSH_NEXT;
+            end
             nextstate[ERROR_TRIG_NUM] = 1'b1;
           end
           // check that trigger type from channel header and trigger logic match -- this checks that it is not an async mode
           else if (trig_type[2] & (chan_rx_fifo_data[26] != 1'b0)) begin
-            // trigger types aren't synchronized; throw an error
+            // trigger types aren't synchronized: skip the channel for this event (not terminal, 6.6.9)
+            next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+            next_flush_action = FLUSH_NEXT;
             nextstate[ERROR_TRIG_TYPE] = 1'b1;
           end
           else begin
@@ -743,6 +868,7 @@ reg [127:0] channel_checksum; // checksum from received channel data
         end
         else if (rsn_wait_timeout) begin
           next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+          next_flush_action = FLUSH_NEXT;
           nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
@@ -761,6 +887,7 @@ reg [127:0] channel_checksum; // checksum from received channel data
         end
         else if (rsn_wait_timeout) begin
           next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+          next_flush_action = FLUSH_NEXT;
           nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
@@ -779,6 +906,7 @@ reg [127:0] channel_checksum; // checksum from received channel data
         end
         else if (rsn_wait_timeout) begin
           next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+          next_flush_action = FLUSH_NEXT;
           nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
@@ -790,7 +918,9 @@ reg [127:0] channel_checksum; // checksum from received channel data
         if (chan_rx_fifo_valid) begin
         // check that trigger type from channel header and trigger logic match
           if (trig_type[2] & (chan_rx_fifo_data[27:26] != 2'b10)) begin
-            // trigger types aren't synchronized; throw an error
+            // trigger types aren't synchronized: skip the channel for this event (not terminal, 6.6.9)
+            next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+            next_flush_action = FLUSH_NEXT;
             nextstate[ERROR_TRIG_TYPE] = 1'b1;
           end
           else begin
@@ -806,6 +936,7 @@ reg [127:0] channel_checksum; // checksum from received channel data
         end
         else if (rsn_wait_timeout) begin
           next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+          next_flush_action = FLUSH_NEXT;
           nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
@@ -1170,7 +1301,9 @@ reg [127:0] channel_checksum; // checksum from received channel data
         end
         // we've not received all the data
         // send current data, and continue readout loop
-        if (daq_ready) begin
+        // ('else': both conditions hold on the last checksum word under back-pressure, and the
+        //  one-hot machine must not be sent two ways at once)
+        else if (daq_ready) begin
           if (~empty_payload) begin
             next_daq_valid = 1'b1;
           end
@@ -1256,13 +1389,14 @@ reg [127:0] channel_checksum; // checksum from received channel data
       state[ERROR_DATA_CORRUPTION] : begin
         nextstate[ERROR_DATA_CORRUPTION] = 1'b1; // hard error, stay here
       end
-      // trigger number mismatch error detected
+      // trigger number mismatch: one clock (so that it is visible in the state history and the
+      // error output pulses), then drain the channel's reply and act on 'flush_action'
       state[ERROR_TRIG_NUM] : begin
-        nextstate[ERROR_TRIG_NUM] = 1'b1; // hard error, stay here
+        nextstate[FLUSH_CHAN] = 1'b1;
       end
-      // trigger type mismatch error detected
+      // trigger type mismatch: one clock, then drain the channel's reply and go on to the next channel
       state[ERROR_TRIG_TYPE] : begin
-        nextstate[ERROR_TRIG_TYPE] = 1'b1; // hard error, stay here
+        nextstate[FLUSH_CHAN] = 1'b1;
       end
     endcase
   end
@@ -1308,6 +1442,10 @@ reg [127:0] channel_checksum; // checksum from received channel data
       //cs_error_seen[1:0]        <= 2'd0;
       //wfm_cnt_shrt              <= 11'd0;
       stored_burst_count[22:0]  <= 0;
+      flush_action              <= FLUSH_NEXT;
+      reply_retries             <= 2'd0;
+      reissue_retries           <= 2'd0;
+      trig_num_errors           <= 8'd0;
       //updown                    <= 0;
 //      delta_trigger[21:0]       <= 22'd0;
 //      trigger_ticks[21:0]       <= 22'd0;
@@ -1320,6 +1458,10 @@ reg [127:0] channel_checksum; // checksum from received channel data
       state <= nextstate;
 
       stored_burst_count[22:0]    <= next_stored_burst_count[22:0];
+      flush_action                <= next_flush_action;
+      reply_retries               <= next_reply_retries;
+      reissue_retries             <= next_reissue_retries;
+      if (nextstate[ERROR_TRIG_NUM] && !state[ERROR_TRIG_NUM]) trig_num_errors <= trig_num_errors + 8'd1;
       chan_tag[11:0]              <= next_chan_tag[11:0];
       //chan_xadc_alarms[3:0]       <= next_chan_xadc_alarms[3:0];
       wfm_count[22:0]             <= next_wfm_count[22:0];
@@ -1394,8 +1536,9 @@ reg [127:0] channel_checksum; // checksum from received channel data
       ipbus_res_valid        <= 0;
       readout_done           <= 0;
       error_data_corrupt     <= 0;
-      error_trig_num         <= 0;
-      error_trig_type        <= 0;
+      // error_trig_num / error_trig_type are sticky (6.6.9): the states that set them are no
+      // longer terminal, so a one-clock pulse would never be seen in the status register.
+      // Cleared by reset only.
       //inc_setup_time         <= 0;
       //zero_setup_time        <= 0;
       selftrigger_fifo_rd_en <= 0;
@@ -1527,5 +1670,6 @@ reg [127:0] channel_checksum; // checksum from received channel data
 
   // outputs based on states
   assign readout_ready = (state[IDLE] == 1'b1);
+  assign trig_num_error_count = trig_num_errors;
 
 endmodule

@@ -283,6 +283,24 @@ module one_channel (
     if (~lnk_ev_s3[1] &  lnk_ev_s2[1]) hard_err_cnt     <= hard_err_cnt     + 1;
     if (~lnk_ev_s3[0] &  lnk_ev_s2[0]) link_reset_cnt   <= link_reset_cnt   + 1;
   end
+  // Readout-pause events: 'acq_readout_pause' (io[0] to the channel) is the RX FIFO's prog_full,
+  // which is also asserted while that FIFO is held in reset by the Aurora core's system reset
+  // (any link event).  A pause is the one thing in the first-event-hang chain that none of the
+  // other counters records directly: the rising edges are counted (8 bits) and the time spent
+  // paused accumulated (clk50 periods, 20 ns, saturating 16 bits), both free running.  Sampled
+  // on clk50 through a synchroniser, so a pause shorter than ~40 ns can be missed; a FIFO reset
+  // or a real almost-full condition lasts far longer.
+  (* ASYNC_REG = "TRUE" *) reg pause_s1 = 1'b0, pause_s2 = 1'b0;
+  reg        pause_s3 = 1'b0;
+  reg [7:0]  pause_cnt = 8'd0;
+  reg [15:0] pause_clks = 16'd0;
+  always @(posedge clk50) begin
+    pause_s1 <= acq_readout_pause;
+    pause_s2 <= pause_s1;
+    pause_s3 <= pause_s2;
+    if (pause_s2 & ~pause_s3)               pause_cnt  <= pause_cnt + 1;
+    if (pause_s2 & (pause_clks != 16'hFFFF)) pause_clks <= pause_clks + 1;
+  end
 
   chan_io_block io_block (
     // programming interface
@@ -312,7 +330,8 @@ module one_channel (
     // diagnostics counters
     .rx_word_counts({rx_out_cnt, rx_in_cnt}),
     .tx_err_counts({tx_in_cnt, frame_err_cnt, soft_err_cnt}),
-    .link_event_counts({chan_up_drop_cnt, lane_up_drop_cnt, hard_err_cnt, link_reset_cnt})
+    .link_event_counts({chan_up_drop_cnt, lane_up_drop_cnt, hard_err_cnt, link_reset_cnt}),
+    .pause_counts({pause_clks, pause_cnt, 7'd0, pause_s2})
   );
 
 endmodule

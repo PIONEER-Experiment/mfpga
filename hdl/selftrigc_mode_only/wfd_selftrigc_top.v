@@ -161,7 +161,8 @@ module wfd_selftrigc_top (
     wire error_trig_type_from_cm;
     wire error_pll_unlock;
     wire error_trig_rate;
-    wire [7:0] triggers_downgraded;   // ttc_trigger_receiver: real triggers turned into empty events, TTC domain, status only
+    wire [7:0] triggers_downgraded;   // ttc_trigger_receiver: readout triggers answered with an empty event, TTC domain, status only
+    wire [7:0] trig_num_error_count;  // command_manager: trigger-number mismatches (no longer terminal), status only
     wire error_unknown_ttc;
 
     // warnings
@@ -1920,6 +1921,7 @@ module wfd_selftrigc_top (
         .cm_rx_ready(axi_stream_to_cm_from_channel_tready),
         .trig_hold_reset(trig_hold_reset),
         .triggers_downgraded(triggers_downgraded),
+        .trig_num_error_count(trig_num_error_count),
         .fill_type(fill_type_clk125),
         .chan_en(chan_en),
         .endianness_sel(endianness_sel),
@@ -2190,6 +2192,7 @@ module wfd_selftrigc_top (
         .error_data_corrupt(error_data_corrupt),   // output, data corruption error
         .error_trig_num(error_trig_num_from_cm),   // output, trigger number mismatch between channel and master
         .error_trig_type(error_trig_type_from_cm), // output, trigger type mismatch between channel and master
+        .trig_num_error_count(trig_num_error_count), // output [7:0], count of the above (status register 34)
         .chan_error_sn(chan_error_sn[4:0]),        // output [ 4:0]
         .chan_error_rc(chan_error_rc[4:0]),        // output [ 4:0]
         
@@ -2213,11 +2216,15 @@ module wfd_selftrigc_top (
         .error_trig_rate(error_trig_rate),
         .error_unknown_ttc(error_unknown_ttc),
 
-        // sync lost status
+        // sync lost status.  The command manager's trigger-number / type mismatches are no longer
+        // terminal (6.6.9): the channel is re-read or skipped for that one event, and the
+        // readout stays in step with the TTC trigger numbers.  They are therefore reported in the
+        // status registers (sticky flags, and the count in status register 34) but not as a TTS
+        // sync-lost, which would have been permanent before and would now be a one-event glitch.
         .error_trig_num_from_tt(error_trig_num_from_tt),
-        .error_trig_num_from_cm(error_trig_num_from_cm),
+        .error_trig_num_from_cm(1'b0),
         .error_trig_type_from_tt(error_trig_type_from_tt),
-        .error_trig_type_from_cm(error_trig_type_from_cm),
+        .error_trig_type_from_cm(1'b0),
 
         // overflow warning status
         .overflow_warning_ddr3(ddr3_almost_full),

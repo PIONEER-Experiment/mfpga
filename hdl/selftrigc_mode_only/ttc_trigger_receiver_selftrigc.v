@@ -74,7 +74,8 @@ sync_2stage ar_sync (
     if (reset || !state[SEND_TRIGGER]) ready_wait_cntr <= 17'd0;
     else if (!ready_wait_timeout)      ready_wait_cntr <= ready_wait_cntr + 1;
   end
-  reg  [7:0] ready_wait_timeouts;        // how many real triggers were downgraded to empty events (status)
+  reg  [7:0] ready_wait_timeouts;        // how many readout triggers were answered with an empty event because
+                                         // the acquisition controller was busy (either path below; status)
   reg  [7:0] next_ready_wait_timeouts;
   reg        next_empty_payload;
   reg [23:0] next_trig_num;
@@ -120,6 +121,11 @@ sync_2stage ar_sync (
           // otherwise the trigger processor waits for an acquisition record that is never written
           if ((trig_type[4:0] != 5'b00100) | ~channel_acq_enabled | ~acq_activated) begin
              next_empty_event = 1'b1; // indicate to send an empty event
+             // a readout trigger that would have been acted on, but for the acquisition
+             // controller being busy (in WAIT closing the previous fill, or already past
+             // the run end): count it, it is an event with no data in the DAQ stream
+             if ((trig_type[4:0] == 5'b00100) & channel_acq_enabled)
+               next_ready_wait_timeouts = ready_wait_timeouts + 1;
            end
 
           nextstate[SEND_TRIGGER] = 1'b1;
