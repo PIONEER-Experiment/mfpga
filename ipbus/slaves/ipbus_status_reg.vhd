@@ -49,13 +49,29 @@ port(
    reg31 : in STD_LOGIC_VECTOR(31 downto 0);
    reg32 : in STD_LOGIC_VECTOR(31 downto 0);
    reg33 : in STD_LOGIC_VECTOR(31 downto 0);
-   reg34 : in STD_LOGIC_VECTOR(31 downto 0)
+   reg34 : in STD_LOGIC_VECTOR(31 downto 0);
+   -- 6.6.10: error-capture snapshot (self-triggering image); defaulted so that other images need not drive them
+   reg35 : in STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
+   reg36 : in STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
+   reg37 : in STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
+   reg38 : in STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
+   reg39 : in STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
+   reg40 : in STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
+   reg41 : in STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
+   reg42 : in STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
+   reg43 : in STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
+   reg44 : in STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
+   reg45 : in STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
+   reg46 : in STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
+   reg47 : in STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
+   reg48 : in STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
+   reg49 : in STD_LOGIC_VECTOR(31 downto 0) := (others => '0')
 );
 end ipbus_status_reg;
 
 architecture rtl of ipbus_status_reg is
 
-  constant n_regs : positive := 35;
+  constant n_regs : positive := 50;
 
 	type reg_array is array(n_regs - 1 downto 0) of std_logic_vector(31 downto 0);
 
@@ -78,7 +94,11 @@ begin
 				err <= '0';
 			end if;
 
-			ipbus_out.ipb_rdata <= reg(sel);
+			if sel < n_regs then
+				ipbus_out.ipb_rdata <= reg(sel);
+			else
+				ipbus_out.ipb_rdata <= (others => '0');   -- 6.6.10: an unused address reads 0 instead of indexing past the array
+			end if;
 			ack <= ipbus_in.ipb_strobe and not ack;
 		end if;
 	end process;
@@ -122,5 +142,20 @@ begin
    reg(32) <= reg32;
    reg(33) <= reg33;
    reg(34) <= reg34;
+   reg(35) <= reg35;
+   reg(36) <= reg36;
+   reg(37) <= reg37;
+   reg(38) <= reg38;
+   reg(39) <= reg39;
+   reg(40) <= reg40;
+   reg(41) <= reg41;
+   reg(42) <= reg42;
+   reg(43) <= reg43;
+   reg(44) <= reg44;
+   reg(45) <= reg45;
+   reg(46) <= reg46;
+   reg(47) <= reg47;
+   reg(48) <= reg48;
+   reg(49) <= reg49;
 
 end rtl;

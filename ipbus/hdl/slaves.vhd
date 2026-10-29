@@ -47,6 +47,7 @@ port (
     i2c_temp_update_out      : out std_logic;
     fp_trig_width_out        : out std_logic_vector( 3 downto 0);
     clear_trig_counters      : out std_logic;
+    clear_errors_out         : out std_logic;   -- 6.6.10: clears the error capture (SYS.CLEAR_ERRORS, bit 29)
 
     -- threshold registers
     thres_data_corrupt  : out std_logic_vector(31 downto 0); -- data corruption
@@ -99,6 +100,21 @@ port (
     status_reg32 : in std_logic_vector(31 downto 0);
     status_reg33 : in std_logic_vector(31 downto 0);
     status_reg34 : in std_logic_vector(31 downto 0);
+    status_reg35 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg36 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg37 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg38 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg39 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg40 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg41 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg42 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg43 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg44 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg45 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg46 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg47 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg48 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg49 : in std_logic_vector(31 downto 0) := (others => '0');
 
     -- flash interface ports
     flash_wr_nBytes  : out std_logic_vector( 8 downto 0);
@@ -179,7 +195,22 @@ begin
         reg31 => status_reg31,
         reg32 => status_reg32,
         reg33 => status_reg33,
-        reg34 => status_reg34
+        reg34 => status_reg34,
+        reg35 => status_reg35,
+        reg36 => status_reg36,
+        reg37 => status_reg37,
+        reg38 => status_reg38,
+        reg39 => status_reg39,
+        reg40 => status_reg40,
+        reg41 => status_reg41,
+        reg42 => status_reg42,
+        reg43 => status_reg43,
+        reg44 => status_reg44,
+        reg45 => status_reg45,
+        reg46 => status_reg46,
+        reg47 => status_reg47,
+        reg48 => status_reg48,
+        reg49 => status_reg49
     );
     
 
@@ -234,6 +265,7 @@ begin
     reprog_trigger_out(2)    <= ctrl_reg(28); -- don't touch
     -- ctrl_reg(29) is unused: the address table's SYS.FIFO_RESET bit has never been connected to anything
     clear_trig_counters      <= ctrl_reg(30); -- don't touch
+    clear_errors_out         <= ctrl_reg(29); -- 6.6.10 (was the never-connected SYS.FIFO_RESET bit)
 
     
     -- Slave 2: Write-only register

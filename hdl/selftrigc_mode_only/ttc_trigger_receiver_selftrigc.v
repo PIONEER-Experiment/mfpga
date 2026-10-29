@@ -25,6 +25,8 @@ module ttc_trigger_receiver_selftrigc (
   output reg [ 4:0] acq_trig_type, // recognized trigger type (async readout)
   output reg [23:0] acq_trig_num,  // trigger number, starts at 1
   input wire channel_acq_enabled,
+  input wire run_active,           // the FC7 has not stopped the run (accept_self_triggers): an empty readout
+                                   // trigger while this is high is data loss, after the stop it is the normal end
 
   // interface to TTC Trigger FIFO
   input wire fifo_ready,
@@ -40,7 +42,8 @@ module ttc_trigger_receiver_selftrigc (
 
   // error connections
   output wire error_trig_rate,           // trigger received while acquiring data (ERROR state; unreachable since 6.6.9)
-  output wire [7:0] triggers_downgraded  // real triggers turned into empty events because the acquisition controller stayed busy
+  output wire [7:0] triggers_downgraded, // real triggers turned into empty events because the acquisition controller stayed busy
+  output reg  empty_midrun               // one clock: a readout trigger was answered empty while the run was active (error capture)
 );
 
   // state bits, with one-hot encoding
@@ -77,6 +80,7 @@ sync_2stage ar_sync (
   reg  [7:0] ready_wait_timeouts;        // how many readout triggers were answered with an empty event because
                                          // the acquisition controller was busy (either path below; status)
   reg  [7:0] next_ready_wait_timeouts;
+  reg        next_empty_midrun;
   reg        next_empty_payload;
   reg [23:0] next_trig_num;
   reg [43:0] next_trig_timestamp;
@@ -93,6 +97,7 @@ sync_2stage ar_sync (
     next_acq_trig_num       [23:0] = acq_trig_num       [23:0];
     next_empty_event               = empty_event;
     next_ready_wait_timeouts       = ready_wait_timeouts;
+    next_empty_midrun              = 1'b0;
     next_empty_payload             = empty_payload;
     next_trig_num           [23:0] = trig_num           [23:0];
     next_trig_timestamp     [43:0] = trig_timestamp     [43:0];
@@ -124,8 +129,10 @@ sync_2stage ar_sync (
              // a readout trigger that would have been acted on, but for the acquisition
              // controller being busy (in WAIT closing the previous fill, or already past
              // the run end): count it, it is an event with no data in the DAQ stream
-             if ((trig_type[4:0] == 5'b00100) & channel_acq_enabled)
+             if ((trig_type[4:0] == 5'b00100) & channel_acq_enabled) begin
                next_ready_wait_timeouts = ready_wait_timeouts + 1;
+               next_empty_midrun = run_active;
+             end
            end
 
           nextstate[SEND_TRIGGER] = 1'b1;
@@ -153,6 +160,7 @@ sync_2stage ar_sync (
         end
         else if (ready_wait_timeout) begin
           next_empty_event = 1'b1;
+          next_empty_midrun = run_active;
           next_ready_wait_timeouts = ready_wait_timeouts + 1;
           nextstate[STORE_TRIG_INFO] = 1'b1;
         end
@@ -200,6 +208,7 @@ sync_2stage ar_sync (
 
       empty_event               <=  1'b0;
       ready_wait_timeouts       <=  8'd0;
+      empty_midrun              <=  1'b0;
       empty_payload             <=  1'b0;
       acq_trig_type      [ 4:0] <=  5'd0;
       acq_xadc_alarms    [ 3:0] <=  4'd0;
@@ -210,6 +219,7 @@ sync_2stage ar_sync (
 
       empty_event               <= next_empty_event;
       ready_wait_timeouts       <= next_ready_wait_timeouts;
+      empty_midrun              <= next_empty_midrun;
       empty_payload             <= next_empty_payload;
       acq_trig_type      [ 4:0] <= next_acq_trig_type      [ 4:0];
       acq_xadc_alarms    [ 3:0] <= next_acq_xadc_alarms    [ 3:0];

@@ -34,7 +34,8 @@ module channel_acq_controller_selftrigc (
   output reg [31:0] fifo_data,
 
   // status connections
-  output reg [5:0] state // state of finite state machine
+  output reg [5:0] state, // state of finite state machine
+  output reg  wait_gave_up // one clock: WAIT ended on its time-out, not on every channel's done (6.6.10, error capture)
 );
 
   // state bits
@@ -79,6 +80,7 @@ module channel_acq_controller_selftrigc (
   always @(posedge clk) begin
     if ( reset || !state[WAIT] ) wait_cntr <= 21'd0;
     else if ( !wait_timeout )    wait_cntr <= wait_cntr + 1;
+    wait_gave_up <= state[WAIT] && wait_timeout && (acq_dones_latched[4:0] != chan_en[4:0]);
   end
 
   // The receivers latch their per-fill counts on the rising edge of their channel's done line

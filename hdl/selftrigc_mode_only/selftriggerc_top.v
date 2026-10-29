@@ -96,6 +96,8 @@ module selftriggerc_top (
     output wire ddr3_almost_full,           // DDR3 overflow warning
     output wire error_trig_rate,            // trigger rate error
     output wire [7:0] triggers_downgraded,  // TTC triggers turned into empty events because the acquisition controller stayed busy
+    output wire       empty_midrun,         // one TTC clock: a readout trigger answered empty while the run was active (error capture)
+    output wire       cac_wait_gave_up,     // one TTC clock: the acquisition controller stopped waiting for a channel's done (error capture)
     output wire error_trig_num,             // trigger number error
     output wire error_trig_type             // trigger type error
 );
@@ -264,7 +266,7 @@ wire [4:0] chan_dones_clk40;
         // channel acquisition controller interface
         .acq_ready(acq_ready),         // channels are ready to acquire/readout data
         .acq_activated(acq_activated), // acquisition controller is in ACQUIRE: a trigger will be acted on
-        //.accept_self_triggers(accept_self_triggers), // enabled channels should start accepting triggers
+        .run_active(accept_self_triggers),                // the FC7 has not stopped the run
         .acq_trigger(acq_trigger),     // trigger signal
         .acq_trig_type(acq_trig_type), // recongized trigger type (muon fill, laser, pedestal, async readout)
         .acq_trig_num(acq_trig_num),   // trigger number, starts at 1
@@ -284,7 +286,8 @@ wire [4:0] chan_dones_clk40;
         
         // error connections
         .error_trig_rate(error_trig_rate),             // trigger rate error
-        .triggers_downgraded(triggers_downgraded)      // triggers turned into empty events (status)
+        .triggers_downgraded(triggers_downgraded),     // triggers turned into empty events (status)
+        .empty_midrun(empty_midrun)                    // ... while the run was active (error capture)
     );
 
     // /////////////////////////////////////////////////////////////////////////
@@ -382,7 +385,8 @@ wire [4:0] chan_dones_clk40;
         .fifo_data(s_acq_fifo_tdata),
 
         // status connections
-        .state(cac_state)       // state of finite state machine
+        .state(cac_state),      // state of finite state machine
+        .wait_gave_up(cac_wait_gave_up)   // WAIT ended on its time-out (error capture)
     );
 
     

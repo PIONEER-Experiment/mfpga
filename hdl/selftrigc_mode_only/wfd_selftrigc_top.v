@@ -163,6 +163,16 @@ module wfd_selftrigc_top (
     wire error_trig_rate;
     wire [7:0] triggers_downgraded;   // ttc_trigger_receiver: readout triggers answered with an empty event, TTC domain, status only
     wire [7:0] trig_num_error_count;  // command_manager: trigger-number mismatches (no longer terminal), status only
+    // error capture (6.6.10)
+    wire [15:0] err_loss_pulse;  wire [7:0] err_fault_pulse;  wire [3:0] err_warn_pulse;
+    wire [ 6:0] chan_err_word;   wire chan_err_valid;
+    wire [31:0] last_rsn_word, last_rc_word, last_info1_word, last_info4_word;
+    wire [ 8:0] cm_retry_status;
+    wire        empty_midrun, cac_wait_gave_up;      // ttc_clk pulses
+    wire        data_loss, hw_fault, err_warning;    // sticky
+    wire [ 2:0] err_summary;
+    wire        clear_errors;                        // control register bit 29
+    wire [31:0] status_reg35, status_reg36, status_reg37, status_reg38, status_reg39, status_reg40, status_reg41, status_reg42, status_reg43, status_reg44, status_reg45, status_reg46, status_reg47, status_reg48, status_reg49;
     wire error_unknown_ttc;
 
     // warnings
@@ -1273,6 +1283,7 @@ module wfd_selftrigc_top (
         .ttc_freq_rst_out(ttc_freq_rst),                   // dedicated reset to TTC decoder for frequency changes
         .i2c_temp_polling_dis_out(i2c_temp_polling_dis),   // disable EEPROM temperature polling
         .i2c_temp_update_out(i2c_temp_update),             // read and update EEPROM temperature value
+        .clear_errors_out(clear_errors),                   // clear the error capture (6.6.10)
         .fp_trig_width_out(fp_trig_width_from_ipbus[3:0]), // width to separate short from long front panel triggers
 
         // threshold registers
@@ -1316,6 +1327,21 @@ module wfd_selftrigc_top (
         .status_reg32(status_reg32),
         .status_reg33(status_reg33),
         .status_reg34(status_reg34),
+        .status_reg35(status_reg35),
+        .status_reg36(status_reg36),
+        .status_reg37(status_reg37),
+        .status_reg38(status_reg38),
+        .status_reg39(status_reg39),
+        .status_reg40(status_reg40),
+        .status_reg41(status_reg41),
+        .status_reg42(status_reg42),
+        .status_reg43(status_reg43),
+        .status_reg44(status_reg44),
+        .status_reg45(status_reg45),
+        .status_reg46(status_reg46),
+        .status_reg47(status_reg47),
+        .status_reg48(status_reg48),
+        .status_reg49(status_reg49),
 
         // flash interface ports
         .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
@@ -2109,6 +2135,8 @@ module wfd_selftrigc_top (
         .ddr3_almost_full(ddr3_almost_full),         // DDR3 overflow warning
         .error_trig_rate(error_trig_rate),           // trigger rate error
         .triggers_downgraded(triggers_downgraded),   // triggers turned into empty events (status)
+        .empty_midrun(empty_midrun),                 // ... while the run was active (error capture, ttc_clk)
+        .cac_wait_gave_up(cac_wait_gave_up),         // controller stopped waiting for a done (error capture, ttc_clk)
         .error_trig_num(error_trig_num_from_tt),     // trigger number error
         .error_trig_type(error_trig_type_from_tt)    // trigger type error
     );
@@ -2193,6 +2221,17 @@ module wfd_selftrigc_top (
         .error_trig_num(error_trig_num_from_cm),   // output, trigger number mismatch between channel and master
         .error_trig_type(error_trig_type_from_cm), // output, trigger type mismatch between channel and master
         .trig_num_error_count(trig_num_error_count), // output [7:0], count of the above (status register 34)
+        .err_loss_pulse(err_loss_pulse),             // error capture (6.6.10)
+        .err_fault_pulse(err_fault_pulse),
+        .err_warn_pulse(err_warn_pulse),
+        .chan_err_word(chan_err_word),
+        .chan_err_valid(chan_err_valid),
+        .last_rsn_word(last_rsn_word),
+        .last_rc_word(last_rc_word),
+        .last_info1_word(last_info1_word),
+        .last_info4_word(last_info4_word),
+        .retry_status(cm_retry_status),
+        .err_summary(err_summary),
         .chan_error_sn(chan_error_sn[4:0]),        // output [ 4:0]
         .chan_error_rc(chan_error_rc[4:0]),        // output [ 4:0]
         
@@ -2205,13 +2244,74 @@ module wfd_selftrigc_top (
     assign ttc_ready_clk125_n = ~ttc_ready_clk125;
 
     // TTS state reported to DAQ link
+    // Error capture (6.6.10): sticky data-loss / fault / warning flags with their causes, a snapshot of
+    // the state machines and key signals at the first error (status registers 35-49), cleared by
+    // SYS.CLEAR_ERRORS.  Data loss drives TTS sync-lost and a fault TTS error (both abort the run).
+    error_capture_selftrigc error_capture (
+        .clk(clk125),
+        .rst(rst_from_ipb),
+        .clear(clear_errors),
+        .err_loss_pulse(err_loss_pulse),
+        .err_fault_pulse(err_fault_pulse),
+        .err_warn_pulse(err_warn_pulse),
+        .empty_midrun(empty_midrun),
+        .cac_wait_gave_up(cac_wait_gave_up),
+        .chan_err_word(chan_err_word),
+        .chan_err_valid(chan_err_valid),
+        .cm_state(cm_state),
+        .ttr_state(ttr_state_clk125),
+        .cac_state(cac_state_clk125),
+        .tp_state(tp_state),
+        .acq_dones(acq_dones_clk125),
+        .chan_error_rc(chan_error_rc),
+        .chan_error_sn(chan_error_sn),
+        .acq_readout_pause(acq_readout_pause),
+        .chan_en(chan_en),
+        .cm_rx_valid(c_axi_stream_to_cm_tvalid),
+        .cm_tx_ready(c_axi_stream_to_channel_tready),
+        .cm_rx_ready(axi_stream_to_cm_from_channel_tready),
+        .cm_tx_valid(axi_stream_to_channel_from_cm_tvalid),
+        .cm_tx_dest(axi_stream_to_channel_from_cm_tdest),
+        .event_num(ttc_event_num),
+        .trig_num(trig_num_clk125),
+        .trig_timestamp(trig_timestamp_clk125),
+        .last_rsn_word(last_rsn_word),
+        .last_rc_word(last_rc_word),
+        .last_info1_word(last_info1_word),
+        .last_info4_word(last_info4_word),
+        .retry_status(cm_retry_status),
+        // status register 48: live flags at the moment of the error
+        .misc_live({16'd0, ipb_accept_self_triggers, ttc_accept_self_triggers, accept_self_triggers, ttc_ready_clk125,
+                    daq_almost_full, daq_ready, trig_fifo_full, acq_fifo_full, ddr3_almost_full, error_trig_rate,
+                    error_data_corrupt, fill_type_clk125[4:0]}),
+        .data_loss(data_loss),
+        .hw_fault(hw_fault),
+        .warning(err_warning),
+        .err_summary(err_summary),
+        .status_reg35(status_reg35),
+        .status_reg36(status_reg36),
+        .status_reg37(status_reg37),
+        .status_reg38(status_reg38),
+        .status_reg39(status_reg39),
+        .status_reg40(status_reg40),
+        .status_reg41(status_reg41),
+        .status_reg42(status_reg42),
+        .status_reg43(status_reg43),
+        .status_reg44(status_reg44),
+        .status_reg45(status_reg45),
+        .status_reg46(status_reg46),
+        .status_reg47(status_reg47),
+        .status_reg48(status_reg48),
+        .status_reg49(status_reg49)
+    );
+
     tts_reporter tts_reporter (
         //.clk(clk125),
         //.reset(rst_from_ipb),
 
         // error status
         .error_ttc_ready(ttc_ready_clk125_n),
-        .error_data_corrupt(error_data_corrupt),
+        .error_data_corrupt(error_data_corrupt | hw_fault),   // a fault latched by the error capture is a TTS error
         .error_pll_unlock(error_pll_unlock),
         .error_trig_rate(error_trig_rate),
         .error_unknown_ttc(error_unknown_ttc),
@@ -2222,7 +2322,7 @@ module wfd_selftrigc_top (
         // status registers (sticky flags, and the count in status register 34) but not as a TTS
         // sync-lost, which would have been permanent before and would now be a one-event glitch.
         .error_trig_num_from_tt(error_trig_num_from_tt),
-        .error_trig_num_from_cm(1'b0),
+        .error_trig_num_from_cm(data_loss),                   // data loss latched by the error capture is a TTS sync-lost
         .error_trig_type_from_tt(error_trig_type_from_tt),
         .error_trig_type_from_cm(1'b0),
 

@@ -81,6 +81,7 @@ port (
     ttc_freq_rst_out         : out std_logic;                     -- dedicated reset to TTC decoder for frequency changes
     i2c_temp_polling_dis_out : out std_logic;                     -- disable EEPROM temperature polling
     i2c_temp_update_out      : out std_logic;                     -- read and update EEPROM temperature value
+    clear_errors_out         : out std_logic;                     -- 6.6.10: clear the error capture (control bit 29)
     fp_trig_width_out        : out std_logic_vector( 3 downto 0); -- width to separate short from long front panel triggers
 
     -- threshold registers
@@ -124,6 +125,21 @@ port (
     status_reg32 : in std_logic_vector(31 downto 0);
     status_reg33 : in std_logic_vector(31 downto 0);
     status_reg34 : in std_logic_vector(31 downto 0);
+    status_reg35 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg36 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg37 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg38 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg39 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg40 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg41 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg42 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg43 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg44 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg45 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg46 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg47 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg48 : in std_logic_vector(31 downto 0) := (others => '0');
+    status_reg49 : in std_logic_vector(31 downto 0) := (others => '0');
 
     -- flash interface ports
     flash_wr_nBytes  : out std_logic_vector( 8 downto 0);
@@ -274,6 +290,7 @@ begin
         ttc_freq_rst_out         => ttc_freq_rst_out,
         i2c_temp_polling_dis_out => i2c_temp_polling_dis_out,
         i2c_temp_update_out      => i2c_temp_update_out,
+        clear_errors_out         => clear_errors_out,
         fp_trig_width_out        => fp_trig_width_out,
 
         -- threshold register ports
@@ -327,6 +344,21 @@ begin
         status_reg32 => status_reg32,
         status_reg33 => status_reg33,
         status_reg34 => status_reg34,
+        status_reg35 => status_reg35,
+        status_reg36 => status_reg36,
+        status_reg37 => status_reg37,
+        status_reg38 => status_reg38,
+        status_reg39 => status_reg39,
+        status_reg40 => status_reg40,
+        status_reg41 => status_reg41,
+        status_reg42 => status_reg42,
+        status_reg43 => status_reg43,
+        status_reg44 => status_reg44,
+        status_reg45 => status_reg45,
+        status_reg46 => status_reg46,
+        status_reg47 => status_reg47,
+        status_reg48 => status_reg48,
+        status_reg49 => status_reg49,
 
         -- flash interface ports
         flash_wr_nBytes  => flash_wr_nBytes,
