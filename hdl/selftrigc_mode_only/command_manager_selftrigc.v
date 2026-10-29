@@ -447,13 +447,15 @@ reg [127:0] channel_checksum; // checksum from received channel data
             ERR_L_FILL_NUM   = 4,   // channel skipped: fill number mismatch not recoverable
             ERR_L_FILL_TYPE  = 5,   // channel skipped: fill type mismatch
             ERR_L_COUNT_LOST = 6,   // the self-trigger count record never came: empty event
-            ERR_L_CHECKSUM   = 7,   // the channel's checksum did not match the data received
+                                    // 7: unused
             ERR_L_CHAN_LOSS  = 8;   // a channel reported data loss in its fill header
             // 9: readout trigger answered empty mid-run (ttc_trigger_receiver); 10: acquisition controller
             // gave up waiting for a channel's done (channel_acq_controller); set in the top level
   localparam ERR_F_DATA_STALL = 0,   // the channel stopped streaming mid-fill (ERROR_DATA_CORRUPTION)
             ERR_F_FLUSH_CUT  = 1,   // a frame being flushed stopped before its end
-            ERR_F_CHAN_FAULT = 2;   // a channel reported a fault in its fill header
+            ERR_F_CHAN_FAULT = 2,   // a channel reported a fault in its fill header
+            ERR_F_CHECKSUM   = 3;   // the channel's checksum did not match the data received: the data was
+                                    // corrupted somewhere between the ADC and here, which is always a fault
   localparam ERR_W_STALE_FRAME = 0,  // a stale frame was flushed and the reply read again (recovered)
             ERR_W_REISSUED    = 1,  // a stale fill header was discarded and the read fill re-issued (recovered)
             ERR_W_IPBUS_ABORT = 2,  // an IPbus transaction was abandoned (no reply, or the software stopped reading)
@@ -1419,7 +1421,7 @@ reg [127:0] channel_checksum; // checksum from received channel data
           else begin
             next_daq_data[63:0] = {32'hbaad_baad, readout_timestamp[31:0]};
             next_cs_mismatch_count[31:0] = cs_mismatch_count[31:0] + 1; // increment mismatch count
-            next_err_loss_pulse[ERR_L_CHECKSUM] = 1'b1;   // the data delivered for this channel is wrong
+            next_err_fault_pulse[ERR_F_CHECKSUM] = 1'b1;  // the data delivered for this channel is corrupt
           end
 
           nextstate[CHECK_CHAN_EN] = 1'b1;

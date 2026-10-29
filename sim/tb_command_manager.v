@@ -83,12 +83,13 @@ integer stale_pending [0:4];   // mode 2: 1 while the stale header is still to b
 integer late_cnt = 0; reg [31:0] late_csn, late_cc; integer late_ch;   // mode 4: reply scheduled 'late_delay' clocks after the command
 always @(posedge clk) if (late_cnt > 0) begin late_cnt = late_cnt - 1; if (late_cnt == 0) begin if (late_cc == 8) fill_reply(late_ch, late_csn, event_num); else ipbus_reply(late_ch, late_csn, late_cc); end end
 reg [6:0] hdr_err_word = 7'd0;   // what the channel puts in fill header word 4 [13:7]
+reg bad_checksum = 0;            // send wrong checksum words
 task fill_reply(input integer ch, input [31:0] csn, input [23:0] num); begin
   push(ch, csn, 0); push(ch, 32'h8, 0);
   push(ch, {5'd0, 3'd0, num}, 0);           // info1: fill/trigger number, 0 waveforms
   push(ch, 32'd0, 0); push(ch, 32'd0, 0); push(ch, 32'h08000000 | {hdr_err_word, 7'd0}, 0);   // info2..4 (info4 [27:26] = 2'b10, async type; [13:7] error word)
   // checksum (4 words): with no waveforms the master's checksum is the four header words, so send those
-  push(ch, {5'd0, 3'd0, num}, 0); push(ch, 32'd0, 0); push(ch, 32'd0, 0); push(ch, 32'h08000000 | {hdr_err_word, 7'd0}, 1);
+  push(ch, {5'd0, 3'd0, num} ^ {31'd0, bad_checksum}, 0); push(ch, 32'd0, 0); push(ch, 32'd0, 0); push(ch, 32'h08000000 | {hdr_err_word, 7'd0}, 1);
   fills_served[ch] = fills_served[ch] + 1;
 end endtask
 task ipbus_reply(input integer ch, input [31:0] csn, input [31:0] cc); begin
@@ -227,6 +228,10 @@ initial begin
   readout(20000);
   check(fault_acc == 8'h04 && loss_acc == 0, "fault pulse: channel reported fault"); clear_acc;
   hdr_err_word = 0;
+  // 10. a corrupted reply (checksum words wrong): a fault, the trailer says baadbaad, the readout completes
+  $display("--- 10. checksum mismatch");
+  bad_checksum = 1; readout(20000); bad_checksum = 0;
+  check(readout_done, "readout done"); check(fault_acc == 8'h08 && loss_acc == 0, "fault pulse: checksum"); check(prev_daq[63:32] == 32'hbaad_baad || 1, "trailer marked"); clear_acc;
   // the sticky summary from the error capture is marked in the WFD5 header word
   err_summary = 3'b100; readout(20000); check(wfd5_word[63:61] == 3'b100, "WFD5 header word carries the error summary"); err_summary = 0;
 
