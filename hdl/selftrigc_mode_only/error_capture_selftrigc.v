@@ -12,7 +12,7 @@
 // Snapshot (status registers 35 to 49, frozen at the FIRST loss or fault after a clear):
 //   35  live: {valid, data_loss, fault, warning, snapshot count[3:0], fault bits[7:0], loss bits[15:0]}
 //   36  {first cause: fault?[31], index[30:24]}, {channel addressed[23:20]}, {channel-reported error
-//       word[19:13], its channel[12:9]}, {warning bits[8:5]}, {reply retries[4:3], 0, reissue retries[1:0]}
+//       word[19:13], its channel[12:9]}, {warning bits[3:0] at [8:5]}, {reply retries[4:3], 0, reissue retries[1:0]}
 //   37  command manager state [31:0]
 //   38  {cm state[34:32], ttr state[3:0], cac state[5:0], tp state[6:0], channel dones[4:0], 7'd0}
 //   39  {chan_error_rc[4:0], chan_error_sn[4:0], readout pause[4:0], chan_en[4:0], cm_rx_valid[4:0],
@@ -26,7 +26,8 @@
 //   46  last fill header word 1 (fill number, waveform count low bits)
 //   47  last fill header word 4 (channel tag, type, the channel's error word)
 //   48  miscellaneous live flags, see the top level
-//   49  {loss bits latched since the snapshot[15:0], fault bits since[7:0], 8'd0}: what came after
+//   49  {loss bits latched since the snapshot[15:0], fault bits since[7:0], 2'd0, warning bits[5:0]}: what
+//       came after the snapshot, and all six warning bits (6.7.0: bits 4 and 5 do not fit in 36)
 // All inputs are in clk125 except the two TTC-domain pulses, which are synchronised here; the
 // TTC-domain state fields are sampled as the status registers sample them (status only).
 
@@ -37,7 +38,7 @@ module error_capture_selftrigc (
   // causes
   input wire [15:0] err_loss_pulse,     // command manager (clk125), one clock each
   input wire [ 7:0] err_fault_pulse,
-  input wire [ 3:0] err_warn_pulse,
+  input wire [ 5:0] err_warn_pulse,
   input wire        empty_midrun,       // ttc_clk: readout trigger answered empty while the run was active
   input wire        cac_wait_gave_up,   // ttc_clk: the acquisition controller stopped waiting for a done
   input wire [ 6:0] chan_err_word,      // the error word a channel put in its fill header, with
@@ -87,14 +88,14 @@ module error_capture_selftrigc (
   end
   wire [15:0] loss_now  = err_loss_pulse | {5'd0, (cw_s[1] & ~cw_s3), (em_s[1] & ~em_s3), 9'd0};
   wire [ 7:0] fault_now = err_fault_pulse;
-  wire [ 3:0] warn_now  = err_warn_pulse;
+  wire [ 5:0] warn_now  = err_warn_pulse;
 
   reg clear_d = 1'b0;
   wire do_clear = clear & ~clear_d;
 
   reg [15:0] loss_bits, loss_since;
   reg [ 7:0] fault_bits, fault_since;
-  reg [ 3:0] warn_bits;
+  reg [ 5:0] warn_bits;
   reg        snap_valid;
   reg [ 3:0] snap_count;
   reg [ 7:0] first_cause;           // {fault?, index[6:0]}
@@ -118,7 +119,7 @@ module error_capture_selftrigc (
     clear_d <= clear;
     if (rst || do_clear) begin
       data_loss <= 1'b0; hw_fault <= 1'b0; warning <= 1'b0;
-      loss_bits <= 16'd0; fault_bits <= 8'd0; warn_bits <= 4'd0; loss_since <= 16'd0; fault_since <= 8'd0;
+      loss_bits <= 16'd0; fault_bits <= 8'd0; warn_bits <= 6'd0; loss_since <= 16'd0; fault_since <= 8'd0;
       snap_valid <= 1'b0;
       first_cause <= 8'hFF;
       if (rst) snap_count <= 4'd0;
@@ -158,7 +159,7 @@ module error_capture_selftrigc (
   assign err_summary  = {data_loss, hw_fault, warning};
   assign status_reg35 = {snap_valid, data_loss, hw_fault, warning, snap_count, fault_bits, loss_bits};
   // 36 is assembled live from the frozen first cause and the later-arriving channel word / warnings
-  assign status_reg36 = {first_cause, s36[23:20], snap_chan_err_word, snap_chan_err_src, warn_bits, s36[4:0]};
+  assign status_reg36 = {first_cause, s36[23:20], snap_chan_err_word, snap_chan_err_src, warn_bits[3:0], s36[4:0]};
   assign status_reg37 = s37;
   assign status_reg38 = s38;
   assign status_reg39 = s39;
@@ -171,6 +172,6 @@ module error_capture_selftrigc (
   assign status_reg46 = s46;
   assign status_reg47 = s47;
   assign status_reg48 = s48;
-  assign status_reg49 = {loss_since, fault_since, 8'd0};
+  assign status_reg49 = {loss_since, fault_since, 2'd0, warn_bits};
 
 endmodule

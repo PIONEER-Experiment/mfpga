@@ -82,6 +82,7 @@ module status_reg_block_selftrigc (
   input wire       cm_rx_ready,         // command manager is accepting channel data
   input wire       trig_hold_reset,     // trigger block held in reset after a master reset (REG14 bit 16)
   input wire [7:0] triggers_downgraded, // readout triggers answered with an empty event because the acquisition controller was busy (REG14 [24:17], TTC domain, status only)
+  input wire cm_peeking,                // command manager in the header-first phase of a readout (REG14 [31], 6.7.0)
   input wire [7:0] trig_num_error_count, // command manager: trigger-number mismatches with a channel header, skipped not fatal (REG34 [7:0])
   input wire [4:0] fill_type,
   input wire [4:0] chan_en,
@@ -216,7 +217,7 @@ assign status_reg13 = {20'd0, trig_timestamp[43:32]};
 
 // Register 14: unused
 // command path diagnostics: who the command manager is talking to and whether the switches will let it
-assign status_reg14 = {7'd0, triggers_downgraded[7:0], trig_hold_reset, cm_rx_ready, cm_tx_valid, cm_rx_valid[4:0], cm_tx_ready[4:0], cm_tx_dest[3:0]};
+assign status_reg14 = {cm_peeking, 6'd0, triggers_downgraded[7:0], trig_hold_reset, cm_rx_ready, cm_tx_valid, cm_rx_valid[4:0], cm_tx_ready[4:0], cm_tx_dest[3:0]};
 
 // Register 15: Data corruption threshold
 assign status_reg15 = thres_data_corrupt[31:0];

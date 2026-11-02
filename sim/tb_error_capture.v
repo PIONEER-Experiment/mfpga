@@ -6,7 +6,7 @@ module tb;
 reg clk=0; always #4 clk=~clk;          // 125 MHz
 reg tclk=0; always #12.5 tclk=~tclk;    // 40 MHz
 reg rst=1, clear=0;
-reg [15:0] lossp=0; reg [7:0] faultp=0; reg [3:0] warnp=0; reg em=0, cw=0; reg [6:0] cew=0; reg cev=0;
+reg [15:0] lossp=0; reg [7:0] faultp=0; reg [5:0] warnp=0; reg em=0, cw=0; reg [6:0] cew=0; reg cev=0;
 reg [34:0] cm_state = 35'h1; reg [3:0] ttr=4'h1; reg [5:0] cac=6'h1; reg [6:0] tp=7'h1; reg [4:0] dones=0, erc=0, esn=0, pause=0, cen=5'b11111, rxv=0, txr=5'b11111;
 reg [3:0] dest=0; reg [23:0] evn=24'd100, trn=24'd120; reg [43:0] ts=44'h123456789; reg [31:0] w1=32'h11, w2=32'h22, w3=32'h33, w4=32'h44, misc=32'hABCD0000; reg [8:0] rs=9'd0;
 wire data_loss, hw_fault, warning; wire [2:0] summ;
@@ -27,8 +27,8 @@ initial begin
   repeat(4) @(posedge clk); rst<=0; repeat(4) @(posedge clk);
   check(s35 == 0 && !data_loss && !hw_fault && !warning, "clean after reset");
   // a warning alone: flag, no snapshot
-  @(posedge clk); warnp <= 4'b0010; @(posedge clk); warnp <= 0; repeat(3) @(posedge clk);
-  check(warning && !data_loss && !s35[31], "warning sets the flag only"); check(s36[8:5] == 4'b0010, "warning bit recorded");
+  @(posedge clk); warnp <= 6'b010010; @(posedge clk); warnp <= 0; repeat(3) @(posedge clk);
+  check(warning && !data_loss && !s35[31], "warning sets the flag only"); check(s36[8:5] == 4'b0010 && s49[7:0] == 8'b00010010, "warning bits recorded (36 holds the low four, 49 all six)");
   // first loss: snapshot
   cm_state = 35'h1000; dest = 4'd2; evn = 24'd101; rs = 9'b01_10_00101;
   pulse_loss(3);

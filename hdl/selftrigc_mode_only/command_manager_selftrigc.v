@@ -86,7 +86,8 @@ module command_manager_selftrigc (
   // error reporting (6.6.10): one-clock pulses to the error capture, and what it needs to record
   output reg  [15:0] err_loss_pulse,     // a data-loss cause, see ERR_L_* below
   output reg  [ 7:0] err_fault_pulse,    // a hardware/path fault cause, see ERR_F_*
-  output reg  [ 3:0] err_warn_pulse,     // recovered conditions worth knowing about, see ERR_W_*
+  output reg  [ 5:0] err_warn_pulse,     // recovered conditions worth knowing about, see ERR_W_*
+  output reg         peeking,            // 6.7.0: in the header-first phase of a readout (status)
   output reg  [ 6:0] chan_err_word,      // the error word a channel put in its fill header (INFO4 [13:7])
   output reg         chan_err_valid,     // ... one clock when a non-zero one was received
   output reg  [31:0] last_rsn_word,      // the last words received from a channel, for the snapshot
@@ -287,9 +288,23 @@ reg [127:0] channel_checksum; // checksum from received channel data
                        selftriggers_chan3_latched[19:0]+
                        selftriggers_chan4_latched[19:0];
  
-  // the number of 64 bit words used by the activated channel headers
+  // Header first (6.7.0).  Before any read-fill command is issued, the fill header of every
+  // enabled channel is peeked (CC_PEEK_HDR, which leaves the header in the channel's FIFO) and the
+  // waveform count it carries is summed here.  The event size in the AMC13 header is computed from
+  // these sums, so it is exact by construction; the trigger-line count record (event_triggers) is
+  // only compared against it afterwards, as a monitor of the trigger line.  A channel whose header
+  // could not be peeked (no reply, wrong fill, error code) is left out of the event entirely: it is
+  // not read, and the channel header words are not counted for it.
+  reg  [19:0] peeked_trigs, next_peeked_trigs;         // waveform counts summed over the peeked channels
+  reg  [ 2:0] peeked_chans, next_peeked_chans;         // how many channels were peeked successfully
+  reg  [ 4:0] peek_discard_mask, next_peek_discard_mask; // channels that discarded a stale header at the peek
+  reg  [22:0] peeked_count [0:4];                       // the count each channel's header carried (checked at the read)
+  reg         peek_word, next_peek_word;                // SEND_CHAN_CC: 0 = the CC, 1 = the expected fill number
+  reg         count_valid, next_count_valid;            // the trigger-line count record was received for this event
+  reg         next_peeking;
+  // the number of 64 bit words used by the channel headers of the channels in the event
   wire [4:0] channel_header_words;
-  assign channel_header_words = 5*(chan_en[0]+chan_en[1]+chan_en[2]+chan_en[3]+chan_en[4]);
+  assign channel_header_words = 5*peeked_chans;
 
   // the number of 64 bit words words, including waveform header, per self-trigger
   wire [22:0] per_trigger_word_count;
@@ -318,8 +333,9 @@ reg [127:0] channel_checksum; // checksum from received channel data
         event_triggers <= event_trigs_pipe;
      end
   end
-  // the total number of 64 bit words for the TTC readout event, including headers and trailers
-  assign event_size = per_trigger_word_count * event_triggers + channel_header_words + 4;
+  // the total number of 64 bit words for the TTC readout event, including headers and trailers:
+  // from the peeked headers (6.7.0; was from the trigger-line count)
+  assign event_size = per_trigger_word_count * peeked_trigs + channel_header_words + 4;
 
   // Bounded wait for the self-trigger count record in CHECK_SELFTRIG_FIFO: 2^23 clk125 = 67 ms.
   // The record is written by channel_acq_controller after every channel has reported done, and
@@ -446,8 +462,8 @@ reg [127:0] channel_checksum; // checksum from received channel data
             ERR_L_REPLY_CUT  = 3,   // channel skipped: its reply stopped before the header was complete
             ERR_L_FILL_NUM   = 4,   // channel skipped: fill number mismatch not recoverable
             ERR_L_FILL_TYPE  = 5,   // channel skipped: fill type mismatch
-            ERR_L_COUNT_LOST = 6,   // the self-trigger count record never came: empty event
-                                    // 7: unused
+                                    // 6: unused since 6.7.0 (a lost count record is a warning now)
+            ERR_L_SIZE_MISMATCH = 7, // the header read for a channel is not the one peeked: event size wrong
             ERR_L_CHAN_LOSS  = 8;   // a channel reported data loss in its fill header
             // 9: readout trigger answered empty mid-run (ttc_trigger_receiver); 10: acquisition controller
             // gave up waiting for a channel's done (channel_acq_controller); set in the top level
@@ -459,8 +475,10 @@ reg [127:0] channel_checksum; // checksum from received channel data
   localparam ERR_W_STALE_FRAME = 0,  // a stale frame was flushed and the reply read again (recovered)
             ERR_W_REISSUED    = 1,  // a stale fill header was discarded and the read fill re-issued (recovered)
             ERR_W_IPBUS_ABORT = 2,  // an IPbus transaction was abandoned (no reply, or the software stopped reading)
-            ERR_W_IPBUS_STALE = 3;  // a stale frame was flushed in front of an IPbus reply (recovered)
-  reg [15:0] next_err_loss_pulse; reg [7:0] next_err_fault_pulse; reg [3:0] next_err_warn_pulse;
+            ERR_W_IPBUS_STALE = 3,  // a stale frame was flushed in front of an IPbus reply (recovered)
+            ERR_W_TRIG_COUNT  = 4,  // the trigger-line count record differs from the sum of the peeked headers (6.7.0)
+            ERR_W_COUNT_LOST  = 5;  // the count record never came; the readout went ahead from the headers (6.7.0)
+  reg [15:0] next_err_loss_pulse; reg [7:0] next_err_fault_pulse; reg [5:0] next_err_warn_pulse;
   reg [ 4:0] skipped_mask, next_skipped_mask;   // channels skipped in the event being built
   reg [ 1:0] chan_flags, next_chan_flags;       // {re-issued, stale frame flushed} for the channel being read (channel header word)
   assign retry_status = {reply_retries, reissue_retries, skipped_mask};
@@ -532,9 +550,15 @@ reg [127:0] channel_checksum; // checksum from received channel data
     next_reissue_retries    = reissue_retries;
     next_err_loss_pulse     = 16'd0;
     next_err_fault_pulse    = 8'd0;
-    next_err_warn_pulse     = 4'd0;
+    next_err_warn_pulse     = 6'd0;
     next_skipped_mask       = skipped_mask;
     next_chan_flags         = chan_flags;
+    next_peeking            = peeking;
+    next_peeked_trigs       = peeked_trigs;
+    next_peeked_chans       = peeked_chans;
+    next_peek_discard_mask  = peek_discard_mask;
+    next_peek_word          = peek_word;
+    next_count_valid        = count_valid;
     
     case (1'b1) // synopsys parallel_case full_case
       // idle state
@@ -552,6 +576,12 @@ reg [127:0] channel_checksum; // checksum from received channel data
           next_empty_payload = skip_payload;
           next_chan_tx_fifo_dest[3:0] = 0;
           next_skipped_mask = 5'd0;
+          next_peeking           = 1'b1;     // header-first: peek every channel before reading any
+          next_peeked_trigs      = 20'd0;
+          next_peeked_chans      = 3'd0;
+          next_peek_discard_mask = 5'd0;
+          next_peek_word         = 1'b0;
+          next_count_valid       = 1'b1;
 //          next_delta_trigger[21:0] = trigger_ticks[21:0];
 //          next_trigger_ticks[21:0] = 22'd0;
 
@@ -720,12 +750,14 @@ reg [127:0] channel_checksum; // checksum from received channel data
           nextstate[CHECK_CHAN_EN] = 1'b1;
         end
         else if ( selftrig_wait_timeout ) begin
-          // give up: empty event, same path as send_empty_event from IDLE
-          next_empty_event = 1'b1;
-          next_err_loss_pulse[ERR_L_COUNT_LOST] = 1'b1;
-          next_daq_valid = 1'b1;
-          next_daq_data[63:0] = {8'h00, trig_num[23:0], trig_timestamp[43:32], 20'd4};
-          nextstate[SEND_AMC13_HEADER1] = 1'b1;
+          // The record was lost.  Since 6.7.0 the event size comes from the fill headers, so the
+          // readout goes ahead without it (a warning, not a lost event); the record FIFO is not
+          // popped at the end of this event, and the monitor comparison is skipped for it.  (The
+          // acquisition controller's own wait is 26 ms, so a record that has not come after 67 ms
+          // is not merely late: the FIFO does not go out of step.)
+          next_count_valid = 1'b0;
+          next_err_warn_pulse[ERR_W_COUNT_LOST] = 1'b1;
+          nextstate[CHECK_CHAN_EN] = 1'b1;
         end
         else begin
           // stay here until the fifo isn't empty
@@ -738,6 +770,14 @@ reg [127:0] channel_checksum; // checksum from received channel data
         if (cs_mismatch_count > thres_data_corrupt) begin
           nextstate[ERROR_DATA_CORRUPTION] = 1'b1;
         end
+        else if ((chan_tx_fifo_dest[3:0] == 4'h5) && peeking) begin
+          // every channel has been peeked: the event size is known.  Compare the trigger-line count
+          // record with it (monitor only), then read the fills of the peeked channels in turn.
+          if (count_valid && (event_triggers != peeked_trigs)) next_err_warn_pulse[ERR_W_TRIG_COUNT] = 1'b1;
+          next_peeking = 1'b0;
+          next_chan_tx_fifo_dest[3:0] = 0;
+          nextstate[CHECK_CHAN_EN] = 1'b1;
+        end
         else if ((chan_tx_fifo_dest[3:0] == 4'h5) && !sent_amc13_header) begin
           // every enabled channel was skipped (or none is enabled): send a well-formed empty
           // event rather than a trailer with no header
@@ -749,12 +789,14 @@ reg [127:0] channel_checksum; // checksum from received channel data
         else if (chan_tx_fifo_dest[3:0] == 4'h5) begin
           nextstate[READY_AMC13_TRAILER] = 1'b1;
         end
-        else if (chan_en[chan_tx_fifo_dest] == 1) begin
+        else if (chan_en[chan_tx_fifo_dest] && !(skipped_mask[chan_tx_fifo_dest] && !peeking)) begin
+          // (a channel skipped at the peek is not read: it is not in the event size)
           //next_num_chan_en[2:0] = num_chan_en[2:0] + 1;
           next_chan_tx_fifo_last = 0;
           next_reply_retries   = 2'd0;
           next_reissue_retries = 2'd0;
-          next_chan_flags      = 2'd0;
+          next_chan_flags      = {peek_discard_mask[chan_tx_fifo_dest] & ~peeking, 1'b0};
+          next_peek_word       = 1'b0;
           nextstate[SEND_CHAN_CSN] = 1'b1;
         end
         else begin
@@ -767,18 +809,25 @@ reg [127:0] channel_checksum; // checksum from received channel data
         chan_tx_fifo_data[31:0] = csn[31:0];
 
         if (chan_tx_fifo_ready) begin
-          next_chan_tx_fifo_last = 1;
+          next_chan_tx_fifo_last = ~peeking;   // the peek command has one more word, the fill number
           nextstate[SEND_CHAN_CC] = 1'b1;
         end
         else begin
           nextstate[SEND_CHAN_CSN] = 1'b1;
         end
       end
-      // send 'read fill' command code to channel
+      // send the command code to the channel: 'read fill' (0x8), or when peeking 'peek header'
+      // (0xB) followed by the fill number we expect (the channel discards older headers itself)
       state[SEND_CHAN_CC] : begin
-        chan_tx_fifo_data[31:0] = 32'h8;
+        chan_tx_fifo_data[31:0] = peek_word ? {8'd0, event_num[23:0]} : (peeking ? 32'hB : 32'h8);
 
-        if (chan_tx_fifo_ready) begin
+        if (chan_tx_fifo_ready && peeking && !peek_word) begin
+          next_peek_word = 1'b1;
+          next_chan_tx_fifo_last = 1;
+          nextstate[SEND_CHAN_CC] = 1'b1;
+        end
+        else if (chan_tx_fifo_ready) begin
+          next_peek_word = 1'b0;
           nextstate[READ_CHAN_RSN] = 1'b1;
         end
         else begin
@@ -830,8 +879,16 @@ reg [127:0] channel_checksum; // checksum from received channel data
       state[READ_CHAN_RC] : begin
         if (chan_rx_fifo_valid) begin
           // check that the channel didn't report any errors
-          if (chan_rx_fifo_data[31:0] == 32'h8) begin
+          if (!peeking && (chan_rx_fifo_data[31:0] == 32'h8)) begin
             // everything is good
+            nextstate[READ_CHAN_INFO1] = 1'b1;
+          end
+          else if (peeking && (chan_rx_fifo_data[7:0] == 8'h0B) && (chan_rx_fifo_data[31:9] == 23'd0)) begin
+            // the peek reply; [8] says the channel discarded a stale (older) header to get to this one
+            if (chan_rx_fifo_data[8]) begin
+              next_peek_discard_mask[chan_tx_fifo_dest] = 1'b1;
+              next_err_warn_pulse[ERR_W_REISSUED] = 1'b1;
+            end
             nextstate[READ_CHAN_INFO1] = 1'b1;
           end
           else begin
@@ -902,7 +959,7 @@ reg [127:0] channel_checksum; // checksum from received channel data
             // again: the stale header has been popped, and the next one is a fill closer to ours.
             // A newer fill cannot be recovered that way; either way the channel is given up on for
             // this event after a few tries, and the error counted.  Not terminal any more (6.6.9).
-            if ((event_num[23:0] - chan_rx_fifo_data[23:0] < 24'h800000) && (reissue_retries != MAX_REISSUE_RETRIES)) begin
+            if (!peeking && (event_num[23:0] - chan_rx_fifo_data[23:0] < 24'h800000) && (reissue_retries != MAX_REISSUE_RETRIES)) begin
               next_reissue_retries = reissue_retries + 1;
               next_flush_action = FLUSH_REISSUE;
               next_chan_flags[1] = 1'b1;
@@ -1006,12 +1063,25 @@ reg [127:0] channel_checksum; // checksum from received channel data
             next_pretrigger_count[15:12] = chan_rx_fifo_data[6:3];
 
             next_chan_tag[11:0] = chan_rx_fifo_data[25:14];
-            // the channel's error word (6.6.10): [13] it lost data, [12] it had a fault, [11:7] its cause code
-            if (chan_rx_fifo_data[13]) next_err_loss_pulse[ERR_L_CHAN_LOSS]   = 1'b1;
-            if (chan_rx_fifo_data[12]) next_err_fault_pulse[ERR_F_CHAN_FAULT] = 1'b1;
             next_master_checksum[127:0] = {chan_rx_fifo_data[31:0], master_checksum[95:0]};
             //next_burst_data[127:0]      = {chan_rx_fifo_data[31:0], burst_data[95:0]};
-            nextstate[READY_AMC13_HEADER1] = 1'b1;
+            if (peeking) begin
+              // the header is complete: add this channel's waveform count to the event, go on to
+              // the next channel (the header stays in the channel's FIFO for the read)
+              next_peeked_trigs = peeked_trigs + {chan_rx_fifo_data[2:0], wfm_count[19:0]};
+              next_peeked_chans = peeked_chans + 3'd1;
+              next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0] + 1;
+              next_csn[31:0] = csn[31:0] + 1;
+              nextstate[CHECK_CHAN_EN] = 1'b1;
+            end
+            else begin
+              // the channel's error word (6.6.10): [13] it lost data, [12] it had a fault, [11:7] its cause code
+              if (chan_rx_fifo_data[13]) next_err_loss_pulse[ERR_L_CHAN_LOSS]   = 1'b1;
+              if (chan_rx_fifo_data[12]) next_err_fault_pulse[ERR_F_CHAN_FAULT] = 1'b1;
+              // the header must be the one peeked, or the event size already sent is wrong
+              if ({chan_rx_fifo_data[2:0], wfm_count[19:0]} != peeked_count[chan_tx_fifo_dest]) next_err_loss_pulse[ERR_L_SIZE_MISMATCH] = 1'b1;
+              nextstate[READY_AMC13_HEADER1] = 1'b1;
+            end
           end
         end
         else if (rsn_wait_timeout) begin
@@ -1537,9 +1607,15 @@ reg [127:0] channel_checksum; // checksum from received channel data
       trig_num_errors           <= 8'd0;
       err_loss_pulse            <= 16'd0;
       err_fault_pulse           <= 8'd0;
-      err_warn_pulse            <= 4'd0;
+      err_warn_pulse            <= 6'd0;
       skipped_mask              <= 5'd0;
       chan_flags                <= 2'd0;
+      peeking                   <= 1'b0;
+      peeked_trigs              <= 20'd0;
+      peeked_chans              <= 3'd0;
+      peek_discard_mask         <= 5'd0;
+      peek_word                 <= 1'b0;
+      count_valid               <= 1'b1;
       chan_err_word             <= 7'd0;
       chan_err_valid            <= 1'b0;
       last_rsn_word             <= 32'd0;
@@ -1566,13 +1642,22 @@ reg [127:0] channel_checksum; // checksum from received channel data
       err_warn_pulse              <= next_err_warn_pulse;
       skipped_mask                <= next_skipped_mask;
       chan_flags                  <= next_chan_flags;
+      peeking                     <= next_peeking;
+      peeked_trigs                <= next_peeked_trigs;
+      peeked_chans                <= next_peeked_chans;
+      peek_discard_mask           <= next_peek_discard_mask;
+      peek_word                   <= next_peek_word;
+      count_valid                 <= next_count_valid;
+      // the waveform count each channel's header carried at the peek, for the check at the read
+      if (peeking && state[READ_CHAN_INFO4] && chan_rx_fifo_valid && chan_tx_fifo_dest < 4'd5)
+        peeked_count[chan_tx_fifo_dest] <= {chan_rx_fifo_data[2:0], wfm_count[19:0]};
       // the words a channel answered with, kept for the error snapshot and the channel header word
       if (state[READ_CHAN_RSN]   && chan_rx_fifo_valid) last_rsn_word   <= chan_rx_fifo_data;
       if (state[READ_CHAN_RC]    && chan_rx_fifo_valid) last_rc_word    <= chan_rx_fifo_data;
       if (state[READ_CHAN_INFO1] && chan_rx_fifo_valid) last_info1_word <= chan_rx_fifo_data;
       if (state[READ_CHAN_INFO4] && chan_rx_fifo_valid) last_info4_word <= chan_rx_fifo_data;
-      chan_err_valid <= state[READ_CHAN_INFO4] && chan_rx_fifo_valid && (chan_rx_fifo_data[13:7] != 7'd0);
-      if (state[READ_CHAN_INFO4] && chan_rx_fifo_valid) chan_err_word <= chan_rx_fifo_data[13:7];
+      chan_err_valid <= !peeking && state[READ_CHAN_INFO4] && chan_rx_fifo_valid && (chan_rx_fifo_data[13:7] != 7'd0);
+      if (!peeking && state[READ_CHAN_INFO4] && chan_rx_fifo_valid) chan_err_word <= chan_rx_fifo_data[13:7];
       if (nextstate[ERROR_TRIG_NUM] && !state[ERROR_TRIG_NUM]) trig_num_errors <= trig_num_errors + 8'd1;
       chan_tag[11:0]              <= next_chan_tag[11:0];
       //chan_xadc_alarms[3:0]       <= next_chan_xadc_alarms[3:0];
@@ -1760,7 +1845,7 @@ reg [127:0] channel_checksum; // checksum from received channel data
         nextstate[SEND_AMC13_TRAILER]    : begin
           daq_trailer            <= 1;
           readout_done           <= 1;
-          selftrigger_fifo_rd_en <= 1;  // clear the # of trigger buffer
+          selftrigger_fifo_rd_en <= count_valid;  // pop the trigger-count record (unless it never came)
         end
 
         // ======================

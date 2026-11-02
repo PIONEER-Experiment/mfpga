@@ -164,7 +164,8 @@ module wfd_selftrigc_top (
     wire [7:0] triggers_downgraded;   // ttc_trigger_receiver: readout triggers answered with an empty event, TTC domain, status only
     wire [7:0] trig_num_error_count;  // command_manager: trigger-number mismatches (no longer terminal), status only
     // error capture (6.6.10)
-    wire [15:0] err_loss_pulse;  wire [7:0] err_fault_pulse;  wire [3:0] err_warn_pulse;
+    wire [15:0] err_loss_pulse;  wire [7:0] err_fault_pulse;  wire [5:0] err_warn_pulse;
+    wire        cm_peeking;      // command manager in its header-first phase (6.7.0, status)
     wire [ 6:0] chan_err_word;   wire chan_err_valid;
     wire [31:0] last_rsn_word, last_rc_word, last_info1_word, last_info4_word;
     wire [ 8:0] cm_retry_status;
@@ -1947,6 +1948,7 @@ module wfd_selftrigc_top (
         .cm_rx_ready(axi_stream_to_cm_from_channel_tready),
         .trig_hold_reset(trig_hold_reset),
         .triggers_downgraded(triggers_downgraded),
+        .cm_peeking(cm_peeking),                 // header-first phase (6.7.0)
         .trig_num_error_count(trig_num_error_count),
         .fill_type(fill_type_clk125),
         .chan_en(chan_en),
@@ -2224,6 +2226,7 @@ module wfd_selftrigc_top (
         .err_loss_pulse(err_loss_pulse),             // error capture (6.6.10)
         .err_fault_pulse(err_fault_pulse),
         .err_warn_pulse(err_warn_pulse),
+        .peeking(cm_peeking),
         .chan_err_word(chan_err_word),
         .chan_err_valid(chan_err_valid),
         .last_rsn_word(last_rsn_word),
