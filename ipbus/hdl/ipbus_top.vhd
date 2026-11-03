@@ -159,6 +159,7 @@ architecture rtl of ipbus_top is
 
     signal clk_125_int : std_logic;
     signal rst_125, rst_ipb, rst_200, sys_rst : std_logic;
+    signal rst_ipb_pulse : std_logic;   -- 6.7.1: single-cycle copy of the IPbus reset for rst_out
     signal mac_tx_data, mac_rx_data : std_logic_vector(7 downto 0);
     signal mac_tx_valid, mac_tx_last, mac_tx_error, mac_tx_ready, mac_rx_valid, mac_rx_last, mac_rx_error : std_logic;
     signal ipb_master_out : ipb_wbus;
@@ -176,11 +177,12 @@ begin
         clk_200 => clk_200,
         rst_in  => sys_rst,
         rst_ipb => rst_ipb,
+        rst_ipb_pulse => rst_ipb_pulse,
         rst_125 => rst_125,
         rst_200 => rst_200
     );
 
-    rst_out <= rst_ipb;
+    rst_out <= rst_ipb_pulse;           -- one cycle, as before 6.7.1; rst_ipb (to the core) is longer
     clk_125 <= clk_125_int;
     
     

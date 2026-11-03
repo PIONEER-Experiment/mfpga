@@ -16,9 +16,19 @@
 -- SYS.RST, no ping, until reconfigured" failure: it is the one defect found in the reset path, it
 -- depends on the phase between the two clocks at the moment of the reset (random), and on the
 -- routing delay of this one path (build dependent).
--- rst_ipb is unchanged (one clk_ipb cycle, as the rest of the design expects from rst_out); the
--- copy for the other domains is held for 16 clk_ipb cycles (128 ns) and synchronised by real
+-- The copy for the other domains is held for 16 clk_ipb cycles (128 ns) and synchronised by real
 -- flip-flops marked ASYNC_REG, so every domain sees it whatever the phase.
+--
+-- 6.7.2: rst_ipb, which goes to the IPbus core and the slaves, is now held for 32 cycles.  The
+-- core's udp_clock_crossing_if also carries rst_ipb into the MAC clock (rst_ipb_buf, a two-stage
+-- synchroniser: CDC-2) and a single cycle can be missed there too.  And the reset itself makes the
+-- toggle flip-flops of the core's handshakes (pkt_done_*_tff on the IPbus side, req_send_tff on the
+-- MAC side) toggle if they held a '1'; each side must still be in reset when the other side's
+-- spurious toggle arrives, a few cycles later, or it is counted as a real "packet ready / packet
+-- done" and the buffer bookkeeping of the two halves no longer agrees.  rst_ipb now starts first
+-- and covers rst_125 (which starts ~3 cycles later and lasts 16) plus the synchroniser delays, so
+-- every spurious toggle lands inside a reset.  rst_ipb_pulse keeps the old single cycle for the rest
+-- of the design (rst_out -> rst_from_ipb, whose width the channel reset line depends on).
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -30,7 +40,8 @@ entity ipbus_reset is
 		clk_125: in std_logic;
 		clk_200: in std_logic;
 		rst_in: in std_logic;
-		rst_ipb: out std_logic;
+		rst_ipb: out std_logic;          -- 32 clk_ipb cycles: the IPbus core and slaves
+		rst_ipb_pulse: out std_logic;    -- 1 clk_ipb cycle: rst_out to the rest of the design
 		rst_125: out std_logic;
 		rst_200: out std_logic
 		);
@@ -41,6 +52,8 @@ architecture rtl of ipbus_reset is
 signal rst_delayed: std_logic := '0';
 signal rst_xdom: std_logic := '0';                         -- stretched copy for the other clock domains
 signal xdom_ctr: unsigned(3 downto 0) := (others => '0');
+signal ipb_ctr: unsigned(4 downto 0) := (others => '0');
+signal rst_ipb_long: std_logic := '0';
 signal sync_rst_125: std_logic_vector(1 downto 0) := (others => '0');
 signal sync_rst_200: std_logic_vector(1 downto 0) := (others => '0');
 
@@ -69,7 +82,17 @@ begin
 					rst_dly_ctr <= rst_dly_ctr + 1;
 				end if;
 			end if;
-			rst_ipb <= rst_delayed;
+			rst_ipb_pulse <= rst_delayed;
+			-- the long IPbus-side reset: starts with rst_delayed, held for 32 cycles
+			if rst_delayed = '1' then
+				ipb_ctr <= (others => '1');
+				rst_ipb_long <= '1';
+			elsif ipb_ctr /= 0 then
+				ipb_ctr <= ipb_ctr - 1;
+			else
+				rst_ipb_long <= '0';
+			end if;
+			rst_ipb <= rst_ipb_long or rst_delayed;
 			-- the stretched copy: starts with rst_delayed, held for 16 cycles
 			if rst_delayed = '1' then
 				xdom_ctr <= (others => '1');
