@@ -4,5 +4,5 @@
 
 localparam [7:0] MAJOR_REV = 8'h06;
 localparam [7:0] MINOR_REV = 8'h07;
-localparam [7:0] PATCH_REV = 8'h00;
+localparam [7:0] PATCH_REV = 8'h01;
 
