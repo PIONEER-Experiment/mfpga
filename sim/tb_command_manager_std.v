@@ -18,6 +18,8 @@
 //  10. trigger type mismatch: the channel is skipped, not fatal
 //  11. async mode, the second channel skipped: the pulse records stored for it are drained before
 //      the next readout, which is clean
+//  13. a channel whose fill header carries a waveform or burst count other than the configured one (the
+//      event size was computed from the configuration): a size-mismatch loss pulse
 //  12. a channel that stops streaming mid-fill: ERROR_DATA_CORRUPTION and a fault (terminal, last)
 module tb;
 reg clk=0; always #4 clk=~clk; reg rst=1;
@@ -86,6 +88,7 @@ task clear_acc; begin @(posedge clk); clr <= 1; @(posedge clk); clr <= 0; @(pose
 // is), 1 silent, 2 holds a stale fill (N-1) in front of N, 3 holds a newer fill (N+1), 4 late,
 // 5 wrong trigger type in the header
 integer BC = 2, WF = 2;          // burst count and waveforms per fill (configured to match below)
+integer WF_CH0 = -1;             // scenario 13: channel 0 sends this waveform count instead of WF
 integer mode [0:4]; integer late_delay = 400; integer asked [0:4]; integer fills_served [0:4];
 reg [23:0] hq_num [0:4][0:15]; integer hq_rd [0:4], hq_wr [0:4];
 task hq_push(input integer ch, input [23:0] num); begin hq_num[ch][hq_wr[ch] & 15] = num; hq_wr[ch] = hq_wr[ch] + 1; end endtask
@@ -98,7 +101,7 @@ task fill_reply(input integer ch, input [31:0] csn, input [23:0] num); begin
   if (!async_mode) begin
     h1 = {BC[4:0], (type_override ? hdr_type_override : trig_type[2:0]), num};
     h2 = {14'd0, BC[22:5]};
-    h3 = {8'd0, WF[11:0], 12'd0};
+    h3 = {8'd0, ((ch == 0 && WF_CH0 >= 0) ? WF_CH0[11:0] : WF[11:0]), 12'd0};
     h4 = {6'd0, 12'h0A0 + ch, 14'd0};
   end else begin
     h1 = {BC[4:0], 3'b111, num};
@@ -108,7 +111,7 @@ task fill_reply(input integer ch, input [31:0] csn, input [23:0] num); begin
   end
   push(ch, csn, 0); push(ch, 32'h8, 0); push(ch, h1, 0); push(ch, h2, 0); push(ch, h3, 0); push(ch, h4, 0);
   cs = {h4, h3, h2, h1};
-  for (wi = 0; wi < WF; wi = wi + 1) for (di = 0; di < (BC + 1) * 4; di = di + 1) begin
+  for (wi = 0; wi < ((ch == 0 && WF_CH0 >= 0 && !async_mode) ? WF_CH0 : WF); wi = wi + 1) for (di = 0; di < (BC + 1) * 4; di = di + 1) begin
     dw = 32'hA0000000 + ch * 32'h01000000 + wi * 32'h10000 + di; push(ch, dw, 0); cs[(di % 4) * 32 +: 32] = cs[(di % 4) * 32 +: 32] ^ dw;
   end
   push(ch, cs[31:0] ^ {31'd0, bad_checksum}, 0); push(ch, cs[63:32], 0); push(ch, cs[95:64], 0); push(ch, cs[127:96], 1);
@@ -275,6 +278,11 @@ initial begin
   check(readout_done && loss_acc == 0 && fault_acc == 0, "next async readout clean"); check(pq_rd == pq_wr && cm.m_readout_fifo_tvalid == 0, "pulse records consumed by both channels");
   check(qlen(0) == 0 && qlen(1) == 0, "FIFOs empty"); clear_acc;
   async_mode = 0; trig_type = 5'b00001; WF = 2; total_fp = 0;
+
+  $display("--- 13. channel 0's fill does not have the configured shape");
+  WF_CH0 = 3; readout(20000); WF_CH0 = -1;
+  check(readout_done, "readout done"); check(loss_acc == 16'h0080, "loss pulse: size mismatch"); check(qlen(0) == 0 && qlen(1) == 0, "FIFOs empty"); clear_acc;
+  readout(20000); check(readout_done && loss_acc == 0 && ev_words == exp_size(2), "clean afterwards (and no false size-mismatch in any earlier scenario)"); clear_acc;
 
   $display("--- 12. channel 0 stops streaming mid-fill");
   // let the channel answer, then remove the end of its fill from the queue

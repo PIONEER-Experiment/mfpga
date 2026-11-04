@@ -42,7 +42,8 @@ right checksum. The time-outs are forced short with `force`. Needs `constants.vh
 self-triggering image: a stale frame in front of a reply (flushed, retried), a silent channel (time-out,
 skipped, loss pulse), a late reply (the next readout's stale frame), a stale fill, a newer
 fill (both terminal: ERROR_TRIG_NUM and a fill-number loss, then a reset clears it), IPbus to a dead channel and with a stale frame, every channel skipped (a
-well-formed empty event), a checksum mismatch (fault), a trigger-type mismatch (skipped, not fatal), async mode
+well-formed empty event), a checksum mismatch (fault), a trigger-type mismatch (skipped, not fatal), a fill header whose waveform
+count is not the configured one (size-mismatch loss), async mode
 with a skipped channel (the pulse records stored for it are drained before the next readout), and a channel
 that stops mid-fill (ERROR_DATA_CORRUPTION, fault).  The channel model streams real fills with the right
 checksum in the standard header format.

@@ -503,8 +503,10 @@ module command_manager (
             ERR_L_ERR_RC     = 2,   // channel skipped: it answered with an error code
             ERR_L_REPLY_CUT  = 3,   // channel skipped: its reply stopped before the header was complete
             ERR_L_FILL_NUM   = 4,   // channel skipped: fill number mismatch not recoverable
-            ERR_L_FILL_TYPE  = 5;   // channel skipped: fill type mismatch
-            // 6-8: self-triggering image only; 9: readout trigger answered empty because the channels
+            ERR_L_FILL_TYPE  = 5,   // channel skipped: fill type mismatch
+            ERR_L_SIZE_MISMATCH = 7; // the channel's fill header does not carry the burst / waveform count the
+                                    // event size was computed from: the event length sent to the AMC13 is wrong
+            // 6, 8: self-triggering image only; 9: readout trigger answered empty because the channels
             // were still busy (ttc_trigger_receiver); 10: an acquisition controller gave up waiting
             // for a channel's done; both set in the top level
   localparam ERR_F_DATA_STALL = 0,   // the channel stopped streaming mid-fill (ERROR_DATA_CORRUPTION)
@@ -522,6 +524,23 @@ module command_manager (
   reg [1:0] reissue_retries, next_reissue_retries;  // read-fill commands re-issued to this channel (per event)
   localparam [1:0] MAX_REPLY_RETRIES = 2'd3, MAX_REISSUE_RETRIES = 2'd3;
   assign retry_status = {reply_retries, reissue_retries, skipped_mask};
+  // The burst count per waveform and the waveform count the event size was computed from, for the
+  // channel being read (6.8.0).  The event size in the AMC13 header comes from the configuration,
+  // not from the channels, so the fill header each channel sends is checked against it at
+  // READ_CHAN_INFO4: a channel whose fill does not have the configured shape makes the event length
+  // wrong, and that is a data loss (TTS sync-lost), not something to discover in the unpacker.
+  // Async mode: the waveform count is the front panel trigger count used in event_size_type4.
+  // Registered: the channel number is stable long before the header arrives.
+  reg [22:0] exp_burst_count, exp_wfm_count;
+  always @(posedge clk) begin
+    case (trig_type[4:0])
+      5'b00001: begin exp_burst_count <= chan_burst_count_type1[chan_tx_fifo_dest[2:0]]; exp_wfm_count <= {11'd0, chan_wfm_count_type1[chan_tx_fifo_dest[2:0]]}; end
+      5'b00010: begin exp_burst_count <= chan_burst_count_type2[chan_tx_fifo_dest[2:0]]; exp_wfm_count <= {11'd0, chan_wfm_count_type2[chan_tx_fifo_dest[2:0]]}; end
+      5'b00011: begin exp_burst_count <= chan_burst_count_type3[chan_tx_fifo_dest[2:0]]; exp_wfm_count <= {11'd0, chan_wfm_count_type3[chan_tx_fifo_dest[2:0]]}; end
+      default:  begin exp_burst_count <= chan_burst_count_type4[chan_tx_fifo_dest[2:0]]; exp_wfm_count <= total_fp_triggers[22:0]; end
+    endcase
+  end
+
   // Trigger-number errors (terminal, see READ_CHAN_INFO1), counted
   reg [7:0] trig_num_errors;
   assign trig_num_error_count = trig_num_errors;
@@ -713,9 +732,12 @@ module command_manager (
           if ( cbuf_mode ) begin
              // for the circular buffer mode, we will use the async mode registers
              if ((ipbus_chan_cmd[31:0] == 32'h0000_0003) & (ipbus_chan_reg[31:0] == 32'h0000_0014)) begin
+               // (6.8.0: all three trigger types; until then type 1 was set three times, so a laser or
+               // pedestal trigger in cbuf mode was sized with the type 2 / 3 burst count of the
+               // pattern mode, and the AMC13 event length was wrong)
                next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
-               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
-               next_chan_burst_count_type1[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
+               next_chan_burst_count_type2[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
+               next_chan_burst_count_type3[chan_tx_fifo_dest] = {9'd0, ipbus_cmd_data[13:0]}; // burst count value, circular buffer acquisition
                next_chan_wfm_count_type1[chan_tx_fifo_dest]   = 12'd1; // waveform count value, always 1 for circular buffer acquistion
                next_chan_wfm_count_type2[chan_tx_fifo_dest]   = 12'd1; // waveform count value, always 1 for circular buffer acquistion
                next_chan_wfm_count_type3[chan_tx_fifo_dest]   = 12'd1; // waveform count value, always 1 for circular buffer acquistion
@@ -1141,6 +1163,10 @@ module command_manager (
           next_chan_tag[11:0] = chan_rx_fifo_data[25:14];
           next_master_checksum[127:0] = {chan_rx_fifo_data[31:0], master_checksum[95:0]};
           next_num_chan_en[2:0] = num_chan_en[2:0] + 1;   // this channel's data follows (async: 1 = it reads the Pulse Trigger FIFO)
+          // the fill must have the shape the event size was computed from (see exp_burst_count)
+          if ((burst_count[22:0] != exp_burst_count) ||
+              ((trig_type[2] ? {chan_rx_fifo_data[2:0], wfm_count[19:0]} : wfm_count[22:0]) != exp_wfm_count))
+            next_err_loss_pulse[ERR_L_SIZE_MISMATCH] = 1'b1;
           nextstate[READY_AMC13_HEADER1] = 1'b1;
         end
         else if (rsn_wait_timeout) begin
