@@ -119,7 +119,9 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 set obj [get_filesets sources_1]
 
 add_files -norecurse -fileset $obj [glob $origin_dir/ip/common/*/*.xci]
-add_files -norecurse -fileset $obj [glob $origin_dir/ip/selftrig_mode_only/*/*.xci]
+# ip/selftrig_mode_only holds only channel_selftriggers_fifo, the per-channel trigger-line count FIFO,
+# which this image no longer uses (6.8.0); the older selftrig image (build_project_selftrig.tcl) still does
+#add_files -norecurse -fileset $obj [glob $origin_dir/ip/selftrig_mode_only/*/*.xci]
 add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/hdl/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/ipbus_core/hdl/*.vhd]
 add_files -norecurse -fileset $obj [glob $origin_dir/ipbus/ethernet/*.vhd]
