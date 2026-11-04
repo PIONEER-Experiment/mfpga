@@ -59,13 +59,12 @@ module command_manager_selftrigc (
   output wire readout_ready,         // ready to readout data, i.e., when in idle state
   output reg  readout_done,          // finished readout flag
   //input wire        accept_self_triggers,
-  input wire [19:0] selftriggers_chan0_latched, // # of triggers seen per channel in channel buffer to be next read
-  input wire [19:0] selftriggers_chan1_latched, // # of triggers seen per channel in channel buffer to be next read
-  input wire [19:0] selftriggers_chan2_latched, // # of triggers seen per channel in channel buffer to be next read
-  input wire [19:0] selftriggers_chan3_latched, // # of triggers seen per channel in channel buffer to be next read
-  input wire [19:0] selftriggers_chan4_latched, // # of triggers seen per channel in channel buffer to be next read
-  input wire selftrigger_fifo_empty, // when low, there are buffers to be read out
-  output reg selftrigger_fifo_rd_en, // tell the selftrigger fifo's that a buffer readout has completed 
+  // (6.8.0: the per-channel trigger-line count records and their FIFO handshake are gone)
+  // the waveform count of each fill header seen, for hdr_monitor_selftrigc (status, DDR3 overflow warning)
+  output reg         hdr_peek_strobe,    // one clock: a header was peeked (hdr_chan, hdr_wfms valid)
+  output reg         hdr_read_strobe,    // one clock: a header was read with its fill (the data follows)
+  output reg  [ 2:0] hdr_chan,
+  output reg  [22:0] hdr_wfms,
 
   // burst count for channel self trigs -- common to all channels
   output reg [22:0] burst_count_selftrig,  // the burst count -- this is "type 4" in the rest of the firmware world
@@ -119,7 +118,7 @@ module command_manager_selftrigc (
   parameter READ_IPBUS_RES        =  6; // 0x 0_0000_0040
   parameter SEND_IPBUS_RES        =  7; // 0x 0_0000_0080
   // event builder state bits
-  parameter CHECK_SELFTRIG_FIFO   =  8; // 0x 0_0000_0100
+  parameter CHECK_SELFTRIG_FIFO   =  8; // 0x 0_0000_0100  (unused since 6.8.0: no count record to wait for)
   parameter CHECK_CHAN_EN         =  9; // 0x 0_0000_0200
   parameter SEND_CHAN_CSN         = 10; // 0x 0_0000_0400
   parameter SEND_CHAN_CC          = 11; // 0x 0_0000_0800
@@ -231,7 +230,7 @@ reg [127:0] channel_checksum; // checksum from received channel data
   reg [ 3:0] next_chan_tx_fifo_dest;
   reg [22:0] next_burst_count_selftrig;
 
-  wire [19:0] event_size, event_trigs;
+  wire [19:0] event_size;
   //reg [127:0] burst_data;
   //reg [127:0] next_burst_data;
 
@@ -282,17 +281,11 @@ reg [127:0] channel_checksum; // checksum from received channel data
 
 // number of 64-bit words to be sent to AMC13, including AMC13 headers and trailer
   // asychronous or self-trigger readout trigger type
-  assign event_trigs = selftriggers_chan0_latched[19:0]+
-                       selftriggers_chan1_latched[19:0]+
-                       selftriggers_chan2_latched[19:0]+
-                       selftriggers_chan3_latched[19:0]+
-                       selftriggers_chan4_latched[19:0];
- 
   // Header first (6.7.0).  Before any read-fill command is issued, the fill header of every
   // enabled channel is peeked (CC_PEEK_HDR, which leaves the header in the channel's FIFO) and the
   // waveform count it carries is summed here.  The event size in the AMC13 header is computed from
-  // these sums, so it is exact by construction; the trigger-line count record (event_triggers) is
-  // only compared against it afterwards, as a monitor of the trigger line.  A channel whose header
+  // these sums, so it is exact by construction.  (6.7.x also compared them with the trigger-line
+  // count record, as a monitor; the line and the record went in 6.8.0.)  A channel whose header
   // could not be peeked (no reply, wrong fill, error code) is left out of the event entirely: it is
   // not read, and the channel header words are not counted for it.
   reg  [19:0] peeked_trigs, next_peeked_trigs;         // waveform counts summed over the peeked channels
@@ -300,7 +293,6 @@ reg [127:0] channel_checksum; // checksum from received channel data
   reg  [ 4:0] peek_discard_mask, next_peek_discard_mask; // channels that discarded a stale header at the peek
   reg  [22:0] peeked_count [0:4];                       // the count each channel's header carried (checked at the read)
   reg         peek_word, next_peek_word;                // SEND_CHAN_CC: 0 = the CC, 1 = the expected fill number
-  reg         count_valid, next_count_valid;            // the trigger-line count record was received for this event
   reg         next_peeking;
   // the number of 64 bit words used by the channel headers of the channels in the event
   wire [4:0] channel_header_words;
@@ -310,46 +302,9 @@ reg [127:0] channel_checksum; // checksum from received channel data
   wire [22:0] per_trigger_word_count;
   assign per_trigger_word_count = (burst_count_selftrig*2+2);
 
-  // pipeline the event sizes to help with timing.  The event_size not used until later in the readout,
-  // so there is time for this delay to happen
-  wire [19:0] event_trigs_pipe;
-  
-  pipeline_2stage #(
-    .WIDTH(20)
-  ) evs_pip_permanent (
-    .clk(clk),
-    .in( event_trigs),
-    .out(event_trigs_pipe)
-  );
-
-  // the number of triggers, summed over channels, to be read out.  Inactive channels will contribute zero
-  reg [19:0] event_triggers;
-  always @(posedge clk) begin
-     if ( rst ) begin
-        event_triggers <= 20'd0;
-     end
-     else begin
-        // we want the event size of the buffer being read,
-        event_triggers <= event_trigs_pipe;
-     end
-  end
   // the total number of 64 bit words for the TTC readout event, including headers and trailers:
   // from the peeked headers (6.7.0; was from the trigger-line count)
   assign event_size = per_trigger_word_count * peeked_trigs + channel_header_words + 4;
-
-  // Bounded wait for the self-trigger count record in CHECK_SELFTRIG_FIFO: 2^23 clk125 = 67 ms.
-  // The record is written by channel_acq_controller after every channel has reported done, and
-  // that wait is itself bounded at 2^20 clk40 = 26 ms, so a record that has not come after 67 ms
-  // was lost.  (6.6.9: was 4.3 s, a diagnostic setting from before the state snapshots existed.)
-  reg  [23:0] selftrig_wait_cntr;
-  wire        selftrig_wait_timeout;
-  assign selftrig_wait_timeout = selftrig_wait_cntr[23];
-  always @(posedge clk) begin
-    if ( rst || !state[CHECK_SELFTRIG_FIFO] )
-      selftrig_wait_cntr[23:0] <= 24'd0;
-    else if ( !selftrig_wait_timeout )
-      selftrig_wait_cntr[23:0] <= selftrig_wait_cntr[23:0] + 1;
-  end
 
   // this actually gets used to compare the number of 32 bit words, hence the "*4"
   wire [22:0] master_burst_count;
@@ -476,8 +431,8 @@ reg [127:0] channel_checksum; // checksum from received channel data
             ERR_W_REISSUED    = 1,  // a stale fill header was discarded and the read fill re-issued (recovered)
             ERR_W_IPBUS_ABORT = 2,  // an IPbus transaction was abandoned (no reply, or the software stopped reading)
             ERR_W_IPBUS_STALE = 3,  // a stale frame was flushed in front of an IPbus reply (recovered)
-            ERR_W_TRIG_COUNT  = 4,  // the trigger-line count record differs from the sum of the peeked headers (6.7.0)
-            ERR_W_COUNT_LOST  = 5;  // the count record never came; the readout went ahead from the headers (6.7.0)
+            ERR_W_TRIG_COUNT  = 4,  // 6.7.x only: trigger-line count record != peeked headers (no line since 6.8.0)
+            ERR_W_COUNT_LOST  = 5;  // 6.7.x only: the count record never came (no record since 6.8.0)
   reg [15:0] next_err_loss_pulse; reg [7:0] next_err_fault_pulse; reg [5:0] next_err_warn_pulse;
   reg [ 4:0] skipped_mask, next_skipped_mask;   // channels skipped in the event being built
   reg [ 1:0] chan_flags, next_chan_flags;       // {re-issued, stale frame flushed} for the channel being read (channel header word)
@@ -558,7 +513,6 @@ reg [127:0] channel_checksum; // checksum from received channel data
     next_peeked_chans       = peeked_chans;
     next_peek_discard_mask  = peek_discard_mask;
     next_peek_word          = peek_word;
-    next_count_valid        = count_valid;
     
     case (1'b1) // synopsys parallel_case full_case
       // idle state
@@ -581,7 +535,6 @@ reg [127:0] channel_checksum; // checksum from received channel data
           next_peeked_chans      = 3'd0;
           next_peek_discard_mask = 5'd0;
           next_peek_word         = 1'b0;
-          next_count_valid       = 1'b1;
 //          next_delta_trigger[21:0] = trigger_ticks[21:0];
 //          next_trigger_ticks[21:0] = 22'd0;
 
@@ -593,8 +546,7 @@ reg [127:0] channel_checksum; // checksum from received channel data
           end
           else begin
             //next_trig_type_latch[4:0] = trig_type[4:0];
-//            nextstate[CHECK_CHAN_EN] = 1'b1;
-            nextstate[CHECK_SELFTRIG_FIFO] = 1'b1;
+            nextstate[CHECK_CHAN_EN] = 1'b1;   // (6.7.x waited in CHECK_SELFTRIG_FIFO for the count record)
           end
         end
         else begin
@@ -734,35 +686,10 @@ reg [127:0] channel_checksum; // checksum from received channel data
       // event builder state logic
       // =========================
 
-      // wait to make sure we have latched the numbers of selftriggers
-      // into the fifo's.  channel_acq_controller writes them three TTC clocks
-      // after starting the fill, so normally this is a sub-microsecond wait.
-      // If the record never arrives (e.g. the write was dropped because the
-      // FIFO was still in its post-reset busy window, or the trigger was
-      // accepted while the acq controller was not recording) we must not wait
-      // for ever: the trigger processor is parked in READOUT until we report
-      // readout_done, and every IPbus channel access queues behind us.  After
-      // the timeout, send an empty event for this trigger number so the DAQ
-      // event numbering stays in step, and return to IDLE.
+      // Unused since 6.8.0 (it waited for the trigger-line count record): never entered, and
+      // left at once if it ever were.
       state[CHECK_SELFTRIG_FIFO] : begin
-        if ( !selftrigger_fifo_empty ) begin
-          // proceed to channel readout
-          nextstate[CHECK_CHAN_EN] = 1'b1;
-        end
-        else if ( selftrig_wait_timeout ) begin
-          // The record was lost.  Since 6.7.0 the event size comes from the fill headers, so the
-          // readout goes ahead without it (a warning, not a lost event); the record FIFO is not
-          // popped at the end of this event, and the monitor comparison is skipped for it.  (The
-          // acquisition controller's own wait is 26 ms, so a record that has not come after 67 ms
-          // is not merely late: the FIFO does not go out of step.)
-          next_count_valid = 1'b0;
-          next_err_warn_pulse[ERR_W_COUNT_LOST] = 1'b1;
-          nextstate[CHECK_CHAN_EN] = 1'b1;
-        end
-        else begin
-          // stay here until the fifo isn't empty
-          nextstate[CHECK_SELFTRIG_FIFO] = 1'b1;
-        end
+        nextstate[CHECK_CHAN_EN] = 1'b1;
       end
       
       // check whether this channel number is enabled
@@ -771,9 +698,8 @@ reg [127:0] channel_checksum; // checksum from received channel data
           nextstate[ERROR_DATA_CORRUPTION] = 1'b1;
         end
         else if ((chan_tx_fifo_dest[3:0] == 4'h5) && peeking) begin
-          // every channel has been peeked: the event size is known.  Compare the trigger-line count
-          // record with it (monitor only), then read the fills of the peeked channels in turn.
-          if (count_valid && (event_triggers != peeked_trigs)) next_err_warn_pulse[ERR_W_TRIG_COUNT] = 1'b1;
+          // every channel has been peeked: the event size is known.  Read the fills of the peeked
+          // channels in turn.
           next_peeking = 1'b0;
           next_chan_tx_fifo_dest[3:0] = 0;
           nextstate[CHECK_CHAN_EN] = 1'b1;
@@ -1615,7 +1541,10 @@ reg [127:0] channel_checksum; // checksum from received channel data
       peeked_chans              <= 3'd0;
       peek_discard_mask         <= 5'd0;
       peek_word                 <= 1'b0;
-      count_valid               <= 1'b1;
+      hdr_peek_strobe           <= 1'b0;
+      hdr_read_strobe           <= 1'b0;
+      hdr_chan                  <= 3'd0;
+      hdr_wfms                  <= 23'd0;
       chan_err_word             <= 7'd0;
       chan_err_valid            <= 1'b0;
       last_rsn_word             <= 32'd0;
@@ -1647,7 +1576,11 @@ reg [127:0] channel_checksum; // checksum from received channel data
       peeked_chans                <= next_peeked_chans;
       peek_discard_mask           <= next_peek_discard_mask;
       peek_word                   <= next_peek_word;
-      count_valid                 <= next_count_valid;
+      // every header accepted (fill type right), for the status counts and the overflow warning
+      hdr_peek_strobe             <= state[READ_CHAN_INFO4] && chan_rx_fifo_valid &&  peeking && nextstate[CHECK_CHAN_EN];
+      hdr_read_strobe             <= state[READ_CHAN_INFO4] && chan_rx_fifo_valid && !peeking && nextstate[READY_AMC13_HEADER1];
+      hdr_chan                    <= chan_tx_fifo_dest[2:0];
+      hdr_wfms                    <= {chan_rx_fifo_data[2:0], wfm_count[19:0]};
       // the waveform count each channel's header carried at the peek, for the check at the read
       if (peeking && state[READ_CHAN_INFO4] && chan_rx_fifo_valid && chan_tx_fifo_dest < 4'd5)
         peeked_count[chan_tx_fifo_dest] <= {chan_rx_fifo_data[2:0], wfm_count[19:0]};
@@ -1721,7 +1654,6 @@ reg [127:0] channel_checksum; // checksum from received channel data
       error_trig_type        <= 0;
       //inc_setup_time         <= 0;
       //zero_setup_time        <= 0;
-      selftrigger_fifo_rd_en <= 0;
     end
     else begin
       // default values
@@ -1738,7 +1670,6 @@ reg [127:0] channel_checksum; // checksum from received channel data
       // Cleared by reset only.
       //inc_setup_time         <= 0;
       //zero_setup_time        <= 0;
-      selftrigger_fifo_rd_en <= 0;
 
       case (1'b1) // synopsys parallel_case full_case
         //nextstate[IDLE] : begin
@@ -1845,7 +1776,6 @@ reg [127:0] channel_checksum; // checksum from received channel data
         nextstate[SEND_AMC13_TRAILER]    : begin
           daq_trailer            <= 1;
           readout_done           <= 1;
-          selftrigger_fifo_rd_en <= count_valid;  // pop the trigger-count record (unless it never came)
         end
 
         // ======================

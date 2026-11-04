@@ -15,7 +15,6 @@ module channel_acq_controller_selftrigc (
 
   // command manager interface
   output reg  new_fill_pause_triggers,   // flag there is a new fill and inhibit selftriggers
-  output wire selftrigger_fifo_wr_en, 
 
   // interface from TTC trigger receiver
   input wire ttc_trigger,          // trigger signal
@@ -83,22 +82,8 @@ module channel_acq_controller_selftrigc (
     wait_gave_up <= state[WAIT] && wait_timeout && (acq_dones_latched[4:0] != chan_en[4:0]);
   end
 
-  // The receivers latch their per-fill counts on the rising edge of their channel's done line
-  // (channel_triggerc_receiver), i.e. one clock after this machine sees the done.  Write the
-  // latched counts to the FIFOs two clocks after all enabled channels have reported done, which
-  // is the entry into STORE_ACQ_INFO delayed by one.
-  reg store_entry = 1'b0, store_entry_d = 1'b0;
-  always @(posedge clk) begin
-    if ( reset ) begin
-      store_entry   <= 1'b0;
-      store_entry_d <= 1'b0;
-    end
-    else begin
-      store_entry   <= state[WAIT] & nextstate[STORE_ACQ_INFO];
-      store_entry_d <= store_entry;
-    end
-  end
-  assign selftrigger_fifo_wr_en = store_entry_d;
+  // (Until 6.7.x the per-channel trigger-line counts were written to the count FIFOs here, two
+  // clocks after all enabled channels had reported done.  Both went in 6.8.0.)
 
   // combinational always block
   always @* begin

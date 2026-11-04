@@ -22,7 +22,7 @@ module wfd_selftrigc_top (
     input  wire c4_rx, c4_rx_N,       // Serial link to Channel 4 RX
     output wire c4_tx, c4_tx_N,       // Serial link to Channel 4 TX
     output wire [7:0] debug,          // debug header
-    input  wire [4:0] acq_trigs,      // triggers from self-triggered channel FPGAs
+    input  wire [4:0] acq_trigs,      // the channels' trigger lines: unused since 6.8.0 (the channels hold them low)
     input  wire [4:0] acq_dones,      // done signals from channel FPGAs
     output wire master_led0,          // front panel LEDs for master status, led0 is green
     output wire master_led1,          // front panel LEDs for master status, led1 is red
@@ -276,20 +276,8 @@ module wfd_selftrigc_top (
       .in(channel_acq_enabled),
       .out(channel_acq_enabled_ttc)
     );
-    // synchronize the clear_trigger_counts into the 40 MHz domain
-    wire clear_trigger_counts_stretch;
-    signal_stretch ctc_stretch (
-        .signal_in(clear_trigger_counts),
-        .clk(clk125),
-        .n_extra_cycles(8'h13),      // more than enough cycles for synchronization into 50-MHz, 40-MHz domains
-        .signal_out(clear_trigger_counts_stretch) // 160-ns wide
-    );
-    wire clear_trigger_counts_ttc;
-    sync_2stage clear_trigger_counts_sync (
-      .clk(ttc_clk),
-      .in(clear_trigger_counts_stretch),
-      .out(clear_trigger_counts_ttc)
-    );
+    // (6.7.x synchronised clear_trigger_counts into the 40 MHz domain for the trigger-line counters; it
+    // now clears hdr_monitor_selftrigc, in the clk125 domain)
 
 
 
@@ -343,11 +331,6 @@ module wfd_selftrigc_top (
 
     // ======== finite state machine states ========
     wire [ 3:0] ttr_state;
-    wire [ 1:0] ctr_state_chan0;
-    wire [ 1:0] ctr_state_chan1;
-    wire [ 1:0] ctr_state_chan2;
-    wire [ 1:0] ctr_state_chan3;
-    wire [ 1:0] ctr_state_chan4;
     wire [ 5:0] cac_state;
     wire [ 6:0] tp_state;
     wire [34:0] cm_state;
@@ -1122,8 +1105,6 @@ module wfd_selftrigc_top (
 
     wire [22:0] burst_count_chan0, burst_count_chan1, burst_count_chan2, burst_count_chan3, burst_count_chan4;
     wire [11:0] wfm_count_chan0, wfm_count_chan1, wfm_count_chan2, wfm_count_chan3, wfm_count_chan4;
-    wire [22:0] stored_bursts_chan0;
-    wire [22:0] stored_bursts_chan1, stored_bursts_chan2, stored_bursts_chan3, stored_bursts_chan4;
     wire [22:0] readout_size_chan0, readout_size_chan1, readout_size_chan2, readout_size_chan3, readout_size_chan4;
 
 
@@ -1531,47 +1512,9 @@ module wfd_selftrigc_top (
         .out(ttr_state_clk125)
     );
 
-    // synchronize ctr_state's
-    wire [1:0] ctr_state_chan0_clk125;
-    sync_2stage #(
-        .WIDTH(2)
-    ) ctr_state_sync0 (
-        .clk(clk125),
-        .in(ctr_state_chan0),
-        .out(ctr_state_chan0_clk125)
-    );
-    wire [1:0] ctr_state_chan1_clk125;
-    sync_2stage #(
-        .WIDTH(2)
-    ) ctr_state_sync1 (
-        .clk(clk125),
-        .in(ctr_state_chan1),
-        .out(ctr_state_chan1_clk125)
-    );
-    wire [1:0] ctr_state_chan2_clk125;
-    sync_2stage #(
-        .WIDTH(2)
-    ) ctr_state_sync2 (
-        .clk(clk125),
-        .in(ctr_state_chan2),
-        .out(ctr_state_chan2_clk125)
-    );
-    wire [1:0] ctr_state_chan3_clk125;
-    sync_2stage #(
-        .WIDTH(2)
-    ) ctr_state_sync3 (
-        .clk(clk125),
-        .in(ctr_state_chan3),
-        .out(ctr_state_chan3_clk125)
-    );
-    wire [1:0] ctr_state_chan4_clk125;
-    sync_2stage #(
-        .WIDTH(2)
-    ) ctr_state_sync4 (
-        .clk(clk125),
-        .in(ctr_state_chan4),
-        .out(ctr_state_chan4_clk125)
-    );
+    // the channel trigger receivers' states (status register 7) read 0 since 6.8.0: no receivers
+    wire [1:0] ctr_state_chan0_clk125 = 2'd0, ctr_state_chan1_clk125 = 2'd0, ctr_state_chan2_clk125 = 2'd0,
+               ctr_state_chan3_clk125 = 2'd0, ctr_state_chan4_clk125 = 2'd0;
 
     // synchronize cac_state
     wire [5:0] cac_state_clk125;
@@ -1638,207 +1581,20 @@ module wfd_selftrigc_top (
         .out(acq_dones_clk125)
     );
 
-    // synchronize acq_trigs
-    wire [4:0] acq_trigs_clk125;
-    sync_2stage #(
-        .WIDTH(5)
-    ) acq_trigs_sync (
-        .clk(clk125),
-        .in(acq_trigs),
-        .out(acq_trigs_clk125)
-    );
-
-    // synchronize stored_bursts_chan0
-    wire [22:0] stored_bursts_chan0_clk125;
-    sync_2stage #(
-        .WIDTH(23)
-    ) stored_bursts_chan0_sync (
-        .clk(clk125),
-        .in(stored_bursts_chan0),
-        .out(stored_bursts_chan0_clk125)
-    );
-
-    // synchronize stored_bursts_chan1
-    wire [22:0] stored_bursts_chan1_clk125;
-    sync_2stage #(
-        .WIDTH(23)
-    ) stored_bursts_chan1_sync (
-        .clk(clk125),
-        .in(stored_bursts_chan1),
-        .out(stored_bursts_chan1_clk125)
-    );
-
-    // synchronize stored_bursts_chan2
-    wire [22:0] stored_bursts_chan2_clk125;
-    sync_2stage #(
-        .WIDTH(23)
-    ) stored_bursts_chan2_sync (
-        .clk(clk125),
-        .in(stored_bursts_chan2),
-        .out(stored_bursts_chan2_clk125)
-    );
-
-    // synchronize stored_bursts_chan3
-    wire [22:0] stored_bursts_chan3_clk125;
-    sync_2stage #(
-        .WIDTH(23)
-    ) stored_bursts_chan3_sync (
-        .clk(clk125),
-        .in(stored_bursts_chan3),
-        .out(stored_bursts_chan3_clk125)
-    );
-
-    // synchronize stored_bursts_chan4
-    wire [22:0] stored_bursts_chan4_clk125;
-    sync_2stage #(
-        .WIDTH(23)
-    ) stored_bursts_chan4_sync (
-        .clk(clk125),
-        .in(stored_bursts_chan4),
-        .out(stored_bursts_chan4_clk125)
-    );
-
     wire [23:0] chan_trig_num_0, chan_trig_num_1, chan_trig_num_2, chan_trig_num_3, chan_trig_num_4;
-
-    // synchronize number of triggers in accumulated in each channel
-    wire [19:0] selftriggers_chan0, selftriggers_chan0_clk125;
-    wire [19:0] selftriggers_chan1, selftriggers_chan1_clk125;
-    wire [19:0] selftriggers_chan2, selftriggers_chan2_clk125;
-    wire [19:0] selftriggers_chan3, selftriggers_chan3_clk125;
-    wire [19:0] selftriggers_chan4, selftriggers_chan4_clk125;
-    wire [19:0] selftriggers_chan0_latched, selftriggers_chan0_latched_clk125;
-    wire [19:0] selftriggers_chan1_latched, selftriggers_chan1_latched_clk125;
-    wire [19:0] selftriggers_chan2_latched, selftriggers_chan2_latched_clk125;
-    wire [19:0] selftriggers_chan3_latched, selftriggers_chan3_latched_clk125;
-    wire [19:0] selftriggers_chan4_latched, selftriggers_chan4_latched_clk125;
-    sync_2stage #(
-        .WIDTH(20)
-    ) chan_trig_num_l0_sync (
-        .clk(clk125),
-        .in(selftriggers_chan0),
-        .out(selftriggers_chan0_clk125)
-    );
-    sync_2stage #(
-        .WIDTH(20)
-    ) chan_trig_num_l1_sync (
-        .clk(clk125),
-        .in( selftriggers_chan1),
-        .out(selftriggers_chan1_clk125)
-    );
-    sync_2stage #(
-        .WIDTH(20)
-    ) chan_trig_num_l2_sync (
-        .clk(clk125),
-        .in( selftriggers_chan2),
-        .out(selftriggers_chan2_clk125)
-    );
-    sync_2stage #(
-        .WIDTH(20)
-    ) chan_trig_num_l3_sync (
-        .clk(clk125),
-        .in( selftriggers_chan3),
-        .out(selftriggers_chan3_clk125)
-    );
-    sync_2stage #(
-        .WIDTH(20)
-    ) chan_trig_num_l4_sync (
-        .clk(clk125),
-        .in( selftriggers_chan4),
-        .out(selftriggers_chan4_clk125)
-    );
-
-    // fifo's that store the number of triggers that each channel contains
-    // to help keep the readout more asynchronous with the actual triggering
-    wire selftrigger_fifos_empty;
-    wire selftrigger_fifo_wr_en, selftrigger_fifo_rd_en;
-    assign selftrigger_fifos_empty = selftrigger_fifo_chan0_empty 
-                                   & selftrigger_fifo_chan1_empty
-                                   & selftrigger_fifo_chan2_empty
-                                   & selftrigger_fifo_chan3_empty
-                                   & selftrigger_fifo_chan4_empty;
-
-    // Unused-output stubs (synthesis optimizes them away)
-    wire [4:0] full;
-    wire [4:0] wr_rst_busy;
-    wire [4:0] rd_rst_busy;
-
-    // channel 0
-    channel_selftriggers_fifo selftrigger_fifo_chan0 (
-      .rst(reset40),                            // input wire rst, same ttc_clk-domain reset as the trig/acq event FIFOs
-      .wr_clk(ttc_clk),                         // input wire wr_clk
-      .rd_clk(clk125),                          // input wire rd_clk -- system 125 MHz clock
-      .din(selftriggers_chan0_latched),         // input wire [19 : 0] din
-      .wr_en(selftrigger_fifo_wr_en),           // input wire wr_en
-      .rd_en(selftrigger_fifo_rd_en),           // input wire rd_en
-      .dout(selftriggers_chan0_latched_clk125), // output wire [19 : 0] dout
-      .empty(selftrigger_fifo_chan0_empty),     // output wire empty
-      .full(full[0]),
-      .wr_rst_busy(wr_rst_busy[0]),
-      .rd_rst_busy(rd_rst_busy[0])
-    );
-    // channel 1
-    channel_selftriggers_fifo selftrigger_fifo_chan1 (
-      .rst(reset40),                            // input wire rst, same ttc_clk-domain reset as the trig/acq event FIFOs
-      .wr_clk(ttc_clk),                         // input wire wr_clk
-      .rd_clk(clk125),                          // input wire rd_clk -- system 125 MHz clock
-      .din(selftriggers_chan1_latched),         // input wire [19 : 0] din
-      .wr_en(selftrigger_fifo_wr_en),           // input wire wr_en
-      .rd_en(selftrigger_fifo_rd_en),           // input wire rd_en
-      .dout(selftriggers_chan1_latched_clk125), // output wire [19 : 0] dout
-      .empty(selftrigger_fifo_chan1_empty),     // output wire empty
-      .full(full[1]),
-      .wr_rst_busy(wr_rst_busy[1]),
-      .rd_rst_busy(rd_rst_busy[1])
-    );
-    // channel 2
-    channel_selftriggers_fifo selftrigger_fifo_chan2 (
-      .rst(reset40),                            // input wire rst, same ttc_clk-domain reset as the trig/acq event FIFOs
-      .wr_clk(ttc_clk),                         // input wire wr_clk
-      .rd_clk(clk125),                          // input wire rd_clk -- system 125 MHz clock
-      .din(selftriggers_chan2_latched),         // input wire [19 : 0] din
-      .wr_en(selftrigger_fifo_wr_en),           // input wire wr_en
-      .rd_en(selftrigger_fifo_rd_en),           // input wire rd_en
-      .dout(selftriggers_chan2_latched_clk125), // output wire [19 : 0] dout
-      .empty(selftrigger_fifo_chan2_empty),     // output wire empty
-      .full(full[2]),
-      .wr_rst_busy(wr_rst_busy[2]),
-      .rd_rst_busy(rd_rst_busy[2])
-    );
-    // channel 3
-    channel_selftriggers_fifo selftrigger_fifo_chan3 (
-      .rst(reset40),                            // input wire rst, same ttc_clk-domain reset as the trig/acq event FIFOs
-      .wr_clk(ttc_clk),                         // input wire wr_clk
-      .rd_clk(clk125),                          // input wire rd_clk -- system 125 MHz clock
-      .din(selftriggers_chan3_latched),         // input wire [19 : 0] din
-      .wr_en(selftrigger_fifo_wr_en),           // input wire wr_en
-      .rd_en(selftrigger_fifo_rd_en),           // input wire rd_en
-      .dout(selftriggers_chan3_latched_clk125), // output wire [19 : 0] dout
-      .empty(selftrigger_fifo_chan3_empty),     // output wire empty
-      .full(full[3]),
-      .wr_rst_busy(wr_rst_busy[3]),
-      .rd_rst_busy(rd_rst_busy[3])
-    );
-    // channel 4
-    channel_selftriggers_fifo selftrigger_fifo_chan4 (
-      .rst(reset40),                            // input wire rst, same ttc_clk-domain reset as the trig/acq event FIFOs
-      .wr_clk(ttc_clk),                         // input wire wr_clk
-      .rd_clk(clk125),                          // input wire rd_clk -- system 125 MHz clock
-      .din(selftriggers_chan4_latched),         // input wire [19 : 0] din
-      .wr_en(selftrigger_fifo_wr_en),           // input wire wr_en
-      .rd_en(selftrigger_fifo_rd_en),           // input wire rd_en
-      .dout(selftriggers_chan4_latched_clk125), // output wire [19 : 0] dout
-      .empty(selftrigger_fifo_chan4_empty),     // output wire empty
-      .full(full[4]),
-      .wr_rst_busy(wr_rst_busy[4]),
-      .rd_rst_busy(rd_rst_busy[4])
-    );
-
-    
+    // from hdr_monitor_selftrigc (below, after the command manager): per-channel counts from the fill headers
+    wire        hdr_peek_strobe, hdr_read_strobe;
+    wire [ 2:0] hdr_chan;
+    wire [22:0] hdr_wfms;
+    wire [119:0] hdr_wfms_read;
+    wire [114:0] hdr_fill_bursts;
+    wire [22:0] stored_bursts_chan0_clk125, stored_bursts_chan1_clk125, stored_bursts_chan2_clk125,
+                stored_bursts_chan3_clk125, stored_bursts_chan4_clk125;
 
     // status register assembly
     // ======== trigger-block reset sequencer ========
     // The trigger processor is reset by rst_from_ipb on clk125 and is running again a few cycles
-    // later, while the trigger receiver, acquisition controller and the trigger / acquisition / count
+    // later, while the trigger receiver, acquisition controller and the trigger / acquisition
     // FIFOs are reset by reset40, the same reset stretched and resynchronised into the 40 MHz domain,
     // some 100-200 ns later, and the FIFOs are then busy for a while longer.  A trigger arriving in
     // that window, or a record left in a FIFO, was seen by a half-reset block: a stale acquisition
@@ -1851,9 +1607,7 @@ module wfd_selftrigc_top (
     // receiver is in reset).  The command manager is not held, so IPbus register access works
     // throughout; it only reads out on the trigger processor's request.
     wire trig_fifo_rst_busy, trig_fifo_rst_busy_125, reset40_125;
-    wire count_fifo_rst_busy;
-    assign count_fifo_rst_busy = (|wr_rst_busy) | (|rd_rst_busy);   // the five self-trigger count FIFOs
-    sync_2stage trig_fifo_busy_sync (.clk(clk125), .in(trig_fifo_rst_busy | count_fifo_rst_busy), .out(trig_fifo_rst_busy_125));
+    sync_2stage trig_fifo_busy_sync (.clk(clk125), .in(trig_fifo_rst_busy), .out(trig_fifo_rst_busy_125));   // (6.7.x: and the five count FIFOs)
     sync_2stage reset40_sync_125   (.clk(clk125), .in(reset40),                                    .out(reset40_125));
     reg [17:0] trig_hold_cntr = 18'd0;
     reg        trig_hold_reset = 1'b1;
@@ -2038,17 +1792,6 @@ module wfd_selftrigc_top (
 
     // trigger top module
     wire [22:0] burst_count_selftrig;
-    // the per-trigger burst count is a configuration value written over IPbus before a run and
-    // constant while triggers are being counted, so a per-bit two-stage synchroniser into the TTC
-    // domain is sufficient for the stored_bursts accumulators in channel_triggerc_receiver
-    wire [22:0] burst_count_selftrig_ttc;
-    sync_2stage #(
-        .WIDTH(23)
-    ) burst_count_selftrig_sync (
-        .clk(ttc_clk),
-        .in(burst_count_selftrig),
-        .out(burst_count_selftrig_ttc)
-    );
     selftriggerc_top selftriggerc_top (
         // clocks
         .ttc_clk(ttc_clk), //  40 MHz
@@ -2073,28 +1816,19 @@ module wfd_selftrigc_top (
         .trig_type(fill_type[4:0]),                        // trigger type (muon fill, laser, pedestal, async)
         //.trig_settings({28'd0, trig_settings[2:0], 1'b0}), // trigger settings
         .chan_en(chan_en),                                 // enabled channels
-        .thres_ddr3_overflow(thres_ddr3_overflow[22:0]),   // DDR3 overflow threshold
         .channel_acq_enabled(channel_acq_enabled_ttc),
-        .clear_trigger_counts(clear_trigger_counts_ttc),   // zero out trigger counts.  We might not need this in the circ buffer mode
 
         // channel interface
         .chan_dones(acq_dones),
         .chan_enable(acq_enable),
-        .chan_trigs(acq_trigs),
 
         // command manager interface
         .readout_ready(readout_ready),           // command manager is idle
         .readout_done(readout_done),             // initiated readout has finished
         .new_fill_pause_triggers(new_fill_pause_triggers),                     // the DDR3 readout buffer has changed
-        .selftrigger_fifo_wr_en(selftrigger_fifo_wr_en),
         .send_empty_event(send_empty_event),     // request an empty event
         .skip_payload(skip_payload),             // request to skip channel payloads
         .initiate_readout(initiate_readout),     // request for the channels to be read out
-        .chan_trig_num_0(chan_trig_num_0),
-        .chan_trig_num_1(chan_trig_num_1),
-        .chan_trig_num_2(chan_trig_num_2),
-        .chan_trig_num_3(chan_trig_num_3),
-        .chan_trig_num_4(chan_trig_num_4),
 
         .ttc_event_num(ttc_event_num),           // channel's trigger number (n'th ttc trigger sent to channel)
         .ttc_trig_num(ttc_trig_num),             // global trigger number (nth ttc trigger, including "ignored" ttc trigger types
@@ -2102,28 +1836,9 @@ module wfd_selftrigc_top (
         .ttc_trig_timestamp(ttc_trig_timestamp), // trigger timestamp
         .ttc_xadc_alarms(ttc_xadc_alarms),       // XADC alarms
 
-        .burst_count_selftrig(burst_count_selftrig_ttc), // # of bursts captured for each self trigger (TTC domain)
-
-        // the number of self-triggers that each channel has accumulated since the last readout trigger
-        .selftriggers_chan0(selftriggers_chan0),
-        .selftriggers_chan1(selftriggers_chan1),
-        .selftriggers_chan2(selftriggers_chan2),
-        .selftriggers_chan3(selftriggers_chan3),
-        .selftriggers_chan4(selftriggers_chan4),
-        .selftriggers_chan0_latched(selftriggers_chan0_latched),
-        .selftriggers_chan1_latched(selftriggers_chan1_latched),
-        .selftriggers_chan2_latched(selftriggers_chan2_latched),
-        .selftriggers_chan3_latched(selftriggers_chan3_latched),
-        .selftriggers_chan4_latched(selftriggers_chan4_latched),
-
         // status connections
         .xadc_alarms(xadc_alarms[3:0]),    // XADC alarm signals
         .ttr_state(ttr_state),             // TTC trigger receiver state
-        .ctr_state_chan0(ctr_state_chan0), // channel trigger receiver state
-        .ctr_state_chan1(ctr_state_chan1), // channel trigger receiver state
-        .ctr_state_chan2(ctr_state_chan2), // channel trigger receiver state
-        .ctr_state_chan3(ctr_state_chan3), // channel trigger receiver state
-        .ctr_state_chan4(ctr_state_chan4), // channel trigger receiver state
         .cac_state(cac_state),             // channel acquisition controller state
         .tp_state(tp_state),               // trigger processor state
         .trig_num(trig_num),               // global trigger number
@@ -2131,15 +1846,7 @@ module wfd_selftrigc_top (
         .trig_fifo_full(trig_fifo_full),   // TTC trigger FIFO is almost full
         .acq_fifo_full(acq_fifo_full),     // acquisition event FIFO is almost full
         
-        // number of bursts stored in the DDR3
-        .stored_bursts_chan0(stored_bursts_chan0),
-        .stored_bursts_chan1(stored_bursts_chan1),
-        .stored_bursts_chan2(stored_bursts_chan2),
-        .stored_bursts_chan3(stored_bursts_chan3),
-        .stored_bursts_chan4(stored_bursts_chan4),
-
         // error connections
-        .ddr3_almost_full(ddr3_almost_full),         // DDR3 overflow warning
         .error_trig_rate(error_trig_rate),           // trigger rate error
         .triggers_downgraded(triggers_downgraded),   // triggers turned into empty events (status)
         .empty_midrun(empty_midrun),                 // ... while the run was active (error capture, ttc_clk)
@@ -2206,13 +1913,10 @@ module wfd_selftrigc_top (
         .ttc_xadc_alarms(ttc_xadc_alarms),       // XADC alarms
         .readout_ready(readout_ready),           // ready to readout data, i.e., when in idle state
         .readout_done(readout_done),             // finished readout flag
-        .selftriggers_chan0_latched(selftriggers_chan0_latched_clk125), // number of self triggers in channel 0, previous buffer
-        .selftriggers_chan1_latched(selftriggers_chan1_latched_clk125), // number of self triggers in channel 1, previous buffer
-        .selftriggers_chan2_latched(selftriggers_chan2_latched_clk125), // number of self triggers in channel 2, previous buffer
-        .selftriggers_chan3_latched(selftriggers_chan3_latched_clk125), // number of self triggers in channel 3, previous buffer
-        .selftriggers_chan4_latched(selftriggers_chan4_latched_clk125), // number of self triggers in channel 4, previous buffer
-        .selftrigger_fifo_empty(selftrigger_fifos_empty), // when low, at least one buffer is waiting for readout
-        .selftrigger_fifo_rd_en(selftrigger_fifo_rd_en), // tell fifo's that we've read out that trigger
+        .hdr_peek_strobe(hdr_peek_strobe),       // each fill header seen, for hdr_monitor_selftrigc (6.8.0)
+        .hdr_read_strobe(hdr_read_strobe),
+        .hdr_chan(hdr_chan),
+        .hdr_wfms(hdr_wfms),
         .burst_count_selftrig(burst_count_selftrig),     // the total number
 
         // status connections
@@ -2248,6 +1952,37 @@ module wfd_selftrigc_top (
          .cs_mismatch_found(cs_mismatch_found)
     );
     
+    // Per-channel waveform totals (status 29-33), bursts in the last fill (status 21-25) and the DDR3
+    // overflow warning (TTS OFW), from the fill headers (6.8.0; were from the trigger-line counters)
+    wire rst_trigger_num_125;
+    sync_2stage rst_trig_num_sync_125 (.clk(clk125), .in(rst_trigger_num_stretch), .out(rst_trigger_num_125));   // 120 ns level
+    hdr_monitor_selftrigc hdr_monitor (
+        .clk(clk125),
+        .rst(rst_from_ipb),
+        .reset_totals(rst_trigger_num_125),
+        .clear(clear_trigger_counts),
+        .hdr_peek_strobe(hdr_peek_strobe),
+        .hdr_read_strobe(hdr_read_strobe),
+        .hdr_chan(hdr_chan),
+        .hdr_wfms(hdr_wfms),
+        .burst_count(burst_count_selftrig),
+        .thres_ddr3_overflow(thres_ddr3_overflow[22:0]),
+        .chan_en(chan_en),
+        .wfms_read(hdr_wfms_read),
+        .fill_bursts(hdr_fill_bursts),
+        .ddr3_almost_full(ddr3_almost_full)
+    );
+    assign chan_trig_num_0 = hdr_wfms_read[ 23:  0];
+    assign chan_trig_num_1 = hdr_wfms_read[ 47: 24];
+    assign chan_trig_num_2 = hdr_wfms_read[ 71: 48];
+    assign chan_trig_num_3 = hdr_wfms_read[ 95: 72];
+    assign chan_trig_num_4 = hdr_wfms_read[119: 96];
+    assign stored_bursts_chan0_clk125 = hdr_fill_bursts[ 22:  0];
+    assign stored_bursts_chan1_clk125 = hdr_fill_bursts[ 45: 23];
+    assign stored_bursts_chan2_clk125 = hdr_fill_bursts[ 68: 46];
+    assign stored_bursts_chan3_clk125 = hdr_fill_bursts[ 91: 69];
+    assign stored_bursts_chan4_clk125 = hdr_fill_bursts[114: 92];
+
     wire ttc_ready_clk125_n;
     assign ttc_ready_clk125_n = ~ttc_ready_clk125;
 

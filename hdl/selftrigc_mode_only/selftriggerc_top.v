@@ -26,28 +26,22 @@ module selftriggerc_top (
     input wire [ 4:0] trig_type,           // trigger type (muon fill, laser, pedestal, async readout)
     //input wire [31:0] trig_settings,       // trigger settings
     input wire [ 4:0] chan_en,             // enabled channels
-    input wire [22:0] thres_ddr3_overflow, // DDR3 overflow threshold
     input wire channel_acq_enabled,
-    input wire clear_trigger_counts,       // after end of run, make sure both hi and lo trigger/burst counters cleared
 
     // channel interface:  these use the direct i/o lines to pins on the channel FPGAs
     input  wire [4:0] chan_dones,          // the last event before starting readout has been moved to DDR3 memory
     output wire [4:0] chan_enable,         // the channel should accept triggers
-    input  wire [4:0] chan_trigs,          // a self-trigger condition has been seen on a channel
+    // (6.8.0: the channels' trigger lines are no longer used here; the per-channel pulse counters,
+    // channel_triggerc_receiver, went with them.  Per-channel counts now come from the fill
+    // headers: hdr_monitor_selftrigc in wfd_selftrigc_top.)
 
     // command manager interface
     input  wire readout_ready,          // command manager is idle
     input  wire readout_done,           // initiated readout has finished
     output wire new_fill_pause_triggers, // TTC Async readout received, switch to new buffer
-    output wire selftrigger_fifo_wr_en, // push the latched number of self-triggers onto the fifo's
     output wire send_empty_event,       // request an empty event
     output wire skip_payload,           // request to skip channel payloads
     output wire initiate_readout,       // request for the channels to be read out
-    output wire [23:0] chan_trig_num_0, // # of triggers seen per channel
-    output wire [23:0] chan_trig_num_1, // # of triggers seen per channel
-    output wire [23:0] chan_trig_num_2, // # of triggers seen per channel
-    output wire [23:0] chan_trig_num_3, // # of triggers seen per channel
-    output wire [23:0] chan_trig_num_4, // # of triggers seen per channel
 
     output wire [23:0] ttc_event_num,      // channel's trigger number
     output wire [23:0] ttc_trig_num,       // global trigger number
@@ -55,29 +49,9 @@ module selftriggerc_top (
     output wire [43:0] ttc_trig_timestamp, // trigger timestamp
     output wire [ 3:0] ttc_xadc_alarms,    // XADC alarms
 
-    input [22:0] burst_count_selftrig,
-
-    // the number of triggers each channel has accumulated since the last readout trigger, live
-    output wire [19:0] selftriggers_chan0,
-    output wire [19:0] selftriggers_chan1,
-    output wire [19:0] selftriggers_chan2,
-    output wire [19:0] selftriggers_chan3,
-    output wire [19:0] selftriggers_chan4,
-    // the number of triggers each channel has accumulated after the previous readout trigger, latched
-    output wire [19:0] selftriggers_chan0_latched,
-    output wire [19:0] selftriggers_chan1_latched,
-    output wire [19:0] selftriggers_chan2_latched,
-    output wire [19:0] selftriggers_chan3_latched,
-    output wire [19:0] selftriggers_chan4_latched,
-
     // status connections
     input  wire [ 3:0] xadc_alarms,    // XADC alarm signals
     output wire [ 3:0] ttr_state,      // TTC trigger receiver state
-    output wire [ 1:0] ctr_state_chan0,// channel trigger receiver state
-    output wire [ 1:0] ctr_state_chan1,// channel trigger receiver state
-    output wire [ 1:0] ctr_state_chan2,// channel trigger receiver state
-    output wire [ 1:0] ctr_state_chan3,// channel trigger receiver state
-    output wire [ 1:0] ctr_state_chan4,// channel trigger receiver state
     output wire [ 5:0] cac_state,      // channel acquisition controller state
     output wire [ 6:0] tp_state,       // trigger processor state
     output wire [23:0] trig_num,       // global trigger number
@@ -85,15 +59,7 @@ module selftriggerc_top (
     output wire trig_fifo_full,        // TTC trigger FIFO is almost full
     output wire acq_fifo_full,         // acquisition event FIFO is almost full
 
-    // number of bursts stored in the DDR3 for the buffer being written to
-    output wire [22:0] stored_bursts_chan0,
-    output wire [22:0] stored_bursts_chan1,
-    output wire [22:0] stored_bursts_chan2,
-    output wire [22:0] stored_bursts_chan3,
-    output wire [22:0] stored_bursts_chan4,
-
     // error connections
-    output wire ddr3_almost_full,           // DDR3 overflow warning
     output wire error_trig_rate,            // trigger rate error
     output wire [7:0] triggers_downgraded,  // TTC triggers turned into empty events because the acquisition controller stayed busy
     output wire       empty_midrun,         // one TTC clock: a readout trigger answered empty while the run was active (error capture)
@@ -133,11 +99,6 @@ module selftriggerc_top (
     wire [127:0] m_trig_fifo_tdata;
 
 
-    // signals to/from channel Pulse self-triggered FIFOs
-    wire  [1:0] s_pulse_fifo_tready[4:0];
-    wire  [1:0] s_pulse_fifo_tvalid[4:0];
-    wire [63:0] s_pulse_fifo_tdata[4:0];
-
     wire s_acq_fifo_tready;
     wire s_acq_fifo_tvalid;
     wire [31:0] s_acq_fifo_tdata;
@@ -146,63 +107,9 @@ module selftriggerc_top (
     wire m_acq_fifo_tvalid;
     wire [31:0] m_acq_fifo_tdata;
 
-    // error or warning signals
-    wire [4:0] ddr3_almost_full_chan;
-
-    wire [19:0] selftriggers[4:0];
-    assign selftriggers_chan0[19:0] = selftriggers[0][19:0];
-    assign selftriggers_chan1[19:0] = selftriggers[1][19:0];
-    assign selftriggers_chan2[19:0] = selftriggers[2][19:0];
-    assign selftriggers_chan3[19:0] = selftriggers[3][19:0];
-    assign selftriggers_chan4[19:0] = selftriggers[4][19:0];
-
-    wire [19:0] selftriggers_latch[4:0];
-    assign selftriggers_chan0_latched[19:0] = selftriggers_latch[0][19:0];
-    assign selftriggers_chan1_latched[19:0] = selftriggers_latch[1][19:0];
-    assign selftriggers_chan2_latched[19:0] = selftriggers_latch[2][19:0];
-    assign selftriggers_chan3_latched[19:0] = selftriggers_latch[3][19:0];
-    assign selftriggers_chan4_latched[19:0] = selftriggers_latch[4][19:0];
-
-    wire [45:0] stored_bursts[4:0];
-    assign stored_bursts_chan0[22:0] = stored_bursts[0][22:0];
-    assign stored_bursts_chan1[22:0] = stored_bursts[1][22:0];
-    assign stored_bursts_chan2[22:0] = stored_bursts[2][22:0];
-    assign stored_bursts_chan3[22:0] = stored_bursts[3][22:0];
-    assign stored_bursts_chan4[22:0] = stored_bursts[4][22:0];
-
-    assign selftriggers_seen = (selftriggers_chan0[19:0] > 0) |
-                               (selftriggers_chan1[19:0] > 0) |
-                               (selftriggers_chan2[19:0] > 0) |
-                               (selftriggers_chan3[19:0] > 0) |
-                               (selftriggers_chan4[19:0] > 0);
-
-    wire [23:0] chan_trig_num[4:0];
-    assign chan_trig_num_0[23:0] = chan_trig_num[0][23:0];
-    assign chan_trig_num_1[23:0] = chan_trig_num[1][23:0];
-    assign chan_trig_num_2[23:0] = chan_trig_num[2][23:0];
-    assign chan_trig_num_3[23:0] = chan_trig_num[3][23:0];
-    assign chan_trig_num_4[23:0] = chan_trig_num[4][23:0];
-
-    wire [1:0] ctr_state[4:0];
-    assign ctr_state_chan0[1:0] = ctr_state[0][1:0];
-    assign ctr_state_chan1[1:0] = ctr_state[1][1:0];
-    assign ctr_state_chan2[1:0] = ctr_state[2][1:0];
-    assign ctr_state_chan3[1:0] = ctr_state[3][1:0];
-    assign ctr_state_chan4[1:0] = ctr_state[4][1:0];
-
     // ----------------
     // synchronizations
     // ----------------
-
-    // synchronize and the chan_trigs and reduce to a single clock cycle
-    reg  [4:0] ct_sync1, ct_sync2, ct_sync3;
-    wire [4:0] chan_trigs_clk40;
-    always @(posedge ttc_clk) begin
-        ct_sync1 <= chan_trigs;
-        ct_sync2 <= ct_sync1;
-        ct_sync3 <= ct_sync2;
-    end
-    assign chan_trigs_clk40 = ct_sync2 & ~ct_sync3;
 
     // synchronize chan_dones
 wire [4:0] chan_dones_clk40;
@@ -233,14 +140,6 @@ wire [4:0] chan_dones_clk40;
         .in(readout_done),
         .out(readout_done_toggle)
     );
-
-
-    // -------------------
-    // signal multiplexers
-    // -------------------
-
-    // error signals
-    assign ddr3_almost_full = |ddr3_almost_full_chan;
 
 
     // ----------------
@@ -290,49 +189,6 @@ wire [4:0] chan_dones_clk40;
         .empty_midrun(empty_midrun)                    // ... while the run was active (error capture)
     );
 
-    // /////////////////////////////////////////////////////////////////////////
-    // channel trigger receiver module
-    // we will loop to instantiate one receiver per channel, along with the corresponding trigger fifo
-    generate genvar iChan;
-    for ( iChan = 0; iChan < 5; iChan = iChan + 1) begin : ctr_loop
-      channel_triggerc_receiver channel_triggerc_receiver (
-          // clock and reset
-          .clk(ttc_clk),   // 40 MHz TTC clock
-          .reset(reset40),
-          .clear_trigger_counts(clear_trigger_counts),
-
-          // TTC Channel B resets
-          .reset_trig_num(rst_trigger_num),
-  
-          // trigger interface
-          .trigger(chan_trigs_clk40[iChan]),               // channel self trigger pulse
-          .acq_done(chan_dones_clk40[iChan]),              // channel done line: the per-fill count is latched on its rising edge
-          .thres_ddr3_overflow(thres_ddr3_overflow[22:0]), // DDR3 overflow threshold
-          .chan_en(chan_en_clk40[iChan]),                  // enabled channels
-          //.ttc_trigger(ttc_trigger),                       // backplane trigger signal
-//          .ttc_acq_ready(acq_ready_channel[iChan]),                       // channels are ready to acquire/readout data
-          .trig_num(chan_trig_num[iChan]),                 // accuulated pulse trigger number
-          .selftriggers(selftriggers[iChan]),              // pulses accumulated in current DDR3 buffer
-          .selftriggers_latch(selftriggers_latch[iChan]),  // pulses accumulated in previous DDR3 buffer
-
-          // command manager interface
-          .new_fill_pause_triggers(new_fill_pause_triggers),                             // TTC Async readout came, switching to new fill
-
-          // set burst count for each channel
-          .burst_count_selftrig(burst_count_selftrig), // burst count captured for each self-trigger
-  
-          // number of bursts stored in the DDR3
-          .stored_bursts(stored_bursts[iChan][22:0]),
-  
-          // status connections
-          .state(ctr_state[iChan]),                             // state of finite state machine
-
-          // error connections
-          .ddr3_almost_full(ddr3_almost_full_chan[iChan])       // DDR3 overflow warning
-      );
-    end // of the channel trigger receiver instantiations
-    endgenerate
-
 //    ila_40 ila_debug_clk40 (
 //    	.clk(ttc_clk), // input wire clk
 //
@@ -366,7 +222,6 @@ wire [4:0] chan_dones_clk40;
 
         // command manager interface
         .new_fill_pause_triggers(new_fill_pause_triggers),
-        .selftrigger_fifo_wr_en(selftrigger_fifo_wr_en),
 
         // interface from TTC trigger receiver
         .ttc_trigger(acq_trigger),         // trigger signal

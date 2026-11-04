@@ -195,6 +195,7 @@ assign status_reg05 = {21'd0, tts_state[3:0], ttc_chan_b_info[5:0], ttc_ready};
 assign status_reg06 = cm_state[31:0];
 
 // Register 07: FSM state 1
+// (6.8.0: the ctr_state fields are 0, there are no channel trigger receivers any more)
 assign status_reg07 = {cm_state[34:32], ctr_state_chan0[1:0], ctr_state_chan1[1:0], ctr_state_chan2[1:0], tp_state[6:0], ctr_state_chan3[1:0], ctr_state_chan4[1:0], cac_state[5:0], 2'd0, ttr_state[3:0]};
 
 // Register 08: Acquisition
@@ -238,6 +239,7 @@ assign status_reg19 = io1_status_a[31:0];
 assign status_reg20 = io1_status_b[31:0];
 
 // Register 21: Channel 0 DDR3 burst count
+// 21-25 (6.8.0): bursts in the last fill peeked from each channel (hdr_monitor_selftrigc; were: bursts in the open fill, from the trigger line)
 assign status_reg21 = {7'd0, stored_bursts_chan0[22:0]};
 
 // Register 22: Channel 1 DDR3 burst count
@@ -262,6 +264,7 @@ assign status_reg27 = {xadc_vccbram[15:0], xadc_vccaux[15:0]};
 assign status_reg28 = {27'd0, xadc_alarm_vccbram, xadc_alarm_vccaux, xadc_alarm_vccint, xadc_alarm_temp, xadc_over_temp};
 
 // Registers 29-33: accumulated triggers in each channel
+// 29-33 (6.8.0): waveforms read out of each channel since the last reset (hdr_monitor_selftrigc; were: trigger-line pulses)
 assign status_reg29 = {8'd0, chan_trig_num_0[23:0]};
 assign status_reg30 = {8'd0, chan_trig_num_1[23:0]};
 assign status_reg31 = {8'd0, chan_trig_num_2[23:0]};

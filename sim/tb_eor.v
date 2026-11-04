@@ -17,7 +17,7 @@ integer n_empty_midrun = 0; always @(posedge clk40) if (empty_midrun) n_empty_mi
 integer n_gave_up = 0; always @(posedge clk40) if (cac_gave_up) n_gave_up = n_gave_up + 1;
 wire nfpt, stf_wr, cac_ready; wire [4:0] acq_enable; wire af_valid; wire [31:0] af_data; reg af_ready=1; wire [5:0] cac_state;
 channel_acq_controller_selftrigc cac(.clk(clk40),.reset(reset),.chan_en(5'b00011),.accept_self_triggers(accept),
-  .new_fill_pause_triggers(nfpt),.selftrigger_fifo_wr_en(stf_wr),.ttc_trigger(acq_trigger),.ttc_trig_type(acq_trig_type),.ttc_trig_num(acq_trig_num),
+  .new_fill_pause_triggers(nfpt),.ttc_trigger(acq_trigger),.ttc_trig_type(acq_trig_type),.ttc_trig_num(acq_trig_num),
   .ttc_acq_ready(cac_ready),.ttc_acq_activated(acq_activated),.acq_dones(5'b11111),.acq_enable(acq_enable),
   .fifo_ready(af_ready),.fifo_valid(af_valid),.fifo_data(af_data),.state(cac_state),.wait_gave_up(cac_gave_up));
 // FIFO models (40 MHz write, 125 MHz read)

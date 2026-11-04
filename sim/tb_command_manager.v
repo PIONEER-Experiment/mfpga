@@ -1,8 +1,9 @@
 `timescale 1ns/1ps
 // command_manager_selftrigc: recovery from every kind of bad channel reply (6.6.9), and the
 // header-first readout (6.7.0): every channel's fill header is peeked (CC 0xB with the expected
-// fill number) before any fill is read, the AMC13 event size comes from the peeked waveform counts,
-// and the trigger-line count is only a monitor.
+// fill number) before any fill is read, and the AMC13 event size comes from the peeked waveform
+// counts.  6.8.0: no trigger-line count record any more; hdr_monitor_selftrigc (per-channel
+// waveform totals, bursts per fill, DDR3 overflow warning) is driven from the headers and checked here.
 // Channel RX FIFOs are modelled per channel, each with a queue of fill headers; channel 1 always
 // answers correctly; channel 0 is put through the fault modes below.  Each readout must complete
 // (readout_done), the DAQ stream must be well formed (every header has a trailer, the size in the
@@ -18,8 +19,9 @@
 //   8. every enabled channel skipped: a well-formed empty event, not a bare trailer
 //   9. a channel reports an error word in its fill header: loss / fault pulses, word copied into the channel header
 //  10. checksum mismatch: a fault
-//  11. the trigger-line count disagrees with the headers: a warning, the event is still right
-//  12. the count record never comes: a warning, the readout goes ahead, the record FIFO is not popped
+//  11. hdr_monitor_selftrigc: waveform totals per channel = the waveforms actually read; bursts in the
+//      last fill; the overflow warning set by a fill over the threshold and cleared by the next one under it
+//  12. CHECK_SELFTRIG_FIFO (the old wait for the count record) is never entered
 //  13. the peek is answered with an error code (no header): the channel is skipped
 // Each scenario also checks the error-capture pulses the command manager emits (6.6.10) and the marks in the data
 // stream (WFD5 header word [63:56], channel header word [61:60] and [45:39]).
@@ -60,9 +62,9 @@ always @(posedge clk) begin
 end
 // ---- DUT
 reg initiate_readout=0; reg [23:0] event_num = 24'd7; reg [4:0] chan_en = 5'b00011;
-reg [19:0] trigs0 = 20'd2, trigs1 = 20'd3;   // the trigger-line count record (monitor only since 6.7.0)
-reg sfifo_empty = 0; wire peeking;
-wire readout_ready, readout_done; wire [34:0] state; wire [4:0] err_sn, err_rc; wire err_data, err_tn, err_tt; wire [31:0] csmm; wire sfifo_rd; wire [22:0] bcs; wire cs_found; wire [7:0] tne;
+wire peeking;
+wire hps, hrs; wire [2:0] hch; wire [22:0] hwf;
+wire readout_ready, readout_done; wire [34:0] state; wire [4:0] err_sn, err_rc; wire err_data, err_tn, err_tt; wire [31:0] csmm; wire [22:0] bcs; wire cs_found; wire [7:0] tne;
 wire [15:0] lossp; wire [7:0] faultp; wire [5:0] warnp; wire [6:0] cew; wire cev; wire [31:0] lrsn, lrc, li1, li4; wire [8:0] rstat;
 command_manager_selftrigc cm(.clk(clk),.rst(rst),.chan_tx_fifo_ready(1'b1),.chan_tx_fifo_valid(tx_valid),.chan_tx_fifo_last(tx_last),.chan_tx_fifo_dest(tx_dest),.chan_tx_fifo_data(tx_data),
   .chan_rx_fifo_valid(rx_valid),.chan_rx_fifo_last(rx_last),.chan_rx_fifo_data(rx_data),.chan_rx_fifo_ready(rx_ready),
@@ -70,22 +72,27 @@ command_manager_selftrigc cm(.clk(clk),.rst(rst),.chan_tx_fifo_ready(1'b1),.chan
   .daq_ready(1'b1),.daq_almost_full(1'b0),.daq_valid(daq_valid),.daq_header(daq_header),.daq_trailer(daq_trailer),.daq_data(daq_data),
   .send_empty_event(1'b0),.skip_payload(1'b0),.initiate_readout(initiate_readout),.event_num(event_num),.trig_num(event_num),.trig_type(5'b00100),.trig_timestamp(44'd0),.ttc_xadc_alarms(4'd0),
   .readout_ready(readout_ready),.readout_done(readout_done),
-  .selftriggers_chan0_latched(trigs0),.selftriggers_chan1_latched(trigs1),.selftriggers_chan2_latched(20'd0),.selftriggers_chan3_latched(20'd0),.selftriggers_chan4_latched(20'd0),
-  .selftrigger_fifo_empty(sfifo_empty),.peeking(peeking),.selftrigger_fifo_rd_en(sfifo_rd),.burst_count_selftrig(bcs),.i2c_mac_adr(16'd0),.chan_en(chan_en),.endianness_sel(1'b1),.thres_data_corrupt(32'hFFFFFFFF),
+  .hdr_peek_strobe(hps),.hdr_read_strobe(hrs),.hdr_chan(hch),.hdr_wfms(hwf),
+  .peeking(peeking),.burst_count_selftrig(bcs),.i2c_mac_adr(16'd0),.chan_en(chan_en),.endianness_sel(1'b1),.thres_data_corrupt(32'hFFFFFFFF),
   .state(state),.cs_mismatch_count(csmm),.error_data_corrupt(err_data),.error_trig_num(err_tn),.error_trig_type(err_tt),.trig_num_error_count(tne),.chan_error_sn(err_sn),.chan_error_rc(err_rc),.cs_mismatch_found(cs_found),
   .err_loss_pulse(lossp),.err_fault_pulse(faultp),.err_warn_pulse(warnp),.chan_err_word(cew),.chan_err_valid(cev),.last_rsn_word(lrsn),.last_rc_word(lrc),.last_info1_word(li1),.last_info4_word(li4),.retry_status(rstat),.err_summary(err_summary));
+// the header monitor, as in wfd_selftrigc_top
+reg [22:0] ofw_thres = 23'h7FFFFF; reg mon_clear = 0; wire [119:0] mon_wfms; wire [114:0] mon_bursts; wire ofw;
+hdr_monitor_selftrigc mon(.clk(clk),.rst(rst),.reset_totals(1'b0),.clear(mon_clear),.hdr_peek_strobe(hps),.hdr_read_strobe(hrs),.hdr_chan(hch),.hdr_wfms(hwf),
+  .burst_count(bcs),.thres_ddr3_overflow(ofw_thres),.chan_en(chan_en),.wfms_read(mon_wfms),.fill_bursts(mon_bursts),.ddr3_almost_full(ofw));
+integer peek_strobes = 0, read_strobes = 0, wf_read [0:4]; integer check_fifo_entered = 0;
+always @(posedge clk) begin if (hps) peek_strobes = peek_strobes + 1; if (hrs) read_strobes = read_strobes + 1; if (state[8]) check_fifo_entered = check_fifo_entered + 1; end
 // accumulate the error pulses per scenario, and keep the last WFD5 header and channel header words of the DAQ stream
-reg [15:0] loss_acc = 0; reg [7:0] fault_acc = 0; reg [5:0] warn_acc = 0; integer sfifo_pops = 0; reg [2:0] err_summary = 3'b000; reg clr = 0;
+reg [15:0] loss_acc = 0; reg [7:0] fault_acc = 0; reg [5:0] warn_acc = 0; reg [2:0] err_summary = 3'b000; reg clr = 0;
 reg [63:0] wfd5_word = 0, chan_hdr_word = 0; reg [63:0] prev_daq = 0; integer chan_err_words = 0;
 always @(posedge clk) begin
   loss_acc <= clr ? lossp : (loss_acc | lossp); fault_acc <= clr ? faultp : (fault_acc | faultp); warn_acc <= clr ? warnp : (warn_acc | warnp);
   if (daq_valid) begin
     prev_daq <= daq_data;
-    if (daq_data[24] && daq_data[23:0] == {8'd6, 8'd7, 8'd0}) wfd5_word <= daq_data;       // the WFD5 header word (version 6.7.0)
+    if (daq_data[24] && daq_data[23:0] == {8'd6, 8'd8, 8'd0}) wfd5_word <= daq_data;       // the WFD5 header word (version 6.8.0)
     if (state[22] && tx_dest == 0) chan_hdr_word <= daq_data;  // channel 0's header word 0 (sent while in SEND_CHAN_HEADER1)
   end
   if (cev) chan_err_words = chan_err_words + 1;
-  if (sfifo_rd) sfifo_pops = sfifo_pops + 1;
 end
 task clear_acc; begin @(posedge clk); clr <= 1; @(posedge clk); clr <= 0; @(posedge clk); end endtask
 // ---- channel responders.  Each channel holds a queue of fill headers (fill number + waveform count).
@@ -120,7 +127,7 @@ task fill_reply(input integer ch, input [31:0] csn, input [23:0] num, input inte
     dw = 32'hA0000000 + ch * 32'h01000000 + wi * 32'h10000 + di; push(ch, dw, 0); cs[(di % 4) * 32 +: 32] = cs[(di % 4) * 32 +: 32] ^ dw;
   end
   push(ch, cs[31:0] ^ {31'd0, bad_checksum}, 0); push(ch, cs[63:32], 0); push(ch, cs[95:64], 0); push(ch, cs[127:96], 1);
-  fills_served[ch] = fills_served[ch] + 1;
+  fills_served[ch] = fills_served[ch] + 1; wf_read[ch] = wf_read[ch] + wf;
 end endtask
 task peek_reply(input integer ch, input [31:0] csn, input discarded); begin
   peeks[ch] = peeks[ch] + 1;
@@ -196,7 +203,7 @@ integer fails = 0;
 task check(input cond, input [8*64-1:0] what); begin if (!cond) begin fails = fails + 1; $display("  FAIL: %0s", what); end end endtask
 integer h0, t0, ask0, srv0, srv1; reg [4:0] r0;
 initial begin
-  for (i=0;i<5;i=i+1) begin q_wr[i]=0; q_rd[i]=0; mode[i]=0; asked[i]=0; fills_served[i]=0; peeks[i]=0; hq_rd[i]=0; hq_wr[i]=0; nwf[i]=0; end
+  for (i=0;i<5;i=i+1) begin wf_read[i]=0; q_wr[i]=0; q_rd[i]=0; mode[i]=0; asked[i]=0; fills_served[i]=0; peeks[i]=0; hq_rd[i]=0; hq_wr[i]=0; nwf[i]=0; end
   nwf[0] = 2; nwf[1] = 3;
   repeat(5) @(posedge clk); rst<=0; repeat(5) @(posedge clk);
 
@@ -208,7 +215,7 @@ initial begin
   check(peeks[0] == 1 && peeks[1] == 1 && fills_served[0] == 1 && fills_served[1] == 1, "each channel peeked once and read once");
   check(last_header[19:0] == exp_size(5, 2) && last_trailer[19:0] == exp_size(5, 2) && ev_words == exp_size(5, 2), "event size from the headers, and the words sent match it");
   check(hq_len(0) == 0 && hq_len(1) == 0 && qlen(0) == 0 && qlen(1) == 0, "headers consumed, FIFOs empty");
-  check(sfifo_pops == 1, "the count record was popped");
+  check(peek_strobes == 2 && read_strobes == 2, "one peek and one read strobe per channel to the header monitor");
   clear_acc;
 
   $display("--- 1. stale frame in front of channel 0's reply");
@@ -231,7 +238,7 @@ initial begin
   check(qlen(0) == 0 && qlen(1) == 0, "FIFOs empty");
   check(loss_acc == 16'h0001 && fault_acc == 0, "loss pulse: no reply"); check(wfd5_word[60:56] == 5'b00001, "channel 0 marked skipped in the WFD5 header word");
   check(last_header[19:0] == exp_size(3, 1) && ev_words == exp_size(3, 1), "event size counts channel 1 only");
-  check(warn_acc == 6'b010000, "the trigger-line count (ch0 + ch1) no longer matches: monitor warning");
+  check(warn_acc == 0, "no warning (6.7.x: the trigger-line monitor warned here)");
   clear_acc;
   mode[0] = 0; readout(20000); check(readout_done && qlen(0) == 0, "next readout clean"); check(loss_acc == 0, "no loss pulse on the clean readout"); clear_acc;
 
@@ -287,12 +294,12 @@ initial begin
   r0 = err_rc; readout(20000); check(readout_done && err_rc == r0 && qlen(0) == 0 && qlen(1) == 0, "readout after IPbus traffic clean");
 
   $display("--- 8. every enabled channel skipped -> empty event");
-  chan_en = 5'b00001; mode[0] = 1; h0 = daq_headers; trigs0 = 0; trigs1 = 0;
+  chan_en = 5'b00001; mode[0] = 1; h0 = daq_headers;
   fork readout(400000); expire_reply_wait; join
   check(readout_done, "done"); check(daq_headers == h0 + 1 && daq_trailers == daq_headers, "header and trailer sent");
   check(last_trailer[19:0] == 20'd4 && last_header[19:0] == 20'd4, "header and trailer say empty event (size 4)");
   check(loss_acc == 16'h0001 && warn_acc == 0, "loss pulse: no reply"); clear_acc;
-  mode[0] = 0; chan_en = 5'b00011; trigs0 = 2; trigs1 = 3;
+  mode[0] = 0; chan_en = 5'b00011;
   r0 = err_rc; readout(20000); check(readout_done && err_rc == r0, "clean afterwards"); clear_acc;
 
   $display("--- 9. a channel reports an error word in its fill header");
@@ -312,19 +319,23 @@ initial begin
   // the sticky summary from the error capture is marked in the WFD5 header word
   err_summary = 3'b100; readout(20000); check(wfd5_word[63:61] == 3'b100, "WFD5 header word carries the error summary"); err_summary = 0; clear_acc;
 
-  $display("--- 11. the trigger-line count disagrees with the headers");
-  trigs0 = 20'd9; readout(20000); trigs0 = 20'd2;
-  check(readout_done, "readout done"); check(warn_acc == 6'b010000 && loss_acc == 0 && fault_acc == 0, "monitor warning only");
-  check(last_header[19:0] == exp_size(5, 2) && ev_words == exp_size(5, 2), "event size still from the headers"); clear_acc;
+  $display("--- 11. the header monitor");
+  check(mon_wfms[23:0] == wf_read[0] && mon_wfms[47:24] == wf_read[1] && mon_wfms[119:48] == 0, "per-channel waveform totals = waveforms actually read");
+  check(mon_bursts[22:0] == nwf[0] * (bcs + 1) && mon_bursts[45:23] == nwf[1] * (bcs + 1), "bursts in the last fill per channel");
+  check(!ofw, "no overflow warning at the default threshold");
+  ofw_thres = nwf[1] * (bcs + 1) - 1;              // channel 1's fill (3 waveforms) is over, channel 0's (2) is not
+  readout(20000); repeat (5) @(posedge clk);
+  check(ofw, "a fill over the threshold sets the overflow warning");
+  nwf[1] = 1; readout(20000); repeat (5) @(posedge clk);
+  check(!ofw, "the next fill under it clears it"); check(mon_bursts[45:23] == bcs + 1, "bursts updated");
+  check(last_header[19:0] == exp_size(3, 2) && ev_words == exp_size(3, 2), "event size right with the new count");
+  nwf[1] = 3; readout(20000); repeat (5) @(posedge clk); check(ofw, "set again");
+  @(posedge clk); mon_clear <= 1; @(posedge clk); mon_clear <= 0; repeat (3) @(posedge clk);
+  check(!ofw && mon_bursts == 0 && mon_wfms[23:0] == wf_read[0], "the end-of-run clear drops the warning and the fill sizes, not the totals");
+  ofw_thres = 23'h7FFFFF; clear_acc;
 
-  $display("--- 12. the count record never comes");
-  sfifo_empty = 1; ask0 = sfifo_pops;
-  fork readout(400000); begin wait (state[8]); repeat (300) @(posedge clk); force cm.selftrig_wait_cntr = 24'hFFFF00; @(posedge clk); release cm.selftrig_wait_cntr; end join
-  sfifo_empty = 0;
-  check(readout_done, "readout done without the record"); check(warn_acc == 6'b100000 && loss_acc == 0, "count lost is a warning");
-  check(last_header[19:0] == exp_size(5, 2) && ev_words == exp_size(5, 2), "event complete and right-sized"); check(sfifo_pops == ask0, "record FIFO not popped");
-  clear_acc;
-  readout(20000); check(readout_done && warn_acc == 0 && loss_acc == 0 && sfifo_pops == ask0 + 1, "next readout clean, record popped"); clear_acc;
+  $display("--- 12. CHECK_SELFTRIG_FIFO is never entered");
+  check(check_fifo_entered == 0, "no clock spent waiting for a count record");
 
   $display("--- 13. the peek is answered with an error code");
   mode[0] = 5; ask0 = asked[0];
