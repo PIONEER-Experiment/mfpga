@@ -7,6 +7,19 @@
 // 2. Handle ADC data readout to DAQ link
 //
 // Originally created using Fizzim
+//
+// 6.8.0: the readout hardening of the self-triggering command manager (6.6.9 / 6.6.10) ported
+// to the standard image.  No wait is unbounded any more: the channel's reply to a read-fill
+// (READ_CHAN_RSN .. INFO4), the data stream, the async pulse-FIFO hand-off and every IPbus
+// transaction have time-outs.  A channel that is given up on is drained to the end of the frame
+// it had started (FLUSH_CHAN), so that nothing stale is left in its RX FIFO for the next readout
+// or register access; a stale frame in front of a reply is flushed and the reply read again; a
+// channel that served an older fill is asked again; a trigger-number or trigger-type mismatch
+// skips the channel for the event instead of stopping the readout for good; an event in which
+// every channel was skipped is sent as a well-formed empty event.  Every such case raises a
+// one-clock cause pulse for the error capture (error_capture.v), which latches it, freezes a
+// snapshot and drives the TTS line (data loss -> sync lost, fault -> error).  The DAQ data
+// format is unchanged.
 
 module command_manager (
   // user interface clock and reset
@@ -100,7 +113,7 @@ module command_manager (
   input wire [31:0] thres_data_corrupt, // threshold for data corruption instances
   input wire async_mode,                // asynchronous mode flag
   input wire cbuf_mode,                 // circular buffer mode flag
-  output reg [34:0] state,              // state of finite state machine
+  output reg [35:0] state,              // state of finite state machine (bit 35 = FLUSH_CHAN, 6.8.0)
 
   // error connections
   output reg [31:0] cs_mismatch_count, // number of checksum mismatches
@@ -108,7 +121,18 @@ module command_manager (
   output reg error_trig_num,           // trigger number mismatch between channel and master
   output reg error_trig_type,          // trigger type mismatch between channel and master
   output reg [ 4:0] chan_error_sn,     // command serial number mismatch between channel and master
-  output reg [ 4:0] chan_error_rc      // master received an error response code, one bit for each channel
+  output reg [ 4:0] chan_error_rc,     // master received an error response code, one bit for each channel
+  // error reporting (6.8.0, as the self-triggering image's 6.6.10): one-clock pulses to the error
+  // capture, and what it needs to record
+  output wire [ 7:0] trig_num_error_count, // trigger-number mismatches seen (no longer terminal), mod 256
+  output reg  [15:0] err_loss_pulse,     // a data-loss cause, see ERR_L_* below
+  output reg  [ 7:0] err_fault_pulse,    // a hardware/path fault cause, see ERR_F_*
+  output reg  [ 5:0] err_warn_pulse,     // recovered conditions worth knowing about, see ERR_W_*
+  output reg  [31:0] last_rsn_word,      // the last words received from a channel, for the snapshot
+  output reg  [31:0] last_rc_word,
+  output reg  [31:0] last_info1_word,
+  output reg  [31:0] last_info4_word,
+  output wire [ 8:0] retry_status        // {reply_retries[1:0], reissue_retries[1:0], skipped_mask[4:0]}, for the snapshot
 );
 
   // constants
@@ -153,6 +177,7 @@ module command_manager (
   parameter ERROR_DATA_CORRUPTION = 32; // 0x 1_0000_0000
   parameter ERROR_TRIG_NUM        = 33; // 0x 2_0000_0000
   parameter ERROR_TRIG_TYPE       = 34; // 0x 4_0000_0000
+  parameter FLUSH_CHAN            = 35; // 0x 8_0000_0000  drain a skipped channel's RX FIFO to the end of its frame (6.8.0)
 
 
   // channel header regs sorted the way they will be used: first chan_trig_num, then burst_count, ...
@@ -171,7 +196,8 @@ module command_manager (
   //reg [10:0] data_wfm_cnt_shrt; // lower 11 bits of above
   reg [31:0] ipbus_buf;         // buffer for IPbus data
   reg [31:0] readout_timestamp; // channel data readout timestamp
-  reg [ 2:0] num_chan_en;       // number of enabled channels
+  reg [ 2:0] num_chan_en;       // number of channels whose fill header has been read in this event (6.8.0: was
+                                // counted on CHECK_CHAN_EN, before the channel answered; see READ_CHAN_INFO4)
   reg sent_amc13_header;        // flag to indicate that the AMC13 header has been sent
 
   // regs for channel checksum verification
@@ -208,7 +234,7 @@ module command_manager (
   reg next_update_mcs_lsb;
   reg next_empty_event;
   reg next_empty_payload;
-  reg [ 34:0] nextstate;
+  reg [ 35:0] nextstate;
   reg [ 22:0] next_burst_count;
   reg [ 22:0] next_wfm_count;
   reg [ 21:0] next_wfm_gap_length;
@@ -395,25 +421,112 @@ module command_manager (
   wire rst_n;
   assign rst_n = ~rst;
 
-  // Bounded wait for the channel's response serial number in READ_CHAN_RSN.
-  // A channel that never answers the 'read fill' command (dead Aurora link,
-  // channel command dispatcher wedged) would otherwise park this state
-  // machine here for ever, and with it every IPbus channel access.
-  // 2^29 clk125 cycles = ~4.3 s: deliberately generous, since it only has
-  // to catch a channel that will never answer, and a readout that is merely
-  // slow (loaded DAQ server, large fill) must never trip it.  On timeout the
-  // channel is treated exactly like a serial-number mismatch: flag
-  // chan_error_sn, skip it.
+  // Time-out on the channel's reply to a read-fill command, counted over READ_CHAN_RSN, READ_CHAN_RC
+  // and READ_CHAN_INFO1-4 together and restarted at every (re)try: 2^29 clk125 = 4.3 s, the bound
+  // this image has had on READ_CHAN_RSN since 6.6.1 (deliberately generous: it only has to catch a
+  // channel that will never answer, and a slow readout must never trip it).  Until 6.8.0 only
+  // READ_CHAN_RSN was bounded; a reply that stopped after its serial number parked the readout.
   reg  [29:0] rsn_wait_cntr;
   wire        rsn_wait_timeout;
+  wire        waiting_for_reply = state[READ_CHAN_RSN] | state[READ_CHAN_RC] | state[READ_CHAN_INFO1] |
+                                  state[READ_CHAN_INFO2] | state[READ_CHAN_INFO3] | state[READ_CHAN_INFO4];
   assign rsn_wait_timeout = rsn_wait_cntr[29];
   always @(posedge clk) begin
-    if ( rst || !state[READ_CHAN_RSN] )
+    if ( rst || !waiting_for_reply )
       rsn_wait_cntr[29:0] <= 30'd0;
     else if ( !rsn_wait_timeout )
       rsn_wait_cntr[29:0] <= rsn_wait_cntr[29:0] + 1;
   end
-  
+  // Time-out on the data phase: 2^24 clk125 = 134 ms without progress (a word taken from the
+  // channel, or a change of state) in READ_CHAN_DATA1/2 or the async pulse-FIFO states.  AMC13
+  // back-pressure is waited out in READ_CHAN_DATA_RESYNC / SEND_*, not here.  A channel that stops
+  // mid-fill leaves the event incomplete whatever we do, and its frame has no end we could flush
+  // to, so this goes to ERROR_DATA_CORRUPTION (a fault, visible in the status and the TTS) instead
+  // of hanging silently.  It is the one remaining terminal state of the readout.
+  reg  [24:0] data_wait_cntr;
+  reg  [35:0] state_d;
+  wire        data_wait_timeout;
+  wire        waiting_for_data = state[READ_CHAN_DATA1] | state[READ_CHAN_DATA2] |
+                                 state[READ_PULSE_FIFO] | state[READ_READOUT_FIFO] | state[STORE_PULSE_INFO];
+  assign data_wait_timeout = data_wait_cntr[24];
+  always @(posedge clk) begin
+    state_d <= state;
+    if ( rst || !waiting_for_data || (chan_rx_fifo_valid & chan_rx_fifo_ready) || (state != state_d) )
+      data_wait_cntr[24:0] <= 25'd0;
+    else if ( !data_wait_timeout )
+      data_wait_cntr[24:0] <= data_wait_cntr[24:0] + 1;
+  end
+  // Time-out on an IPbus channel transaction: 2^25 clk125 = 268 ms waiting for the channel's reply
+  // in READ_IPBUS_RSN / READ_IPBUS_RES, and the same waiting for the software to take a reply word
+  // in SEND_IPBUS_RES.  Without it one channel that never answers parks this machine, and since
+  // readout_ready = IDLE, that stops the readout and every later IPbus access to every channel.
+  // On a time-out the transaction is abandoned (the software sees one bus time-out) and we return
+  // to IDLE.
+  reg  [25:0] ipb_wait_cntr;
+  wire        ipb_wait_timeout;
+  wire        waiting_for_ipbus = state[READ_IPBUS_RSN] | state[READ_IPBUS_RES] | state[SEND_IPBUS_RES];
+  assign ipb_wait_timeout = ipb_wait_cntr[25];
+  always @(posedge clk) begin
+    if ( rst || !waiting_for_ipbus || (chan_rx_fifo_valid & chan_rx_fifo_ready) || (ipbus_res_valid & ipbus_res_ready) )
+      ipb_wait_cntr[25:0] <= 26'd0;
+    else if ( !ipb_wait_timeout )
+      ipb_wait_cntr[25:0] <= ipb_wait_cntr[25:0] + 1;
+  end
+  // whether the last word taken from the RX FIFO ended its frame (tlast), so that a channel we
+  // give up on can be flushed to the end of the frame it had started
+  reg rx_last_consumed;
+  always @(posedge clk) begin
+    if ( rst )                                         rx_last_consumed <= 1'b1;
+    else if ( chan_rx_fifo_valid & chan_rx_fifo_ready ) rx_last_consumed <= chan_rx_fifo_last;
+  end
+  // FLUSH_CHAN bound: 2^16 clocks = 0.5 ms *without a word*; restarted by every word taken, so a
+  // frame of any length is flushed as long as the channel keeps streaming it
+  reg  [16:0] flush_cntr;
+  wire        flush_timeout = flush_cntr[16];
+  always @(posedge clk) begin
+    if ( rst || !state[FLUSH_CHAN] || (chan_rx_fifo_valid & chan_rx_fifo_ready) ) flush_cntr <= 17'd0;
+    else if ( !flush_timeout )                                                   flush_cntr <= flush_cntr + 1;
+  end
+  // What to do after FLUSH_CHAN, decided on the way in:
+  //   FLUSH_NEXT    give up on this channel for this event and go on to the next one
+  //   FLUSH_RETRY   read the reply again (a stale frame was in front of the real one)
+  //   FLUSH_REISSUE send the read-fill command again (the channel served us an older fill)
+  //   FLUSH_IPBUS   read the IPbus reply again (stale frame in front of it)
+  //   FLUSH_ABORT   abandon the IPbus transaction and return to IDLE
+  localparam [2:0] FLUSH_NEXT = 3'd0, FLUSH_RETRY = 3'd1, FLUSH_REISSUE = 3'd2, FLUSH_IPBUS = 3'd3, FLUSH_ABORT = 3'd4;
+  // Error causes reported to the error capture (status registers 35-49).  The bit numbers are the
+  // self-triggering image's, so that read_status.py and the frontend name them the same way.
+  // Data loss: the event delivered to the DAQ is incomplete or wrong.  Fault: the readout path
+  // itself failed.  Warning: something went wrong and was recovered without loss.
+  localparam ERR_L_NO_REPLY   = 0,   // channel skipped: no reply to the read-fill command within the bound
+            ERR_L_BAD_SN     = 1,   // channel skipped: wrong serial numbers, retries exhausted
+            ERR_L_ERR_RC     = 2,   // channel skipped: it answered with an error code
+            ERR_L_REPLY_CUT  = 3,   // channel skipped: its reply stopped before the header was complete
+            ERR_L_FILL_NUM   = 4,   // channel skipped: fill number mismatch not recoverable
+            ERR_L_FILL_TYPE  = 5;   // channel skipped: fill type mismatch
+            // 6-8: self-triggering image only; 9: readout trigger answered empty because the channels
+            // were still busy (ttc_trigger_receiver); 10: an acquisition controller gave up waiting
+            // for a channel's done; both set in the top level
+  localparam ERR_F_DATA_STALL = 0,   // the channel stopped streaming mid-fill (ERROR_DATA_CORRUPTION)
+            ERR_F_FLUSH_CUT  = 1,   // a frame being flushed stopped before its end
+                                    // 2: self-triggering image only (a channel-reported fault)
+            ERR_F_CHECKSUM   = 3;   // the channel's checksum did not match the data received
+  localparam ERR_W_STALE_FRAME = 0,  // a stale frame was flushed and the reply read again (recovered)
+            ERR_W_REISSUED    = 1,  // the channel served an older fill: read fill re-issued (recovered)
+            ERR_W_IPBUS_ABORT = 2,  // an IPbus transaction was abandoned (no reply, or the software stopped reading)
+            ERR_W_IPBUS_STALE = 3;  // a stale frame was flushed in front of an IPbus reply (recovered)
+  reg [15:0] next_err_loss_pulse; reg [7:0] next_err_fault_pulse; reg [5:0] next_err_warn_pulse;
+  reg [ 4:0] skipped_mask, next_skipped_mask;   // channels skipped in the event being built
+  reg [2:0] flush_action, next_flush_action;
+  reg [1:0] reply_retries, next_reply_retries;      // stale frames flushed before this channel's reply (per command)
+  reg [1:0] reissue_retries, next_reissue_retries;  // read-fill commands re-issued to this channel (per event)
+  localparam [1:0] MAX_REPLY_RETRIES = 2'd3, MAX_REISSUE_RETRIES = 2'd3;
+  assign retry_status = {reply_retries, reissue_retries, skipped_mask};
+  // Trigger-number errors are no longer terminal: the channel is skipped for the event (or asked
+  // again, see READ_CHAN_INFO1) and the count below says how often that happened.
+  reg [7:0] trig_num_errors;
+  assign trig_num_error_count = trig_num_errors;
+
   // Pulse Readout FIFO : 2048 depth, 2047 almost full threshold, 16-byte data width
   // holds a running copy of the pulse trigger information for multi-channel readout
   pulse_readout_fifo pulse_readout_fifo (
@@ -441,7 +554,7 @@ module command_manager (
   // comb always block
   always @* begin
     // internal regs
-    nextstate = 35'd0;
+    nextstate = 36'd0;
     next_burst_count[22:0]           = burst_count[22:0];
     next_wfm_count[22:0]             = wfm_count[22:0];
     next_wfm_gap_length[21:0]        = wfm_gap_length[21:0];
@@ -522,6 +635,13 @@ module command_manager (
     next_daq_valid          = 0; // default
     chan_tx_fifo_data[31:0] = 0; // default
     ipbus_res_data[31:0]    = 0; // default
+    next_flush_action       = flush_action;
+    next_reply_retries      = reply_retries;
+    next_reissue_retries    = reissue_retries;
+    next_err_loss_pulse     = 16'd0;
+    next_err_fault_pulse    = 8'd0;
+    next_err_warn_pulse     = 6'd0;
+    next_skipped_mask       = skipped_mask;
     
     case (1'b1) // synopsys parallel_case full_case
       // idle state
@@ -530,13 +650,23 @@ module command_manager (
         if (ipbus_cmd_valid) begin
           next_chan_tx_fifo_last = 0;
           next_chan_tx_fifo_dest[3:0] = ipbus_cmd_dest[3:0];
+          next_reply_retries = 2'd0;
           nextstate[SEND_IPBUS_CSN] = 1'b1;
+        end
+        // Async mode: the Pulse Readout FIFO carries the pulse records from the first channel read to
+        // the others, and is empty between events.  If a channel was skipped in the last event, the
+        // records stored for it are still there; drain them (the datapath pops while we are here)
+        // before the next readout, so that they cannot be paired with the next event's waveforms.
+        else if (m_readout_fifo_tvalid) begin
+          nextstate[IDLE] = 1'b1;
         end
         // watch for unread fill events
         else if (initiate_readout) begin
           next_empty_event = send_empty_event;
           next_empty_payload = skip_payload;
           next_chan_tx_fifo_dest[3:0] = 0;
+          next_skipped_mask = 5'd0;
+          next_num_chan_en[2:0] = 0;
 
           if (send_empty_event) begin
             next_daq_valid = 1'b1;
@@ -644,10 +774,33 @@ module command_manager (
           nextstate[SEND_IPBUS_CMD] = 1'b1;
         end
       end
-      // read response serial number from channel
+      // read response serial number from channel; it must be the CSN we sent (6.8.0: it was not
+      // checked).  A stale frame (an earlier reply we gave up on) is flushed and the read tried
+      // again; no reply at all within the bound abandons the transaction.
       state[READ_IPBUS_RSN] : begin
         if (chan_rx_fifo_valid) begin
-          nextstate[READ_IPBUS_RES] = 1'b1;
+          if (chan_rx_fifo_data[31:0] == csn[31:0]) begin
+            nextstate[READ_IPBUS_RES] = 1'b1;
+          end
+          else begin
+            if (chan_tx_fifo_dest < 4'd5) next_chan_error_sn[chan_tx_fifo_dest] = 1'b1;
+            if (reply_retries != MAX_REPLY_RETRIES) begin
+              next_reply_retries = reply_retries + 1;
+              next_flush_action  = FLUSH_IPBUS;
+              next_err_warn_pulse[ERR_W_IPBUS_STALE] = 1'b1;
+            end
+            else begin
+              next_flush_action  = FLUSH_ABORT;
+              next_err_warn_pulse[ERR_W_IPBUS_ABORT] = 1'b1;
+            end
+            nextstate[FLUSH_CHAN] = 1'b1;
+          end
+        end
+        else if (ipb_wait_timeout) begin
+          if (chan_tx_fifo_dest < 4'd5) next_chan_error_sn[chan_tx_fifo_dest] = 1'b1;
+          next_flush_action = FLUSH_ABORT;
+          next_err_warn_pulse[ERR_W_IPBUS_ABORT] = 1'b1;
+          nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
           nextstate[READ_IPBUS_RSN] = 1'b1;
@@ -659,6 +812,13 @@ module command_manager (
           next_ipbus_buf[31:0] = chan_rx_fifo_data[31:0];
           next_ipbus_res_last = chan_rx_fifo_last;
           nextstate[SEND_IPBUS_RES] = 1'b1;
+        end
+        else if (ipb_wait_timeout) begin
+          // the reply stopped short of its tlast
+          if (chan_tx_fifo_dest < 4'd5) next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+          next_flush_action = FLUSH_ABORT;
+          next_err_warn_pulse[ERR_W_IPBUS_ABORT] = 1'b1;
+          nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
           nextstate[READ_IPBUS_RES] = 1'b1;
@@ -675,6 +835,12 @@ module command_manager (
         else if (ipbus_res_ready) begin
           nextstate[READ_IPBUS_RES] = 1'b1;
         end
+        else if (ipb_wait_timeout) begin
+          // the software stopped taking the reply: drop the rest of the channel's frame
+          next_flush_action = FLUSH_ABORT;
+          next_err_warn_pulse[ERR_W_IPBUS_ABORT] = 1'b1;
+          nextstate[FLUSH_CHAN] = 1'b1;
+        end
         else begin
           nextstate[SEND_IPBUS_RES] = 1'b1;
         end
@@ -689,12 +855,21 @@ module command_manager (
         if (cs_mismatch_count > thres_data_corrupt) begin
           nextstate[ERROR_DATA_CORRUPTION] = 1'b1;
         end
+        else if ((chan_tx_fifo_dest[3:0] == 4'h5) && !sent_amc13_header) begin
+          // every enabled channel was skipped (or none is enabled): send a well-formed empty
+          // event rather than a trailer with no header (6.8.0)
+          next_empty_event = 1'b1;
+          next_daq_valid = 1'b1;
+          next_daq_data[63:0] = {8'h00, trig_num[23:0], trig_timestamp[43:32], 20'd4};
+          nextstate[SEND_AMC13_HEADER1] = 1'b1;
+        end
         else if (chan_tx_fifo_dest[3:0] == 4'h5) begin
           nextstate[READY_AMC13_TRAILER] = 1'b1;
         end
         else if (chan_en[chan_tx_fifo_dest] == 1) begin
-          next_num_chan_en[2:0] = num_chan_en[2:0] + 1;
           next_chan_tx_fifo_last = 0;
+          next_reply_retries   = 2'd0;
+          next_reissue_retries = 2'd0;
           nextstate[SEND_CHAN_CSN] = 1'b1;
         end
         else begin
@@ -734,22 +909,33 @@ module command_manager (
             nextstate[READ_CHAN_RC] = 1'b1;
           end
           else begin
-            // an error occured, update status register, and report error
-            // ABORT THIS CHANNEL'S READOUT
+            // a stale frame (a reply to a command we had given up on): flag it, drain it to its
+            // tlast, and read again, since the real reply is behind it.  After a few of these the
+            // channel's serial numbers are simply wrong and it is skipped for this event.  (Until
+            // 6.8.0 the channel was skipped at once and the frame left in its FIFO, where it was
+            // the next readout's stale frame, and so on for the rest of the run.)
             next_chan_error_sn[chan_tx_fifo_dest] = 1'b1;
-
-            next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0]+1;
-            next_csn[31:0] = csn[31:0]+1;
-            nextstate[CHECK_CHAN_EN] = 1'b1;
+            if (reply_retries != MAX_REPLY_RETRIES) begin
+              next_reply_retries = reply_retries + 1;
+              next_flush_action  = FLUSH_RETRY;
+              next_err_warn_pulse[ERR_W_STALE_FRAME] = 1'b1;
+            end
+            else begin
+              next_flush_action  = FLUSH_NEXT;
+              next_skipped_mask[chan_tx_fifo_dest] = 1'b1;
+              next_err_loss_pulse[ERR_L_BAD_SN] = 1'b1;
+            end
+            nextstate[FLUSH_CHAN] = 1'b1;
           end
         end
         else if (rsn_wait_timeout) begin
-          // no response from the channel: give up on it, same as a mismatch
+          // no response from the channel: give up on it for this event (nothing to flush now; if
+          // the reply comes later it is the stale frame handled above at the next readout)
           next_chan_error_sn[chan_tx_fifo_dest] = 1'b1;
-
-          next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0]+1;
-          next_csn[31:0] = csn[31:0]+1;
-          nextstate[CHECK_CHAN_EN] = 1'b1;
+          next_flush_action = FLUSH_NEXT;
+          next_skipped_mask[chan_tx_fifo_dest] = 1'b1;
+          next_err_loss_pulse[ERR_L_NO_REPLY] = 1'b1;
+          nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
           nextstate[READ_CHAN_RSN] = 1'b1;
@@ -765,17 +951,57 @@ module command_manager (
             nextstate[READ_CHAN_INFO1] = 1'b1;
           end
           else begin
-            // an error occured, update status register, and report error
-            // ABORT THIS CHANNEL'S READOUT
+            // an error occured: skip this channel (drain whatever else it sent, then move on)
             next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
-
-            next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0]+1;
-            next_csn[31:0] = csn[31:0]+1;
-            nextstate[CHECK_CHAN_EN] = 1'b1;
+            next_flush_action = FLUSH_NEXT;
+            next_skipped_mask[chan_tx_fifo_dest] = 1'b1;
+            next_err_loss_pulse[ERR_L_ERR_RC] = 1'b1;
+            nextstate[FLUSH_CHAN] = 1'b1;
           end
+        end
+        else if (rsn_wait_timeout) begin
+          next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+          next_flush_action = FLUSH_NEXT;
+          next_skipped_mask[chan_tx_fifo_dest] = 1'b1;
+          next_err_loss_pulse[ERR_L_REPLY_CUT] = 1'b1;
+          nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
           nextstate[READ_CHAN_RC] = 1'b1;
+        end
+      end
+      // Drain the skipped channel's RX FIFO to the end of the frame it had started (the word with
+      // tlast), so that nothing stale is left for the next readout or IPbus access.  If the last
+      // word taken already ended the frame there is nothing to do.  Bounded (2^16 clocks = 0.5 ms
+      // without a word) in case the frame never completes.
+      state[FLUSH_CHAN] : begin
+        if (rx_last_consumed || flush_timeout || (chan_rx_fifo_valid && chan_rx_fifo_last)) begin
+          if (flush_timeout && !rx_last_consumed) next_err_fault_pulse[ERR_F_FLUSH_CUT] = 1'b1;
+          case (flush_action)
+            FLUSH_RETRY: begin
+              nextstate[READ_CHAN_RSN] = 1'b1;           // same command, read the next frame
+            end
+            FLUSH_REISSUE: begin
+              next_csn[31:0] = csn[31:0]+1;              // new command to the same channel
+              next_chan_tx_fifo_last = 0;
+              nextstate[SEND_CHAN_CSN] = 1'b1;
+            end
+            FLUSH_IPBUS: begin
+              nextstate[READ_IPBUS_RSN] = 1'b1;
+            end
+            FLUSH_ABORT: begin
+              next_csn[31:0] = csn[31:0]+1;
+              nextstate[IDLE] = 1'b1;
+            end
+            default: begin                               // FLUSH_NEXT
+              next_chan_tx_fifo_dest[3:0] = chan_tx_fifo_dest[3:0]+1;
+              next_csn[31:0] = csn[31:0]+1;
+              nextstate[CHECK_CHAN_EN] = 1'b1;
+            end
+          endcase
+        end
+        else begin
+          nextstate[FLUSH_CHAN] = 1'b1;
         end
       end
       // get trigger number from channel's header word #1
@@ -783,17 +1009,33 @@ module command_manager (
         if (chan_rx_fifo_valid) begin
           // check that trigger number from channel header and trigger logic match
           if (event_num[23:0] != chan_rx_fifo_data[23:0]) begin
-            // trigger numbers aren't synchronized; throw an error
+            // Trigger numbers are not in step.  If the channel served an *older* fill (its header
+            // was left unread when an earlier readout gave up on it), drain this reply and ask
+            // again: the stale fill has been popped, and the next one is a fill closer to ours.
+            // A newer fill cannot be recovered that way; either way the channel is given up on for
+            // this event after a few tries, and the error counted.  Not terminal any more (6.8.0).
+            if ((event_num[23:0] - chan_rx_fifo_data[23:0] < 24'h800000) && (reissue_retries != MAX_REISSUE_RETRIES)) begin
+              next_reissue_retries = reissue_retries + 1;
+              next_flush_action = FLUSH_REISSUE;
+              next_err_warn_pulse[ERR_W_REISSUED] = 1'b1;
+            end
+            else begin
+              next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+              next_flush_action = FLUSH_NEXT;
+              next_skipped_mask[chan_tx_fifo_dest] = 1'b1;
+              next_err_loss_pulse[ERR_L_FILL_NUM] = 1'b1;
+            end
             nextstate[ERROR_TRIG_NUM] = 1'b1;
           end
-          // check that trigger type from channel header and trigger logic match in synchronous mode
-          else if (~trig_type[2] & (trig_type[2:0] != chan_rx_fifo_data[26:24])) begin
-            // trigger types aren't synchronized; throw an error
-            nextstate[ERROR_TRIG_TYPE] = 1'b1;
-          end
-          // check that trigger type from channel header in asynchronous mode
-          else if (trig_type[2] & (chan_rx_fifo_data[26:24] != 3'b111)) begin
-            // trigger types aren't synchronized; throw an error
+          // check that trigger type from channel header and trigger logic match in synchronous mode,
+          // and that the channel header says asynchronous in asynchronous mode: a mismatch skips the
+          // channel for this event (not terminal, 6.8.0)
+          else if ((~trig_type[2] & (trig_type[2:0] != chan_rx_fifo_data[26:24])) |
+                   ( trig_type[2] & (chan_rx_fifo_data[26:24] != 3'b111))) begin
+            next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+            next_flush_action = FLUSH_NEXT;
+            next_skipped_mask[chan_tx_fifo_dest] = 1'b1;
+            next_err_loss_pulse[ERR_L_FILL_TYPE] = 1'b1;
             nextstate[ERROR_TRIG_TYPE] = 1'b1;
           end
           else begin
@@ -810,6 +1052,13 @@ module command_manager (
             next_master_checksum[127:0] = {master_checksum[127:32], chan_rx_fifo_data[31:0]};
             nextstate[READ_CHAN_INFO2] = 1'b1;
           end
+        end
+        else if (rsn_wait_timeout) begin
+          next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+          next_flush_action = FLUSH_NEXT;
+          next_skipped_mask[chan_tx_fifo_dest] = 1'b1;
+          next_err_loss_pulse[ERR_L_REPLY_CUT] = 1'b1;
+          nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
           nextstate[READ_CHAN_INFO1] = 1'b1;
@@ -832,6 +1081,13 @@ module command_manager (
 
           next_master_checksum[127:0] = {master_checksum[127:64], chan_rx_fifo_data[31:0], master_checksum[31:0]};
           nextstate[READ_CHAN_INFO3] = 1'b1;
+        end
+        else if (rsn_wait_timeout) begin
+          next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+          next_flush_action = FLUSH_NEXT;
+          next_skipped_mask[chan_tx_fifo_dest] = 1'b1;
+          next_err_loss_pulse[ERR_L_REPLY_CUT] = 1'b1;
+          nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
           nextstate[READ_CHAN_INFO2] = 1'b1;
@@ -862,6 +1118,13 @@ module command_manager (
           next_master_checksum[127:0] = {master_checksum[127:96], chan_rx_fifo_data[31:0], master_checksum[63:0]};
           nextstate[READ_CHAN_INFO4] = 1'b1;
         end
+        else if (rsn_wait_timeout) begin
+          next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+          next_flush_action = FLUSH_NEXT;
+          next_skipped_mask[chan_tx_fifo_dest] = 1'b1;
+          next_err_loss_pulse[ERR_L_REPLY_CUT] = 1'b1;
+          nextstate[FLUSH_CHAN] = 1'b1;
+        end
         else begin
           nextstate[READ_CHAN_INFO3] = 1'b1;
         end
@@ -888,7 +1151,15 @@ module command_manager (
 
           next_chan_tag[11:0] = chan_rx_fifo_data[25:14];
           next_master_checksum[127:0] = {chan_rx_fifo_data[31:0], master_checksum[95:0]};
+          next_num_chan_en[2:0] = num_chan_en[2:0] + 1;   // this channel's data follows (async: 1 = it reads the Pulse Trigger FIFO)
           nextstate[READY_AMC13_HEADER1] = 1'b1;
+        end
+        else if (rsn_wait_timeout) begin
+          next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+          next_flush_action = FLUSH_NEXT;
+          next_skipped_mask[chan_tx_fifo_dest] = 1'b1;
+          next_err_loss_pulse[ERR_L_REPLY_CUT] = 1'b1;
+          nextstate[FLUSH_CHAN] = 1'b1;
         end
         else begin
           nextstate[READ_CHAN_INFO4] = 1'b1;
@@ -1131,6 +1402,10 @@ module command_manager (
             nextstate[READ_CHAN_DATA2] = 1'b1;
           end
         end
+        else if (data_wait_timeout) begin
+          next_err_fault_pulse[ERR_F_DATA_STALL] = 1'b1;
+          nextstate[ERROR_DATA_CORRUPTION] = 1'b1;   // the channel stopped streaming mid-fill
+        end
         else begin
           nextstate[READ_CHAN_DATA1] = 1'b1;
         end
@@ -1270,6 +1545,10 @@ module command_manager (
           end
           nextstate[READ_CHAN_DATA1] = 1'b1;
         end
+        else if (data_wait_timeout) begin
+          next_err_fault_pulse[ERR_F_DATA_STALL] = 1'b1;
+          nextstate[ERROR_DATA_CORRUPTION] = 1'b1;   // the channel stopped streaming mid-fill
+        end
         else begin
           // Aurora RX FIFO doesn't have valid data
           nextstate[READ_CHAN_DATA2] = 1'b1;
@@ -1315,6 +1594,10 @@ module command_manager (
             nextstate[READ_CHAN_DATA2] = 1'b1;
           end
         end
+        else if (data_wait_timeout) begin
+          next_err_fault_pulse[ERR_F_DATA_STALL] = 1'b1;
+          nextstate[ERROR_DATA_CORRUPTION] = 1'b1;   // the pulse-record hand-off stopped (async mode)
+        end
         else begin
           nextstate[READ_PULSE_FIFO] = 1'b1;
         end
@@ -1336,6 +1619,10 @@ module command_manager (
             nextstate[READ_CHAN_DATA2] = 1'b1;
           end
         end
+        else if (data_wait_timeout) begin
+          next_err_fault_pulse[ERR_F_DATA_STALL] = 1'b1;
+          nextstate[ERROR_DATA_CORRUPTION] = 1'b1;   // the pulse-record hand-off stopped (async mode)
+        end
         else begin
           nextstate[READ_READOUT_FIFO] = 1'b1;
         end
@@ -1347,6 +1634,10 @@ module command_manager (
           nextstate[READ_CHAN_DATA2] = 1'b1;
         end
         // FIFO is not ready for data word
+        else if (data_wait_timeout) begin
+          next_err_fault_pulse[ERR_F_DATA_STALL] = 1'b1;
+          nextstate[ERROR_DATA_CORRUPTION] = 1'b1;   // the pulse-record hand-off stopped (async mode)
+        end
         else begin
           nextstate[STORE_PULSE_INFO] = 1'b1;
         end
@@ -1370,6 +1661,7 @@ module command_manager (
           else begin
             next_daq_data[63:0] = {32'hbaad_baad, readout_timestamp[31:0]};
             next_cs_mismatch_count[31:0] = cs_mismatch_count[31:0] + 1; // increment mismatch count
+            next_err_fault_pulse[ERR_F_CHECKSUM] = 1'b1;   // the data was corrupted somewhere between the ADC and here
           end
 
           nextstate[CHECK_CHAN_EN] = 1'b1;
@@ -1425,13 +1717,14 @@ module command_manager (
       state[ERROR_DATA_CORRUPTION] : begin
         nextstate[ERROR_DATA_CORRUPTION] = 1'b1; // hard error, stay here
       end
-      // trigger number mismatch error detected
+      // trigger number mismatch: one clock (so that it is visible in the state history and the
+      // error flags), then drain the channel's reply and act on 'flush_action' (6.8.0: was terminal)
       state[ERROR_TRIG_NUM] : begin
-        nextstate[ERROR_TRIG_NUM] = 1'b1; // hard error, stay here
+        nextstate[FLUSH_CHAN] = 1'b1;
       end
-      // trigger type mismatch error detected
+      // trigger type mismatch: one clock, then drain the channel's reply and go on to the next channel
       state[ERROR_TRIG_TYPE] : begin
-        nextstate[ERROR_TRIG_TYPE] = 1'b1; // hard error, stay here
+        nextstate[FLUSH_CHAN] = 1'b1;
       end
     endcase
   end
@@ -1441,7 +1734,19 @@ module command_manager (
   always @(posedge clk) begin
     if (rst) begin
       // reset values
-      state <= 35'd1 << IDLE;
+      state <= 36'd1 << IDLE;
+      flush_action              <= FLUSH_NEXT;
+      reply_retries             <= 2'd0;
+      reissue_retries           <= 2'd0;
+      trig_num_errors           <= 8'd0;
+      err_loss_pulse            <= 16'd0;
+      err_fault_pulse           <= 8'd0;
+      err_warn_pulse            <= 6'd0;
+      skipped_mask              <= 5'd0;
+      last_rsn_word             <= 32'd0;
+      last_rc_word              <= 32'd0;
+      last_info1_word           <= 32'd0;
+      last_info4_word           <= 32'd0;
 
       burst_count[22:0]         <= 0;
       chan_tag[11:0]            <= 0;
@@ -1524,6 +1829,19 @@ module command_manager (
     else begin
       state <= nextstate;
 
+      flush_action                <= next_flush_action;
+      reply_retries               <= next_reply_retries;
+      reissue_retries             <= next_reissue_retries;
+      err_loss_pulse              <= next_err_loss_pulse;
+      err_fault_pulse             <= next_err_fault_pulse;
+      err_warn_pulse              <= next_err_warn_pulse;
+      skipped_mask                <= next_skipped_mask;
+      // the words a channel answered with, kept for the error snapshot
+      if (state[READ_CHAN_RSN]   && chan_rx_fifo_valid) last_rsn_word   <= chan_rx_fifo_data;
+      if (state[READ_CHAN_RC]    && chan_rx_fifo_valid) last_rc_word    <= chan_rx_fifo_data;
+      if (state[READ_CHAN_INFO1] && chan_rx_fifo_valid) last_info1_word <= chan_rx_fifo_data;
+      if (state[READ_CHAN_INFO4] && chan_rx_fifo_valid) last_info4_word <= chan_rx_fifo_data;
+      if (nextstate[ERROR_TRIG_NUM] && !state[ERROR_TRIG_NUM]) trig_num_errors <= trig_num_errors + 8'd1;
       burst_count[22:0]           <= next_burst_count[22:0];
       chan_tag[11:0]              <= next_chan_tag[11:0];
       //chan_xadc_alarms[3:0]       <= next_chan_xadc_alarms[3:0];
@@ -1641,13 +1959,17 @@ module command_manager (
       readout_done          <= 0;
       async_readout_done    <= 0;
       error_data_corrupt    <= 0;
-      error_trig_num        <= 0;
-      error_trig_type       <= 0;
+      // error_trig_num / error_trig_type are sticky (6.8.0): the states that set them are no
+      // longer terminal, so a one-clock pulse would never be seen in the status register.
+      // Cleared by reset only.
       pulse_fifo_tready     <= 0;
       m_readout_fifo_tready <= 0;
       s_readout_fifo_tvalid <= 0;
 
       case (1'b1) // synopsys parallel_case full_case
+        nextstate[IDLE] : begin
+          m_readout_fifo_tready <= m_readout_fifo_tvalid;   // drain records left by a skipped channel (async mode)
+        end
         //nextstate[IDLE] : begin
         //  ;
         //end
@@ -1669,6 +1991,9 @@ module command_manager (
           chan_tx_fifo_valid <= 1;
         end
         nextstate[READ_IPBUS_RSN] : begin
+          chan_rx_fifo_ready <= 1;
+        end
+        nextstate[FLUSH_CHAN] : begin
           chan_rx_fifo_ready <= 1;
         end
         nextstate[READ_IPBUS_RES] : begin

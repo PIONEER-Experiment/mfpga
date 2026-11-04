@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-// error_capture_selftrigc: the first loss or fault freezes the snapshot and sets the TTS flags; later
+// error_capture (hdl/error_capture.v; error_capture_selftrigc before 6.8.0): the first loss or fault freezes the snapshot and sets the TTS flags; later
 // errors accumulate in "since"; warnings do not snapshot; a TTC-domain pulse is caught; the clear
 // (rising edge of the control bit) empties everything and the next error snapshots again.
 module tb;
@@ -11,8 +11,8 @@ reg [34:0] cm_state = 35'h1; reg [3:0] ttr=4'h1; reg [5:0] cac=6'h1; reg [6:0] t
 reg [3:0] dest=0; reg [23:0] evn=24'd100, trn=24'd120; reg [43:0] ts=44'h123456789; reg [31:0] w1=32'h11, w2=32'h22, w3=32'h33, w4=32'h44, misc=32'hABCD0000; reg [8:0] rs=9'd0;
 wire data_loss, hw_fault, warning; wire [2:0] summ;
 wire [31:0] s35,s36,s37,s38,s39,s40,s41,s42,s43,s44,s45,s46,s47,s48,s49;
-error_capture_selftrigc dut(.clk(clk),.rst(rst),.clear(clear),.err_loss_pulse(lossp),.err_fault_pulse(faultp),.err_warn_pulse(warnp),.empty_midrun(em),.cac_wait_gave_up(cw),
-  .chan_err_word(cew),.chan_err_valid(cev),.cm_state(cm_state),.ttr_state(ttr),.cac_state(cac),.tp_state(tp),.acq_dones(dones),.chan_error_rc(erc),.chan_error_sn(esn),
+error_capture dut(.clk(clk),.rst(rst),.clear(clear),.err_loss_pulse(lossp),.err_fault_pulse(faultp),.err_warn_pulse(warnp),.empty_midrun(em),.cac_wait_gave_up(cw),
+  .chan_err_word(cew),.chan_err_valid(cev),.cm_state({1'b0, cm_state}),.trig_states({ttr, cac, tp}),.trig_states_extra(6'd0),.acq_dones(dones),.chan_error_rc(erc),.chan_error_sn(esn),
   .acq_readout_pause(pause),.chan_en(cen),.cm_rx_valid(rxv),.cm_tx_ready(txr),.cm_rx_ready(1'b1),.cm_tx_valid(1'b0),.cm_tx_dest(dest),.event_num(evn),.trig_num(trn),.trig_timestamp(ts),
   .last_rsn_word(w1),.last_rc_word(w2),.last_info1_word(w3),.last_info4_word(w4),.retry_status(rs),.misc_live(misc),
   .data_loss(data_loss),.hw_fault(hw_fault),.warning(warning),.err_summary(summ),

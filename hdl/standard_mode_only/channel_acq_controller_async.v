@@ -37,7 +37,8 @@ module channel_acq_controller_async (
 
   // status connections
   input wire async_mode, // asynchronous mode select
-  output reg [3:0] state // state of finite state machine
+  output reg [3:0] state, // state of finite state machine
+  output reg wait_gave_up // one clock: the wait for the dones ended on its time-out (6.8.0, error capture)
 );
 
   // state bits
@@ -70,6 +71,19 @@ module channel_acq_controller_async (
   // more accurate time separation
   wire pulse_trigger_use;
   assign pulse_trigger_use = pulse_trigger & !second_trigger;
+
+  // Bound on the wait for every enabled channel's done (6.8.0): 2^23 TTC clocks = 210 ms, far
+  // longer than any fill (the longest configurable is ~170 ms).  A channel that never reports done
+  // used to hold this machine, and every later trigger, for ever.  On the time-out the event is
+  // stored anyway (the readout then finds out what the channels have) and 'wait_gave_up' tells the
+  // error capture (data loss).
+  reg  [23:0] wait_cntr;
+  wire        wait_timeout = wait_cntr[23];
+  always @(posedge clk) begin
+    if ( reset || !state[WAIT] ) wait_cntr <= 24'd0;
+    else if ( !wait_timeout )   wait_cntr <= wait_cntr + 1;
+    wait_gave_up <= state[WAIT] && wait_timeout && (acq_dones_latched[4:0] != chan_en[4:0]);
+  end
 
   // combinational always block
   always @* begin
@@ -116,7 +130,7 @@ module channel_acq_controller_async (
         next_acq_dones_latched[4:0] = acq_dones_latched[4:0] | acq_dones[4:0];
 
         // check if all channels report done
-        if ((acq_dones_latched[4:0] == chan_en[4:0]) | ~accept_pulse_triggers) begin
+        if ((acq_dones_latched[4:0] == chan_en[4:0]) | ~accept_pulse_triggers | wait_timeout) begin
           nextstate[STORE_ACQ_INFO] = 1'b1;
         end
         else begin

@@ -74,7 +74,9 @@ module ttc_trigger_receiver (
   // error connections
   output reg [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
   output wire ddr3_almost_full,          // DDR3 overflow warning, combined for all channels
-  output wire error_trig_rate            // trigger received while acquiring data
+  output wire error_trig_rate,           // a trigger arrived while the channels were still acquiring (sticky since 6.8.0)
+  output reg  [7:0] triggers_downgraded, // such triggers, answered with an empty event (6.8.0; mod 256)
+  output reg  empty_midrun               // one clock: such a trigger (error capture, data loss)
 );
 
   // state bits, with one-hot encoding
@@ -130,6 +132,14 @@ module ttc_trigger_receiver (
   reg [ 3:0] next_acq_xadc_alarms;
   reg [31:0] next_ddr3_overflow_count;
   reg        next_acq_trigger;
+  reg        next_empty_midrun;
+  // A trigger that arrives while the channels are still acquiring the previous one (acq_ready low)
+  // cannot be acted on.  Until 6.8.0 it sent this machine to ERROR, which stopped every later
+  // trigger for good and left the trigger processor waiting for an event that never came.  It is
+  // now answered with an empty event at once (the acquisition is not delayed: in this image the
+  // trigger time is the data's time), counted, reported to the error capture as a data loss, and
+  // 'error_trig_rate' is latched so that the TTS still reports a trigger-rate error, as before.
+  reg        rate_error_seen;
 
 
   // combinational always block
@@ -148,6 +158,7 @@ module ttc_trigger_receiver (
     next_ddr3_overflow_count[31:0] = ddr3_overflow_count[31:0];
 
     next_acq_trigger = 1'b0; // default
+    next_empty_midrun = 1'b0;
 
     case (1'b1) // synopsys parallel_case full_case
       // idle state
@@ -199,9 +210,11 @@ module ttc_trigger_receiver (
         if (accept_pulse_triggers & async_mode & pulse_trigger) begin
           nextstate[SEND_TRIGGER] = 1'b1; // wait here
         end
-        // channels are not ready for data collection
+        // channels are not ready for data collection: answer with an empty event (see above)
         else if (~acq_ready) begin
-          nextstate[ERROR] = 1'b1; // throw error
+          next_empty_event  = 1'b1;
+          next_empty_midrun = 1'b1;
+          nextstate[STORE_TRIG_INFO] = 1'b1;
         end
         // in synchronous mode
         else if (~async_mode) begin
@@ -273,9 +286,17 @@ module ttc_trigger_receiver (
       acq_xadc_alarms    [ 3:0] <=  4'd0;
       ddr3_overflow_count[31:0] <= 32'd0;
       acq_trigger               <=  1'b0;
+      empty_midrun              <=  1'b0;
+      triggers_downgraded       <=  8'd0;
+      rate_error_seen           <=  1'b0;
     end
     else begin
       state <= nextstate;
+      empty_midrun              <= next_empty_midrun;
+      if (next_empty_midrun) begin
+        triggers_downgraded     <= triggers_downgraded + 8'd1;
+        rate_error_seen         <= 1'b1;
+      end
 
       empty_event               <= next_empty_event;
       empty_payload             <= next_empty_payload;
@@ -359,7 +380,9 @@ module ttc_trigger_receiver (
         end
         nextstate[STORE_TRIG_INFO] : begin
           fifo_valid       <= 1'b1;
-          fifo_data[127:0] <= {25'd0, empty_payload, acq_xadc_alarms[3:0], empty_event, acq_trig_type[4:0], acq_event_cnt[23:0], acq_trig_num[23:0], trig_timestamp[43:0]};
+          // the empty flags as they will be in STORE_TRIG_INFO (next_*): a trigger downgraded on
+          // the way out of SEND_TRIGGER sets its flag in the same clock (6.8.0)
+          fifo_data[127:0] <= {25'd0, next_empty_payload, acq_xadc_alarms[3:0], next_empty_event, acq_trig_type[4:0], acq_event_cnt[23:0], acq_trig_num[23:0], trig_timestamp[43:0]};
         end
         nextstate[ERROR] : begin
           fifo_valid       <=   1'b0;
@@ -370,6 +393,6 @@ module ttc_trigger_receiver (
   end
 
   // outputs based on states
-  assign error_trig_rate = (state[ERROR] == 1'b1);
+  assign error_trig_rate = (state[ERROR] == 1'b1) | rate_error_seen;   // ERROR is unreachable since 6.8.0
 
 endmodule

@@ -270,7 +270,10 @@ sync_2stage ar_sync (
         end
         nextstate[STORE_TRIG_INFO] : begin
           fifo_valid       <= 1'b1;
-          fifo_data[127:0] <= {25'd0, empty_payload, acq_xadc_alarms[3:0], empty_event, acq_trig_type[4:0], acq_event_cnt[23:0], acq_trig_num[23:0], trig_timestamp[43:0]};
+          // the empty flags as they will be in STORE_TRIG_INFO (next_*): a trigger downgraded on the way
+          // out of SEND_TRIGGER (ready_wait_timeout) sets its flag in the same clock, and was written
+          // to the FIFO as a real trigger before 6.8.0
+          fifo_data[127:0] <= {25'd0, next_empty_payload, acq_xadc_alarms[3:0], next_empty_event, acq_trig_type[4:0], acq_event_cnt[23:0], acq_trig_num[23:0], trig_timestamp[43:0]};
         end
         nextstate[ERROR] : begin
           fifo_valid       <=   1'b0;

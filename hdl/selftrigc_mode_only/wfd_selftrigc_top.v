@@ -1990,7 +1990,7 @@ module wfd_selftrigc_top (
     // Error capture (6.6.10): sticky data-loss / fault / warning flags with their causes, a snapshot of
     // the state machines and key signals at the first error (status registers 35-49), cleared by
     // SYS.CLEAR_ERRORS.  Data loss drives TTS sync-lost and a fault TTS error (both abort the run).
-    error_capture_selftrigc error_capture (
+    error_capture error_capture (   // hdl/error_capture.v (common to the master images since 6.8.0)
         .clk(clk125),
         .rst(rst_from_ipb),
         .clear(clear_errors),
@@ -2001,10 +2001,9 @@ module wfd_selftrigc_top (
         .cac_wait_gave_up(cac_wait_gave_up),
         .chan_err_word(chan_err_word),
         .chan_err_valid(chan_err_valid),
-        .cm_state(cm_state),
-        .ttr_state(ttr_state_clk125),
-        .cac_state(cac_state_clk125),
-        .tp_state(tp_state),
+        .cm_state({1'b0, cm_state}),
+        .trig_states({ttr_state_clk125, cac_state_clk125, tp_state}),
+        .trig_states_extra(6'd0),
         .acq_dones(acq_dones_clk125),
         .chan_error_rc(chan_error_rc),
         .chan_error_sn(chan_error_sn),

@@ -61,7 +61,10 @@ module status_reg_block (
   input wire ttc_ready,
 
   // FSM state
-  input wire [34:0] cm_state,
+  input wire [35:0] cm_state,
+  input wire        trig_hold_reset,       // 6.8.0: trigger block held in reset after a master reset
+  input wire [ 7:0] triggers_downgraded,   // 6.8.0: triggers answered empty because the channels were busy (mod 256)
+  input wire [ 7:0] trig_num_error_count,  // 6.8.0: channel fill number did not match the event number (mod 256)
   input wire [ 3:0] ttr_state,
   input wire [ 4:0] ptr_state,
   input wire [ 3:0] cac_state,
@@ -182,7 +185,7 @@ assign status_reg05 = {21'd0, tts_state[3:0], ttc_chan_b_info[5:0], ttc_ready};
 assign status_reg06 = cm_state[31:0];
 
 // Register 07: FSM state 1
-assign status_reg07 = {cm_state[34:32], 1'd0, cacc_state[3:0], ptr_state[4], tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
+assign status_reg07 = {cm_state[34:32], cm_state[35], cacc_state[3:0], ptr_state[4], tp_state[6:0], caca_state[3:0], cac_state[3:0], ptr_state[3:0], ttr_state[3:0]};
 
 // Register 08: Acquisition
 assign status_reg08 = {8'd0, ipb_accept_pulse_triggers, ttc_accept_pulse_triggers, accept_pulse_triggers, acq_dones[4:0], endianness_sel, acq_readout_pause[4:0], fill_type[4:0], chan_en[4:0]};
@@ -256,8 +259,12 @@ assign status_reg30 = {8'd0, pulse_trigs_last_readout[23:0]};
 // Register 31: cummulative front panel trigger count
 assign status_reg31 = accepted_ext_trigger_count[31:0];
 
-// Registers 32-34 -- unused here
-assign status_reg32 = 32'd0;
+// Register 32 (6.8.0): {trigger block held in reset after a master reset[31], triggers answered with an
+// empty event because the channels were still acquiring[7:0]}
+assign status_reg32 = {trig_hold_reset, 23'd0, triggers_downgraded[7:0]};
+// Register 33 -- unused here
 assign status_reg33 = 32'd0;
-assign status_reg34 = 32'd0;
+// Register 34 (6.8.0): channel fill numbers that did not match the event number (the channel was
+// re-read or skipped for that event; mod 256), as in the self-triggering image
+assign status_reg34 = {24'd0, trig_num_error_count[7:0]};
 endmodule

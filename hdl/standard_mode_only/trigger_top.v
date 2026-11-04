@@ -9,6 +9,9 @@ module trigger_top (
     input wire reset40,      // in  40 MHz clock domain
     input wire reset40_n,    // in  40 MHz clock domain
     input wire rst_from_ipb, // in 125 MHz clock domain
+    input wire trig_hold_reset,     // 6.8.0: in 125 MHz domain, hold the trigger processor until the trigger block is clean
+    input wire trig_hold_reset40,   // the same, in the 40 MHz domain: holds the receivers and acquisition controllers
+    output wire trig_fifo_rst_busy, // the trigger / pulse / acquisition event FIFOs are still resetting (mixed domains, level)
 
     input wire rst_trigger_num,       // from TTC Channel B
     input wire rst_trigger_timestamp, // from TTC Channel B
@@ -102,6 +105,9 @@ module trigger_top (
     output wire [31:0] ddr3_overflow_count, // number of triggers received that would overflow DDR3
     output wire ddr3_almost_full,           // DDR3 overflow warning
     output wire error_trig_rate,            // trigger rate error
+    output wire [7:0] triggers_downgraded,  // 6.8.0: triggers answered with an empty event because the channels were busy
+    output wire       empty_midrun,         // 6.8.0: one TTC clock, such a trigger (error capture)
+    output wire       cac_wait_gave_up,     // 6.8.0: one TTC clock, an acquisition controller gave up waiting for a done (error capture)
     output wire error_trig_num,             // trigger number error
     output wire error_trig_type             // trigger type error
 );
@@ -318,6 +324,9 @@ module trigger_top (
     assign ddr3_almost_full          = (async_mode) ? ddr3_almost_full_ptr          : ddr3_almost_full_ttr;
 
 
+    wire cac_gave_up_sync, cac_gave_up_cbuf, cac_gave_up_async;
+    assign cac_wait_gave_up = cac_gave_up_sync | cac_gave_up_cbuf | cac_gave_up_async;
+
     // ----------------
     // module instances
     // ----------------
@@ -353,7 +362,7 @@ module trigger_top (
     ttc_trigger_receiver ttc_trigger_receiver (
         // clock and reset
         .clk(ttc_clk),   // 40 MHz TTC clock
-        .reset(reset40),
+        .reset(reset40 | trig_hold_reset40),
 
         // TTC Channel B resets
         .reset_trig_num(rst_trigger_num),
@@ -421,7 +430,9 @@ module trigger_top (
         // error connections
         .ddr3_overflow_count(ddr3_overflow_count_ttr), // number of triggers received that would overflow DDR3
         .ddr3_almost_full(ddr3_almost_full_ttr),       // DDR3 overflow warning
-        .error_trig_rate(error_trig_rate)              // trigger rate error
+        .error_trig_rate(error_trig_rate),             // trigger rate error
+        .triggers_downgraded(triggers_downgraded),     // 6.8.0
+        .empty_midrun(empty_midrun)                    // 6.8.0
     );
 
 
@@ -429,7 +440,7 @@ module trigger_top (
     pulse_trigger_receiver pulse_trigger_receiver (
         // clock and reset
         .clk(ttc_clk),   // 40 MHz TTC clock
-        .reset(reset40),
+        .reset(reset40 | trig_hold_reset40),
 
         // TTC Channel B resets
         .reset_trig_num(rst_trigger_num),
@@ -487,7 +498,7 @@ module trigger_top (
     channel_acq_controller channel_acq_controller (
         // clock and reset
         .clk(ttc_clk),   // 40 MHz TTC clock
-        .reset(reset40),
+        .reset(reset40 | trig_hold_reset40),
 
         // trigger configuration
         .chan_en(chan_en_clk40), // which channels should receive the trigger
@@ -512,14 +523,15 @@ module trigger_top (
         // status connections
         .async_mode(async_mode), // asynchronous mode select
         .cbuf_mode(cbuf_mode),
-        .state(cac_state)        // state of finite state machine
+        .state(cac_state),       // state of finite state machine
+        .wait_gave_up(cac_gave_up_sync)
     );
 
     // channel acquisition controller module (synchronous)
     channel_acq_controller_cbuf channel_acq_controller_cbuf (
         // clock and reset
         .clk(ttc_clk),   // 40 MHz TTC clock
-        .reset(reset40),
+        .reset(reset40 | trig_hold_reset40),
     
         // trigger configuration
         .chan_en(chan_en_clk40), // which channels should receive the trigger
@@ -545,7 +557,8 @@ module trigger_top (
         // status connections
         .async_mode(async_mode), // asynchronous mode select
         .cbuf_mode(cbuf_mode),
-        .state(cacc_state)        // state of finite state machine
+        .state(cacc_state),       // state of finite state machine
+        .wait_gave_up(cac_gave_up_cbuf)
     );
 
 
@@ -554,7 +567,7 @@ module trigger_top (
     channel_acq_controller_async channel_acq_controller_async (
         // clock and reset
         .clk(ttc_clk),   // 40 MHz TTC clock
-        .reset(reset40),
+        .reset(reset40 | trig_hold_reset40),
 
         // trigger configuration
         .chan_en(chan_en_clk40),                       // which channels should receive the trigger
@@ -587,7 +600,8 @@ module trigger_top (
 
         // status connections
         .async_mode(async_mode), // asynchronous mode select
-        .state(caca_state)       // state of finite state machine
+        .state(caca_state),      // state of finite state machine
+        .wait_gave_up(cac_gave_up_async)
     );
 
     
@@ -595,7 +609,7 @@ module trigger_top (
     trigger_processor trigger_processor (
         // clock and reset
         .clk(clk125),         // 125 MHz clock
-        .reset(rst_from_ipb),
+        .reset(rst_from_ipb | trig_hold_reset),
 
         // interface to TTC Trigger FIFO
         .trig_fifo_valid(m_trig_fifo_tvalid),
@@ -629,6 +643,9 @@ module trigger_top (
 
     // TTC Trigger FIFO : 2048 depth, 2047 almost full threshold, 16-byte data width
     // holds the trigger timestamp, trigger number, acquired event number, and trigger type
+    wire trig_fifo_wr_rst_busy, trig_fifo_rd_rst_busy, pulse_fifo_wr_rst_busy, pulse_fifo_rd_rst_busy, acq_fifo_wr_rst_busy, acq_fifo_rd_rst_busy;
+    assign trig_fifo_rst_busy = trig_fifo_wr_rst_busy | trig_fifo_rd_rst_busy | pulse_fifo_wr_rst_busy | pulse_fifo_rd_rst_busy |
+                                acq_fifo_wr_rst_busy  | acq_fifo_rd_rst_busy;
     trigger_info_fifo ttc_trigger_fifo (
         // writing side
         .s_aclk(ttc_clk),                   // input
@@ -647,8 +664,8 @@ module trigger_top (
         .axis_prog_full(trig_fifo_full),    // output
 
         // handshaking (currently unused)
-        .wr_rst_busy(),
-        .rd_rst_busy()
+        .wr_rst_busy(trig_fifo_wr_rst_busy),
+        .rd_rst_busy(trig_fifo_rd_rst_busy)
     );
 
 
@@ -674,8 +691,8 @@ module trigger_top (
         .axis_prog_full(pulse_fifo_full),    // output
 
         // handshaking (currently unused)
-        .wr_rst_busy(),
-        .rd_rst_busy()
+        .wr_rst_busy(pulse_fifo_wr_rst_busy),
+        .rd_rst_busy(pulse_fifo_rd_rst_busy)
     );
 
 
@@ -699,8 +716,8 @@ module trigger_top (
         .axis_prog_full(acq_fifo_full),    // output
 
         // unused
-        .wr_rst_busy(),        // output wire wr_rst_busy
-        .rd_rst_busy()         // output wire rd_rst_busy
+        .wr_rst_busy(acq_fifo_wr_rst_busy),        // output wire wr_rst_busy
+        .rd_rst_busy(acq_fifo_rd_rst_busy)         // output wire rd_rst_busy
 
     );
 

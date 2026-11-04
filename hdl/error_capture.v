@@ -1,4 +1,5 @@
-// Error capture for the self-triggering master (6.6.10).
+// Error capture for the master images (self-triggering since 6.6.10; standard since 6.8.0, when this
+// file moved from selftrigc_mode_only/error_capture_selftrigc.v to hdl/ and was made common).
 //
 // Principle: the readout never loses data quietly.  Every condition under which an event is
 // delivered incomplete or wrong ("data loss"), or under which the readout path itself failed
@@ -14,7 +15,10 @@
 //   36  {first cause: fault?[31], index[30:24]}, {channel addressed[23:20]}, {channel-reported error
 //       word[19:13], its channel[12:9]}, {warning bits[3:0] at [8:5]}, {reply retries[4:3], 0, reissue retries[1:0]}
 //   37  command manager state [31:0]
-//   38  {cm state[34:32], ttr state[3:0], cac state[5:0], tp state[6:0], channel dones[4:0], 7'd0}
+//   38  {cm state[34:32], trig_states[16:0], channel dones[4:0], cm state[35], trig_states_extra[5:0]}
+//       trig_states is packed by the top level: self-triggering {ttr[3:0], cac[5:0], tp[6:0]} (as
+//       before 6.8.0, extra = 0); standard {ttr[3:0], {acquisition mode[1:0], the active acquisition
+//       controller's state[3:0]}, tp[6:0]}, extra = the pulse trigger receiver's state [4:0], 0
 //   39  {chan_error_rc[4:0], chan_error_sn[4:0], readout pause[4:0], chan_en[4:0], cm_rx_valid[4:0],
 //        cm_tx_ready[4:0], cm_rx_ready, cm_tx_valid}
 //   40  {skipped channels this event[4:0], 3'd0, event number[23:0]}
@@ -31,7 +35,7 @@
 // All inputs are in clk125 except the two TTC-domain pulses, which are synchronised here; the
 // TTC-domain state fields are sampled as the status registers sample them (status only).
 
-module error_capture_selftrigc (
+module error_capture (
   input wire clk,                       // clk125
   input wire rst,
   input wire clear,                     // level, from the control register; a rising edge clears
@@ -44,10 +48,9 @@ module error_capture_selftrigc (
   input wire [ 6:0] chan_err_word,      // the error word a channel put in its fill header, with
   input wire        chan_err_valid,     // ... a one-clock strobe when it was non-zero
   // live state to freeze
-  input wire [34:0] cm_state,
-  input wire [ 3:0] ttr_state,
-  input wire [ 5:0] cac_state,
-  input wire [ 6:0] tp_state,
+  input wire [35:0] cm_state,          // the command manager's state vector (self-triggering: 35 bits, bit 35 = 0)
+  input wire [16:0] trig_states,       // trigger-block state machines, packed by the top level (see above)
+  input wire [ 5:0] trig_states_extra,
   input wire [ 4:0] acq_dones,
   input wire [ 4:0] chan_error_rc,
   input wire [ 4:0] chan_error_sn,
@@ -140,7 +143,7 @@ module error_capture_selftrigc (
         snap_count  <= snap_count + 4'd1;
         first_cause <= first_of(loss_now, fault_now);
         s37 <= cm_state[31:0];
-        s38 <= {cm_state[34:32], ttr_state, cac_state, tp_state, acq_dones, 7'd0};
+        s38 <= {cm_state[34:32], trig_states, acq_dones, cm_state[35], trig_states_extra};
         s39 <= {chan_error_rc, chan_error_sn, acq_readout_pause, chan_en, cm_rx_valid, cm_tx_ready, cm_rx_ready, cm_tx_valid};
         s40 <= {retry_status[4:0], 3'd0, event_num};
         s41 <= {8'd0, trig_num};

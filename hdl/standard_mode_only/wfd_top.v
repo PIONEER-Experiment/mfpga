@@ -161,6 +161,24 @@ module wfd_top (
     // warnings
     wire ddr3_almost_full;
 
+    // error capture (6.8.0, as the self-triggering image since 6.6.10): sticky flags with their causes,
+    // a snapshot at the first loss or fault (status registers 35-49), cleared by SYS.CLEAR_ERRORS
+    wire        data_loss, hw_fault, err_warning;    // sticky
+    wire [ 2:0] err_summary;
+    wire        clear_errors;                        // control register bit 29
+    wire [31:0] status_reg35, status_reg36, status_reg37, status_reg38, status_reg39, status_reg40, status_reg41, status_reg42,
+                status_reg43, status_reg44, status_reg45, status_reg46, status_reg47, status_reg48, status_reg49;
+    wire [15:0] err_loss_pulse;
+    wire [ 7:0] err_fault_pulse;
+    wire [ 5:0] err_warn_pulse;
+    wire [31:0] last_rsn_word, last_rc_word, last_info1_word, last_info4_word;
+    wire [ 8:0] cm_retry_status;
+    wire [ 7:0] trig_num_error_count;
+    wire [ 7:0] triggers_downgraded;
+    wire        empty_midrun, cac_wait_gave_up;
+    reg  [17:0] trig_hold_cntr = 18'd0;              // trigger-block reset sequencer, see before the trigger top
+    reg         trig_hold_reset = 1'b1;
+
     // throw error if either PLL is unlocked or if there is a loss-of-signal
     assign error_pll_unlock = ~adcclk_stat_ld | ~adcclk_stat | adcclk_clkin0_stat;
 
@@ -238,7 +256,7 @@ module wfd_top (
     wire [ 3:0] caca_state;
     wire [ 3:0] cacc_state;
     wire [ 6:0] tp_state;
-     wire [34:0] cm_state;
+     wire [35:0] cm_state;   // 6.8.0: bit 35 = FLUSH_CHAN
 
     // ======== TTC Channel B information signals ========
     wire [5:0] ttc_chan_b_info;
@@ -1134,6 +1152,7 @@ SRLC32E #(
         .i2c_temp_polling_dis_out(i2c_temp_polling_dis),   // disable EEPROM temperature polling
         .i2c_temp_update_out(i2c_temp_update),             // read and update EEPROM temperature value
         .fp_trig_width_out(fp_trig_width_from_ipbus[3:0]), // width to separate short from long front panel triggers
+        .clear_errors_out(clear_errors),                   // clear the error capture (6.8.0)
 
         // threshold registers
         .thres_data_corrupt(thres_data_corrupt),   // data corruption
@@ -1176,6 +1195,21 @@ SRLC32E #(
         .status_reg32(status_reg32),
         .status_reg33(status_reg33),
         .status_reg34(status_reg34),
+        .status_reg35(status_reg35),
+        .status_reg36(status_reg36),
+        .status_reg37(status_reg37),
+        .status_reg38(status_reg38),
+        .status_reg39(status_reg39),
+        .status_reg40(status_reg40),
+        .status_reg41(status_reg41),
+        .status_reg42(status_reg42),
+        .status_reg43(status_reg43),
+        .status_reg44(status_reg44),
+        .status_reg45(status_reg45),
+        .status_reg46(status_reg46),
+        .status_reg47(status_reg47),
+        .status_reg48(status_reg48),
+        .status_reg49(status_reg49),
 
         // flash interface ports
         .flash_wr_nBytes(ipbus_to_flash_wr_nBytes),
@@ -1561,6 +1595,9 @@ SRLC32E #(
 
         // FSM state
         .cm_state(cm_state),
+        .trig_hold_reset(trig_hold_reset),               // 6.8.0, status register 32
+        .triggers_downgraded(triggers_downgraded),       // 6.8.0, status register 32
+        .trig_num_error_count(trig_num_error_count),     // 6.8.0, status register 34
         .ttr_state(ttr_state_clk125),
         .ptr_state(ptr_state_clk125),
         .cac_state(cac_state_clk125),
@@ -1675,6 +1712,37 @@ SRLC32E #(
         //.ext_trig_delta_t(ext_trig_delta_t)
     );
 
+    // ======== trigger-block reset sequencer (6.8.0, as the self-triggering image since 6.6.5) ========
+    // The trigger processor is reset by rst_from_ipb on clk125 and is running again a few cycles
+    // later, while the trigger receivers, acquisition controllers and the trigger / pulse /
+    // acquisition FIFOs are reset by reset40, the same reset stretched and resynchronised into the
+    // 40 MHz domain some 100-200 ns later, and the FIFOs are then busy for a while longer.  A trigger
+    // arriving in that window, or a record left in a FIFO, is seen by a half-reset block: a stale
+    // acquisition record paired with a new trigger (ERROR_TRIG_NUM).  This happens on frontend
+    // restarts, where the master is reset while the FC7 can still send triggers.  So: from any
+    // reset, hold the receivers, acquisition controllers and trigger processor in reset until
+    // reset40 has come and gone, every FIFO reports its reset finished, and 2^17 clk125 cycles
+    // (~1 ms) have elapsed.  Triggers arriving meanwhile are ignored.  The command manager is not
+    // held, so IPbus register access works throughout.  Status register 32 [31] shows the hold.
+    wire trig_fifo_rst_busy, trig_fifo_rst_busy_125, reset40_125;
+    sync_2stage trig_fifo_busy_sync (.clk(clk125), .in(trig_fifo_rst_busy), .out(trig_fifo_rst_busy_125));
+    sync_2stage reset40_sync_125   (.clk(clk125), .in(reset40),            .out(reset40_125));
+    always @(posedge clk125) begin
+        if (rst_from_ipb || reset40_125 || trig_fifo_rst_busy_125) begin
+            trig_hold_cntr  <= 18'd0;
+            trig_hold_reset <= 1'b1;
+        end
+        else if (!trig_hold_cntr[17]) begin
+            trig_hold_cntr  <= trig_hold_cntr + 1;
+            trig_hold_reset <= 1'b1;
+        end
+        else begin
+            trig_hold_reset <= 1'b0;
+        end
+    end
+    wire trig_hold_reset40;
+    sync_2stage trig_hold_reset_sync40 (.clk(ttc_clk), .in(trig_hold_reset), .out(trig_hold_reset40));
+
     // -- asyncMods: all usages here refer to front panel trigger and associated asynch readout
     // trigger top module
     trigger_top trigger_top (
@@ -1686,6 +1754,9 @@ SRLC32E #(
         .reset40(reset40),           // in  40 MHz clock domain
         .reset40_n(reset40_n),       // in  40 MHz clock domain
         .rst_from_ipb(rst_from_ipb), // in 125 MHz clock domain
+        .trig_hold_reset(trig_hold_reset),       // hold-off after any reset, clk125 (6.8.0)
+        .trig_hold_reset40(trig_hold_reset40),   // the same in the 40 MHz domain
+        .trig_fifo_rst_busy(trig_fifo_rst_busy), // the trigger / pulse / acquisition FIFOs are still resetting
 
         .rst_trigger_num(rst_trigger_num),             // from TTC Channel B
         .rst_trigger_timestamp(rst_trigger_timestamp), // from TTC Channel B
@@ -1776,6 +1847,9 @@ SRLC32E #(
         .ddr3_overflow_count(ddr3_overflow_count),   // number of triggers received that would overflow DDR3
         .ddr3_almost_full(ddr3_almost_full),         // DDR3 overflow warning
         .error_trig_rate(error_trig_rate),           // trigger rate error
+        .triggers_downgraded(triggers_downgraded),   // triggers answered empty because the channels were busy (status)
+        .empty_midrun(empty_midrun),                 // ... one TTC clock each (error capture)
+        .cac_wait_gave_up(cac_wait_gave_up),         // an acquisition controller gave up waiting for a done (error capture)
         .error_trig_num(error_trig_num_from_tt),     // trigger number error
         .error_trig_type(error_trig_type_from_tt)    // trigger type error
     );
@@ -1878,7 +1952,7 @@ SRLC32E #(
         .thres_data_corrupt(thres_data_corrupt), // input  [31:0], from IPbus
         .async_mode(async_mode_clk125),          // input, from IPbus
         .cbuf_mode(cbuf_mode_clk125),            // input, from IPbus
-        .state(cm_state),                        // output [34:0]
+        .state(cm_state),                        // output [35:0]
 
         // error connections
         .cs_mismatch_count(cs_mismatch_count),     // number of checksum mismatches
@@ -1886,7 +1960,79 @@ SRLC32E #(
         .error_trig_num(error_trig_num_from_cm),   // output, trigger number mismatch between channel and master
         .error_trig_type(error_trig_type_from_cm), // output, trigger type mismatch between channel and master
         .chan_error_sn(chan_error_sn[4:0]),        // output [ 4:0]
-        .chan_error_rc(chan_error_rc[4:0])         // output [ 4:0]
+        .chan_error_rc(chan_error_rc[4:0]),        // output [ 4:0]
+        .trig_num_error_count(trig_num_error_count), // output [7:0] (status register 34)
+        .err_loss_pulse(err_loss_pulse),             // error capture (6.8.0)
+        .err_fault_pulse(err_fault_pulse),
+        .err_warn_pulse(err_warn_pulse),
+        .last_rsn_word(last_rsn_word),
+        .last_rc_word(last_rc_word),
+        .last_info1_word(last_info1_word),
+        .last_info4_word(last_info4_word),
+        .retry_status(cm_retry_status)
+    );
+
+    // Error capture (6.8.0): sticky data-loss / fault / warning flags with their causes, a snapshot
+    // of the state machines and key signals at the first error (status registers 35-49), cleared by
+    // SYS.CLEAR_ERRORS.  Data loss drives TTS sync-lost and a fault TTS error (both abort the run).
+    // the acquisition controller in use, with the mode: 0 synchronous, 1 circular buffer, 2 asynchronous
+    wire [5:0] active_cac_state = async_mode_clk125 ? {2'd2, caca_state_clk125} :
+                                  cbuf_mode_clk125  ? {2'd1, cacc_state_clk125} : {2'd0, cac_state_clk125};
+    error_capture error_capture (
+        .clk(clk125),
+        .rst(rst_from_ipb),
+        .clear(clear_errors),
+        .err_loss_pulse(err_loss_pulse),
+        .err_fault_pulse(err_fault_pulse),
+        .err_warn_pulse(err_warn_pulse),
+        .empty_midrun(empty_midrun),
+        .cac_wait_gave_up(cac_wait_gave_up),
+        .chan_err_word(7'd0),                    // the standard channels report no error word in their fill header
+        .chan_err_valid(1'b0),
+        .cm_state(cm_state),
+        .trig_states({ttr_state_clk125, active_cac_state, tp_state}),
+        .trig_states_extra({ptr_state_clk125, 1'b0}),
+        .acq_dones(acq_dones_clk125),
+        .chan_error_rc(chan_error_rc),
+        .chan_error_sn(chan_error_sn),
+        .acq_readout_pause(acq_readout_pause),
+        .chan_en(chan_en),
+        .cm_rx_valid(c_axi_stream_to_cm_tvalid),
+        .cm_tx_ready(c_axi_stream_to_channel_tready),
+        .cm_rx_ready(axi_stream_to_cm_from_channel_tready),
+        .cm_tx_valid(axi_stream_to_channel_from_cm_tvalid),
+        .cm_tx_dest(axi_stream_to_channel_from_cm_tdest),
+        .event_num(ttc_event_num),
+        .trig_num(trig_num_clk125),
+        .trig_timestamp(trig_timestamp_clk125),
+        .last_rsn_word(last_rsn_word),
+        .last_rc_word(last_rc_word),
+        .last_info1_word(last_info1_word),
+        .last_info4_word(last_info4_word),
+        .retry_status(cm_retry_status),
+        // status register 48: live flags at the moment of the error
+        .misc_live({16'd0, async_mode_clk125, cbuf_mode_clk125, accept_pulse_triggers, ttc_ready_clk125,
+                    daq_almost_full, daq_ready, trig_fifo_full, acq_fifo_full, ddr3_almost_full, error_trig_rate,
+                    error_data_corrupt, fill_type_clk125[4:0]}),
+        .data_loss(data_loss),
+        .hw_fault(hw_fault),
+        .warning(err_warning),
+        .err_summary(err_summary),
+        .status_reg35(status_reg35),
+        .status_reg36(status_reg36),
+        .status_reg37(status_reg37),
+        .status_reg38(status_reg38),
+        .status_reg39(status_reg39),
+        .status_reg40(status_reg40),
+        .status_reg41(status_reg41),
+        .status_reg42(status_reg42),
+        .status_reg43(status_reg43),
+        .status_reg44(status_reg44),
+        .status_reg45(status_reg45),
+        .status_reg46(status_reg46),
+        .status_reg47(status_reg47),
+        .status_reg48(status_reg48),
+        .status_reg49(status_reg49)
     );
     
     wire ttc_ready_clk125_n;
@@ -1899,16 +2045,20 @@ SRLC32E #(
 
         // error status
         .error_ttc_ready(ttc_ready_clk125_n),
-        .error_data_corrupt(error_data_corrupt),
+        .error_data_corrupt(error_data_corrupt | hw_fault),   // a fault latched by the error capture is a TTS error (6.8.0)
         .error_pll_unlock(error_pll_unlock),
         .error_trig_rate(error_trig_rate),
         .error_unknown_ttc(error_unknown_ttc),
 
-        // sync lost status
+        // sync lost status.  The command manager's trigger-number / type mismatches are no longer
+        // terminal (6.8.0): the channel is re-read or skipped for that one event, and the readout
+        // stays in step with the TTC trigger numbers.  They are reported in the status registers
+        // (sticky flags, and the count in status register 34) and, through the data loss they
+        // cause, as a TTS sync-lost.
         .error_trig_num_from_tt(error_trig_num_from_tt),
-        .error_trig_num_from_cm(error_trig_num_from_cm),
+        .error_trig_num_from_cm(data_loss),                   // data loss latched by the error capture is a TTS sync-lost
         .error_trig_type_from_tt(error_trig_type_from_tt),
-        .error_trig_type_from_cm(error_trig_type_from_cm),
+        .error_trig_type_from_cm(1'b0),
 
         // overflow warning status
         .overflow_warning_ddr3(ddr3_almost_full),

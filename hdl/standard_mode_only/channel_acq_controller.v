@@ -28,7 +28,8 @@ module channel_acq_controller (
   // status connections
   input wire async_mode, // asynchronous mode select
   input wire cbuf_mode,  // cifcular buffer mode select
-  output reg [3:0] state // state of finite state machine
+  output reg [3:0] state, // state of finite state machine
+  output reg wait_gave_up // one clock: the wait for the dones ended on its time-out (6.8.0, error capture)
 );
 
   // state bits
@@ -49,6 +50,19 @@ module channel_acq_controller (
 
   reg [31:0] delay_cnt; // counter to keep track of trigger delay 
 
+
+  // Bound on the wait for every enabled channel's done (6.8.0): 2^23 TTC clocks = 210 ms, far
+  // longer than any fill (the longest configurable is ~170 ms).  A channel that never reports done
+  // used to hold this machine, and every later trigger, for ever.  On the time-out the event is
+  // stored anyway (the readout then finds out what the channels have) and 'wait_gave_up' tells the
+  // error capture (data loss).
+  reg  [23:0] wait_cntr;
+  wire        wait_timeout = wait_cntr[23];
+  always @(posedge clk) begin
+    if ( reset || !state[FILL] ) wait_cntr <= 24'd0;
+    else if ( !wait_timeout )   wait_cntr <= wait_cntr + 1;
+    wait_gave_up <= state[FILL] && wait_timeout && (acq_dones[4:0] != chan_en[4:0]);
+  end
 
   // combinational always block
   always @* begin
@@ -93,7 +107,7 @@ module channel_acq_controller (
         next_acq_enable[9:0] = { 5{acq_trig_type[1:0]} };
         next_acq_trig  [4:0] = chan_en[4:0];
 
-        if (acq_dones[4:0] == chan_en[4:0]) begin
+        if ((acq_dones[4:0] == chan_en[4:0]) | wait_timeout) begin
           nextstate[STORE_ACQ_INFO] = 1'b1;
         end
         else begin
