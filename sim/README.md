@@ -22,8 +22,9 @@ counts and checked against the words actually sent; 6.8.0: no trigger-line count
 from bad channel replies (6.6.9/6.6.10, with the error pulses each case must raise and the marks in the data
 stream): a stale frame in front of a live channel's reply (flushed, retried, the fill read), a channel that
 never answers (time-out, skipped, left out of the event size), a channel that answers late (its reply is the
-next readout's stale frame), a stale fill header (discarded by the channel at the peek, no re-issue), a newer
-header (channel skipped, not fatal), an IPbus transaction to a dead channel (time-out, back to IDLE) and one
+next readout's stale frame, and the header it left behind stops that readout), a stale fill header and a newer
+header (with a 6.8.0 channel, which returns it, and a 6.7.x one, which discards it and sets CC bit 8: all
+terminal, ERROR_TRIG_NUM with the fill-number loss, cleared by a reset), an IPbus transaction to a dead channel (time-out, back to IDLE) and one
 with a stale frame in front of the reply, an event in which every channel was skipped (a well-formed empty
 event), channel-reported error words, a checksum mismatch, the header monitor (per-channel waveform totals =
 waveforms read, bursts in the last fill, the DDR3 overflow warning set by a fill over the threshold and
