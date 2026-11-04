@@ -9,8 +9,8 @@
 //   1. a stale frame in front of a live channel's reply: flushed, retried, the channel's fill is read
 //   2. a channel that never answers: time-out, skipped, a loss pulse; the next readout is clean
 //   3. a channel that answers late: its reply is the stale frame of the next readout
-//   4. a stale fill (the channel holds fill N-1 in front of N): read fill re-issued, fill N read
-//   5. a newer fill (N+1): the channel is skipped for the event, the error counted, not fatal
+//   4. a stale fill (the channel holds fill N-1 in front of N): terminal (ERROR_TRIG_NUM), loss pulse
+//   5. a newer fill (N+1): terminal as well; after a reset the readout works again
 //   6. an IPbus transaction to a dead channel: time-out, back to IDLE; the next one works
 //   7. an IPbus transaction with a stale frame in front of the reply: flushed and retried
 //   8. every enabled channel skipped: a well-formed empty event
@@ -156,12 +156,20 @@ end endtask
 integer fails = 0;
 task check(input cond, input [8*72-1:0] what); begin if (!cond) begin fails = fails + 1; $display("  FAIL: %0s", what); end end endtask
 integer h0, ask0, srv0; reg [4:0] r0; integer t0;
+task configure; begin
+  @(negedge clk); for (i=0;i<5;i=i+1) begin cm.chan_burst_count_type1[i] = BC; cm.chan_wfm_count_type1[i] = WF; cm.chan_burst_count_type4[i] = BC; end
+  @(posedge clk);
+end endtask
+task reset_dut; begin
+  @(posedge clk); rst <= 1; repeat (5) @(posedge clk); rst <= 0; repeat (5) @(posedge clk);
+  for (i=0;i<5;i=i+1) begin q_rd[i] = q_wr[i]; hq_rd[i] = hq_wr[i]; end
+  configure;
+end endtask
 initial begin
   for (i=0;i<5;i=i+1) begin q_wr[i]=0; q_rd[i]=0; mode[i]=0; asked[i]=0; fills_served[i]=0; hq_rd[i]=0; hq_wr[i]=0; end
   repeat(5) @(posedge clk); rst<=0; repeat(5) @(posedge clk);
   // configure the sizes the event-size logic uses (as the IPbus writes of registers 0x02 / 0x0e would)
-  @(negedge clk); for (i=0;i<5;i=i+1) begin cm.chan_burst_count_type1[i] = BC; cm.chan_wfm_count_type1[i] = WF; cm.chan_burst_count_type4[i] = BC; end
-  @(posedge clk);
+  configure;
 
   $display("--- 0. clean readout");
   readout(20000);
@@ -202,22 +210,21 @@ initial begin
   // the late reply carried the previous event's fill: it was the stale frame, and this event's fill was read
   hq_rd[0] = hq_wr[0];
 
-  $display("--- 4. stale fill: channel 0 holds fill N-1 in front of N");
-  mode[0] = 2; ask0 = asked[0]; t0 = tne; srv0 = fills_served[0];
-  readout(40000);
-  check(readout_done, "readout done"); check(asked[0] == ask0 + 2, "asked twice: the read fill re-issued once"); check(tne == t0 + 1, "trig_num error counted");
-  check(fills_served[0] == srv0 + 2, "the stale fill was drained and the real one read"); check(qlen(0) == 0 && qlen(1) == 0, "FIFOs empty");
-  check(loss_acc == 0 && warn_acc == 6'b000010, "the re-issue is a warning, not a loss"); check(ev_words == exp_size(2), "event complete"); clear_acc;
-  mode[0] = 0;
+  $display("--- 4. stale fill: channel 0 holds fill N-1 in front of N -> terminal");
+  mode[0] = 2; t0 = tne;
+  readout(20000);
+  check(!readout_done, "the readout does not complete"); check(cm.state[33], "stopped in ERROR_TRIG_NUM"); check(err_tn, "error_trig_num");
+  check(loss_acc == 16'h0010, "loss pulse: fill number (-> TTS sync-lost through the error capture)"); check(tne == t0 + 1, "counted");
+  repeat (2000) @(posedge clk); check(cm.state[33], "still there 2000 clocks later");
+  mode[0] = 0; reset_dut; clear_acc;
+  readout(20000); check(readout_done && ev_words == exp_size(2) && loss_acc == 0, "after a reset the readout works again"); clear_acc;
 
-  $display("--- 5. newer fill: channel 0 skipped for the event");
-  mode[0] = 3; ask0 = asked[0]; t0 = tne;
-  readout(40000);
-  check(readout_done, "readout done"); check(asked[0] == ask0 + 1, "asked once"); check(tne == t0 + 1, "trig_num error counted"); check(err_rc[0], "rc flagged");
-  check(qlen(0) == 0, "FIFO empty"); check(daq_trailers == daq_headers, "well-formed"); check(loss_acc == 16'h0010, "loss pulse: fill number");
-  repeat (5) @(posedge clk); check(cm.state[0] == 1'b1, "back in IDLE, not stuck in ERROR_TRIG_NUM"); clear_acc;
-  mode[0] = 0; hq_rd[0] = hq_wr[0];
-  readout(20000); check(readout_done && loss_acc == 0 && ev_words == exp_size(2), "clean afterwards"); clear_acc;
+  $display("--- 5. newer fill: channel 0 holds fill N+1 -> terminal");
+  mode[0] = 3;
+  readout(20000);
+  check(!readout_done && cm.state[33] && err_tn && loss_acc == 16'h0010, "stopped in ERROR_TRIG_NUM with the fill-number loss");
+  mode[0] = 0; reset_dut; clear_acc;
+  readout(20000); check(readout_done && ev_words == exp_size(2) && loss_acc == 0, "clean after the reset"); clear_acc;
 
   $display("--- 6. IPbus transaction to a dead channel");
   mode[0] = 1;

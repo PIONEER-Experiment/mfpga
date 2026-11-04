@@ -11,9 +11,10 @@
 //   1. a stale frame in front of a live channel's reply: flushed, retried, the channel's fill is read
 //   2. a channel that never answers: time-out, skipped, the readout completes; the next readout is clean
 //   3. a channel that answers late (after the time-out): its reply is the stale frame of the next readout
-//   4. a stale fill header (channel holds fill N-1 in front of N): discarded by the channel at the
-//      peek, reported in the CC, fill N read; no re-issue
-//   5. a newer fill header (N+1): the channel is skipped for the event, not fatal
+//   4. a stale fill header (channel holds fill N-1 in front of N): the peek returns it, the fill numbers
+//      differ: terminal (ERROR_TRIG_NUM, loss pulse); and with a 6.7.x channel, which discards it
+//      and sets CC bit 8: terminal too.  After a reset the readout works again.
+//   5. a newer fill header (N+1): terminal as well
 //   6. an IPbus transaction to a dead channel: time-out, back to IDLE; the next IPbus transaction works
 //   7. an IPbus transaction with a stale frame in front of the reply: flushed and retried
 //   8. every enabled channel skipped: a well-formed empty event, not a bare trailer
@@ -136,7 +137,7 @@ task peek_reply(input integer ch, input [31:0] csn, input discarded); begin
 end endtask
 // the channel discards headers older than the expected fill, then (the acquisition having run) the
 // current fill's header turns up if none is queued
-reg discarded_flag;
+reg discarded_flag; reg legacy_discard = 0;
 task hq_discard_older(input integer ch, input [23:0] expected); begin
   discarded_flag = 0;
   while (hq_len(ch) > 0 && (expected - hq_num[ch][hq_rd[ch]]) != 0 && !((expected - hq_num[ch][hq_rd[ch]]) & 24'h800000)) begin hq_rd[ch] = hq_rd[ch] + 1; discarded_flag = 1; end
@@ -149,7 +150,7 @@ task serve(input integer ch, input [31:0] csn, input [31:0] cc, input [31:0] arg
     if (mode[ch] == 5) begin push(ch, csn, 0); push(ch, ~32'hB, 1); end
     else begin
       if (hq_len(ch) == 0 && mode[ch] == 2) hq_push(ch, event_num - 1, nwf[ch]);   // the stale one in front
-      hq_discard_older(ch, arg[23:0]);
+      if (legacy_discard) hq_discard_older(ch, arg[23:0]); else discarded_flag = 0;   // a 6.7.x channel discards older headers; 6.8.0 returns them
       if (hq_len(ch) == 0) begin
         case (mode[ch])
           3: hq_push(ch, event_num + 1, nwf[ch]);
@@ -200,6 +201,10 @@ task expire_ipbus_wait; begin
   force cm.ipb_wait_cntr = 26'h3FFFF00; @(posedge clk); release cm.ipb_wait_cntr;
 end endtask
 integer fails = 0;
+task reset_dut; begin
+  @(posedge clk); rst <= 1; repeat (5) @(posedge clk); rst <= 0; repeat (5) @(posedge clk);
+  for (i=0;i<5;i=i+1) begin q_rd[i] = q_wr[i]; hq_rd[i] = hq_wr[i]; wf_read[i] = 0; end
+end endtask
 task check(input cond, input [8*64-1:0] what); begin if (!cond) begin fails = fails + 1; $display("  FAIL: %0s", what); end end endtask
 integer h0, t0, ask0, srv0, srv1; reg [4:0] r0;
 initial begin
@@ -248,31 +253,35 @@ initial begin
   check(readout_done, "readout done after time-out");
   repeat (late_delay + 50) @(posedge clk);
   check(qlen(0) == 6, "late peek reply (6 words) now waiting in channel 0's FIFO");
-  mode[0] = 0; srv0 = fills_served[0];
-  readout(20000);
-  check(readout_done, "next readout done"); check(qlen(0) == 0, "stale reply flushed and FIFO empty"); check(fills_served[0] == srv0 + 1, "channel 0 served this fill");
-  check(daq_trailers == daq_headers, "well-formed");
-  check(loss_acc == 16'h0001 && warn_acc[0], "loss (no reply) from the first readout, warning (stale frame) from the second");
-  check(last_header[19:0] == exp_size(5, 2) && ev_words == exp_size(5, 2), "event size right"); clear_acc;
-
-  $display("--- 4. stale fill header: channel 0 holds fill N-1 in front of N");
-  mode[0] = 2; ask0 = asked[0]; t0 = tne; srv0 = fills_served[0];
-  readout(40000);
-  check(readout_done, "readout done"); check(asked[0] == ask0 + 2, "asked twice: the peek and the read, no re-issue"); check(tne == t0, "no trig_num error");
-  check(fills_served[0] == srv0 + 1, "channel 0 served exactly one fill (the stale one was discarded unread)");
-  check(err_rc == 0, "channel not flagged rc"); check(qlen(0) == 0 && qlen(1) == 0, "FIFOs empty"); check(daq_trailers == daq_headers, "well-formed");
-  check(loss_acc == 0 && warn_acc == 6'b000010, "the discard is a warning, not a loss"); check(chan_hdr_word[61], "channel header word marks the discard");
-  check(last_header[19:0] == exp_size(5, 2) && ev_words == exp_size(5, 2), "event size right"); clear_acc;
+  // The skipped channel still holds the header of the skipped event, so the next readout finds the
+  // fill numbers out of step: terminal since 6.8.0 (the skip itself was already a data loss, which
+  // aborts the run).  Before that, the channel discarded the older header at the peek.
   mode[0] = 0;
+  readout(20000);
+  check(!readout_done && state[31], "the next readout: stale frame flushed, then the old header -> ERROR_TRIG_NUM");
+  check(loss_acc[0] && loss_acc[4] && warn_acc[0], "loss (no reply), stale-frame warning, then the fill-number loss");
+  mode[0] = 0; reset_dut; clear_acc;
 
-  $display("--- 5. newer fill header: channel 0 skipped for the event");
-  mode[0] = 3; ask0 = asked[0]; t0 = tne;
-  readout(40000);
-  check(readout_done, "readout done"); check(asked[0] == ask0 + 1, "peeked only, not read"); check(tne == t0 + 1, "trig_num error counted"); check(err_rc[0], "rc flagged");
-  check(qlen(0) == 0, "FIFO empty"); check(daq_trailers == daq_headers, "well-formed");
-  check(loss_acc == 16'h0010, "loss pulse: fill number"); check(wfd5_word[60:56] == 5'b00001, "channel 0 marked skipped");
-  check(last_header[19:0] == exp_size(3, 1) && ev_words == exp_size(3, 1), "event size counts channel 1 only"); clear_acc;
-  mode[0] = 0; hq_rd[0] = hq_wr[0];   // the newer header is not ours to consume: drop it from the model
+  $display("--- 4. stale fill header: channel 0 holds fill N-1 in front of N -> terminal");
+  mode[0] = 2; t0 = tne;
+  readout(20000);
+  check(!readout_done && state[31], "stopped in ERROR_TRIG_NUM"); check(err_tn, "error_trig_num"); check(loss_acc == 16'h0010, "loss pulse: fill number"); check(tne == t0 + 1, "counted");
+  repeat (2000) @(posedge clk); check(state[31], "still there 2000 clocks later");
+  mode[0] = 0; reset_dut; clear_acc;
+  readout(20000); check(readout_done && loss_acc == 0 && ev_words == exp_size(5, 2), "after a reset the readout works again"); clear_acc;
+  $display("--- 4b. the same with a 6.7.x channel, which discards the older header and sets CC bit 8 -> terminal");
+  mode[0] = 2; legacy_discard = 1;
+  readout(20000);
+  check(!readout_done && state[31] && loss_acc == 16'h0010, "stopped in ERROR_TRIG_NUM with the fill-number loss");
+  mode[0] = 0; legacy_discard = 0; reset_dut; clear_acc;
+  readout(20000); check(readout_done && loss_acc == 0, "clean after the reset"); clear_acc;
+
+  $display("--- 5. newer fill header: channel 0 holds fill N+1 -> terminal");
+  mode[0] = 3;
+  readout(20000);
+  check(!readout_done && state[31] && err_tn && loss_acc == 16'h0010, "stopped in ERROR_TRIG_NUM with the fill-number loss");
+  mode[0] = 0; reset_dut; clear_acc;
+  readout(20000); check(readout_done && loss_acc == 0 && ev_words == exp_size(5, 2), "clean after the reset"); clear_acc;
 
   $display("--- 6. IPbus transaction to a dead channel");
   mode[0] = 1;

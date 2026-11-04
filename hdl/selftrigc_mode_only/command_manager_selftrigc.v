@@ -428,7 +428,7 @@ reg [127:0] channel_checksum; // checksum from received channel data
             ERR_F_CHECKSUM   = 3;   // the channel's checksum did not match the data received: the data was
                                     // corrupted somewhere between the ADC and here, which is always a fault
   localparam ERR_W_STALE_FRAME = 0,  // a stale frame was flushed and the reply read again (recovered)
-            ERR_W_REISSUED    = 1,  // a stale fill header was discarded and the read fill re-issued (recovered)
+            ERR_W_REISSUED    = 1,  // unused from 6.8.0: a fill-number mismatch is terminal (6.6.9-6.7.x: stale header discarded / read fill re-issued)
             ERR_W_IPBUS_ABORT = 2,  // an IPbus transaction was abandoned (no reply, or the software stopped reading)
             ERR_W_IPBUS_STALE = 3,  // a stale frame was flushed in front of an IPbus reply (recovered)
             ERR_W_TRIG_COUNT  = 4,  // 6.7.x only: trigger-line count record != peeked headers (no line since 6.8.0)
@@ -810,12 +810,19 @@ reg [127:0] channel_checksum; // checksum from received channel data
             nextstate[READ_CHAN_INFO1] = 1'b1;
           end
           else if (peeking && (chan_rx_fifo_data[7:0] == 8'h0B) && (chan_rx_fifo_data[31:9] == 23'd0)) begin
-            // the peek reply; [8] says the channel discarded a stale (older) header to get to this one
+            // the peek reply.  [8] says the channel discarded an older header to get to this one (a
+            // 6.7.x channel does that; from 6.8.0 it returns the older header as it is and the
+            // fill-number check below stops the readout).  Either way the fill numbers were out of
+            // step: terminal, as in READ_CHAN_INFO1.
             if (chan_rx_fifo_data[8]) begin
               next_peek_discard_mask[chan_tx_fifo_dest] = 1'b1;
-              next_err_warn_pulse[ERR_W_REISSUED] = 1'b1;
+              next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+              next_err_loss_pulse[ERR_L_FILL_NUM] = 1'b1;
+              nextstate[ERROR_TRIG_NUM] = 1'b1;
             end
-            nextstate[READ_CHAN_INFO1] = 1'b1;
+            else begin
+              nextstate[READ_CHAN_INFO1] = 1'b1;
+            end
           end
           else begin
             // an error occured, update status register, and report error
@@ -880,23 +887,13 @@ reg [127:0] channel_checksum; // checksum from received channel data
           
           // check that trigger number from channel header and trigger logic match
           if (event_num[23:0] != chan_rx_fifo_data[23:0]) begin
-            // Trigger numbers are not in step.  If the channel served an *older* fill (its header
-            // was left unread when an earlier readout gave up on it), drain this reply and ask
-            // again: the stale header has been popped, and the next one is a fill closer to ours.
-            // A newer fill cannot be recovered that way; either way the channel is given up on for
-            // this event after a few tries, and the error counted.  Not terminal any more (6.6.9).
-            if (!peeking && (event_num[23:0] - chan_rx_fifo_data[23:0] < 24'h800000) && (reissue_retries != MAX_REISSUE_RETRIES)) begin
-              next_reissue_retries = reissue_retries + 1;
-              next_flush_action = FLUSH_REISSUE;
-              next_chan_flags[1] = 1'b1;
-              next_err_warn_pulse[ERR_W_REISSUED] = 1'b1;
-            end
-            else begin
-              next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
-              next_flush_action = FLUSH_NEXT;
-              next_skipped_mask[chan_tx_fifo_dest] = 1'b1;
-              next_err_loss_pulse[ERR_L_FILL_NUM] = 1'b1;
-            end
+            // Fill numbers are not in step (at the peek or at the read, older or newer): the channel
+            // and the trigger logic disagree about which event this is, and going on risks building
+            // an event from uncorrelated fills.  Terminal (6.8.0; 6.6.9-6.7.x re-read or skipped
+            // the channel): the readout stops in ERROR_TRIG_NUM, the data loss drives TTS sync-lost and
+            // the run is aborted; only a reset gets out of it.
+            next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+            next_err_loss_pulse[ERR_L_FILL_NUM] = 1'b1;
             nextstate[ERROR_TRIG_NUM] = 1'b1;
           end
           // check that trigger type from channel header and trigger logic match -- this checks that it is not an async mode
@@ -1474,10 +1471,9 @@ reg [127:0] channel_checksum; // checksum from received channel data
       state[ERROR_DATA_CORRUPTION] : begin
         nextstate[ERROR_DATA_CORRUPTION] = 1'b1; // hard error, stay here
       end
-      // trigger number mismatch: one clock (so that it is visible in the state history and the
-      // error output pulses), then drain the channel's reply and act on 'flush_action'
+      // fill (trigger) number mismatch: terminal, see READ_CHAN_INFO1
       state[ERROR_TRIG_NUM] : begin
-        nextstate[FLUSH_CHAN] = 1'b1;
+        nextstate[ERROR_TRIG_NUM] = 1'b1; // hard error, stay here (6.8.0)
       end
       // trigger type mismatch: one clock, then drain the channel's reply and go on to the next channel
       state[ERROR_TRIG_TYPE] : begin

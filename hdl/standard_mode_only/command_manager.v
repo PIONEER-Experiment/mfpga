@@ -14,8 +14,8 @@
 // transaction have time-outs.  A channel that is given up on is drained to the end of the frame
 // it had started (FLUSH_CHAN), so that nothing stale is left in its RX FIFO for the next readout
 // or register access; a stale frame in front of a reply is flushed and the reply read again; a
-// channel that served an older fill is asked again; a trigger-number or trigger-type mismatch
-// skips the channel for the event instead of stopping the readout for good; an event in which
+// trigger-type mismatch skips the channel for the event; a trigger-number (fill-number) mismatch is
+// terminal (ERROR_TRIG_NUM, TTS sync-lost: the run must not mix uncorrelated fills); an event in which
 // every channel was skipped is sent as a well-formed empty event.  Every such case raises a
 // one-clock cause pulse for the error capture (error_capture.v), which latches it, freezes a
 // snapshot and drives the TTS line (data loss -> sync lost, fault -> error).  The DAQ data
@@ -512,7 +512,7 @@ module command_manager (
                                     // 2: self-triggering image only (a channel-reported fault)
             ERR_F_CHECKSUM   = 3;   // the channel's checksum did not match the data received
   localparam ERR_W_STALE_FRAME = 0,  // a stale frame was flushed and the reply read again (recovered)
-            ERR_W_REISSUED    = 1,  // the channel served an older fill: read fill re-issued (recovered)
+            ERR_W_REISSUED    = 1,  // unused: a fill-number mismatch is terminal (ERROR_TRIG_NUM)
             ERR_W_IPBUS_ABORT = 2,  // an IPbus transaction was abandoned (no reply, or the software stopped reading)
             ERR_W_IPBUS_STALE = 3;  // a stale frame was flushed in front of an IPbus reply (recovered)
   reg [15:0] next_err_loss_pulse; reg [7:0] next_err_fault_pulse; reg [5:0] next_err_warn_pulse;
@@ -522,8 +522,7 @@ module command_manager (
   reg [1:0] reissue_retries, next_reissue_retries;  // read-fill commands re-issued to this channel (per event)
   localparam [1:0] MAX_REPLY_RETRIES = 2'd3, MAX_REISSUE_RETRIES = 2'd3;
   assign retry_status = {reply_retries, reissue_retries, skipped_mask};
-  // Trigger-number errors are no longer terminal: the channel is skipped for the event (or asked
-  // again, see READ_CHAN_INFO1) and the count below says how often that happened.
+  // Trigger-number errors (terminal, see READ_CHAN_INFO1), counted
   reg [7:0] trig_num_errors;
   assign trig_num_error_count = trig_num_errors;
 
@@ -1009,22 +1008,12 @@ module command_manager (
         if (chan_rx_fifo_valid) begin
           // check that trigger number from channel header and trigger logic match
           if (event_num[23:0] != chan_rx_fifo_data[23:0]) begin
-            // Trigger numbers are not in step.  If the channel served an *older* fill (its header
-            // was left unread when an earlier readout gave up on it), drain this reply and ask
-            // again: the stale fill has been popped, and the next one is a fill closer to ours.
-            // A newer fill cannot be recovered that way; either way the channel is given up on for
-            // this event after a few tries, and the error counted.  Not terminal any more (6.8.0).
-            if ((event_num[23:0] - chan_rx_fifo_data[23:0] < 24'h800000) && (reissue_retries != MAX_REISSUE_RETRIES)) begin
-              next_reissue_retries = reissue_retries + 1;
-              next_flush_action = FLUSH_REISSUE;
-              next_err_warn_pulse[ERR_W_REISSUED] = 1'b1;
-            end
-            else begin
-              next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
-              next_flush_action = FLUSH_NEXT;
-              next_skipped_mask[chan_tx_fifo_dest] = 1'b1;
-              next_err_loss_pulse[ERR_L_FILL_NUM] = 1'b1;
-            end
+            // Trigger numbers are not in step: the channel and the trigger logic disagree about which
+            // event this is, and going on risks building an event from uncorrelated fills.  This is
+            // terminal: the readout stops in ERROR_TRIG_NUM, the data loss drives TTS sync-lost and
+            // the run is aborted; only a reset gets out of it.
+            next_chan_error_rc[chan_tx_fifo_dest] = 1'b1;
+            next_err_loss_pulse[ERR_L_FILL_NUM] = 1'b1;
             nextstate[ERROR_TRIG_NUM] = 1'b1;
           end
           // check that trigger type from channel header and trigger logic match in synchronous mode,
@@ -1717,10 +1706,9 @@ module command_manager (
       state[ERROR_DATA_CORRUPTION] : begin
         nextstate[ERROR_DATA_CORRUPTION] = 1'b1; // hard error, stay here
       end
-      // trigger number mismatch: one clock (so that it is visible in the state history and the
-      // error flags), then drain the channel's reply and act on 'flush_action' (6.8.0: was terminal)
+      // trigger number mismatch: terminal (see READ_CHAN_INFO1)
       state[ERROR_TRIG_NUM] : begin
-        nextstate[FLUSH_CHAN] = 1'b1;
+        nextstate[ERROR_TRIG_NUM] = 1'b1; // hard error, stay here
       end
       // trigger type mismatch: one clock, then drain the channel's reply and go on to the next channel
       state[ERROR_TRIG_TYPE] : begin
