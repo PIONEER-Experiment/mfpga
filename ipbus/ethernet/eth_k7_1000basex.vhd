@@ -38,7 +38,8 @@ entity eth_k7_1000basex is
 		hostbus_in: in emac_hostbus_in := ('0', "00", "0000000000", X"00000000", '0', '0', '0');
 		hostbus_out: out emac_hostbus_out;
 		link_status: out std_logic;
-		phy_status_vector: out std_logic_vector(15 downto 0)
+		phy_status_vector: out std_logic_vector(15 downto 0);
+		phy_resetdone: out std_logic   -- 6.7.3: the PCS/PMA's resetdone, for the debug VIO
 	);
 
 end eth_k7_1000basex;
@@ -168,6 +169,7 @@ begin
 	mac_rst_int <= (not locked_int) or mac_rst;
 
 	link_status <= status(0);
+	phy_resetdone <= phy_done;
 	-- eth_rx_err <= status(6 downto 4); 
 
 	phy_status_vector <= status;

@@ -13,6 +13,9 @@ library unisim;
 use unisim.VComponents.all;
 
 entity ipbus_top is 
+generic (
+    DEBUG_VIO : integer := 0      -- 6.7.3: 1 = include the Ethernet/IPbus debug VIO (eth_debug, needs the vio_eth IP); 0 for release
+);
 port (
     gt_clkp, gt_clkn : in  std_logic;
     gt_txp, gt_txn   : out std_logic;
@@ -160,6 +163,9 @@ architecture rtl of ipbus_top is
     signal clk_125_int : std_logic;
     signal rst_125, rst_ipb, rst_200, sys_rst : std_logic;
     signal rst_ipb_pulse : std_logic;   -- 6.7.1: single-cycle copy of the IPbus reset for rst_out
+    -- 6.7.3: for the debug VIO
+    signal dbg_locked, dbg_link, dbg_resetdone, dbg_pkt_rx, dbg_pkt_tx : std_logic;
+    signal dbg_status : std_logic_vector(15 downto 0);
     signal mac_tx_data, mac_rx_data : std_logic_vector(7 downto 0);
     signal mac_tx_valid, mac_tx_last, mac_tx_error, mac_tx_ready, mac_rx_valid, mac_rx_last, mac_rx_error : std_logic;
     signal ipb_master_out : ipb_wbus;
@@ -203,7 +209,7 @@ begin
 
         phy_rst => '0',
         mac_rst => rst_125,
-        locked  => open,
+        locked  => dbg_locked,
 
         tx_data  => mac_tx_data,
         tx_valid => mac_tx_valid,
@@ -215,8 +221,9 @@ begin
         rx_last  => mac_rx_last,
         rx_error => mac_rx_error,
 
-        link_status       => open,
-        phy_status_vector => open
+        link_status       => dbg_link,
+        phy_status_vector => dbg_status,
+        phy_resetdone     => dbg_resetdone
     );
     
 
@@ -246,8 +253,8 @@ begin
         ip_addr  => i2c_ip_adr,       --  IP address from I2C EEPROM
         enable   => i2c_startup_done,
 
-        pkt_rx => open,
-        pkt_tx => open,
+        pkt_rx => dbg_pkt_rx,
+        pkt_tx => dbg_pkt_tx,
 
         pkt_rx_led => open,
         pkt_tx_led => open
@@ -390,5 +397,30 @@ begin
     axi_stream_out_tlast  <= axi_stream_out.tlast;
     axi_stream_out_tid    <= axi_stream_out.tid;
     axi_stream_out_tdest  <= axi_stream_out.tdest;
+
+
+    -- 6.7.3: optional Ethernet / IPbus diagnostics over JTAG (see eth_debug.vhd).  Off in release builds.
+    gen_debug_vio: if DEBUG_VIO /= 0 generate
+        dbg: entity work.eth_debug
+        port map (
+            clk_200       => clk_200,
+            mac_clk       => clk_125_int,
+            ipb_clk       => ipb_clk,
+            phy_status    => dbg_status,
+            phy_resetdone => dbg_resetdone,
+            mmcm_locked   => dbg_locked,
+            ip_enable     => i2c_startup_done,
+            rst_ipb       => rst_ipb,
+            rst_125       => rst_125,
+            sys_rst       => sys_rst,
+            mac_rx_last   => mac_rx_last,
+            mac_rx_error  => mac_rx_error,
+            mac_tx_last   => mac_tx_last,
+            mac_tx_valid  => mac_tx_valid,
+            mac_tx_ready  => mac_tx_ready,
+            pkt_rx        => dbg_pkt_rx,
+            pkt_tx        => dbg_pkt_tx
+        );
+    end generate;
 
 end rtl;

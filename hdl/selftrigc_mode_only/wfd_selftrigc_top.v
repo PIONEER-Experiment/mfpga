@@ -1212,8 +1212,13 @@ module wfd_selftrigc_top (
     );
 
 
+    // 6.7.3: 1 = build in the Ethernet / IPbus debug VIO (read over JTAG when the board goes deaf);
+    // needs the vio_eth IP and constraints/debug/debug_vio.xdc in the project (scripts/add_debug_vio.tcl).
+    // Set to 0 for a release build (and remove those two files from the project).
+    localparam DEBUG_ETH_VIO = 1;
+
     // IPbus top module
-    ipbus_top ipb (
+    ipbus_top #(.DEBUG_VIO(DEBUG_ETH_VIO)) ipb (
         .gt_clkp(gtx_clk0), .gt_clkn(gtx_clk0_N),
         .gt_txp(gige_tx),   .gt_txn(gige_tx_N),
         .gt_rxp(gige_rx),   .gt_rxn(gige_rx_N),
